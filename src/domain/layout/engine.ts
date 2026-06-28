@@ -535,22 +535,20 @@ function layoutCoordination(
     });
   }
 
-  // The coordinator's dashed line sits at the junction CORNER (the vertex where
-  // the prongs converge on the governor), not floating out in the middle of the
-  // fork — a small gap off the exact vertex so the dash still spans a visible
-  // slice of the throat. The prongs converge to a point at the corner, so `f`
-  // scales the dash's height to their separation there. The coordinator text
-  // rides centred on this line, rotated upright; it may read past the throat
-  // into the clear space beyond, but the LINE stays pinned to the corner.
-  const f = Math.min(0.32, 10 / prong); // fraction of the run out from the vertex
-  const dashX = openLeft ? junctionX - prong * f : prong * f;
-  elements.push(line(eid(), dashX, topY * f, dashX, botY * f, 'dashed', 'coordination', node.id));
+  // The coordinator's dashed line is the full-height bar at the WIDE end of the
+  // fork, joining the two prongs exactly where they meet the conjunct baselines
+  // (the way a hand-drawn Kellogg-Reed fork bridges the branches). The
+  // coordinator rides at the TOP of that bar, rotated upright and set into the
+  // open throat of the fork — away from the conjunct words — so it never overlaps
+  // them.
+  const dashX = openLeft ? junctionX - prong : prong;
+  elements.push(line(eid(), dashX, topY, dashX, botY, 'dashed', 'coordination', node.id));
   if (coordText) {
     elements.push({
       kind: 'text',
       id: eid(),
-      x: dashX + (openLeft ? -4 : 4),
-      y: 0,
+      x: dashX + (openLeft ? 8 : -8),
+      y: topY + LAYOUT.smallFontSize,
       text: coordText,
       anchor: 'middle',
       small: true,
