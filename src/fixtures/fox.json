@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "doc_sample_fox",
+  "title": "The quick brown fox",
+  "language": "en",
+  "text": "The quick brown fox jumps over the lazy dog.",
+  "notes": "Classic English pangram. Subject noun phrase with article and two adjectives; predicate with an adverbial prepositional phrase whose object also carries modifiers.",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "layoutHints": {},
+  "tokens": [
+    { "id": "t1", "index": 0, "surface": "The", "lemma": "the", "language": "en", "pos": "article" },
+    { "id": "t2", "index": 1, "surface": "quick", "language": "en", "pos": "adjective" },
+    { "id": "t3", "index": 2, "surface": "brown", "language": "en", "pos": "adjective" },
+    { "id": "t4", "index": 3, "surface": "fox", "language": "en", "pos": "noun" },
+    { "id": "t5", "index": 4, "surface": "jumps", "lemma": "jump", "language": "en", "pos": "verb" },
+    { "id": "t6", "index": 5, "surface": "over", "language": "en", "pos": "preposition" },
+    { "id": "t7", "index": 6, "surface": "the", "lemma": "the", "language": "en", "pos": "article" },
+    { "id": "t8", "index": 7, "surface": "lazy", "language": "en", "pos": "adjective" },
+    { "id": "t9", "index": 8, "surface": "dog.", "lemma": "dog", "language": "en", "pos": "noun" }
+  ],
+  "syntax": {
+    "rootId": "n_root",
+    "nodes": [
+      { "id": "n_root", "kind": "clause", "clauseType": "independent", "tokenIds": [] },
+      { "id": "n_fox", "kind": "word", "role": "subject", "tokenIds": ["t4"] },
+      { "id": "n_the1", "kind": "word", "role": "determiner", "tokenIds": ["t1"] },
+      { "id": "n_quick", "kind": "word", "role": "adjectival", "tokenIds": ["t2"] },
+      { "id": "n_brown", "kind": "word", "role": "adjectival", "tokenIds": ["t3"] },
+      { "id": "n_jumps", "kind": "word", "role": "predicate", "tokenIds": ["t5"] },
+      { "id": "n_over", "kind": "word", "role": "prepositionalPhrase", "tokenIds": ["t6"] },
+      { "id": "n_dog", "kind": "word", "role": "prepositionObject", "tokenIds": ["t9"] },
+      { "id": "n_the2", "kind": "word", "role": "determiner", "tokenIds": ["t7"] },
+      { "id": "n_lazy", "kind": "word", "role": "adjectival", "tokenIds": ["t8"] }
+    ],
+    "relations": [
+      { "id": "r1", "type": "subject", "headId": "n_root", "dependentId": "n_fox" },
+      { "id": "r2", "type": "predicate", "headId": "n_root", "dependentId": "n_jumps" },
+      { "id": "r3", "type": "determiner", "headId": "n_fox", "dependentId": "n_the1" },
+      { "id": "r4", "type": "adjectival", "headId": "n_fox", "dependentId": "n_quick" },
+      { "id": "r5", "type": "adjectival", "headId": "n_fox", "dependentId": "n_brown" },
+      { "id": "r6", "type": "prepositionalPhrase", "headId": "n_jumps", "dependentId": "n_over", "label": "over" },
+      { "id": "r7", "type": "prepositionObject", "headId": "n_over", "dependentId": "n_dog" },
+      { "id": "r8", "type": "determiner", "headId": "n_dog", "dependentId": "n_the2" },
+      { "id": "r9", "type": "adjectival", "headId": "n_dog", "dependentId": "n_lazy" }
+    ]
+  }
+}

@@ -1,0 +1,2084 @@
+{
+  "schemaVersion": 1,
+  "id": "doc_sample_phil_1_1_6",
+  "title": "Philippians 1:1-6",
+  "language": "en",
+  "text": "Paul and Timothy, servants of Christ Jesus, To all the saints in Christ Jesus who are at Philippi, with the overseers and deacons: Grace to you and peace from God our Father and the Lord Jesus Christ. I thank my God in all my remembrance of you, always in every prayer of mine for you all with joy, because of your partnership in the gospel from the first day until now. And I am sure of this, that he who began a good work in you will bring it to completion at the day of Jesus Christ.",
+  "notes": "Hand-tagged Kellogg-Reed parse of Philippians 1:1-6 (ESV-style).",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "layoutHints": {},
+  "tokens": [
+    {
+      "id": "t1",
+      "index": 0,
+      "surface": "Paul",
+      "pos": "propernoun"
+    },
+    {
+      "id": "t2",
+      "index": 1,
+      "surface": "and",
+      "pos": "conjunction"
+    },
+    {
+      "id": "t3",
+      "index": 2,
+      "surface": "Timothy",
+      "pos": "propernoun"
+    },
+    {
+      "id": "t4",
+      "index": 3,
+      "surface": "servants",
+      "pos": "noun"
+    },
+    {
+      "id": "t5",
+      "index": 4,
+      "surface": "of",
+      "pos": "preposition"
+    },
+    {
+      "id": "t6",
+      "index": 5,
+      "surface": "Christ",
+      "pos": "propernoun"
+    },
+    {
+      "id": "t7",
+      "index": 6,
+      "surface": "Jesus",
+      "pos": "propernoun"
+    },
+    {
+      "id": "t8",
+      "index": 7,
+      "surface": "To",
+      "pos": "preposition"
+    },
+    {
+      "id": "t9",
+      "index": 8,
+      "surface": "saints",
+      "pos": "noun"
+    },
+    {
+      "id": "t10",
+      "index": 9,
+      "surface": "all",
+      "pos": "determiner"
+    },
+    {
+      "id": "t11",
+      "index": 10,
+      "surface": "the",
+      "pos": "article"
+    },
+    {
+      "id": "t12",
+      "index": 11,
+      "surface": "in",
+      "pos": "preposition"
+    },
+    {
+      "id": "t13",
+      "index": 12,
+      "surface": "Christ",
+      "pos": "propernoun"
+    },
+    {
+      "id": "t14",
+      "index": 13,
+      "surface": "Jesus",
+      "pos": "propernoun"
+    },
+    {
+      "id": "t15",
+      "index": 14,
+      "surface": "who",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t16",
+      "index": 15,
+      "surface": "are",
+      "pos": "verb"
+    },
+    {
+      "id": "t17",
+      "index": 16,
+      "surface": "at",
+      "pos": "preposition"
+    },
+    {
+      "id": "t18",
+      "index": 17,
+      "surface": "Philippi",
+      "pos": "propernoun"
+    },
+    {
+      "id": "t19",
+      "index": 18,
+      "surface": "with",
+      "pos": "preposition"
+    },
+    {
+      "id": "t20",
+      "index": 19,
+      "surface": "overseers",
+      "pos": "noun"
+    },
+    {
+      "id": "t21",
+      "index": 20,
+      "surface": "the",
+      "pos": "article"
+    },
+    {
+      "id": "t22",
+      "index": 21,
+      "surface": "and",
+      "pos": "conjunction"
+    },
+    {
+      "id": "t23",
+      "index": 22,
+      "surface": "deacons",
+      "pos": "noun"
+    },
+    {
+      "id": "t24",
+      "index": 23,
+      "surface": "Grace",
+      "pos": "noun"
+    },
+    {
+      "id": "t25",
+      "index": 24,
+      "surface": "and",
+      "pos": "conjunction"
+    },
+    {
+      "id": "t26",
+      "index": 25,
+      "surface": "peace",
+      "pos": "noun"
+    },
+    {
+      "id": "t27",
+      "index": 26,
+      "surface": "to",
+      "pos": "preposition"
+    },
+    {
+      "id": "t28",
+      "index": 27,
+      "surface": "you",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t29",
+      "index": 28,
+      "surface": "from",
+      "pos": "preposition"
+    },
+    {
+      "id": "t30",
+      "index": 29,
+      "surface": "God",
+      "pos": "propernoun"
+    },
+    {
+      "id": "t31",
+      "index": 30,
+      "surface": "Father",
+      "pos": "noun"
+    },
+    {
+      "id": "t32",
+      "index": 31,
+      "surface": "our",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t33",
+      "index": 32,
+      "surface": "and",
+      "pos": "conjunction"
+    },
+    {
+      "id": "t34",
+      "index": 33,
+      "surface": "Lord",
+      "pos": "noun"
+    },
+    {
+      "id": "t35",
+      "index": 34,
+      "surface": "the",
+      "pos": "article"
+    },
+    {
+      "id": "t36",
+      "index": 35,
+      "surface": "Jesus",
+      "pos": "propernoun"
+    },
+    {
+      "id": "t37",
+      "index": 36,
+      "surface": "Christ",
+      "pos": "propernoun"
+    },
+    {
+      "id": "t38",
+      "index": 37,
+      "surface": "I",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t39",
+      "index": 38,
+      "surface": "thank",
+      "pos": "verb"
+    },
+    {
+      "id": "t40",
+      "index": 39,
+      "surface": "God",
+      "pos": "propernoun"
+    },
+    {
+      "id": "t41",
+      "index": 40,
+      "surface": "my",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t42",
+      "index": 41,
+      "surface": "in",
+      "pos": "preposition"
+    },
+    {
+      "id": "t43",
+      "index": 42,
+      "surface": "remembrance",
+      "pos": "noun"
+    },
+    {
+      "id": "t44",
+      "index": 43,
+      "surface": "all",
+      "pos": "determiner"
+    },
+    {
+      "id": "t45",
+      "index": 44,
+      "surface": "my",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t46",
+      "index": 45,
+      "surface": "of",
+      "pos": "preposition"
+    },
+    {
+      "id": "t47",
+      "index": 46,
+      "surface": "you",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t48",
+      "index": 47,
+      "surface": "I",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t49",
+      "index": 48,
+      "surface": "pray",
+      "pos": "verb"
+    },
+    {
+      "id": "t50",
+      "index": 49,
+      "surface": "always",
+      "pos": "adverb"
+    },
+    {
+      "id": "t51",
+      "index": 50,
+      "surface": "in",
+      "pos": "preposition"
+    },
+    {
+      "id": "t52",
+      "index": 51,
+      "surface": "prayer",
+      "pos": "noun"
+    },
+    {
+      "id": "t53",
+      "index": 52,
+      "surface": "every",
+      "pos": "adjective"
+    },
+    {
+      "id": "t54",
+      "index": 53,
+      "surface": "of",
+      "pos": "preposition"
+    },
+    {
+      "id": "t55",
+      "index": 54,
+      "surface": "mine",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t56",
+      "index": 55,
+      "surface": "for",
+      "pos": "preposition"
+    },
+    {
+      "id": "t57",
+      "index": 56,
+      "surface": "you",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t58",
+      "index": 57,
+      "surface": "all",
+      "pos": "adjective"
+    },
+    {
+      "id": "t59",
+      "index": 58,
+      "surface": "with",
+      "pos": "preposition"
+    },
+    {
+      "id": "t60",
+      "index": 59,
+      "surface": "joy",
+      "pos": "noun"
+    },
+    {
+      "id": "t61",
+      "index": 60,
+      "surface": "because of",
+      "pos": "preposition"
+    },
+    {
+      "id": "t62",
+      "index": 61,
+      "surface": "partnership",
+      "pos": "noun"
+    },
+    {
+      "id": "t63",
+      "index": 62,
+      "surface": "your",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t64",
+      "index": 63,
+      "surface": "in",
+      "pos": "preposition"
+    },
+    {
+      "id": "t65",
+      "index": 64,
+      "surface": "gospel",
+      "pos": "noun"
+    },
+    {
+      "id": "t66",
+      "index": 65,
+      "surface": "the",
+      "pos": "article"
+    },
+    {
+      "id": "t67",
+      "index": 66,
+      "surface": "from",
+      "pos": "preposition"
+    },
+    {
+      "id": "t68",
+      "index": 67,
+      "surface": "day",
+      "pos": "noun"
+    },
+    {
+      "id": "t69",
+      "index": 68,
+      "surface": "the",
+      "pos": "article"
+    },
+    {
+      "id": "t70",
+      "index": 69,
+      "surface": "first",
+      "pos": "adjective"
+    },
+    {
+      "id": "t71",
+      "index": 70,
+      "surface": "until",
+      "pos": "preposition"
+    },
+    {
+      "id": "t72",
+      "index": 71,
+      "surface": "now",
+      "pos": "adverb"
+    },
+    {
+      "id": "t73",
+      "index": 72,
+      "surface": "And",
+      "pos": "conjunction"
+    },
+    {
+      "id": "t74",
+      "index": 73,
+      "surface": "I",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t75",
+      "index": 74,
+      "surface": "am",
+      "pos": "verb"
+    },
+    {
+      "id": "t76",
+      "index": 75,
+      "surface": "sure",
+      "pos": "adjective"
+    },
+    {
+      "id": "t77",
+      "index": 76,
+      "surface": "of",
+      "pos": "preposition"
+    },
+    {
+      "id": "t78",
+      "index": 77,
+      "surface": "this",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t79",
+      "index": 78,
+      "surface": "that",
+      "pos": "conjunction"
+    },
+    {
+      "id": "t80",
+      "index": 79,
+      "surface": "he",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t81",
+      "index": 80,
+      "surface": "who",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t82",
+      "index": 81,
+      "surface": "began",
+      "pos": "verb"
+    },
+    {
+      "id": "t83",
+      "index": 82,
+      "surface": "work",
+      "pos": "noun"
+    },
+    {
+      "id": "t84",
+      "index": 83,
+      "surface": "a",
+      "pos": "article"
+    },
+    {
+      "id": "t85",
+      "index": 84,
+      "surface": "good",
+      "pos": "adjective"
+    },
+    {
+      "id": "t86",
+      "index": 85,
+      "surface": "in",
+      "pos": "preposition"
+    },
+    {
+      "id": "t87",
+      "index": 86,
+      "surface": "you",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t88",
+      "index": 87,
+      "surface": "bring",
+      "pos": "verb"
+    },
+    {
+      "id": "t89",
+      "index": 88,
+      "surface": "will",
+      "pos": "verb"
+    },
+    {
+      "id": "t90",
+      "index": 89,
+      "surface": "it",
+      "pos": "pronoun"
+    },
+    {
+      "id": "t91",
+      "index": 90,
+      "surface": "to",
+      "pos": "preposition"
+    },
+    {
+      "id": "t92",
+      "index": 91,
+      "surface": "completion",
+      "pos": "noun"
+    },
+    {
+      "id": "t93",
+      "index": 92,
+      "surface": "at",
+      "pos": "preposition"
+    },
+    {
+      "id": "t94",
+      "index": 93,
+      "surface": "day",
+      "pos": "noun"
+    },
+    {
+      "id": "t95",
+      "index": 94,
+      "surface": "the",
+      "pos": "article"
+    },
+    {
+      "id": "t96",
+      "index": 95,
+      "surface": "of",
+      "pos": "preposition"
+    },
+    {
+      "id": "t97",
+      "index": 96,
+      "surface": "Jesus",
+      "pos": "propernoun"
+    },
+    {
+      "id": "t98",
+      "index": 97,
+      "surface": "Christ",
+      "pos": "propernoun"
+    }
+  ],
+  "syntax": {
+    "rootId": "nh1",
+    "nodes": [
+      {
+        "id": "nh1",
+        "kind": "word",
+        "tokenIds": [],
+        "label": "Philippians 1"
+      },
+      {
+        "id": "nc2",
+        "kind": "clause",
+        "clauseType": "independent",
+        "tokenIds": []
+      },
+      {
+        "id": "nt1",
+        "kind": "word",
+        "tokenIds": [
+          "t1"
+        ],
+        "role": "subject"
+      },
+      {
+        "id": "nt2",
+        "kind": "word",
+        "tokenIds": [
+          "t2"
+        ],
+        "role": "coordinator"
+      },
+      {
+        "id": "nt3",
+        "kind": "word",
+        "tokenIds": [
+          "t3"
+        ]
+      },
+      {
+        "id": "ni3",
+        "kind": "word",
+        "tokenIds": [],
+        "implied": true,
+        "label": "(are)",
+        "role": "predicate"
+      },
+      {
+        "id": "nt4",
+        "kind": "word",
+        "tokenIds": [
+          "t4"
+        ],
+        "role": "predicateNominative"
+      },
+      {
+        "id": "nt5",
+        "kind": "word",
+        "tokenIds": [
+          "t5"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt6",
+        "kind": "word",
+        "tokenIds": [
+          "t6"
+        ]
+      },
+      {
+        "id": "nt7",
+        "kind": "word",
+        "tokenIds": [
+          "t7"
+        ]
+      },
+      {
+        "id": "nt8",
+        "kind": "word",
+        "tokenIds": [
+          "t8"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt9",
+        "kind": "word",
+        "tokenIds": [
+          "t9"
+        ]
+      },
+      {
+        "id": "nt10",
+        "kind": "word",
+        "tokenIds": [
+          "t10"
+        ],
+        "role": "determiner"
+      },
+      {
+        "id": "nt11",
+        "kind": "word",
+        "tokenIds": [
+          "t11"
+        ],
+        "role": "determiner"
+      },
+      {
+        "id": "nt12",
+        "kind": "word",
+        "tokenIds": [
+          "t12"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt13",
+        "kind": "word",
+        "tokenIds": [
+          "t13"
+        ]
+      },
+      {
+        "id": "nt14",
+        "kind": "word",
+        "tokenIds": [
+          "t14"
+        ]
+      },
+      {
+        "id": "nc4",
+        "kind": "clause",
+        "clauseType": "relative",
+        "tokenIds": []
+      },
+      {
+        "id": "nt15",
+        "kind": "word",
+        "tokenIds": [
+          "t15"
+        ],
+        "role": "subject"
+      },
+      {
+        "id": "nt16",
+        "kind": "word",
+        "tokenIds": [
+          "t16"
+        ],
+        "role": "predicate"
+      },
+      {
+        "id": "nt17",
+        "kind": "word",
+        "tokenIds": [
+          "t17"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt18",
+        "kind": "word",
+        "tokenIds": [
+          "t18"
+        ]
+      },
+      {
+        "id": "nt19",
+        "kind": "word",
+        "tokenIds": [
+          "t19"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt20",
+        "kind": "word",
+        "tokenIds": [
+          "t20"
+        ]
+      },
+      {
+        "id": "nt21",
+        "kind": "word",
+        "tokenIds": [
+          "t21"
+        ],
+        "role": "determiner"
+      },
+      {
+        "id": "nt22",
+        "kind": "word",
+        "tokenIds": [
+          "t22"
+        ],
+        "role": "coordinator"
+      },
+      {
+        "id": "nt23",
+        "kind": "word",
+        "tokenIds": [
+          "t23"
+        ]
+      },
+      {
+        "id": "nc5",
+        "kind": "clause",
+        "clauseType": "independent",
+        "tokenIds": []
+      },
+      {
+        "id": "nt24",
+        "kind": "word",
+        "tokenIds": [
+          "t24"
+        ],
+        "role": "subject"
+      },
+      {
+        "id": "nt25",
+        "kind": "word",
+        "tokenIds": [
+          "t25"
+        ],
+        "role": "coordinator"
+      },
+      {
+        "id": "nt26",
+        "kind": "word",
+        "tokenIds": [
+          "t26"
+        ]
+      },
+      {
+        "id": "ni6",
+        "kind": "word",
+        "tokenIds": [],
+        "implied": true,
+        "label": "(be)",
+        "role": "predicate"
+      },
+      {
+        "id": "nt27",
+        "kind": "word",
+        "tokenIds": [
+          "t27"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt28",
+        "kind": "word",
+        "tokenIds": [
+          "t28"
+        ]
+      },
+      {
+        "id": "nt29",
+        "kind": "word",
+        "tokenIds": [
+          "t29"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt30",
+        "kind": "word",
+        "tokenIds": [
+          "t30"
+        ]
+      },
+      {
+        "id": "nt31",
+        "kind": "word",
+        "tokenIds": [
+          "t31"
+        ]
+      },
+      {
+        "id": "nt32",
+        "kind": "word",
+        "tokenIds": [
+          "t32"
+        ],
+        "role": "genitive"
+      },
+      {
+        "id": "nt33",
+        "kind": "word",
+        "tokenIds": [
+          "t33"
+        ],
+        "role": "coordinator"
+      },
+      {
+        "id": "nt34",
+        "kind": "word",
+        "tokenIds": [
+          "t34"
+        ]
+      },
+      {
+        "id": "nt35",
+        "kind": "word",
+        "tokenIds": [
+          "t35"
+        ],
+        "role": "determiner"
+      },
+      {
+        "id": "nt36",
+        "kind": "word",
+        "tokenIds": [
+          "t36"
+        ]
+      },
+      {
+        "id": "nt37",
+        "kind": "word",
+        "tokenIds": [
+          "t37"
+        ]
+      },
+      {
+        "id": "nc7",
+        "kind": "clause",
+        "clauseType": "independent",
+        "tokenIds": []
+      },
+      {
+        "id": "nt38",
+        "kind": "word",
+        "tokenIds": [
+          "t38"
+        ],
+        "role": "subject"
+      },
+      {
+        "id": "nt39",
+        "kind": "word",
+        "tokenIds": [
+          "t39"
+        ],
+        "role": "predicate"
+      },
+      {
+        "id": "nt40",
+        "kind": "word",
+        "tokenIds": [
+          "t40"
+        ],
+        "role": "directObject"
+      },
+      {
+        "id": "nt41",
+        "kind": "word",
+        "tokenIds": [
+          "t41"
+        ],
+        "role": "genitive"
+      },
+      {
+        "id": "nt42",
+        "kind": "word",
+        "tokenIds": [
+          "t42"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt43",
+        "kind": "word",
+        "tokenIds": [
+          "t43"
+        ]
+      },
+      {
+        "id": "nt44",
+        "kind": "word",
+        "tokenIds": [
+          "t44"
+        ],
+        "role": "determiner"
+      },
+      {
+        "id": "nt45",
+        "kind": "word",
+        "tokenIds": [
+          "t45"
+        ],
+        "role": "genitive"
+      },
+      {
+        "id": "nt46",
+        "kind": "word",
+        "tokenIds": [
+          "t46"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt47",
+        "kind": "word",
+        "tokenIds": [
+          "t47"
+        ]
+      },
+      {
+        "id": "nc8",
+        "kind": "clause",
+        "clauseType": "independent",
+        "tokenIds": []
+      },
+      {
+        "id": "nt48",
+        "kind": "word",
+        "tokenIds": [
+          "t48"
+        ],
+        "role": "subject"
+      },
+      {
+        "id": "nt49",
+        "kind": "word",
+        "tokenIds": [
+          "t49"
+        ],
+        "role": "predicate"
+      },
+      {
+        "id": "nt50",
+        "kind": "word",
+        "tokenIds": [
+          "t50"
+        ],
+        "role": "adverbial"
+      },
+      {
+        "id": "nt51",
+        "kind": "word",
+        "tokenIds": [
+          "t51"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt52",
+        "kind": "word",
+        "tokenIds": [
+          "t52"
+        ]
+      },
+      {
+        "id": "nt53",
+        "kind": "word",
+        "tokenIds": [
+          "t53"
+        ],
+        "role": "determiner"
+      },
+      {
+        "id": "nt54",
+        "kind": "word",
+        "tokenIds": [
+          "t54"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt55",
+        "kind": "word",
+        "tokenIds": [
+          "t55"
+        ]
+      },
+      {
+        "id": "nt56",
+        "kind": "word",
+        "tokenIds": [
+          "t56"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt57",
+        "kind": "word",
+        "tokenIds": [
+          "t57"
+        ]
+      },
+      {
+        "id": "nt58",
+        "kind": "word",
+        "tokenIds": [
+          "t58"
+        ],
+        "role": "apposition"
+      },
+      {
+        "id": "nt59",
+        "kind": "word",
+        "tokenIds": [
+          "t59"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt60",
+        "kind": "word",
+        "tokenIds": [
+          "t60"
+        ]
+      },
+      {
+        "id": "nt61",
+        "kind": "word",
+        "tokenIds": [
+          "t61"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt62",
+        "kind": "word",
+        "tokenIds": [
+          "t62"
+        ]
+      },
+      {
+        "id": "nt63",
+        "kind": "word",
+        "tokenIds": [
+          "t63"
+        ],
+        "role": "genitive"
+      },
+      {
+        "id": "nt64",
+        "kind": "word",
+        "tokenIds": [
+          "t64"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt65",
+        "kind": "word",
+        "tokenIds": [
+          "t65"
+        ]
+      },
+      {
+        "id": "nt66",
+        "kind": "word",
+        "tokenIds": [
+          "t66"
+        ],
+        "role": "determiner"
+      },
+      {
+        "id": "nt67",
+        "kind": "word",
+        "tokenIds": [
+          "t67"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt68",
+        "kind": "word",
+        "tokenIds": [
+          "t68"
+        ]
+      },
+      {
+        "id": "nt69",
+        "kind": "word",
+        "tokenIds": [
+          "t69"
+        ],
+        "role": "determiner"
+      },
+      {
+        "id": "nt70",
+        "kind": "word",
+        "tokenIds": [
+          "t70"
+        ],
+        "role": "adjectival"
+      },
+      {
+        "id": "nt71",
+        "kind": "word",
+        "tokenIds": [
+          "t71"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt72",
+        "kind": "word",
+        "tokenIds": [
+          "t72"
+        ]
+      },
+      {
+        "id": "nc9",
+        "kind": "clause",
+        "clauseType": "coordinate",
+        "tokenIds": []
+      },
+      {
+        "id": "nt73",
+        "kind": "word",
+        "tokenIds": [
+          "t73"
+        ],
+        "role": "coordinator"
+      },
+      {
+        "id": "nt74",
+        "kind": "word",
+        "tokenIds": [
+          "t74"
+        ],
+        "role": "subject"
+      },
+      {
+        "id": "nt75",
+        "kind": "word",
+        "tokenIds": [
+          "t75"
+        ],
+        "role": "predicate"
+      },
+      {
+        "id": "nt76",
+        "kind": "word",
+        "tokenIds": [
+          "t76"
+        ],
+        "role": "predicateAdjective"
+      },
+      {
+        "id": "nt77",
+        "kind": "word",
+        "tokenIds": [
+          "t77"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt78",
+        "kind": "word",
+        "tokenIds": [
+          "t78"
+        ]
+      },
+      {
+        "id": "nc10",
+        "kind": "clause",
+        "clauseType": "complement",
+        "tokenIds": []
+      },
+      {
+        "id": "nt79",
+        "kind": "word",
+        "tokenIds": [
+          "t79"
+        ],
+        "role": "conjunction"
+      },
+      {
+        "id": "nt80",
+        "kind": "word",
+        "tokenIds": [
+          "t80"
+        ],
+        "role": "subject"
+      },
+      {
+        "id": "nc11",
+        "kind": "clause",
+        "clauseType": "relative",
+        "tokenIds": []
+      },
+      {
+        "id": "nt81",
+        "kind": "word",
+        "tokenIds": [
+          "t81"
+        ],
+        "role": "subject"
+      },
+      {
+        "id": "nt82",
+        "kind": "word",
+        "tokenIds": [
+          "t82"
+        ],
+        "role": "predicate"
+      },
+      {
+        "id": "nt83",
+        "kind": "word",
+        "tokenIds": [
+          "t83"
+        ],
+        "role": "directObject"
+      },
+      {
+        "id": "nt84",
+        "kind": "word",
+        "tokenIds": [
+          "t84"
+        ],
+        "role": "determiner"
+      },
+      {
+        "id": "nt85",
+        "kind": "word",
+        "tokenIds": [
+          "t85"
+        ],
+        "role": "adjectival"
+      },
+      {
+        "id": "nt86",
+        "kind": "word",
+        "tokenIds": [
+          "t86"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt87",
+        "kind": "word",
+        "tokenIds": [
+          "t87"
+        ]
+      },
+      {
+        "id": "nt88",
+        "kind": "word",
+        "tokenIds": [
+          "t88"
+        ],
+        "role": "predicate"
+      },
+      {
+        "id": "nt89",
+        "kind": "word",
+        "tokenIds": [
+          "t89"
+        ],
+        "role": "adjunct"
+      },
+      {
+        "id": "nt90",
+        "kind": "word",
+        "tokenIds": [
+          "t90"
+        ],
+        "role": "directObject"
+      },
+      {
+        "id": "nt91",
+        "kind": "word",
+        "tokenIds": [
+          "t91"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt92",
+        "kind": "word",
+        "tokenIds": [
+          "t92"
+        ]
+      },
+      {
+        "id": "nt93",
+        "kind": "word",
+        "tokenIds": [
+          "t93"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt94",
+        "kind": "word",
+        "tokenIds": [
+          "t94"
+        ]
+      },
+      {
+        "id": "nt95",
+        "kind": "word",
+        "tokenIds": [
+          "t95"
+        ],
+        "role": "determiner"
+      },
+      {
+        "id": "nt96",
+        "kind": "word",
+        "tokenIds": [
+          "t96"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt97",
+        "kind": "word",
+        "tokenIds": [
+          "t97"
+        ]
+      },
+      {
+        "id": "nt98",
+        "kind": "word",
+        "tokenIds": [
+          "t98"
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "id": "r1",
+        "type": "conjunct",
+        "headId": "nh1",
+        "dependentId": "nc2",
+        "label": "Verse 1"
+      },
+      {
+        "id": "r2",
+        "type": "subject",
+        "headId": "nc2",
+        "dependentId": "nt1"
+      },
+      {
+        "id": "r3",
+        "type": "coordinator",
+        "headId": "nt1",
+        "dependentId": "nt2"
+      },
+      {
+        "id": "r4",
+        "type": "conjunct",
+        "headId": "nt1",
+        "dependentId": "nt3"
+      },
+      {
+        "id": "r5",
+        "type": "predicate",
+        "headId": "nc2",
+        "dependentId": "ni3"
+      },
+      {
+        "id": "r6",
+        "type": "predicateNominative",
+        "headId": "ni3",
+        "dependentId": "nt4"
+      },
+      {
+        "id": "r7",
+        "type": "prepositionalPhrase",
+        "headId": "nt4",
+        "dependentId": "nt5"
+      },
+      {
+        "id": "r8",
+        "type": "prepositionObject",
+        "headId": "nt5",
+        "dependentId": "nt6"
+      },
+      {
+        "id": "r9",
+        "type": "apposition",
+        "headId": "nt6",
+        "dependentId": "nt7"
+      },
+      {
+        "id": "r10",
+        "type": "prepositionalPhrase",
+        "headId": "nc2",
+        "dependentId": "nt8"
+      },
+      {
+        "id": "r11",
+        "type": "prepositionObject",
+        "headId": "nt8",
+        "dependentId": "nt9"
+      },
+      {
+        "id": "r12",
+        "type": "determiner",
+        "headId": "nt9",
+        "dependentId": "nt10"
+      },
+      {
+        "id": "r13",
+        "type": "determiner",
+        "headId": "nt9",
+        "dependentId": "nt11"
+      },
+      {
+        "id": "r14",
+        "type": "prepositionalPhrase",
+        "headId": "nt9",
+        "dependentId": "nt12"
+      },
+      {
+        "id": "r15",
+        "type": "prepositionObject",
+        "headId": "nt12",
+        "dependentId": "nt13"
+      },
+      {
+        "id": "r16",
+        "type": "apposition",
+        "headId": "nt13",
+        "dependentId": "nt14"
+      },
+      {
+        "id": "r17",
+        "type": "adjectival",
+        "headId": "nt9",
+        "dependentId": "nc4"
+      },
+      {
+        "id": "r18",
+        "type": "subject",
+        "headId": "nc4",
+        "dependentId": "nt15"
+      },
+      {
+        "id": "r19",
+        "type": "predicate",
+        "headId": "nc4",
+        "dependentId": "nt16"
+      },
+      {
+        "id": "r20",
+        "type": "prepositionalPhrase",
+        "headId": "nt16",
+        "dependentId": "nt17"
+      },
+      {
+        "id": "r21",
+        "type": "prepositionObject",
+        "headId": "nt17",
+        "dependentId": "nt18"
+      },
+      {
+        "id": "r22",
+        "type": "prepositionalPhrase",
+        "headId": "nt9",
+        "dependentId": "nt19"
+      },
+      {
+        "id": "r23",
+        "type": "prepositionObject",
+        "headId": "nt19",
+        "dependentId": "nt20"
+      },
+      {
+        "id": "r24",
+        "type": "determiner",
+        "headId": "nt20",
+        "dependentId": "nt21"
+      },
+      {
+        "id": "r25",
+        "type": "coordinator",
+        "headId": "nt20",
+        "dependentId": "nt22"
+      },
+      {
+        "id": "r26",
+        "type": "conjunct",
+        "headId": "nt20",
+        "dependentId": "nt23"
+      },
+      {
+        "id": "r27",
+        "type": "conjunct",
+        "headId": "nh1",
+        "dependentId": "nc5",
+        "label": "Verse 2"
+      },
+      {
+        "id": "r28",
+        "type": "subject",
+        "headId": "nc5",
+        "dependentId": "nt24"
+      },
+      {
+        "id": "r29",
+        "type": "coordinator",
+        "headId": "nt24",
+        "dependentId": "nt25"
+      },
+      {
+        "id": "r30",
+        "type": "conjunct",
+        "headId": "nt24",
+        "dependentId": "nt26"
+      },
+      {
+        "id": "r31",
+        "type": "predicate",
+        "headId": "nc5",
+        "dependentId": "ni6"
+      },
+      {
+        "id": "r32",
+        "type": "prepositionalPhrase",
+        "headId": "ni6",
+        "dependentId": "nt27"
+      },
+      {
+        "id": "r33",
+        "type": "prepositionObject",
+        "headId": "nt27",
+        "dependentId": "nt28"
+      },
+      {
+        "id": "r34",
+        "type": "prepositionalPhrase",
+        "headId": "ni6",
+        "dependentId": "nt29"
+      },
+      {
+        "id": "r35",
+        "type": "prepositionObject",
+        "headId": "nt29",
+        "dependentId": "nt30"
+      },
+      {
+        "id": "r36",
+        "type": "apposition",
+        "headId": "nt30",
+        "dependentId": "nt31"
+      },
+      {
+        "id": "r37",
+        "type": "genitive",
+        "headId": "nt31",
+        "dependentId": "nt32"
+      },
+      {
+        "id": "r38",
+        "type": "coordinator",
+        "headId": "nt30",
+        "dependentId": "nt33"
+      },
+      {
+        "id": "r39",
+        "type": "conjunct",
+        "headId": "nt30",
+        "dependentId": "nt34"
+      },
+      {
+        "id": "r40",
+        "type": "determiner",
+        "headId": "nt34",
+        "dependentId": "nt35"
+      },
+      {
+        "id": "r41",
+        "type": "apposition",
+        "headId": "nt34",
+        "dependentId": "nt36"
+      },
+      {
+        "id": "r42",
+        "type": "apposition",
+        "headId": "nt36",
+        "dependentId": "nt37"
+      },
+      {
+        "id": "r43",
+        "type": "conjunct",
+        "headId": "nh1",
+        "dependentId": "nc7",
+        "label": "Verse 3"
+      },
+      {
+        "id": "r44",
+        "type": "subject",
+        "headId": "nc7",
+        "dependentId": "nt38"
+      },
+      {
+        "id": "r45",
+        "type": "predicate",
+        "headId": "nc7",
+        "dependentId": "nt39"
+      },
+      {
+        "id": "r46",
+        "type": "directObject",
+        "headId": "nt39",
+        "dependentId": "nt40"
+      },
+      {
+        "id": "r47",
+        "type": "genitive",
+        "headId": "nt40",
+        "dependentId": "nt41"
+      },
+      {
+        "id": "r48",
+        "type": "prepositionalPhrase",
+        "headId": "nt39",
+        "dependentId": "nt42"
+      },
+      {
+        "id": "r49",
+        "type": "prepositionObject",
+        "headId": "nt42",
+        "dependentId": "nt43"
+      },
+      {
+        "id": "r50",
+        "type": "determiner",
+        "headId": "nt43",
+        "dependentId": "nt44"
+      },
+      {
+        "id": "r51",
+        "type": "genitive",
+        "headId": "nt43",
+        "dependentId": "nt45"
+      },
+      {
+        "id": "r52",
+        "type": "prepositionalPhrase",
+        "headId": "nt43",
+        "dependentId": "nt46"
+      },
+      {
+        "id": "r53",
+        "type": "prepositionObject",
+        "headId": "nt46",
+        "dependentId": "nt47"
+      },
+      {
+        "id": "r54",
+        "type": "conjunct",
+        "headId": "nh1",
+        "dependentId": "nc8",
+        "label": "Verses 4-6"
+      },
+      {
+        "id": "r55",
+        "type": "subject",
+        "headId": "nc8",
+        "dependentId": "nt48"
+      },
+      {
+        "id": "r56",
+        "type": "predicate",
+        "headId": "nc8",
+        "dependentId": "nt49"
+      },
+      {
+        "id": "r57",
+        "type": "adverbial",
+        "headId": "nt49",
+        "dependentId": "nt50"
+      },
+      {
+        "id": "r58",
+        "type": "prepositionalPhrase",
+        "headId": "nt49",
+        "dependentId": "nt51"
+      },
+      {
+        "id": "r59",
+        "type": "prepositionObject",
+        "headId": "nt51",
+        "dependentId": "nt52"
+      },
+      {
+        "id": "r60",
+        "type": "determiner",
+        "headId": "nt52",
+        "dependentId": "nt53"
+      },
+      {
+        "id": "r61",
+        "type": "prepositionalPhrase",
+        "headId": "nt52",
+        "dependentId": "nt54"
+      },
+      {
+        "id": "r62",
+        "type": "prepositionObject",
+        "headId": "nt54",
+        "dependentId": "nt55"
+      },
+      {
+        "id": "r63",
+        "type": "prepositionalPhrase",
+        "headId": "nt49",
+        "dependentId": "nt56"
+      },
+      {
+        "id": "r64",
+        "type": "prepositionObject",
+        "headId": "nt56",
+        "dependentId": "nt57"
+      },
+      {
+        "id": "r65",
+        "type": "apposition",
+        "headId": "nt57",
+        "dependentId": "nt58"
+      },
+      {
+        "id": "r66",
+        "type": "prepositionalPhrase",
+        "headId": "nt49",
+        "dependentId": "nt59"
+      },
+      {
+        "id": "r67",
+        "type": "prepositionObject",
+        "headId": "nt59",
+        "dependentId": "nt60"
+      },
+      {
+        "id": "r68",
+        "type": "prepositionalPhrase",
+        "headId": "nt49",
+        "dependentId": "nt61"
+      },
+      {
+        "id": "r69",
+        "type": "prepositionObject",
+        "headId": "nt61",
+        "dependentId": "nt62"
+      },
+      {
+        "id": "r70",
+        "type": "genitive",
+        "headId": "nt62",
+        "dependentId": "nt63"
+      },
+      {
+        "id": "r71",
+        "type": "prepositionalPhrase",
+        "headId": "nt62",
+        "dependentId": "nt64"
+      },
+      {
+        "id": "r72",
+        "type": "prepositionObject",
+        "headId": "nt64",
+        "dependentId": "nt65"
+      },
+      {
+        "id": "r73",
+        "type": "determiner",
+        "headId": "nt65",
+        "dependentId": "nt66"
+      },
+      {
+        "id": "r74",
+        "type": "prepositionalPhrase",
+        "headId": "nt62",
+        "dependentId": "nt67"
+      },
+      {
+        "id": "r75",
+        "type": "prepositionObject",
+        "headId": "nt67",
+        "dependentId": "nt68"
+      },
+      {
+        "id": "r76",
+        "type": "determiner",
+        "headId": "nt68",
+        "dependentId": "nt69"
+      },
+      {
+        "id": "r77",
+        "type": "adjectival",
+        "headId": "nt68",
+        "dependentId": "nt70"
+      },
+      {
+        "id": "r78",
+        "type": "prepositionalPhrase",
+        "headId": "nt62",
+        "dependentId": "nt71"
+      },
+      {
+        "id": "r79",
+        "type": "prepositionObject",
+        "headId": "nt71",
+        "dependentId": "nt72"
+      },
+      {
+        "id": "r80",
+        "type": "coordinator",
+        "headId": "nc8",
+        "dependentId": "nt73"
+      },
+      {
+        "id": "r81",
+        "type": "conjunct",
+        "headId": "nc8",
+        "dependentId": "nc9"
+      },
+      {
+        "id": "r82",
+        "type": "subject",
+        "headId": "nc9",
+        "dependentId": "nt74"
+      },
+      {
+        "id": "r83",
+        "type": "predicate",
+        "headId": "nc9",
+        "dependentId": "nt75"
+      },
+      {
+        "id": "r84",
+        "type": "predicateAdjective",
+        "headId": "nt75",
+        "dependentId": "nt76"
+      },
+      {
+        "id": "r85",
+        "type": "prepositionalPhrase",
+        "headId": "nt75",
+        "dependentId": "nt77"
+      },
+      {
+        "id": "r86",
+        "type": "prepositionObject",
+        "headId": "nt77",
+        "dependentId": "nt78"
+      },
+      {
+        "id": "r87",
+        "type": "adjunct",
+        "headId": "nt75",
+        "dependentId": "nc10",
+        "label": "that"
+      },
+      {
+        "id": "r88",
+        "type": "conjunction",
+        "headId": "nc10",
+        "dependentId": "nt79"
+      },
+      {
+        "id": "r89",
+        "type": "subject",
+        "headId": "nc10",
+        "dependentId": "nt80"
+      },
+      {
+        "id": "r90",
+        "type": "adjectival",
+        "headId": "nt80",
+        "dependentId": "nc11"
+      },
+      {
+        "id": "r91",
+        "type": "subject",
+        "headId": "nc11",
+        "dependentId": "nt81"
+      },
+      {
+        "id": "r92",
+        "type": "predicate",
+        "headId": "nc11",
+        "dependentId": "nt82"
+      },
+      {
+        "id": "r93",
+        "type": "directObject",
+        "headId": "nt82",
+        "dependentId": "nt83"
+      },
+      {
+        "id": "r94",
+        "type": "determiner",
+        "headId": "nt83",
+        "dependentId": "nt84"
+      },
+      {
+        "id": "r95",
+        "type": "adjectival",
+        "headId": "nt83",
+        "dependentId": "nt85"
+      },
+      {
+        "id": "r96",
+        "type": "prepositionalPhrase",
+        "headId": "nt82",
+        "dependentId": "nt86"
+      },
+      {
+        "id": "r97",
+        "type": "prepositionObject",
+        "headId": "nt86",
+        "dependentId": "nt87"
+      },
+      {
+        "id": "r98",
+        "type": "predicate",
+        "headId": "nc10",
+        "dependentId": "nt88"
+      },
+      {
+        "id": "r99",
+        "type": "adjunct",
+        "headId": "nt88",
+        "dependentId": "nt89",
+        "label": "auxiliary"
+      },
+      {
+        "id": "r100",
+        "type": "directObject",
+        "headId": "nt88",
+        "dependentId": "nt90"
+      },
+      {
+        "id": "r101",
+        "type": "prepositionalPhrase",
+        "headId": "nt88",
+        "dependentId": "nt91"
+      },
+      {
+        "id": "r102",
+        "type": "prepositionObject",
+        "headId": "nt91",
+        "dependentId": "nt92"
+      },
+      {
+        "id": "r103",
+        "type": "prepositionalPhrase",
+        "headId": "nt88",
+        "dependentId": "nt93"
+      },
+      {
+        "id": "r104",
+        "type": "prepositionObject",
+        "headId": "nt93",
+        "dependentId": "nt94"
+      },
+      {
+        "id": "r105",
+        "type": "determiner",
+        "headId": "nt94",
+        "dependentId": "nt95"
+      },
+      {
+        "id": "r106",
+        "type": "prepositionalPhrase",
+        "headId": "nt94",
+        "dependentId": "nt96"
+      },
+      {
+        "id": "r107",
+        "type": "prepositionObject",
+        "headId": "nt96",
+        "dependentId": "nt97"
+      },
+      {
+        "id": "r108",
+        "type": "apposition",
+        "headId": "nt97",
+        "dependentId": "nt98"
+      }
+    ]
+  }
+}
