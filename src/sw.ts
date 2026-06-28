@@ -19,6 +19,24 @@ precacheAndRoute(self.__WB_MANIFEST);
 // Drop precaches that are no longer in the current manifest.
 cleanupOutdatedCaches();
 
+// Greek New Testament books are fetched on demand (they are too large — ~80 MB
+// for the whole GNT — to precache). Cache-first with a runtime cache so a book
+// opened once stays available offline. These XML trees are immutable.
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  const isGnt = url.pathname.endsWith('.xml') && (url.pathname.includes('/gnt/') || url.pathname.includes('nestle1904-lowfat'));
+  if (event.request.method !== 'GET' || !isGnt) return;
+  event.respondWith(
+    caches.open('gnt-books-v1').then(async (cache) => {
+      const hit = await cache.match(event.request);
+      if (hit) return hit;
+      const res = await fetch(event.request);
+      if (res.ok) cache.put(event.request, res.clone());
+      return res;
+    }),
+  );
+});
+
 // INVARIANT 3: the SKIP_WAITING message is the ONLY on-demand activation path,
 // and the page only sends it from inside a user tap ("Refresh now").
 self.addEventListener('message', (event) => {

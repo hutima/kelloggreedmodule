@@ -398,6 +398,29 @@ textarea.code,
   color: var(--tentative, #c2410c);
   font-weight: 600;
 }
+
+/* GNT passage picker */
+.gnt-passages ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  max-height: 320px;
+  overflow: auto;
+}
+.gnt-passages li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 2px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+.gnt-ref {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .diagram-paper {
   background: var(--paper);
   box-shadow: var(--shadow);
