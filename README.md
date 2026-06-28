@@ -40,9 +40,12 @@ English word-order patterns.
   (schema + rules + a worked example) pre-filled with your sentence. Run it in
   any chat, paste the JSON back into the JSON tab, and Apply. The reusable
   template also lives at [`docs/parse-prompt.txt`](./docs/parse-prompt.txt).
-- **Offline & installable** — service worker precaching via `vite-plugin-pwa`,
-  with an in-app update modal (⟳ in the top bar): check for updates, reload into
-  a new version, or clear a broken cache and reload from the network.
+- **Offline & installable** — `vite-plugin-pwa` (`injectManifest`) with a
+  race-condition-safe update flow: a new worker installs and **waits**, never
+  auto-reloading mid-session (which can freeze iOS standalone PWAs). When an
+  update is ready a mandatory "Refresh now" prompt applies it inside a user tap;
+  the ⟳ top-bar menu also offers *Check for updates* and *Clear cache & reload*
+  to fix a stale/broken cache.
 - **Polytonic Greek** — a Unicode-complete serif font stack and
   diacritic-aware text measurement.
 

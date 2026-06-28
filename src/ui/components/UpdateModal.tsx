@@ -3,16 +3,25 @@ import { usePwaUpdate } from '@/pwa/pwa';
 
 /**
  * PWA update UX:
- *   - an auto banner when a new version is available (offers a one-click reload),
- *   - a modal (opened from the top bar) to check for updates, reload, or clear a
- *     broken cache and reload from the network.
+ *   - a MANDATORY click-through "Update available" overlay (no ✕, no backdrop
+ *     close, excluded from any Esc handler) shown when a new worker is waiting;
+ *   - a utility modal (opened from the top-bar ⟳) to check for updates or clear
+ *     a broken cache and reload.
+ *
+ * The waiting worker never activates on its own this session, so there is no
+ * auto-reload to race — but the user must explicitly accept (or cold-restart).
  */
 export function UpdateModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { needRefresh, status, applyUpdate, checkForUpdate, clearCachesAndReload } =
-    usePwaUpdate();
+  const {
+    updateAvailable,
+    status,
+    acceptRefreshAvailable,
+    checkForUpdate,
+    clearCachesAndReload,
+  } = usePwaUpdate();
   const [busy, setBusy] = useState<string | null>(null);
 
-  const run = async (key: string, fn: () => Promise<void>) => {
+  const run = async (key: string, fn: () => Promise<void> | void) => {
     setBusy(key);
     try {
       await fn();
@@ -21,46 +30,64 @@ export function UpdateModal({ open, onClose }: { open: boolean; onClose: () => v
     }
   };
 
-  const statusLabel: Record<string, string> = {
+  const statusLabel: Record<UpdateStatusKey, string> = {
     idle: '',
     checking: 'Checking for updates…',
     uptodate: 'You have the latest version.',
-    available: 'A new version is available.',
-    offlineReady: 'Ready to work offline.',
     error: 'Service worker unavailable in this context.',
   };
 
   return (
     <>
-      {/* Auto banner — appears whenever a new version is waiting. */}
-      {needRefresh && (
-        <div className="update-banner" role="alert">
-          <span>A new version is available.</span>
-          <button className="mini accept" onClick={() => run('apply', applyUpdate)}>
-            {busy === 'apply' ? 'Reloading…' : 'Refresh now'}
-          </button>
+      {/* MANDATORY overlay — no dismiss path; only "Refresh now" closes it. */}
+      {updateAvailable && (
+        <div className="modal-backdrop" data-mandatory="true">
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="updateAvailableTitle"
+          >
+            <h2 className="modal-title" id="updateAvailableTitle">
+              Update available
+            </h2>
+            <p className="hint">
+              A new version is ready. Tap <strong>Refresh now</strong> to update —
+              or just close the app fully and reopen it. Your saved diagrams stay
+              on this device and won’t be affected.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="mini accept"
+                onClick={() => run('apply', acceptRefreshAvailable)}
+              >
+                {busy === 'apply' ? 'Refreshing…' : 'Refresh now'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
+      {/* Utility modal — dismissible. */}
       {open && (
         <div className="modal-backdrop" onClick={onClose}>
           <div
             className="modal"
             role="dialog"
             aria-modal="true"
-            aria-label="App updates"
+            aria-label="App updates and cache"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="modal-title">App updates &amp; cache</h2>
             <p className="hint">
-              This app works offline by caching itself. If something looks stale
-              or broken, check for an update or clear the cache and reload.
+              This app works offline by caching itself. A new version installs in
+              the background and is applied only when you choose. If something
+              looks stale or broken, check for an update or clear the cache.
             </p>
 
-            {statusLabel[status] && (
-              <p className={`status-line${status === 'error' ? ' err' : ''}`}>
-                {statusLabel[status]}
-              </p>
+            {statusLabel[status] && <p className="status-line">{statusLabel[status]}</p>}
+            {updateAvailable && (
+              <p className="status-line">An update is ready — see the prompt.</p>
             )}
 
             <div className="modal-actions">
@@ -70,14 +97,6 @@ export function UpdateModal({ open, onClose }: { open: boolean; onClose: () => v
                 onClick={() => run('check', checkForUpdate)}
               >
                 {busy === 'check' ? 'Checking…' : 'Check for updates'}
-              </button>
-              <button
-                className="mini accept"
-                disabled={busy !== null || !needRefresh}
-                onClick={() => run('apply', applyUpdate)}
-                title={needRefresh ? 'Reload into the new version' : 'No update waiting'}
-              >
-                Reload into new version
               </button>
               <button
                 className="mini reject"
@@ -100,3 +119,5 @@ export function UpdateModal({ open, onClose }: { open: boolean; onClose: () => v
     </>
   );
 }
+
+type UpdateStatusKey = 'idle' | 'checking' | 'uptodate' | 'error';
