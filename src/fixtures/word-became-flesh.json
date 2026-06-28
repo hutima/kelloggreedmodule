@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "doc_sample_word_flesh",
+  "title": "The Word became flesh",
+  "language": "en",
+  "text": "The Word became flesh.",
+  "notes": "Linking verb with a predicate nominative. 'became' is a copular verb; 'flesh' completes the predicate rather than receiving the action.",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "layoutHints": {},
+  "tokens": [
+    { "id": "t1", "index": 0, "surface": "The", "lemma": "the", "language": "en", "pos": "article" },
+    { "id": "t2", "index": 1, "surface": "Word", "language": "en", "pos": "noun" },
+    { "id": "t3", "index": 2, "surface": "became", "lemma": "become", "language": "en", "pos": "verb" },
+    { "id": "t4", "index": 3, "surface": "flesh.", "lemma": "flesh", "language": "en", "pos": "noun" }
+  ],
+  "syntax": {
+    "rootId": "n_root",
+    "nodes": [
+      { "id": "n_root", "kind": "clause", "clauseType": "independent", "tokenIds": [] },
+      { "id": "n_word", "kind": "word", "role": "subject", "tokenIds": ["t2"] },
+      { "id": "n_the", "kind": "word", "role": "determiner", "tokenIds": ["t1"] },
+      { "id": "n_became", "kind": "word", "role": "predicate", "tokenIds": ["t3"] },
+      { "id": "n_flesh", "kind": "word", "role": "predicateNominative", "tokenIds": ["t4"] }
+    ],
+    "relations": [
+      { "id": "r1", "type": "subject", "headId": "n_root", "dependentId": "n_word" },
+      { "id": "r2", "type": "determiner", "headId": "n_word", "dependentId": "n_the" },
+      { "id": "r3", "type": "predicate", "headId": "n_root", "dependentId": "n_became" },
+      { "id": "r4", "type": "predicateNominative", "headId": "n_became", "dependentId": "n_flesh", "label": "became" }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "doc_sample_john_1_1a",
+  "title": "Ἐν ἀρχῇ ἦν ὁ λόγος",
+  "language": "grc",
+  "text": "Ἐν ἀρχῇ ἦν ὁ λόγος.",
+  "notes": "John 1:1a. Demonstrates Greek word order independent of structure: the prepositional phrase is fronted, the copula precedes the subject, yet the diagram places the subject (ὁ λόγος, nominative) on the baseline and the PP beneath the predicate.",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "layoutHints": {},
+  "tokens": [
+    { "id": "t1", "index": 0, "surface": "Ἐν", "lemma": "ἐν", "language": "grc", "pos": "preposition", "gloss": "in" },
+    { "id": "t2", "index": 1, "surface": "ἀρχῇ", "lemma": "ἀρχή", "language": "grc", "pos": "noun", "gloss": "beginning", "morphology": { "case": "dative", "gender": "feminine", "number": "singular" } },
+    { "id": "t3", "index": 2, "surface": "ἦν", "lemma": "εἰμί", "language": "grc", "pos": "verb", "gloss": "was", "morphology": { "tense": "imperfect", "voice": "active", "mood": "indicative", "person": "third", "number": "singular" } },
+    { "id": "t4", "index": 3, "surface": "ὁ", "lemma": "ὁ", "language": "grc", "pos": "article", "gloss": "the", "morphology": { "case": "nominative", "gender": "masculine", "number": "singular" } },
+    { "id": "t5", "index": 4, "surface": "λόγος.", "lemma": "λόγος", "language": "grc", "pos": "noun", "gloss": "Word", "morphology": { "case": "nominative", "gender": "masculine", "number": "singular" } }
+  ],
+  "syntax": {
+    "rootId": "n_root",
+    "nodes": [
+      { "id": "n_root", "kind": "clause", "clauseType": "independent", "tokenIds": [] },
+      { "id": "n_hn", "kind": "word", "role": "predicate", "tokenIds": ["t3"] },
+      { "id": "n_logos", "kind": "word", "role": "subject", "tokenIds": ["t5"] },
+      { "id": "n_ho", "kind": "word", "role": "determiner", "tokenIds": ["t4"] },
+      { "id": "n_en", "kind": "word", "role": "prepositionalPhrase", "tokenIds": ["t1"] },
+      { "id": "n_arche", "kind": "word", "role": "prepositionObject", "tokenIds": ["t2"] }
+    ],
+    "relations": [
+      { "id": "r1", "type": "predicate", "headId": "n_root", "dependentId": "n_hn" },
+      { "id": "r2", "type": "subject", "headId": "n_root", "dependentId": "n_logos" },
+      { "id": "r3", "type": "determiner", "headId": "n_logos", "dependentId": "n_ho" },
+      { "id": "r4", "type": "prepositionalPhrase", "headId": "n_hn", "dependentId": "n_en", "label": "Ἐν" },
+      { "id": "r5", "type": "prepositionObject", "headId": "n_en", "dependentId": "n_arche" }
+    ]
+  }
+}
