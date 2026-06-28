@@ -68,6 +68,32 @@ describe('traditional Kellogg-Reed diagonals', () => {
   });
 });
 
+describe('coordination renders as a two-prong fork', () => {
+  it('stacks conjuncts on parallel baselines joined by a coordinator', () => {
+    // Philippians 1:1 — "Paul and Timothy" (compound subject).
+    const doc = cloneSample('doc_sample_phil_1_1_6')!;
+    const layout = layoutDocument(doc, doc.layoutHints);
+    const yOf = (t: string) => {
+      const el = layout.elements.find(
+        (e) => e.kind === 'text' && (e as { text: string }).text === t,
+      ) as { y: number } | undefined;
+      return el?.y;
+    };
+    const paul = yOf('Paul');
+    const timothy = yOf('Timothy');
+    expect(paul).toBeDefined();
+    expect(timothy).toBeDefined();
+    // The two conjuncts sit on separate, vertically-offset baselines.
+    expect(Math.abs(timothy! - paul!)).toBeGreaterThan(20);
+    // A dashed coordination line joins them.
+    const fork = layout.elements.find(
+      (e) => e.kind === 'line' && (e as { role: string }).role === 'coordination'
+        && (e as { style: string }).style === 'dashed',
+    );
+    expect(fork).toBeDefined();
+  });
+});
+
 describe('clause stacking keeps the diagram readable', () => {
   it('stacks coordinated clauses vertically, not horizontally', () => {
     const layout = layoutDocument(coordinatedClauses(5));

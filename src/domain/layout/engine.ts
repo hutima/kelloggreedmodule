@@ -59,6 +59,18 @@ function isLeafModifier(ctx: Ctx, nodeId: string): boolean {
   return childRelations(ctx.doc.syntax, nodeId).length === 0;
 }
 
+/** The word-level `conjunct` members of a coordinated node (clauses excluded). */
+function wordConjunctRels(ctx: Ctx, nodeId: string) {
+  return childRelations(ctx.doc.syntax, nodeId).filter(
+    (r) => r.type === 'conjunct' && !isClauseChild(ctx, r.dependentId),
+  );
+}
+
+/** A word that heads a coordination of further words ("Paul and Timothy"). */
+function isWordCoordination(ctx: Ctx, node: SyntaxNode): boolean {
+  return node.kind === 'word' && wordConjunctRels(ctx, node.id).length > 0;
+}
+
 const DEG = 180 / Math.PI;
 
 /** Text written along a diagonal, rotated to lie on the line from (x1,y1)→(x2,y2). */
@@ -106,12 +118,54 @@ export function layoutDocument(doc: KrDocument, hints: LayoutHints = {}): Diagra
 
   const block = layoutNode(ctx, root.id, new Set());
   const m = LAYOUT.margin;
-  const elements = translate(block, m, m + LAYOUT.dividerUp);
+  // Normalize by the true bounding box. Most content sits at/below the baseline,
+  // but a coordination fork places its upper conjunct above it (negative y), so
+  // a fixed offset is not enough — measure what was actually drawn and shift it
+  // fully into view. `pad` leaves slack for text ascent/descent and for words
+  // written along diagonals, which can overhang their line endpoints.
+  const pad = LAYOUT.fontSize;
+  const { minX, minY, maxX, maxY } = bounds(block.elements);
+  const elements = translate(block, m + pad - minX, m + pad - minY);
   return {
-    width: block.width + m * 2,
-    height: block.height + m * 2 + LAYOUT.dividerUp + LAYOUT.textRise,
+    width: maxX - minX + (m + pad) * 2,
+    height: maxY - minY + (m + pad) * 2,
     elements,
   };
+}
+
+/** Axis-aligned bounding box of a set of primitives (line endpoints + text anchors). */
+function bounds(elements: DiagramElement[]): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} {
+  let minX = 0;
+  let minY = 0;
+  let maxX = 0;
+  let maxY = 0;
+  let seen = false;
+  const see = (x: number, y: number) => {
+    if (!seen) {
+      minX = maxX = x;
+      minY = maxY = y;
+      seen = true;
+      return;
+    }
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  };
+  for (const el of elements) {
+    if (el.kind === 'line') {
+      see(el.x1, el.y1);
+      see(el.x2, el.y2);
+    } else {
+      see(el.x, el.y);
+    }
+  }
+  return { minX, minY, maxX, maxY };
 }
 
 interface Ctx {
@@ -128,7 +182,9 @@ function layoutNode(ctx: Ctx, nodeId: string, seen: Set<string>): Block {
   const block =
     node.kind === 'clause'
       ? layoutClause(ctx, node, seen)
-      : layoutHead(ctx, node, seen, hint?.collapsed === true);
+      : isWordCoordination(ctx, node)
+        ? layoutCoordination(ctx, node, seen, false)
+        : layoutHead(ctx, node, seen, hint?.collapsed === true);
   // Apply a user nudge by translating the block's drawing without changing the
   // space its parent reserved (a deliberate, predictable override).
   if (hint && (hint.offsetX || hint.offsetY)) {
@@ -148,6 +204,7 @@ function layoutHead(
   node: SyntaxNode,
   seen: Set<string>,
   collapsed = false,
+  excludeCoordination = false,
 ): Block {
   const text = nodeText(ctx.doc, node) || node.label || '∅';
   const wordW = measureText(text) + LAYOUT.wordPadX * 2;
@@ -155,8 +212,12 @@ function layoutHead(
   // Every dependent of a word hangs beneath it. Word/modifier dependents flow
   // horizontally in a row (adjectives, adverbs, prepositional phrases); clause
   // dependents (relative/complement clauses) are tall, so they stack vertically
-  // on a shared stem instead — keeping the diagram narrow and untangled.
-  const depRels = collapsed ? [] : childRelations(ctx.doc.syntax, node.id);
+  // on a shared stem instead — keeping the diagram narrow and untangled. When
+  // this word heads a coordination, its conjunct/coordinator children are drawn
+  // by the fork (layoutCoordination), so they are excluded here.
+  const depRels = (collapsed ? [] : childRelations(ctx.doc.syntax, node.id)).filter(
+    (r) => !excludeCoordination || (r.type !== 'conjunct' && r.type !== 'coordinator'),
+  );
   const wordRels = depRels.filter((r) => !isClauseChild(ctx, r.dependentId));
   const clauseRels = depRels.filter((r) => isClauseChild(ctx, r.dependentId));
 
@@ -284,6 +345,104 @@ function stackClauses(
   return { elements, right, bottom };
 }
 
+// --- a coordinated set of words (the two-prong fork) --------------------------
+
+/**
+ * Render a word-level coordination ("Paul and Timothy", "overseers and
+ * deacons") as the classic Kellogg-Reed fork: the conjuncts sit on parallel
+ * horizontal baselines, joined at a single junction by prongs, with the
+ * coordinator on a dashed bridge between them.
+ *
+ * `openLeft` controls which way the fork opens. A compound *subject* attaches
+ * to the divider on its right, so its junction is on the right (openLeft);
+ * a coordinated object / modifier attaches on its left, so the junction is on
+ * the left and the conjuncts fan out to the right.
+ */
+function layoutCoordination(
+  ctx: Ctx,
+  node: SyntaxNode,
+  seen: Set<string>,
+  openLeft: boolean,
+): Block {
+  const conjunctRels = wordConjunctRels(ctx, node.id);
+  const coordRel = childRelations(ctx.doc.syntax, node.id).find((r) => r.type === 'coordinator');
+  const coordText = coordRel
+    ? nodeText(ctx.doc, getNode(ctx.doc.syntax, coordRel.dependentId)!) || ''
+    : '';
+
+  // Member 0 is the head word with its own (non-coordination) modifiers; the
+  // rest are the conjunct subtrees.
+  const members: Block[] = [
+    layoutHead(ctx, node, seen, false, true),
+    ...conjunctRels.map((r) => layoutNode(ctx, r.dependentId, seen)),
+  ];
+
+  // Stack the members top-to-bottom, leaving room for each one's own depth.
+  const baselines: number[] = [];
+  let y = 0;
+  members.forEach((m, i) => {
+    baselines.push(y);
+    if (i < members.length - 1) y += m.height + LAYOUT.coordMemberGap + LAYOUT.dividerUp;
+  });
+  const lastBaseline = baselines[baselines.length - 1]!;
+  const centerY = lastBaseline / 2; // junction sits at the vertical middle
+  const prong = LAYOUT.coordProngRun;
+  const elements: DiagramElement[] = [];
+
+  const lastMember = members[members.length - 1]!;
+  const topY = baselines[0]! - centerY;
+  const botY = lastBaseline - centerY;
+
+  let width: number;
+  let junctionX: number;
+  if (openLeft) {
+    // Junction on the right; conjuncts extend left, right-aligned to it.
+    const maxRight = Math.max(...members.map((m) => m.wordRight));
+    junctionX = prong + maxRight;
+    width = junctionX;
+    members.forEach((m, i) => {
+      const mx = junctionX - prong - m.wordRight;
+      const by = baselines[i]! - centerY;
+      elements.push(...translate(m, mx, by));
+      elements.push(line(eid(), junctionX, 0, mx + m.wordRight, by, 'solid', 'coordination'));
+    });
+  } else {
+    // Junction on the left; conjuncts extend right.
+    junctionX = 0;
+    width = prong + Math.max(...members.map((m) => m.width));
+    members.forEach((m, i) => {
+      const by = baselines[i]! - centerY;
+      elements.push(...translate(m, prong, by));
+      elements.push(line(eid(), 0, 0, prong + m.wordLeft, by, 'solid', 'coordination'));
+    });
+  }
+
+  // Dashed bridge carrying the coordinator, between the outer prongs. The label
+  // sits on the inside of the fork so it never crowds the junction/divider.
+  const bridgeX = openLeft ? junctionX - prong * 0.5 : prong * 0.5;
+  elements.push(line(eid(), bridgeX, topY, bridgeX, botY, 'dashed', 'coordination', node.id));
+  if (coordText) {
+    elements.push({
+      kind: 'text',
+      id: eid(),
+      x: openLeft ? bridgeX - 4 : bridgeX + 4,
+      y: 4,
+      text: coordText,
+      anchor: openLeft ? 'end' : 'start',
+      small: true,
+      nodeId: coordRel?.dependentId,
+    });
+  }
+
+  return {
+    width,
+    height: botY + lastMember.height,
+    elements,
+    wordLeft: junctionX,
+    wordRight: junctionX,
+  };
+}
+
 // --- a clause baseline --------------------------------------------------------
 
 function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
@@ -293,9 +452,14 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   const subjectRel = rels.find((r) => r.type === 'subject');
   const predicateRel = rels.find((r) => r.type === 'predicate' || r.type === 'copula');
 
-  const subjectBlock = subjectRel
-    ? layoutNode(ctx, subjectRel.dependentId, seen)
-    : impliedBlock('(subject)');
+  // A compound subject forks open to the right, so its junction meets the
+  // subject|predicate divider; everywhere else a coordination forks to the left.
+  const subjectNode = subjectRel ? getNode(model, subjectRel.dependentId) : undefined;
+  const subjectBlock = !subjectRel
+    ? impliedBlock('(subject)')
+    : subjectNode && isWordCoordination(ctx, subjectNode)
+      ? layoutCoordination(ctx, subjectNode, seen, true)
+      : layoutNode(ctx, subjectRel.dependentId, seen);
   // The verb is rendered as a bare word; the CLAUSE owns the verb's complements
   // (baseline) and adjuncts (below), so they are not drawn twice.
   const verbNode = predicateRel ? getNode(model, predicateRel.dependentId) : undefined;
