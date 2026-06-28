@@ -462,6 +462,67 @@ textarea.code,
   margin: 14px 0;
 }
 
+/* ---- PWA update banner + modal ---- */
+.update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--ink);
+  color: #f5f7fa;
+  padding: 10px 14px;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(31, 41, 51, 0.28);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(31, 41, 51, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal {
+  background: var(--paper);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(31, 41, 51, 0.3);
+  padding: 20px;
+  width: min(440px, 100%);
+}
+.modal-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+.modal-actions .mini {
+  text-align: left;
+  padding: 9px 12px;
+}
+.status-line {
+  font-size: 13px;
+  color: var(--ink-soft);
+  background: var(--accent-soft);
+  border-radius: 6px;
+  padding: 7px 10px;
+  margin: 10px 0 0;
+}
+.status-line.err {
+  background: #fbecea;
+  color: var(--danger);
+}
+
 /* ---- Responsive (tablet) ---- */
 @media (max-width: 1024px) {
   :root {

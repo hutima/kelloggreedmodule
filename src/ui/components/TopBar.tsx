@@ -24,9 +24,11 @@ const MODES: { id: AppMode; label: string; hint: string }[] = [
 export function TopBar({
   onToggleLeft,
   onToggleRight,
+  onOpenUpdates,
 }: {
   onToggleLeft: () => void;
   onToggleRight: () => void;
+  onOpenUpdates: () => void;
 }) {
   const doc = useEditorStore((s) => s.doc);
   const mode = useEditorStore((s) => s.mode);
@@ -205,6 +207,9 @@ export function TopBar({
           <option value="print">Print…</option>
         </select>
 
+        <button className="btn" onClick={onOpenUpdates} title="App updates & cache">
+          ⟳
+        </button>
         <button className="btn" onClick={onToggleLeft} title="Toggle left panel">
           ⟨
         </button>

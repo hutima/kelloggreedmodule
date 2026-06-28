@@ -36,7 +36,13 @@ English word-order patterns.
   recent-documents list.
 - **Import / export** — JSON (round-trips losslessly, schema-validated), SVG,
   PNG, and a print-friendly view.
-- **Offline & installable** — service worker precaching via `vite-plugin-pwa`.
+- **Copy parse prompt** — the Text tab generates a ready-to-use LLM prompt
+  (schema + rules + a worked example) pre-filled with your sentence. Run it in
+  any chat, paste the JSON back into the JSON tab, and Apply. The reusable
+  template also lives at [`docs/parse-prompt.txt`](./docs/parse-prompt.txt).
+- **Offline & installable** — service worker precaching via `vite-plugin-pwa`,
+  with an in-app update modal (⟳ in the top bar): check for updates, reload into
+  a new version, or clear a broken cache and reload from the network.
 - **Polytonic Greek** — a Unicode-complete serif font stack and
   diacritic-aware text measurement.
 
