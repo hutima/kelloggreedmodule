@@ -499,24 +499,25 @@ function layoutCoordination(
     });
   }
 
-  // The coordinator's dashed line spans the WIDE end of the split, joining the
-  // two prongs where they reach the conjunct baselines (top and bottom) — not
-  // the narrow vertex where they converge on the governor.
-  const wideX = openLeft ? junctionX - prong : prong;
-  elements.push(line(eid(), wideX, topY, wideX, botY, 'dashed', 'coordination', node.id));
+  // The coordinator's dashed line crosses the prongs near the wide end of the
+  // split, inset just past the conjunct content toward the junction so a
+  // descendant an earlier conjunct hangs to the edge (e.g. a genitive) does not
+  // run into it. The coordinator sits centred on the line, rotated upright so it
+  // reads along the connector instead of spilling across the fork.
+  const inset = Math.min(12, prong * 0.4);
+  const dashX = openLeft ? junctionX - prong + inset : prong - inset;
+  const f = 1 - inset / prong; // shrink the span to the prongs' height at dashX
+  elements.push(line(eid(), dashX, topY * f, dashX, botY * f, 'dashed', 'coordination', node.id));
   if (coordText) {
-    // Sit the coordinator in the clear gap just above the last conjunct, not at
-    // the geometric centre — an earlier conjunct may hang descendants through
-    // the middle of the fork.
-    const labelY = botY - (LAYOUT.coordMemberGap * ctx.vScale + LAYOUT.dividerUp) / 2 + 4;
     elements.push({
       kind: 'text',
       id: eid(),
-      x: openLeft ? wideX - 6 : wideX + 6,
-      y: labelY,
+      x: dashX - 4,
+      y: 0,
       text: coordText,
-      anchor: openLeft ? 'end' : 'start',
+      anchor: 'middle',
       small: true,
+      rotate: -90,
       nodeId: coordRel?.dependentId,
     });
   }
