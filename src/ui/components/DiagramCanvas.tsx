@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { layoutDocument } from '@/domain/layout';
 import { dashFor } from '@/domain/render';
+import { describeFunction } from '@/domain/model';
 
 const TENTATIVE = '#c2410c';
 const INK = '#1f2933';
+/** Padding around the SVG inside `.diagram-surface` (keep in sync with CSS). */
+const SURFACE_PAD = 28;
 
 /**
  * Interactive SVG canvas. It renders exactly the primitives the layout engine
@@ -47,6 +50,18 @@ export function DiagramCanvas() {
   const isSelected = (nodeId?: string, relationId?: string) =>
     (nodeId && nodeId === selection.nodeId) ||
     (relationId && relationId === selection.relationId);
+
+  // Tap a word to reveal its function: anchor a popover over the selected node's
+  // own text element and describe its job in plain language.
+  const reveal = useMemo(() => {
+    if (linking || !selection.nodeId) return null;
+    const anchor = layout.elements.find(
+      (e) => e.kind === 'text' && e.nodeId === selection.nodeId && !e.rotate,
+    ) as { x: number; y: number } | undefined;
+    const summary = describeFunction(doc, selection.nodeId);
+    if (!anchor || !summary) return null;
+    return { anchor, summary };
+  }, [doc, layout, selection.nodeId, linking]);
 
   return (
     <div className={`canvas${collapsed ? ' collapsed' : ''}`}>
@@ -169,6 +184,24 @@ export function DiagramCanvas() {
             );
           })}
         </svg>
+        {reveal && (
+          <div
+            className="kr-reveal"
+            style={{
+              left: SURFACE_PAD + reveal.anchor.x * scale,
+              top: SURFACE_PAD + reveal.anchor.y * scale,
+            }}
+            role="status"
+          >
+            <div className="kr-reveal-word">
+              {reveal.summary.word}
+              {reveal.summary.gloss && <span className="kr-reveal-gloss"> · {reveal.summary.gloss}</span>}
+            </div>
+            <div className="kr-reveal-role">{reveal.summary.role}</div>
+            <div className="kr-reveal-detail">{reveal.summary.detail}</div>
+            {reveal.summary.grammar && <div className="kr-reveal-grammar">{reveal.summary.grammar}</div>}
+          </div>
+        )}
         </div>
       </div>
     </div>
