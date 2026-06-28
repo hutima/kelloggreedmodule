@@ -1,7 +1,7 @@
 import type { Token } from '@/domain/schema';
 import { lexicon } from '../lexicon';
 import type { Inference, InferenceRule, RuleContext } from '../types';
-import { buildWordNode, wordNodeId } from './helpers';
+import { IMPLIED_COPULA_ID, buildWordNode, impliedCopulaNode, wordNodeId } from './helpers';
 
 /**
  * Bootstraps the clause spine: main verb (predicate), its subject (explicit or
@@ -24,13 +24,16 @@ function findMainVerb(ctx: RuleContext): Token | undefined {
   return ctx.doc.tokens.find((t) => lex.isCopula(t.surface));
 }
 
-function isNominal(t: Token): boolean {
-  return (
-    t.pos === 'noun' ||
-    t.pos === 'propernoun' ||
-    t.pos === 'pronoun' ||
-    t.morphology?.case === 'nominative'
-  );
+/**
+ * Could `t` be a subject / predicate nominative? In Greek that is decided by
+ * CASE — a nominative nominal — so an oblique pronoun like dative ὑμῖν is never
+ * mistaken for the subject. English has no case, so fall back to part of speech.
+ */
+function isSubjectCandidate(t: Token, language: string): boolean {
+  if (language === 'grc') {
+    return t.morphology?.case === 'nominative';
+  }
+  return t.pos === 'noun' || t.pos === 'propernoun' || t.pos === 'pronoun';
 }
 
 export const clauseRule: InferenceRule = {
@@ -41,43 +44,78 @@ export const clauseRule: InferenceRule = {
     const lex = lexicon(doc.language);
     const out: Inference[] = [];
     const verb = findMainVerb(ctx);
-    if (!verb) return out;
-
-    const isCopula = lex.isCopula(verb.surface);
-
-    // --- predicate ---
-    out.push({
-      id: nextId('inf'),
-      title: `Predicate: ${verb.surface}`,
-      category: 'predicate',
-      provenance: {
-        source: 'inferred',
-        confidence: 'high',
-        reason: isCopula
-          ? `"${verb.surface}" is a copula/linking verb anchoring the predicate.`
-          : `"${verb.surface}" is the main finite verb.`,
-      },
-      tokenIds: [verb.id],
-      ops: [
-        { op: 'addNode', node: buildWordNode(verb, { role: 'predicate' }) },
-        {
-          op: 'addRelation',
-          relation: {
-            id: nextId('rel'),
-            type: 'predicate',
-            headId: model.rootId,
-            dependentId: wordNodeId(verb.id),
-            provenance: { source: 'inferred', confidence: 'high' },
-          },
-        },
-      ],
-    });
 
     // --- subject: nominative nominal other than a predicate complement ---
     const nominatives = doc.tokens.filter(
-      (t) => t.id !== verb.id && isNominal(t) && !lex.isArticle(t.surface),
+      (t) =>
+        (!verb || t.id !== verb.id) &&
+        isSubjectCandidate(t, doc.language) &&
+        !lex.isArticle(t.surface),
     );
     const subjectTok = nominatives[0];
+
+    // A verbless clause with no nominative gives us nothing to anchor on.
+    if (!verb && !subjectTok) return out;
+
+    // An explicit verb is copular when it is a copula; an implied predicate is
+    // copular by definition (it only ever stands in for "to be").
+    const isCopula = verb ? lex.isCopula(verb.surface) : true;
+
+    // --- predicate: an explicit verb, or a synthesized copula when a nominal
+    //     clause has a subject but no verb (Greek "χάρις … ὑμῖν", imperatives) ---
+    if (verb) {
+      out.push({
+        id: nextId('inf'),
+        title: `Predicate: ${verb.surface}`,
+        category: 'predicate',
+        provenance: {
+          source: 'inferred',
+          confidence: 'high',
+          reason: isCopula
+            ? `"${verb.surface}" is a copula/linking verb anchoring the predicate.`
+            : `"${verb.surface}" is the main finite verb.`,
+        },
+        tokenIds: [verb.id],
+        ops: [
+          { op: 'addNode', node: buildWordNode(verb, { role: 'predicate' }) },
+          {
+            op: 'addRelation',
+            relation: {
+              id: nextId('rel'),
+              type: 'predicate',
+              headId: model.rootId,
+              dependentId: wordNodeId(verb.id),
+              provenance: { source: 'inferred', confidence: 'high' },
+            },
+          },
+        ],
+      });
+    } else {
+      out.push({
+        id: nextId('inf'),
+        title: 'Implied copula',
+        category: 'predicate',
+        provenance: {
+          source: 'inferred',
+          confidence: 'medium',
+          reason: `Nominal clause with the nominative "${subjectTok!.surface}" but no verb — an implied copula links subject and complement.`,
+        },
+        tokenIds: [],
+        ops: [
+          { op: 'addNode', node: impliedCopulaNode(doc.language) },
+          {
+            op: 'addRelation',
+            relation: {
+              id: nextId('rel'),
+              type: 'predicate',
+              headId: model.rootId,
+              dependentId: IMPLIED_COPULA_ID,
+              provenance: { source: 'inferred', confidence: 'medium' },
+            },
+          },
+        ],
+      });
+    }
 
     if (subjectTok) {
       out.push({
@@ -90,7 +128,7 @@ export const clauseRule: InferenceRule = {
           reason:
             doc.language === 'grc'
               ? `Nominative nominal "${subjectTok.surface}" is the likely subject.`
-              : `"${subjectTok.surface}" is the likely subject of "${verb.surface}".`,
+              : `"${subjectTok.surface}" is the likely subject${verb ? ` of "${verb.surface}"` : ''}.`,
         },
         tokenIds: [subjectTok.id],
         ops: [
@@ -107,8 +145,8 @@ export const clauseRule: InferenceRule = {
           },
         ],
       });
-    } else {
-      // implied subject (pro-drop / elided)
+    } else if (verb) {
+      // implied subject (pro-drop / elided) — only meaningful with a real verb
       const impliedId = `node_implied_subj_${verb.id}`;
       out.push({
         id: nextId('inf'),
@@ -147,8 +185,11 @@ export const clauseRule: InferenceRule = {
       });
     }
 
-    // --- predicate complement for copular clauses ---
-    if (isCopula) {
+    // --- predicate complement for copular clauses with an explicit verb ---
+    // (A verbless clause's second nominative is usually a COORDINATED subject —
+    // "χάρις καὶ εἰρήνη" — not a predicate nominative, so we don't guess one
+    // there; caseRoleRule supplies any dative/accusative complement instead.)
+    if (isCopula && verb) {
       const complement = nominatives[1] ?? doc.tokens.find((t) => t.pos === 'adjective');
       if (complement) {
         const isAdj = complement.pos === 'adjective';

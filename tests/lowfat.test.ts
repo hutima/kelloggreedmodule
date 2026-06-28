@@ -64,6 +64,24 @@ describe('Lowfat → KrDocument converter', () => {
     expect(impliedIs).toHaveLength(1);
   });
 
+  it('attaches an articular participle’s article to the participle, and a predicate PP adverbially', () => {
+    // "τοῖς οὖσιν ἐν Φιλίπποις": the article τοῖς substantivizes the participle
+    // οὖσιν (it modifies the verb, not the whole clause), and the locative
+    // predicate ἐν Φιλίπποις is adverbial — both so they hang under the verb.
+    const [v1] = lowfatToDocuments(xml());
+    const surf = (id: string) =>
+      v1!.tokens.find((t) => v1!.syntax.nodes.find((n) => n.id === id)?.tokenIds.includes(t.id))?.surface;
+    const ousin = v1!.syntax.nodes.find(
+      (n) => n.tokenIds.some((t) => v1!.tokens.find((x) => x.id === t)?.surface === 'οὖσιν'),
+    )!;
+    const ousinChildren = v1!.syntax.relations.filter((r) => r.headId === ousin.id);
+    // The article hangs on the participle…
+    expect(ousinChildren.some((r) => r.type === 'determiner' && surf(r.dependentId) === 'τοῖς')).toBe(true);
+    // …and the predicate PP ἐν Φιλίπποις is adverbial, not a predicate nominative.
+    expect(ousinChildren.some((r) => r.type === 'adverbial' && surf(r.dependentId) === 'ἐν')).toBe(true);
+    expect(ousinChildren.some((r) => r.type === 'predicateNominative')).toBe(false);
+  });
+
   it('renders to a non-empty diagram', () => {
     const [v1] = lowfatToDocuments(xml());
     const layout = layoutDocument(v1!, {});

@@ -68,6 +68,8 @@ export interface EditorActions {
   rejectInference: (id: string) => void;
   acceptAllInferences: () => void;
   rejectAllInferences: () => void;
+  /** Run inference and APPLY it, seeding a rough editable parse (GNT Guided). */
+  bootstrapParse: () => void;
   // history
   undo: () => void;
   redo: () => void;
@@ -196,6 +198,27 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     rejectAllInferences: () => set({ inferences: [] }),
+
+    bootstrapParse: () => {
+      // Seed a rough, fully-editable parse: run the inference engine and apply
+      // its suggestions straight away, so the diagram is populated for the user
+      // to correct/relink rather than leaving an empty baseline behind a queue
+      // of pending cards. Iterate a few times (ops are idempotent upserts) so
+      // rules that build on earlier ones also land; stop once nothing new fires.
+      commit((d0) => {
+        let d = d0;
+        for (let pass = 0; pass < 4; pass++) {
+          const { inferences } = runInference(d);
+          if (!inferences.length) break;
+          const size = d.syntax.nodes.length + d.syntax.relations.length;
+          d = applyInferences(d, inferences);
+          // Idempotent upserts mean a fully-parsed doc stops growing — converged.
+          if (d.syntax.nodes.length + d.syntax.relations.length === size) break;
+        }
+        return d;
+      });
+      set({ inferences: [] });
+    },
 
     undo: () => {
       const { past, doc, future } = get();

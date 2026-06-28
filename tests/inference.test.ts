@@ -46,6 +46,26 @@ describe('inference engine', () => {
     expect(subjectInfs.some((i) => i.title.toLowerCase().includes('implied'))).toBe(true);
   });
 
+  it('synthesizes an implied copula for a verbless Greek nominal clause', () => {
+    // "χάρις ὑμῖν" — Grace [be] to you. No verb; a nominative subject + dative.
+    const doc = docWith('grc', 'χάρις');
+    doc.tokens = [
+      { id: 't1', index: 0, surface: 'χάρις', pos: 'noun', morphology: { case: 'nominative' } },
+      { id: 't2', index: 1, surface: 'ὑμῖν', pos: 'pronoun', morphology: { case: 'dative' } },
+    ];
+    const out = applyInferences(doc, runInference(doc).inferences);
+    const predRel = out.syntax.relations.find((r) => r.type === 'predicate');
+    const predNode = out.syntax.nodes.find((n) => n.id === predRel?.dependentId);
+    expect(predNode?.implied).toBe(true);
+    expect(predNode?.label).toBe('(ἐστίν)');
+    // The nominative is the subject, not the oblique dative pronoun.
+    const subjRel = out.syntax.relations.find((r) => r.type === 'subject');
+    const subjNode = out.syntax.nodes.find((n) => n.id === subjRel?.dependentId);
+    expect(subjNode?.tokenIds).toEqual(['t1']);
+    // The dative attaches to the implied copula as a complement.
+    expect(out.syntax.relations.some((r) => r.type === 'dativeComplement')).toBe(true);
+  });
+
   it('assigns Greek case roles, marking ambiguous ones low-confidence', () => {
     // ἀγαπῶμεν τὸν θεὸν τῇ καρδίᾳ τοῦ ἀνθρώπου
     // (we love)  (the) (God-ACC) (the) (heart-DAT) (the) (man-GEN)

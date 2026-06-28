@@ -113,6 +113,11 @@ export function buildParsePrompt(opts: ParsePromptOptions = {}): string {
 tag the sentence below and return ONE JSON object only — no prose, no markdown
 code fences.
 
+OUTPUT FORMAT (strict): emit RFC 8259 JSON. Use ONLY straight ASCII double
+quotes (") around every key and string value. Do NOT use curly/smart quotes
+(“ ” ‘ ’) or single quotes — these break JSON.parse. No trailing commas, no
+comments in the final answer.
+
 Sentence: ${sentence}
 Language: ${language}        (use "en" for English or "grc" for Koine/Biblical Greek)
 

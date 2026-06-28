@@ -742,4 +742,24 @@ textarea.code,
     flex-basis: 100%;
     text-align: left;
   }
+
+  /* Diagram header: stop the zoom / row-spacing controls from spilling past the
+     edge of a phone screen. Let the bar wrap to a second line rather than
+     overflow, and tighten the buttons so a full set fits a row. */
+  .canvas .panel-head {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .canvas .panel-head-title {
+    /* Don't let the title's auto-margin force the controls off-screen. */
+    margin-right: 8px;
+  }
+  .canvas-zoom {
+    flex-shrink: 0;
+    gap: 4px;
+  }
+  .canvas-zoom button {
+    width: 28px;
+    height: 28px;
+  }
 }
