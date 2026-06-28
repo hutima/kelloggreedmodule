@@ -240,7 +240,14 @@ class SentenceConverter {
           this.rel('indirectObject', verbId, rep);
           break;
         case 'p':
-          this.rel(this.isAdjective(child) ? 'predicateAdjective' : 'predicateNominative', verbId, rep);
+          // A predicate that is a prepositional phrase (οὖσιν ἐν Φιλίπποις —
+          // "being in Philippi") is locative/adverbial in KR: it hangs under the
+          // verb like any adverbial, not on the baseline as a predicate noun.
+          if (child.getAttribute('class') === 'pp') {
+            this.rel('adverbial', verbId, rep);
+          } else {
+            this.rel(this.isAdjective(child) ? 'predicateAdjective' : 'predicateNominative', verbId, rep);
+          }
           break;
         case 'adv':
           this.rel('adverbial', verbId, rep);
@@ -261,9 +268,23 @@ class SentenceConverter {
     for (const child of constituents(el)) {
       if (child === head) continue;
       const rep = this.convert(child);
-      this.rel(this.phraseChildRole(child, rule), repId, rep);
+      const role = this.phraseChildRole(child, rule);
+      // An article/adjective on an articular clause (τοῖς οὖσιν ἐν Φιλίπποις —
+      // "the [ones] who are…") modifies the participle that heads it, so it hangs
+      // on a diagonal beneath the verb, not floating beside the whole clause.
+      const target =
+        (role === 'determiner' || role === 'adjectival') ? this.headWordOf(repId) : repId;
+      this.rel(role, target, rep);
     }
     return repId;
+  }
+
+  /** The word a modifier should attach to: a clause delegates to its predicate. */
+  private headWordOf(nodeId: string): string {
+    const node = this.nodes.find((n) => n.id === nodeId);
+    if (node?.kind !== 'clause') return nodeId;
+    const pred = this.relations.find((r) => r.headId === nodeId && r.type === 'predicate');
+    return pred?.dependentId ?? nodeId;
   }
 
   /** Map a non-head phrase child to a Kellogg-Reed relation. */

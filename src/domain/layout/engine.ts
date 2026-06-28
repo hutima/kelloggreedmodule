@@ -538,9 +538,8 @@ function layoutCoordination(
   // The coordinator's dashed line is the full-height bar at the WIDE end of the
   // fork, joining the two prongs exactly where they meet the conjunct baselines
   // (the way a hand-drawn Kellogg-Reed fork bridges the branches). The
-  // coordinator rides at the TOP of that bar, rotated upright and set into the
-  // open throat of the fork — away from the conjunct words — so it never overlaps
-  // them.
+  // coordinator rides CENTRED on that bar, rotated upright and set into the open
+  // throat of the fork — away from the conjunct words — so it never overlaps them.
   const dashX = openLeft ? junctionX - prong : prong;
   elements.push(line(eid(), dashX, topY, dashX, botY, 'dashed', 'coordination', node.id));
   if (coordText) {
@@ -548,7 +547,7 @@ function layoutCoordination(
       kind: 'text',
       id: eid(),
       x: dashX + (openLeft ? 8 : -8),
-      y: topY + LAYOUT.smallFontSize,
+      y: (topY + botY) / 2,
       text: coordText,
       anchor: 'middle',
       small: true,
@@ -622,7 +621,9 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   );
   x += 2;
   // predicate
+  const verbX0 = x;
   placeBlock(verbBlock);
+  const verbMidX = verbX0 + (verbBlock.wordRight || verbBlock.width) / 2;
 
   // complements on the baseline, each with the appropriate separator
   complementBlocks.forEach(({ rel, block }) => {
@@ -646,63 +647,52 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
 
   const baselineWidth = x;
 
-  // Adjuncts of the clause and of the verb hang below the baseline. Word-level
-  // adjuncts (PPs, adverbials) flow in a horizontal row; clause-level adjuncts
-  // (subordinate/complement/coordinate clauses) are tall and stack vertically
-  // on a stem below that row, so nothing fans out across the page.
-  const adjunctRels = [
-    ...rels.filter((r) => r !== subjectRel && r !== predicateRel),
-    ...verbRels.filter((r) => !isBaselineComplement(r)),
-  ];
-  const wordAdjuncts = adjunctRels.filter((r) => !isClauseChild(ctx, r.dependentId));
-  const clauseAdjuncts = adjunctRels.filter((r) => isClauseChild(ctx, r.dependentId));
-
-  // Verb adjuncts cascade to the right of the verb at a fixed shallow drop, each
-  // hanging on a diagonal of the SAME run/angle as the rest of the diagram. They
-  // sit to the right of everything on the baseline, so they never collide with
-  // the subject's modifiers (which are on the left).
+  // Adjuncts hang below the baseline on diagonals/stems. The verb's OWN
+  // modifiers — an article substantivizing a participle (τοῖς οὖσιν…), an
+  // adverb, an adverbial PP (σὺν ἐπισκόποις…) — belong directly beneath the
+  // VERB, their KR home, rather than out in a right-hand row past the
+  // complements where they would float free of their head. Clause-level word
+  // adjuncts still cascade to the right of the baseline; clause-valued adjuncts
+  // (subordinate/relative clauses) stack vertically on a dotted stem below.
   const belowTop = LAYOUT.slantDrop * ctx.vScale;
   let belowMaxBottom = belowTop;
-  let rowRight = baselineWidth;
-  let bx = baselineWidth + LAYOUT.dependentGap;
-  let railRight = baselineWidth;
-  wordAdjuncts.forEach((r) => {
+
+  // Draw one hanging modifier whose diagonal/stem meets the baseline at
+  // `attachX`; returns the rightmost x it reached and where the next sibling
+  // should attach. Three shapes: a prepositional phrase (prep on the slant,
+  // object on a baseline below), a closed-class leaf written along its slant,
+  // or a noun phrase on its own stem-hung baseline.
+  const drawHanging = (
+    r: { id: string; type: SyntacticRole; dependentId: string; label?: string },
+    attachX: number,
+  ): { right: number; next: number } => {
     const objId = prepObjectId(ctx, r);
     if (objId) {
-      // Preposition on the diagonal; object on its baseline below.
       const block = layoutNode(ctx, objId, seen);
-      const attachX = bx;
-      const objX = bx + LAYOUT.diagRun;
+      const objX = attachX + LAYOUT.diagRun;
       const endX = objX + block.wordLeft;
       elements.push(...translate(block, objX, belowTop));
       const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '';
       elements.push(line(eid(), attachX, 0, endX, belowTop, 'solid', 'slant', undefined, r.id));
       elements.push(diagonalText(prep, attachX, 0, endX, belowTop, r.id, r.dependentId));
-      railRight = Math.max(railRight, attachX);
-      bx = objX + block.width + LAYOUT.dependentGap;
-      rowRight = Math.max(rowRight, bx);
       belowMaxBottom = Math.max(belowMaxBottom, belowTop + block.height,
         diagonalDepth(attachX, 0, endX, belowTop, prep));
-      return;
+      const right = objX + block.width;
+      return { right, next: right + LAYOUT.dependentGap };
     }
     if (r.type !== 'conjunct' && isDiagonalLeaf(ctx, r.dependentId)) {
-      // Adverb / particle written along its diagonal, length scaled to the word.
       const node2 = getNode(ctx.doc.syntax, r.dependentId)!;
       const t = nodeText(ctx.doc, node2) || node2.label || '';
       const { run, drop } = diagLeafGeom(t);
-      const attachX = bx;
-      const endX = bx + run;
+      const endX = attachX + run;
       elements.push(line(eid(), attachX, 0, endX, drop, 'solid', 'slant', undefined, r.id));
       elements.push(diagonalText(t, attachX, 0, endX, drop, r.id, r.dependentId, DIAG_TEXT_FRAC));
-      railRight = Math.max(railRight, attachX);
-      bx = endX + measureText(t) * 0.6 + LAYOUT.dependentGap;
-      rowRight = Math.max(rowRight, bx);
       belowMaxBottom = Math.max(belowMaxBottom, diagonalDepth(attachX, 0, endX, drop, t, DIAG_TEXT_FRAC));
-      return;
+      const right = endX + measureText(t) * 0.6;
+      return { right, next: right + LAYOUT.dependentGap };
     }
     const block = layoutNode(ctx, r.dependentId, seen);
-    const attachX = bx;
-    const objX = bx + LAYOUT.diagRun;
+    const objX = attachX + LAYOUT.diagRun;
     elements.push(...translate(block, objX, belowTop));
     elements.push(
       line(eid(), attachX, 0, objX + block.wordLeft, belowTop, 'solid', 'stem', undefined, r.id),
@@ -710,18 +700,58 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     if (r.label && showLabel(ctx, r.dependentId)) {
       elements.push(smallText(eid(), attachX + 4, belowTop - 6, r.label, 'start', r.id));
     }
-    railRight = Math.max(railRight, attachX);
-    bx = objX + block.width + LAYOUT.dependentGap;
-    rowRight = Math.max(rowRight, bx);
     belowMaxBottom = Math.max(belowMaxBottom, belowTop + block.height);
+    const right = objX + block.width;
+    return { right, next: right + LAYOUT.dependentGap };
+  };
+
+  // Verb modifiers, beneath the verb. Narrow leaves (the article) first so they
+  // sit closest under the verb word; wider phrases (the σὺν PP) follow.
+  const verbMods = verbRels
+    .filter(
+      (r) =>
+        !isBaselineComplement(r) &&
+        r.type !== 'conjunct' &&
+        r.type !== 'coordinator' &&
+        !isClauseChild(ctx, r.dependentId),
+    )
+    .sort((a, b) => Number(!isDiagonalLeaf(ctx, a.dependentId)) - Number(!isDiagonalLeaf(ctx, b.dependentId)));
+
+  // Clause-level adjuncts (not owned by the verb).
+  const clauseWordRels = rels.filter((r) => r !== subjectRel && r !== predicateRel);
+  const wordAdjuncts = clauseWordRels.filter((r) => !isClauseChild(ctx, r.dependentId));
+  const clauseAdjuncts = [
+    ...clauseWordRels.filter((r) => isClauseChild(ctx, r.dependentId)),
+    ...verbRels.filter((r) => !isBaselineComplement(r) && isClauseChild(ctx, r.dependentId)),
+  ];
+
+  let maxRight = baselineWidth;
+  let vCursor = verbMidX;
+  verbMods.forEach((r) => {
+    const { right, next } = drawHanging(r, vCursor);
+    vCursor = next;
+    maxRight = Math.max(maxRight, right);
   });
-  // Extend the baseline to carry the adjunct attachment points.
+
+  // Clause-level word adjuncts cascade to the right of the whole baseline.
+  let bx = baselineWidth + LAYOUT.dependentGap;
+  let railRight = baselineWidth;
+  wordAdjuncts.forEach((r) => {
+    railRight = Math.max(railRight, bx);
+    const { right, next } = drawHanging(r, bx);
+    bx = next;
+    maxRight = Math.max(maxRight, right);
+  });
+  // Extend the baseline to carry the right-hand adjunct attachment points.
   if (wordAdjuncts.length) {
     elements.push(line(eid(), baselineWidth, 0, railRight, 0, 'solid', 'baseline'));
   }
 
-  let width = Math.max(baselineWidth, rowRight);
-  let height = Math.max(baselineHeight, wordAdjuncts.length ? belowMaxBottom : 0);
+  let width = Math.max(baselineWidth, maxRight);
+  let height = Math.max(
+    baselineHeight,
+    wordAdjuncts.length || verbMods.length ? belowMaxBottom : 0,
+  );
 
   if (clauseAdjuncts.length) {
     const spineX = Math.max(0, divX);
