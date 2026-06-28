@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useEditorStore } from '@/state';
-import { GNT_BOOKS, loadGntBook, type GntBook } from '@/io';
+import { GNT_BOOKS, BUNDLED_BOOKS, cacheGntBook, loadGntBook, type GntBook } from '@/io';
 import type { KrDocument } from '@/domain/schema';
 
 /**
@@ -17,13 +17,16 @@ export function GntPicker() {
   const [passages, setPassages] = useState<KrDocument[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cacheState, setCacheState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   const book = GNT_BOOKS.find((b) => b.num === bookNum)!;
+  const bundled = BUNDLED_BOOKS.has(book.num);
 
   const open = async (b: GntBook) => {
     setLoading(true);
     setError(null);
     setPassages(null);
+    setCacheState('idle');
     try {
       setPassages(await loadGntBook(b));
     } catch (e) {
@@ -31,6 +34,11 @@ export function GntPicker() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const saveOffline = async (b: GntBook) => {
+    setCacheState('saving');
+    setCacheState((await cacheGntBook(b)) ? 'saved' : 'error');
   };
 
   const loadGold = (doc: KrDocument) => {
@@ -48,16 +56,24 @@ export function GntPicker() {
       <p className="hint">
         Open a Greek New Testament passage. <strong>Gold-standard</strong> shows
         the published syntax tree; <strong>Guided</strong> lets you build the
-        parse with assisted inferences. Books download on first use and are then
-        available offline.
+        parse with assisted inferences. Only Philippians ships with the app;
+        other books download on first use — tap <strong>Save offline</strong> to
+        keep one for later.
       </p>
       <div className="row">
         <label className="field" style={{ flex: 1 }}>
           <span>Book</span>
-          <select value={bookNum} onChange={(e) => setBookNum(Number(e.target.value))}>
+          <select
+            value={bookNum}
+            onChange={(e) => {
+              setBookNum(Number(e.target.value));
+              setCacheState('idle');
+            }}
+          >
             {GNT_BOOKS.map((b) => (
               <option key={b.num} value={b.num}>
                 {b.num}. {b.name}
+                {BUNDLED_BOOKS.has(b.num) ? ' ✓' : ''}
               </option>
             ))}
           </select>
@@ -65,6 +81,25 @@ export function GntPicker() {
         <button className="mini accept" style={{ alignSelf: 'flex-end' }} disabled={loading} onClick={() => void open(book)}>
           {loading ? 'Loading…' : 'Open'}
         </button>
+      </div>
+      <div className="row" style={{ marginTop: 2 }}>
+        <button
+          className="mini"
+          disabled={bundled || cacheState === 'saving' || cacheState === 'saved'}
+          title={bundled ? 'Bundled with the app' : 'Download this book for offline use'}
+          onClick={() => void saveOffline(book)}
+        >
+          {bundled
+            ? 'Bundled ✓'
+            : cacheState === 'saving'
+              ? 'Saving…'
+              : cacheState === 'saved'
+                ? 'Saved offline ✓'
+                : 'Save offline'}
+        </button>
+        {cacheState === 'error' && (
+          <span style={{ color: 'var(--danger)', fontSize: 12, alignSelf: 'center' }}>Couldn’t save</span>
+        )}
       </div>
       {error && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{error}</p>}
       {passages && (

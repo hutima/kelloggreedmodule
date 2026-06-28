@@ -58,10 +58,26 @@ function localBase(): string {
   return `${base.replace(/\/$/, '')}/gnt/`;
 }
 
+/** Only Philippians is bundled with the app; the rest fetch on demand. */
+export const BUNDLED_BOOKS = new Set([11]);
+
 /** Fetch and convert a book into one document per sentence (cached by the SW). */
 export async function loadGntBook(book: GntBook): Promise<KrDocument[]> {
   const xml = await fetchBookXml(book);
   return lowfatToDocuments(xml, { book: book.name });
+}
+
+/**
+ * Warm the service-worker cache for a book so it is available offline, without
+ * loading a passage. Resolves true on success.
+ */
+export async function cacheGntBook(book: GntBook): Promise<boolean> {
+  try {
+    await fetchBookXml(book);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function fetchBookXml(book: GntBook): Promise<string> {
