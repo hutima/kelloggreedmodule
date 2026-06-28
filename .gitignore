@@ -5,6 +5,7 @@ dist-ssr
 coverage
 .DS_Store
 .eslintcache
+*.tsbuildinfo
 
 # Editor / IDE
 .vscode/*

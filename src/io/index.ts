@@ -1,3 +1,3 @@
 export * from './json';
 export * from './export';
-export { downloadText, downloadBlob, slugify } from './download';
+export { downloadText, downloadBlob, copyText, slugify } from './download';

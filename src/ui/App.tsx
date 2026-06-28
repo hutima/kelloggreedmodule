@@ -3,6 +3,7 @@ import { TopBar } from './components/TopBar';
 import { DiagramCanvas } from './components/DiagramCanvas';
 import { LeftPanel } from './panels/LeftPanel';
 import { RightPanel } from './panels/RightPanel';
+import { UpdateModal } from './components/UpdateModal';
 
 /**
  * Application shell: a three-panel workspace (sources · diagram · inspector)
@@ -11,12 +12,14 @@ import { RightPanel } from './panels/RightPanel';
 export function App() {
   const [showLeft, setShowLeft] = useState(true);
   const [showRight, setShowRight] = useState(true);
+  const [showUpdates, setShowUpdates] = useState(false);
 
   return (
     <div className="app">
       <TopBar
         onToggleLeft={() => setShowLeft((v) => !v)}
         onToggleRight={() => setShowRight((v) => !v)}
+        onOpenUpdates={() => setShowUpdates(true)}
       />
       <div
         className={`workspace${showLeft ? '' : ' hide-left'}${
@@ -29,6 +32,7 @@ export function App() {
         </main>
         <RightPanel hidden={!showRight} />
       </div>
+      <UpdateModal open={showUpdates} onClose={() => setShowUpdates(false)} />
     </div>
   );
 }
