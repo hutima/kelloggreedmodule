@@ -1,7 +1,7 @@
 import type { Token } from '@/domain/schema';
 import { lexicon } from '../lexicon';
 import type { Inference, InferenceRule, RuleContext } from '../types';
-import { buildWordNode, prevToken, wordNodeId } from './helpers';
+import { IMPLIED_COPULA_ID, buildWordNode, impliedCopulaNode, prevToken, wordNodeId } from './helpers';
 
 /**
  * Greek argument structure from morphological CASE — robust to free word order
@@ -41,6 +41,13 @@ export const caseRoleRule: InferenceRule = {
     const verb = findMainVerb(ctx);
     const out: Inference[] = [];
 
+    // A verbless nominal clause (a greeting) has no verb token, but clauseRule
+    // synthesizes an implied copula to anchor it; its complements attach there.
+    const hasNominative = doc.tokens.some(
+      (t) => isNominal(t) && t.morphology?.case === 'nominative' && !lex.isArticle(t.surface),
+    );
+    const impliedHead = !verb && hasNominative;
+
     const governedByPrep = (t: Token) => {
       const prev = prevToken(doc.tokens, t);
       return prev ? lex.isPreposition(prev.surface) || prev.pos === 'preposition' : false;
@@ -60,6 +67,11 @@ export const caseRoleRule: InferenceRule = {
         out.push(
           roleInference(ctx, nextId, t, verb, 'dativeComplement', 'object', 'low',
             `Dative "${t.surface}" — likely a complement of "${verb.surface}", but the dative is ambiguous (indirect object, instrument, sphere…). Relink if needed.`),
+        );
+      } else if (c === 'dative' && impliedHead) {
+        out.push(
+          copulaRoleInference(nextId, t, doc.language, 'dativeComplement',
+            `Dative "${t.surface}" is a complement of the implied copula ("[is] to ${t.surface}…"). Relink if needed.`),
         );
       } else if (c === 'genitive') {
         // Adnominal genitive: attach to the nearest other nominal as its head.
@@ -85,6 +97,37 @@ function nearestNominalHead(tokens: Token[], gen: Token): Token | undefined {
   const before = candidates.filter((t) => t.index < gen.index).sort((a, b) => b.index - a.index)[0];
   const after = candidates.filter((t) => t.index > gen.index).sort((a, b) => a.index - b.index)[0];
   return before ?? after;
+}
+
+/** Attach a complement token to the synthesized implied-copula predicate node. */
+function copulaRoleInference(
+  nextId: RuleContext['nextId'],
+  dep: Token,
+  language: 'en' | 'grc',
+  type: 'dativeComplement' | 'predicateNominative',
+  reason: string,
+): Inference {
+  return {
+    id: nextId('inf'),
+    title: `${type}: (is) → ${dep.surface}`,
+    category: 'object',
+    provenance: { source: 'inferred', confidence: 'low', reason },
+    tokenIds: [dep.id],
+    ops: [
+      { op: 'addNode', node: impliedCopulaNode(language) },
+      { op: 'addNode', node: buildWordNode(dep, { role: type }) },
+      {
+        op: 'addRelation',
+        relation: {
+          id: nextId('rel'),
+          type,
+          headId: IMPLIED_COPULA_ID,
+          dependentId: wordNodeId(dep.id),
+          provenance: { source: 'inferred', confidence: 'low', reason },
+        },
+      },
+    ],
+  };
 }
 
 function roleInference(

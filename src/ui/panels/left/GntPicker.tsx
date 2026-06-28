@@ -13,6 +13,7 @@ import type { KrDocument } from '@/domain/schema';
 export function GntPicker() {
   const loadDocument = useEditorStore((s) => s.loadDocument);
   const setMode = useEditorStore((s) => s.setMode);
+  const bootstrapParse = useEditorStore((s) => s.bootstrapParse);
   const [bookNum, setBookNum] = useState(11); // Philippians (bundled)
   const [passages, setPassages] = useState<KrDocument[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -48,15 +49,19 @@ export function GntPicker() {
 
   const loadGuided = (doc: KrDocument) => {
     loadDocument(toGuided(doc));
-    setMode('assisted'); // runs the inference engine
+    setMode('assisted');
+    // Seed a rough parse from the inference engine so the diagram is populated
+    // and editable straight away, instead of an empty baseline.
+    bootstrapParse();
   };
 
   return (
     <div className="gnt-picker">
       <p className="hint">
         Open a Greek New Testament passage. <strong>Gold-standard</strong> shows
-        the published syntax tree; <strong>Guided</strong> lets you build the
-        parse with assisted inferences. Only Philippians ships with the app;
+        the published syntax tree; <strong>Guided</strong> seeds a rough,
+        editable parse from the inference engine — tap a tentative (coloured)
+        link to relink it. Only Philippians ships with the app;
         other books download on first use — tap <strong>Save offline</strong> to
         keep one for later.
       </p>

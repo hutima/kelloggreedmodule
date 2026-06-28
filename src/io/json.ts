@@ -31,12 +31,34 @@ export interface ImportResult {
   error?: string;
 }
 
+/**
+ * Best-effort cleanup of JSON pasted from a chat model. Strips ```json code
+ * fences and converts the curly/smart quotes that ChatGPT and word processors
+ * substitute (“ ” ‘ ’) back to straight ASCII quotes, so a paste that is valid
+ * apart from cosmetic quoting still imports. Only used as a fallback after a
+ * strict parse fails, so well-formed JSON is never touched.
+ */
+function relaxJson(text: string): string {
+  return text
+    .replace(/^\uFEFF/, '')
+    .replace(/^\s*```(?:json)?\s*\n?/i, '')
+    .replace(/\n?\s*```\s*$/i, '')
+    .replace(/[“”„‟″‶]/g, '"')
+    .replace(/[‘’‚‛′‵]/g, "'")
+    .trim();
+}
+
 export function importJson(text: string): ImportResult {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
-  } catch (e) {
-    return { ok: false, error: `Invalid JSON: ${(e as Error).message}` };
+  } catch {
+    // Retry once after normalizing smart quotes / code fences from an LLM paste.
+    try {
+      raw = JSON.parse(relaxJson(text));
+    } catch (e) {
+      return { ok: false, error: `Invalid JSON: ${(e as Error).message}` };
+    }
   }
   const parsed = KrDocumentSchema.safeParse(migrate(raw));
   if (!parsed.success) {

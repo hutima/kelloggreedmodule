@@ -1,4 +1,4 @@
-import type { SyntaxNode, Token } from '@/domain/schema';
+import type { Language, SyntaxNode, Token } from '@/domain/schema';
 
 /**
  * Deterministic node id for the word-node wrapping a token. Using a stable id
@@ -8,6 +8,27 @@ import type { SyntaxNode, Token } from '@/domain/schema';
  */
 export function wordNodeId(tokenId: string): string {
   return `node_w_${tokenId}`;
+}
+
+/**
+ * The single implied-copula predicate node a verbless nominal clause hangs on
+ * (Greek greetings: "χάρις … καὶ εἰρήνη [ἐστιν] ὑμῖν …"). A fixed id lets
+ * separate rules — the clause spine and the case-role complements — all point at
+ * the same synthesized predicate, each emitting an idempotent `addNode` for it,
+ * so any subset of their inferences can be accepted without dangling refs.
+ */
+export const IMPLIED_COPULA_ID = 'node_implied_copula';
+
+export function impliedCopulaNode(language: Language): SyntaxNode {
+  return {
+    id: IMPLIED_COPULA_ID,
+    kind: 'word',
+    role: 'predicate',
+    tokenIds: [],
+    implied: true,
+    label: language === 'grc' ? '(ἐστίν)' : '(is)',
+    provenance: { source: 'inferred', confidence: 'medium' },
+  };
 }
 
 export function buildWordNode(token: Token, partial?: Partial<SyntaxNode>): SyntaxNode {
