@@ -40,6 +40,9 @@ const POS: Record<string, PartOfSpeech> = {
 
 const MORPH_KEYS = ['case', 'gender', 'number', 'person', 'tense', 'voice', 'mood'] as const;
 
+/** Lowfat child roles a copula would link: subject, objects, predicate complement. */
+const PRED_ARG_ROLES = new Set(['s', 'o', 'o2', 'io', 'p']);
+
 function parseXml(xml: string): Document {
   if (typeof DOMParser === 'undefined') {
     throw new Error('Lowfat conversion requires a DOMParser (browser or happy-dom).');
@@ -161,6 +164,35 @@ class SentenceConverter {
 
   /** A clause: the verb is the predicate; arguments hang off verb or clause. */
   private convertClause(el: Element): string {
+    const kids = constituents(el);
+    const verbEl = kids.find((c) => c.getAttribute('role') === 'v' || c.getAttribute('role') === 'vc');
+    // Roles a copula could link. Only a clause that actually carries one of these
+    // is a (possibly verbless) PREDICATION; a clause with none is a bare wrapper
+    // Lowfat puts around the real clause (e.g. <wg role="cl"> over <wg class="cl">).
+    const hasPredArg = kids.some(
+      (c) => c !== verbEl && PRED_ARG_ROLES.has(c.getAttribute('role') ?? ''),
+    );
+
+    // A verbless wrapper with nothing to predicate is not an "(is)" clause —
+    // synthesizing an implied copula here invents a spurious empty subject and a
+    // floating predicate. Collapse it into its content instead: pass a lone child
+    // straight through (its real clause becomes the representative), and for a
+    // multi-child wrapper keep a bare container that simply hosts the children.
+    if (!verbEl && !hasPredArg) {
+      if (kids.length === 1) return this.convert(kids[0]!);
+      const k = this.key(el);
+      const clauseId = `cl_${k}`;
+      this.nodes.push({
+        id: clauseId,
+        kind: 'clause',
+        tokenIds: [],
+        clauseType: 'unknown',
+        provenance: { source: 'given', confidence: 'high' },
+      });
+      for (const child of kids) this.rel('adjunct', clauseId, this.convert(child));
+      return clauseId;
+    }
+
     const k = this.key(el);
     const clauseId = `cl_${k}`;
     this.nodes.push({
@@ -171,13 +203,12 @@ class SentenceConverter {
       provenance: { source: 'given', confidence: 'high' },
     });
 
-    const kids = constituents(el);
-    const verbEl = kids.find((c) => c.getAttribute('role') === 'v' || c.getAttribute('role') === 'vc');
     let verbId: string;
     if (verbEl) {
       verbId = this.convert(verbEl);
     } else {
-      // Verbless clause (e.g. a greeting): supply an implied predicate.
+      // Verbless predication (a greeting: nominative + dative, no verb): supply
+      // an implied copula to anchor the subject and complement.
       verbId = `impl_${k}`;
       this.nodes.push({
         id: verbId,
