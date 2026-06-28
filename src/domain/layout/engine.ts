@@ -417,15 +417,17 @@ function layoutCoordination(
     });
   }
 
-  // Dashed bridge carrying the coordinator, between the outer prongs. The label
-  // sits on the inside of the fork so it never crowds the junction/divider.
-  const bridgeX = openLeft ? junctionX - prong * 0.5 : prong * 0.5;
-  elements.push(line(eid(), bridgeX, topY, bridgeX, botY, 'dashed', 'coordination', node.id));
+  // The coordinator's dashed line sits AT the fork vertex — the point where the
+  // prongs converge and the governor's connector lands — not partway along the
+  // prongs. (For a subject it is nudged just inside the junction so it clears
+  // the subject|predicate divider that meets the same point.)
+  const vertexX = openLeft ? junctionX - 5 : 0;
+  elements.push(line(eid(), vertexX, topY, vertexX, botY, 'dashed', 'coordination', node.id));
   if (coordText) {
     elements.push({
       kind: 'text',
       id: eid(),
-      x: openLeft ? bridgeX - 4 : bridgeX + 4,
+      x: openLeft ? vertexX - 5 : vertexX + 6,
       y: 4,
       text: coordText,
       anchor: openLeft ? 'end' : 'start',
