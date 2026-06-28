@@ -94,6 +94,30 @@ function isWordCoordination(ctx: Ctx, node: SyntaxNode): boolean {
 
 const DEG = 180 / Math.PI;
 
+/**
+ * Where along a leaf-modifier diagonal the word is centred. Pushing it past the
+ * midpoint (toward the low end) keeps the word clear of the head's baseline —
+ * which, for an appositive or coordinated head, runs horizontally right over the
+ * diagonal's upper end. 0.5 = midpoint; >0.5 = nearer the bottom.
+ */
+const DIAG_TEXT_FRAC = 0.72;
+
+/**
+ * Geometry of a leaf-modifier diagonal carrying `text` (e.g. an article, a
+ * possessive like ἡμῶν). The run is scaled to the word so a long modifier gets a
+ * longer, less crowded slant, and the drop is grown to match so the word — set
+ * low on the line (DIAG_TEXT_FRAC) — clears the head's baseline above it. Both
+ * stay at least the constant minimums, so short words look exactly as before.
+ */
+function diagLeafGeom(text: string): { run: number; drop: number } {
+  const w = measureText(text);
+  // The word sits between DIAG_TEXT_FRAC±half along the line; size the line so
+  // that band (plus headroom for the upper end) is at least the word's length.
+  const len = Math.max(LAYOUT.diagRun * 2, w + LAYOUT.fontSize * 1.4);
+  const angle = 57 / DEG; // consistent slant; steeper than a long shallow run
+  return { run: len * Math.cos(angle), drop: len * Math.sin(angle) };
+}
+
 /** Text written along a diagonal, rotated to lie on the line from (x1,y1)→(x2,y2). */
 function diagonalText(
   text: string,
@@ -103,14 +127,16 @@ function diagonalText(
   y2: number,
   relationId?: string,
   nodeId?: string,
+  frac = 0.5,
 ): TextElement {
   const angle = Math.atan2(y2 - y1, x2 - x1) * DEG;
-  // Midpoint, nudged just above the line so the word rests on the diagonal.
+  // Point `frac` of the way down the line, nudged just above it so the word
+  // rests on the diagonal rather than straddling it.
   return {
     kind: 'text',
     id: eid(),
-    x: (x1 + x2) / 2,
-    y: (y1 + y2) / 2 - 3,
+    x: x1 + (x2 - x1) * frac,
+    y: y1 + (y2 - y1) * frac - 3,
     text,
     anchor: 'middle',
     rotate: angle,
@@ -125,10 +151,17 @@ function diagonalText(
  * its endpoint, so the layout must reserve this much room or it runs into the
  * row below.
  */
-function diagonalDepth(x1: number, y1: number, x2: number, y2: number, text: string): number {
+function diagonalDepth(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  text: string,
+  frac = 0.5,
+): number {
   const angle = Math.atan2(y2 - y1, x2 - x1);
   const w = measureText(text);
-  const midY = (y1 + y2) / 2 - 3;
+  const midY = y1 + (y2 - y1) * frac - 3;
   const along = (w / 2) * Math.abs(Math.sin(angle)); // half the word, projected on y
   const across = LAYOUT.fontSize * 0.75 * Math.abs(Math.cos(angle)); // glyph ascent/descent
   return midY + along + across + 2;
@@ -330,15 +363,18 @@ function layoutHead(
       belowBottom = Math.max(belowBottom, depTop + block.height, diagonalDepth(attachX, 0, endX, depTop, prep));
       cursor = objX + block.width;
     } else if (rel.type !== 'conjunct' && isDiagonalLeaf(ctx, rel.dependentId)) {
-      // Closed-class modifier written ALONG its diagonal; no sub-baseline.
+      // Closed-class modifier written ALONG its diagonal; no sub-baseline. The
+      // run/drop scale to the word so a long possessive (ἡμῶν) hangs clear of
+      // the head's baseline instead of clashing with it.
       const n2 = getNode(ctx.doc.syntax, rel.dependentId)!;
       const t = nodeText(ctx.doc, n2) || n2.label || '';
+      const { run, drop } = diagLeafGeom(t);
       const attachX = cursor;
-      const endX = cursor + LAYOUT.diagRun;
-      elements.push(line(eid(), attachX, 0, endX, depTop, 'solid', 'slant', undefined, rel.id));
-      elements.push(diagonalText(t, attachX, 0, endX, depTop, rel.id, rel.dependentId));
+      const endX = cursor + run;
+      elements.push(line(eid(), attachX, 0, endX, drop, 'solid', 'slant', undefined, rel.id));
+      elements.push(diagonalText(t, attachX, 0, endX, drop, rel.id, rel.dependentId, DIAG_TEXT_FRAC));
       railRight = Math.max(railRight, attachX);
-      belowBottom = Math.max(belowBottom, diagonalDepth(attachX, 0, endX, depTop, t));
+      belowBottom = Math.max(belowBottom, diagonalDepth(attachX, 0, endX, drop, t, DIAG_TEXT_FRAC));
       cursor = endX + measureText(t) * 0.6;
     } else {
       // A noun modifier / phrase keeps its own sub-baseline, hung on a stem.
@@ -499,21 +535,20 @@ function layoutCoordination(
     });
   }
 
-  // The coordinator's dashed line crosses the prongs near the wide end of the
-  // split, inset just past the conjunct content toward the junction so a
-  // descendant an earlier conjunct hangs to the edge (e.g. a genitive) does not
-  // run into it. The coordinator sits centred on the line, rotated upright so it
-  // reads along the connector instead of spilling across the fork.
-  const inset = Math.min(12, prong * 0.4);
-  const dashX = openLeft ? junctionX - prong + inset : prong - inset;
-  const f = 1 - inset / prong; // shrink the span to the prongs' height at dashX
-  elements.push(line(eid(), dashX, topY * f, dashX, botY * f, 'dashed', 'coordination', node.id));
+  // The coordinator's dashed line is the full-height bar at the WIDE end of the
+  // fork, joining the two prongs exactly where they meet the conjunct baselines
+  // (the way a hand-drawn Kellogg-Reed fork bridges the branches). The
+  // coordinator rides at the TOP of that bar, rotated upright and set into the
+  // open throat of the fork — away from the conjunct words — so it never overlaps
+  // them.
+  const dashX = openLeft ? junctionX - prong : prong;
+  elements.push(line(eid(), dashX, topY, dashX, botY, 'dashed', 'coordination', node.id));
   if (coordText) {
     elements.push({
       kind: 'text',
       id: eid(),
-      x: dashX - 4,
-      y: 0,
+      x: dashX + (openLeft ? 8 : -8),
+      y: topY + LAYOUT.smallFontSize,
       text: coordText,
       anchor: 'middle',
       small: true,
@@ -651,17 +686,18 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
       return;
     }
     if (r.type !== 'conjunct' && isDiagonalLeaf(ctx, r.dependentId)) {
-      // Adverb / particle written along its diagonal.
+      // Adverb / particle written along its diagonal, length scaled to the word.
       const node2 = getNode(ctx.doc.syntax, r.dependentId)!;
       const t = nodeText(ctx.doc, node2) || node2.label || '';
+      const { run, drop } = diagLeafGeom(t);
       const attachX = bx;
-      const endX = bx + LAYOUT.diagRun;
-      elements.push(line(eid(), attachX, 0, endX, belowTop, 'solid', 'slant', undefined, r.id));
-      elements.push(diagonalText(t, attachX, 0, endX, belowTop, r.id, r.dependentId));
+      const endX = bx + run;
+      elements.push(line(eid(), attachX, 0, endX, drop, 'solid', 'slant', undefined, r.id));
+      elements.push(diagonalText(t, attachX, 0, endX, drop, r.id, r.dependentId, DIAG_TEXT_FRAC));
       railRight = Math.max(railRight, attachX);
       bx = endX + measureText(t) * 0.6 + LAYOUT.dependentGap;
       rowRight = Math.max(rowRight, bx);
-      belowMaxBottom = Math.max(belowMaxBottom, diagonalDepth(attachX, 0, endX, belowTop, t));
+      belowMaxBottom = Math.max(belowMaxBottom, diagonalDepth(attachX, 0, endX, drop, t, DIAG_TEXT_FRAC));
       return;
     }
     const block = layoutNode(ctx, r.dependentId, seen);

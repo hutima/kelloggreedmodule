@@ -48,6 +48,22 @@ describe('Lowfat → KrDocument converter', () => {
     expect([conj!.headId, conj!.dependentId]).toContain(id('Τιμόθεος'));
   });
 
+  it('does not wrap a verbless clause in a spurious empty "(is)" container', () => {
+    // Lowfat wraps each sentence's real clause in an outer <wg role="cl">. That
+    // wrapper carries no subject/complement, so it must NOT become its own clause
+    // with a fabricated implied copula + empty subject — the real clause (with the
+    // χάρις/εἰρήνη subject) should be the root instead.
+    const [, v2] = lowfatToDocuments(xml());
+    const root = v2!.syntax.nodes.find((n) => n.id === v2!.syntax.rootId)!;
+    expect(root.kind).toBe('clause');
+    const rootChildren = v2!.syntax.relations.filter((r) => r.headId === root.id);
+    expect(rootChildren.some((r) => r.type === 'subject')).toBe(true);
+    // Exactly one implied "(is)" predicate in the whole sentence (the real one),
+    // not two (one of which would be the wrapper's).
+    const impliedIs = v2!.syntax.nodes.filter((n) => n.implied && n.label === '(is)');
+    expect(impliedIs).toHaveLength(1);
+  });
+
   it('renders to a non-empty diagram', () => {
     const [v1] = lowfatToDocuments(xml());
     const layout = layoutDocument(v1!, {});
