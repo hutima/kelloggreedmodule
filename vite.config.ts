@@ -14,7 +14,17 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // Prompt strategy with a hand-written worker (injectManifest). The worker
+      // installs and WAITS — it never skipWaiting()s on install and never
+      // clientsClaim()s automatically. Activation is driven only by a user tap
+      // (SKIP_WAITING message) or a cold start, which avoids the iOS standalone
+      // freeze caused by a controllerchange firing mid-launch. Registration is
+      // done by hand in src/pwa/pwa.ts, so we disable the auto-injected one.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      registerType: 'prompt',
+      injectRegister: null,
       includeAssets: ['favicon.svg', 'robots.txt'],
       manifest: {
         name: 'Kellogg-Reed Diagrammer',
@@ -38,13 +48,12 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2}'],
-        cleanupOutdatedCaches: true,
-        clientsClaim: true,
       },
       devOptions: {
         enabled: false,
+        type: 'module',
       },
     }),
   ],
