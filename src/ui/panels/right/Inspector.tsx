@@ -11,6 +11,8 @@ export function Inspector() {
   const updateNode = useEditorStore((s) => s.updateNode);
   const updateRelation = useEditorStore((s) => s.updateRelation);
   const removeRelation = useEditorStore((s) => s.removeRelation);
+  const startRelink = useEditorStore((s) => s.startRelink);
+  const linking = useEditorStore((s) => s.linking);
 
   if (sel.tokenId) {
     const t = doc.tokens.find((x) => x.id === sel.tokenId);
@@ -45,8 +47,37 @@ export function Inspector() {
           <dt>Dependent</dt>
           <dd>{dep ? nodeText(doc, dep) || dep.label || dep.kind : '—'}</dd>
           <dt>Source</dt>
-          <dd>{r.provenance?.source ?? 'manual'}</dd>
+          <dd>
+            {r.provenance?.source ?? 'manual'}
+            {r.provenance?.confidence === 'low' && (
+              <span className="tentative-tag"> · ambiguous</span>
+            )}
+          </dd>
         </dl>
+        <div className="field">
+          <span>Re-attach this connection</span>
+          <div className="row">
+            <button
+              className="mini"
+              disabled={linking?.relationId === r.id && linking.end === 'dependent'}
+              onClick={() => startRelink(r.id, 'dependent')}
+            >
+              Pick word…
+            </button>
+            <button
+              className="mini"
+              disabled={linking?.relationId === r.id && linking.end === 'head'}
+              onClick={() => startRelink(r.id, 'head')}
+            >
+              Pick head…
+            </button>
+          </div>
+          {linking?.relationId === r.id && (
+            <p className="hint" style={{ margin: '6px 0 0' }}>
+              Click the word to use as the new <strong>{linking.end}</strong> (Esc to cancel).
+            </p>
+          )}
+        </div>
         <label className="field">
           <span>Connector label</span>
           <input

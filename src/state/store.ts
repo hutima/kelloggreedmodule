@@ -56,6 +56,10 @@ export interface EditorActions {
   setLayoutHint: (nodeId: string, hint: NodeLayoutHint | undefined) => void;
   // selection
   select: (selection: Selection) => void;
+  // click-to-relink
+  startRelink: (relationId: string, end: 'head' | 'dependent') => void;
+  cancelRelink: () => void;
+  relinkTo: (nodeId: string) => void;
   // inference
   refreshInferences: () => void;
   acceptInference: (id: string) => void;
@@ -89,6 +93,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     doc: initialDoc(),
     mode: 'manual',
     selection: {},
+    linking: null,
     inferences: [],
     status: 'idle',
     past: [],
@@ -96,12 +101,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
     newDocument: (language, title) => {
       const doc = createDocument({ language, title });
-      set({ doc, past: [], future: [], inferences: [], selection: {}, status: 'idle' });
+      set({ doc, past: [], future: [], inferences: [], selection: {}, linking: null, status: 'idle' });
       scheduleAutosave(doc, (status) => set({ status }));
     },
 
     loadDocument: (doc) =>
-      set({ doc, past: [], future: [], inferences: [], selection: {}, status: 'saved' }),
+      set({ doc, past: [], future: [], inferences: [], selection: {}, linking: null, status: 'saved' }),
 
     setMode: (mode) => {
       set({ mode });
@@ -142,6 +147,26 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       }),
 
     select: (selection) => set({ selection }),
+
+    startRelink: (relationId, end) => set({ linking: { relationId, end }, selection: { relationId } }),
+    cancelRelink: () => set({ linking: null }),
+    relinkTo: (nodeId) => {
+      const { linking, doc } = get();
+      if (!linking) return;
+      const rel = doc.syntax.relations.find((r) => r.id === linking.relationId);
+      set({ linking: null });
+      if (!rel) return;
+      // Re-pointing an endpoint to the other endpoint would make a self-loop.
+      const other = linking.end === 'head' ? rel.dependentId : rel.headId;
+      if (nodeId === other) return;
+      commit((d) => ({
+        ...d,
+        syntax: mUpdateRelation(d.syntax, linking.relationId, {
+          [linking.end === 'head' ? 'headId' : 'dependentId']: nodeId,
+          provenance: { source: 'manual', confidence: 'high' },
+        }),
+      }));
+    },
 
     refreshInferences: () => {
       const { doc } = get();

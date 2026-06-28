@@ -6,6 +6,8 @@ export const THEME = {
   ink: '#1f2933',
   muted: '#8a97a3',
   accent: '#2f6f9f',
+  /** Low-confidence (ambiguous) inferences — invites the user to relink. */
+  tentative: '#c2410c',
   paper: '#ffffff',
   strokeWidth: 1.6,
   /** Unicode-capable, polytonic-Greek-friendly font stack. */

@@ -326,6 +326,28 @@ textarea.code,
   margin: auto;
   padding: 28px;
 }
+/* While re-linking, the diagram is a target: every word is a click candidate. */
+.diagram-surface.relinking .diagram-paper {
+  cursor: crosshair;
+  outline: 2px dashed var(--tentative, #c2410c);
+  outline-offset: 4px;
+}
+.relink-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 8px 0;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #7c2d12;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 6px;
+}
+.tentative-tag {
+  color: var(--tentative, #c2410c);
+  font-weight: 600;
+}
 .diagram-paper {
   background: var(--paper);
   box-shadow: var(--shadow);

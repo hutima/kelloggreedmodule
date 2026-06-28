@@ -47,4 +47,35 @@ describe('editor store', () => {
     store.getState().removeNode(rootId);
     expect(store.getState().doc.syntax.nodes.some((n) => n.id === rootId)).toBe(true);
   });
+
+  it('relinks a relation endpoint by clicking a word', () => {
+    const s = store.getState();
+    // Two word nodes and a relation between them.
+    s.upsertNode({ id: 'a', kind: 'word', tokenIds: [] });
+    s.upsertNode({ id: 'b', kind: 'word', tokenIds: [] });
+    s.upsertNode({ id: 'c', kind: 'word', tokenIds: [] });
+    s.upsertRelation({ id: 'rx', type: 'adjectival', headId: 'a', dependentId: 'b' });
+
+    store.getState().startRelink('rx', 'head');
+    expect(store.getState().linking).toEqual({ relationId: 'rx', end: 'head' });
+
+    // Clicking node "c" re-points the head and marks the edit manual.
+    store.getState().relinkTo('c');
+    const rel = store.getState().doc.syntax.relations.find((r) => r.id === 'rx')!;
+    expect(rel.headId).toBe('c');
+    expect(rel.provenance?.source).toBe('manual');
+    expect(store.getState().linking).toBeNull();
+  });
+
+  it('ignores a relink that would form a self-loop', () => {
+    const s = store.getState();
+    s.upsertNode({ id: 'a', kind: 'word', tokenIds: [] });
+    s.upsertNode({ id: 'b', kind: 'word', tokenIds: [] });
+    s.upsertRelation({ id: 'ry', type: 'adjectival', headId: 'a', dependentId: 'b' });
+    store.getState().startRelink('ry', 'head');
+    store.getState().relinkTo('b'); // same as dependent → rejected
+    const rel = store.getState().doc.syntax.relations.find((r) => r.id === 'ry')!;
+    expect(rel.headId).toBe('a');
+    expect(store.getState().linking).toBeNull();
+  });
 });

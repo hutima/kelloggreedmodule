@@ -31,6 +31,8 @@ export interface LineElement {
   /** Originating syntax node/relation id for hit-testing & selection. */
   nodeId?: string;
   relationId?: string;
+  /** A low-confidence (ambiguous) inference — rendered in a distinct colour. */
+  tentative?: boolean;
 }
 
 export interface TextElement {
@@ -45,6 +47,8 @@ export interface TextElement {
   /** Smaller text for connector labels (prepositions, conjunctions). */
   small?: boolean;
   muted?: boolean; // implied/elided elements
+  /** A low-confidence (ambiguous) inference — rendered in a distinct colour. */
+  tentative?: boolean;
   /**
    * Clockwise rotation in degrees about (x, y). Used to write a word ALONG a
    * diagonal connector — the traditional Kellogg-Reed treatment of

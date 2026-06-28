@@ -25,10 +25,10 @@ function escapeXml(s: string): string {
 function elementToSvg(el: DiagramElement): string {
   if (el.kind === 'line') {
     const dash = dashFor(el.style);
-    const color = el.role === 'connector' || el.style !== 'solid' ? THEME.ink : THEME.ink;
+    const color = el.tentative ? THEME.tentative : THEME.ink;
     return `<line x1="${r(el.x1)}" y1="${r(el.y1)}" x2="${r(el.x2)}" y2="${r(el.y2)}" stroke="${color}" stroke-width="${THEME.strokeWidth}"${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linecap="round" />`;
   }
-  const fill = el.muted ? THEME.muted : THEME.ink;
+  const fill = el.tentative ? THEME.tentative : el.muted ? THEME.muted : THEME.ink;
   const size = el.small ? THEME.smallFontSize : THEME.fontSize;
   const style = el.italic ? ' font-style="italic"' : '';
   const transform = el.rotate ? ` transform="rotate(${r(el.rotate)} ${r(el.x)} ${r(el.y)})"` : '';

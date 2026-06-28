@@ -1,17 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { layoutDocument } from '@/domain/layout';
 import { dashFor } from '@/domain/render';
 
+const TENTATIVE = '#c2410c';
+const INK = '#1f2933';
+
 /**
  * Interactive SVG canvas. It renders exactly the primitives the layout engine
- * emits — it has no knowledge of tokens or word order — and adds selection and
- * zoom. Because export uses the same layout, the picture is identical on paper.
+ * emits — it has no knowledge of tokens or word order — and adds selection,
+ * zoom, and click-to-relink. Because export uses the same layout, the picture
+ * is identical on paper.
  */
 export function DiagramCanvas() {
   const doc = useEditorStore((s) => s.doc);
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
+  const linking = useEditorStore((s) => s.linking);
+  const relinkTo = useEditorStore((s) => s.relinkTo);
+  const cancelRelink = useEditorStore((s) => s.cancelRelink);
   const [scale, setScale] = useState(1);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -19,6 +26,21 @@ export function DiagramCanvas() {
     () => layoutDocument(doc, doc.layoutHints),
     [doc],
   );
+
+  // Esc cancels an in-progress relink.
+  useEffect(() => {
+    if (!linking) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && cancelRelink();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [linking, cancelRelink]);
+
+  // While relinking, a node click sets the chosen endpoint; otherwise it selects.
+  const onNode = (nodeId?: string) => {
+    if (!nodeId) return select({});
+    if (linking) relinkTo(nodeId);
+    else select({ nodeId });
+  };
 
   const isSelected = (nodeId?: string, relationId?: string) =>
     (nodeId && nodeId === selection.nodeId) ||
@@ -48,8 +70,16 @@ export function DiagramCanvas() {
           {collapsed ? '▸' : '▾'}
         </button>
       </div>
+      {linking && (
+        <div className="relink-banner">
+          Click the word to use as the new <strong>{linking.end}</strong>.
+          <button className="mini" onClick={cancelRelink}>
+            Cancel (Esc)
+          </button>
+        </div>
+      )}
       <div className="canvas-wrap">
-        <div className="diagram-surface">
+        <div className={`diagram-surface${linking ? ' relinking' : ''}`}>
         <svg
           className="diagram-paper"
           width={layout.width * scale}
@@ -58,7 +88,10 @@ export function DiagramCanvas() {
           role="img"
           aria-label={`Kellogg-Reed diagram of: ${doc.text || doc.title}`}
           onClick={(e) => {
-            if (e.target === e.currentTarget) select({});
+            if (e.target === e.currentTarget) {
+              if (linking) cancelRelink();
+              else select({});
+            }
           }}
         >
           {layout.elements.map((el) => {
@@ -73,7 +106,7 @@ export function DiagramCanvas() {
                     y1={el.y1}
                     x2={el.x2}
                     y2={el.y2}
-                    stroke="#1f2933"
+                    stroke={el.tentative ? TENTATIVE : INK}
                     strokeWidth={1.6}
                     strokeLinecap="round"
                     {...(dash ? { strokeDasharray: dash } : {})}
@@ -85,13 +118,10 @@ export function DiagramCanvas() {
                       y1={el.y1}
                       x2={el.x2}
                       y2={el.y2}
-                      onClick={() =>
-                        select(
-                          el.relationId
-                            ? { relationId: el.relationId }
-                            : { nodeId: el.nodeId },
-                        )
-                      }
+                      onClick={() => {
+                        if (el.nodeId) onNode(el.nodeId);
+                        else if (el.relationId && !linking) select({ relationId: el.relationId });
+                      }}
                     />
                   )}
                 </g>
@@ -107,15 +137,13 @@ export function DiagramCanvas() {
                 textAnchor={el.anchor}
                 fontSize={el.small ? 13 : 18}
                 fontStyle={el.italic ? 'italic' : undefined}
-                fill={el.muted ? '#8a97a3' : '#1f2933'}
+                fill={el.tentative ? TENTATIVE : el.muted ? '#8a97a3' : '#1f2933'}
                 {...(el.rotate ? { transform: `rotate(${el.rotate} ${el.x} ${el.y})` } : {})}
-                onClick={() =>
-                  el.nodeId
-                    ? select({ nodeId: el.nodeId })
-                    : el.relationId
-                      ? select({ relationId: el.relationId })
-                      : select({})
-                }
+                onClick={() => {
+                  if (el.nodeId) onNode(el.nodeId);
+                  else if (el.relationId && !linking) select({ relationId: el.relationId });
+                  else if (!linking) select({});
+                }}
               >
                 {el.text}
               </text>

@@ -27,4 +27,16 @@ describe('SVG renderer', () => {
     const svg = layoutToSvg(layoutDocument(doc));
     expect(svg).toContain('λόγος');
   });
+
+  it('marks low-confidence relations as tentative for ambiguity colouring', () => {
+    const doc = cloneSample('doc_sample_fox')!;
+    const rel = doc.syntax.relations[0]!;
+    rel.provenance = { source: 'inferred', confidence: 'low' };
+    const layout = layoutDocument(doc, doc.layoutHints);
+    const tentative = layout.elements.filter(
+      (e) => (e as { tentative?: boolean }).tentative,
+    );
+    expect(tentative.length).toBeGreaterThan(0);
+    expect(tentative.every((e) => e.relationId === rel.id)).toBe(true);
+  });
 });

@@ -117,6 +117,18 @@ export function layoutDocument(doc: KrDocument, hints: LayoutHints = {}): Diagra
   if (!root) return { width: 200, height: 80, elements: [] };
 
   const block = layoutNode(ctx, root.id, new Set());
+  // Flag connectors for low-confidence (ambiguous) relations so both the canvas
+  // and the export draw them in a distinct colour, inviting the user to relink.
+  const tentative = new Set(
+    doc.syntax.relations
+      .filter((r) => r.provenance?.source === 'inferred' && r.provenance.confidence === 'low')
+      .map((r) => r.id),
+  );
+  if (tentative.size) {
+    for (const el of block.elements) {
+      if (el.relationId && tentative.has(el.relationId)) el.tentative = true;
+    }
+  }
   const m = LAYOUT.margin;
   // Normalize by the true bounding box. Most content sits at/below the baseline,
   // but a coordination fork places its upper conjunct above it (negative y), so
@@ -417,17 +429,16 @@ function layoutCoordination(
     });
   }
 
-  // The coordinator's dashed line sits AT the fork vertex — the point where the
-  // prongs converge and the governor's connector lands — not partway along the
-  // prongs. (For a subject it is nudged just inside the junction so it clears
-  // the subject|predicate divider that meets the same point.)
-  const vertexX = openLeft ? junctionX - 5 : 0;
-  elements.push(line(eid(), vertexX, topY, vertexX, botY, 'dashed', 'coordination', node.id));
+  // The coordinator's dashed line spans the WIDE end of the split, joining the
+  // two prongs where they reach the conjunct baselines (top and bottom) — not
+  // the narrow vertex where they converge on the governor.
+  const wideX = openLeft ? junctionX - prong : prong;
+  elements.push(line(eid(), wideX, topY, wideX, botY, 'dashed', 'coordination', node.id));
   if (coordText) {
     elements.push({
       kind: 'text',
       id: eid(),
-      x: openLeft ? vertexX - 5 : vertexX + 6,
+      x: openLeft ? wideX - 6 : wideX + 6,
       y: 4,
       text: coordText,
       anchor: openLeft ? 'end' : 'start',
