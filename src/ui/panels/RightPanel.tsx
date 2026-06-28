@@ -14,6 +14,11 @@ export function RightPanel({ hidden }: { hidden: boolean }) {
   const mode = useEditorStore((s) => s.mode);
   const inferenceCount = useEditorStore((s) => s.inferences.length);
   const [tab, setTab] = useState<Tab>('inspector');
+  // On phones the inspector starts collapsed so the input and diagram are
+  // visible first; it can be expanded with the caret in its tab bar.
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches,
+  );
 
   const tabs: { id: Tab; label: string; show: boolean }[] = [
     { id: 'inspector', label: 'Inspector', show: true },
@@ -30,7 +35,7 @@ export function RightPanel({ hidden }: { hidden: boolean }) {
   const active = tabs.find((t) => t.id === tab && t.show) ? tab : 'inspector';
 
   return (
-    <aside className={`panel right${hidden ? ' hidden' : ''}`}>
+    <aside className={`panel right${hidden ? ' hidden' : ''}${collapsed ? ' collapsed' : ''}`}>
       <div className="tabs">
         {tabs
           .filter((t) => t.show)
@@ -43,6 +48,14 @@ export function RightPanel({ hidden }: { hidden: boolean }) {
               {t.label}
             </button>
           ))}
+        <button
+          className="collapse-btn"
+          aria-expanded={!collapsed}
+          title={collapsed ? 'Expand inspector' : 'Collapse inspector'}
+          onClick={() => setCollapsed((v) => !v)}
+        >
+          {collapsed ? '▸' : '▾'}
+        </button>
       </div>
       <div className="panel-body">
         {active === 'inspector' && <Inspector />}

@@ -244,27 +244,83 @@ textarea.code,
 }
 
 /* ---- Diagram canvas ---- */
+/* The diagram is a header bar (title · zoom · collapse) over a scrollable
+   surface. Keeping the zoom controls in the header — rather than floating them
+   over the canvas — stops them overlapping the diagram or neighbouring panels
+   on small screens. */
+.canvas {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
 .canvas-wrap {
   position: relative;
   background: var(--bg);
   overflow: auto;
   display: flex;
+  flex: 1;
+  min-height: 0;
 }
-.canvas-toolbar {
-  position: absolute;
-  top: 10px;
-  right: 12px;
+.canvas.collapsed .canvas-wrap {
+  display: none;
+}
+.canvas-zoom {
   display: flex;
   gap: 6px;
-  z-index: 2;
 }
-.canvas-toolbar button {
+.canvas-zoom button {
   background: #fff;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   width: 30px;
   height: 30px;
   box-shadow: var(--shadow);
+}
+
+/* ---- Section header bar + collapse caret ---- */
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: #eef2f6;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.panel-head-title {
+  margin-right: auto;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.collapse-btn {
+  display: none; /* shown only on narrow screens (see media query) */
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 6px 8px;
+  font-size: 13px;
+  line-height: 1;
+  border-radius: 6px;
+}
+.collapse-btn:hover {
+  background: rgba(31, 41, 51, 0.06);
+  color: var(--ink);
+}
+.tabs .collapse-btn {
+  margin-left: auto;
+}
+.panel.collapsed > .panel-body {
+  display: none;
+}
+
+/* Command menu toggle: hidden until the topbar is too narrow to fit the row. */
+.menu-toggle {
+  display: none;
 }
 .diagram-surface {
   margin: auto;
@@ -535,10 +591,55 @@ textarea.code,
     grid-template-columns: 1fr !important;
     grid-auto-rows: minmax(0, auto);
   }
+  /* Side panels (input · inspector) are capped so they can't crowd out the
+     diagram; collapsing one drops it to just its tab bar. */
   .panel,
   .panel.right {
     border: none;
     border-bottom: 1px solid var(--line);
-    max-height: 40vh;
+    max-height: 45vh;
+  }
+  /* The diagram (output) gets the most room and is never forced short. The
+     min-height lives on the surface so collapsing the diagram frees it. */
+  main.panel {
+    max-height: none;
+  }
+  .canvas-wrap {
+    min-height: 44vh;
+  }
+  /* A collapsed panel shrinks to its header instead of holding 45vh of space. */
+  .panel.collapsed {
+    max-height: none;
+  }
+
+  /* Surface the per-section collapse carets only where space is tight. */
+  .collapse-btn {
+    display: inline-flex;
+  }
+
+  /* Topbar: keep one tidy row and tuck the commands behind the ☰ menu. */
+  .topbar {
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .topbar .title-input {
+    min-width: 0;
+    flex: 1 1 120px;
+  }
+  .menu-toggle {
+    display: inline-flex;
+  }
+  .topbar .btn-group {
+    display: none;
+    order: 10;
+    flex-basis: 100%;
+  }
+  .topbar .btn-group.open {
+    display: flex;
+  }
+  .topbar .status {
+    order: 11;
+    flex-basis: 100%;
+    text-align: left;
   }
 }

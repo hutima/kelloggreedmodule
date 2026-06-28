@@ -45,6 +45,9 @@ export function TopBar({
   const fileRef = useRef<HTMLInputElement>(null);
   const [recent, setRecent] = useState<DocumentSummary[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
+  // On phones the command buttons collapse behind a menu toggle so they don't
+  // consume most of the screen; on wider screens the group is always shown.
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Refresh the recent list whenever the doc id or save status changes.
   useEffect(() => {
@@ -111,7 +114,16 @@ export function TopBar({
 
       <div className="spacer" />
 
-      <div className="btn-group">
+      <button
+        className="btn menu-toggle"
+        aria-expanded={menuOpen}
+        title="Commands"
+        onClick={() => setMenuOpen((v) => !v)}
+      >
+        ☰
+      </button>
+
+      <div className={`btn-group${menuOpen ? ' open' : ''}`}>
         <button className="btn" onClick={undo} disabled={!canUndo} title="Undo (Ctrl/Cmd+Z)">
           ↶
         </button>
