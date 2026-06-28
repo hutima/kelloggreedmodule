@@ -13,6 +13,7 @@ export function DiagramCanvas() {
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
   const [scale, setScale] = useState(1);
+  const [collapsed, setCollapsed] = useState(false);
 
   const layout = useMemo(
     () => layoutDocument(doc, doc.layoutHints),
@@ -24,19 +25,31 @@ export function DiagramCanvas() {
     (relationId && relationId === selection.relationId);
 
   return (
-    <div className="canvas-wrap">
-      <div className="canvas-toolbar">
-        <button title="Zoom out" onClick={() => setScale((s) => Math.max(0.4, s - 0.1))}>
-          −
-        </button>
-        <button title="Reset zoom" onClick={() => setScale(1)}>
-          ⊙
-        </button>
-        <button title="Zoom in" onClick={() => setScale((s) => Math.min(3, s + 0.1))}>
-          +
+    <div className={`canvas${collapsed ? ' collapsed' : ''}`}>
+      <div className="panel-head">
+        <span className="panel-head-title">Diagram</span>
+        <div className="canvas-zoom">
+          <button title="Zoom out" onClick={() => setScale((s) => Math.max(0.4, s - 0.1))}>
+            −
+          </button>
+          <button title="Reset zoom" onClick={() => setScale(1)}>
+            ⊙
+          </button>
+          <button title="Zoom in" onClick={() => setScale((s) => Math.min(3, s + 0.1))}>
+            +
+          </button>
+        </div>
+        <button
+          className="collapse-btn"
+          aria-expanded={!collapsed}
+          title={collapsed ? 'Expand diagram' : 'Collapse diagram'}
+          onClick={() => setCollapsed((v) => !v)}
+        >
+          {collapsed ? '▸' : '▾'}
         </button>
       </div>
-      <div className="diagram-surface">
+      <div className="canvas-wrap">
+        <div className="diagram-surface">
         <svg
           className="diagram-paper"
           width={layout.width * scale}
@@ -108,6 +121,7 @@ export function DiagramCanvas() {
             );
           })}
         </svg>
+        </div>
       </div>
     </div>
   );

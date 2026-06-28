@@ -16,8 +16,9 @@ const TABS: { id: Tab; label: string }[] = [
 /** Left panel: sentence text, token list, parse (structure) editor, JSON. */
 export function LeftPanel({ hidden }: { hidden: boolean }) {
   const [tab, setTab] = useState<Tab>('text');
+  const [collapsed, setCollapsed] = useState(false);
   return (
-    <aside className={`panel${hidden ? ' hidden' : ''}`}>
+    <aside className={`panel${hidden ? ' hidden' : ''}${collapsed ? ' collapsed' : ''}`}>
       <div className="tabs">
         {TABS.map((t) => (
           <button
@@ -28,6 +29,14 @@ export function LeftPanel({ hidden }: { hidden: boolean }) {
             {t.label}
           </button>
         ))}
+        <button
+          className="collapse-btn"
+          aria-expanded={!collapsed}
+          title={collapsed ? 'Expand input' : 'Collapse input'}
+          onClick={() => setCollapsed((v) => !v)}
+        >
+          {collapsed ? '▸' : '▾'}
+        </button>
       </div>
       <div className="panel-body">
         {tab === 'text' && <TextEditor />}
