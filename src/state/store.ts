@@ -56,6 +56,8 @@ export interface EditorActions {
   setLayoutHint: (nodeId: string, hint: NodeLayoutHint | undefined) => void;
   // selection
   select: (selection: Selection) => void;
+  // view
+  setVerticalScale: (scale: number) => void;
   // click-to-relink
   startRelink: (relationId: string, end: 'head' | 'dependent') => void;
   cancelRelink: () => void;
@@ -94,6 +96,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     mode: 'manual',
     selection: {},
     linking: null,
+    verticalScale: 1,
     inferences: [],
     status: 'idle',
     past: [],
@@ -147,6 +150,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       }),
 
     select: (selection) => set({ selection }),
+
+    setVerticalScale: (scale) => set({ verticalScale: Math.min(2.5, Math.max(0.6, scale)) }),
 
     startRelink: (relationId, end) => set({ linking: { relationId, end }, selection: { relationId } }),
     cancelRelink: () => set({ linking: null }),

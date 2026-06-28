@@ -31,6 +31,7 @@ export function TopBar({
   onOpenUpdates: () => void;
 }) {
   const doc = useEditorStore((s) => s.doc);
+  const verticalScale = useEditorStore((s) => s.verticalScale);
   const mode = useEditorStore((s) => s.mode);
   const status = useEditorStore((s) => s.status);
   const setMode = useEditorStore((s) => s.setMode);
@@ -206,9 +207,9 @@ export function TopBar({
           onChange={(e) => {
             const v = e.target.value;
             if (v === 'json') downloadDocumentJson(doc);
-            else if (v === 'svg') downloadDocumentSvg(doc);
-            else if (v === 'png') void downloadDocumentPng(doc);
-            else if (v === 'print') printDocument(doc);
+            else if (v === 'svg') downloadDocumentSvg(doc, { verticalScale });
+            else if (v === 'png') void downloadDocumentPng(doc, 2, { verticalScale });
+            else if (v === 'print') printDocument(doc, { verticalScale });
             e.currentTarget.value = '';
           }}
         >

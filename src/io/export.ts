@@ -1,5 +1,5 @@
 import type { KrDocument } from '@/domain/schema';
-import { layoutDocument } from '@/domain/layout';
+import { layoutDocument, type LayoutOptions } from '@/domain/layout';
 import { layoutToSvg, THEME } from '@/domain/render';
 import { downloadBlob, downloadText, slugify } from './download';
 import { exportJson } from './json';
@@ -7,11 +7,12 @@ import { exportJson } from './json';
 /**
  * IMPORT/EXPORT LAYER — JSON, SVG, PNG, and print-friendly rendering. Every
  * export goes through the same layout + render pipeline as the on-screen
- * canvas, so output matches the editor exactly.
+ * canvas, so output matches the editor exactly — including the chosen row
+ * spacing (`opts.verticalScale`).
  */
 
-export function buildSvg(doc: KrDocument): string {
-  const layout = layoutDocument(doc, doc.layoutHints);
+export function buildSvg(doc: KrDocument, opts: LayoutOptions = {}): string {
+  const layout = layoutDocument(doc, doc.layoutHints, opts);
   return layoutToSvg(layout, { padding: 16, background: true, standalone: true });
 }
 
@@ -19,17 +20,17 @@ export function downloadDocumentJson(doc: KrDocument): void {
   downloadText(exportJson(doc), `${slugify(doc.title)}.json`, 'application/json');
 }
 
-export function downloadDocumentSvg(doc: KrDocument): void {
-  downloadText(buildSvg(doc), `${slugify(doc.title)}.svg`, 'image/svg+xml');
+export function downloadDocumentSvg(doc: KrDocument, opts: LayoutOptions = {}): void {
+  downloadText(buildSvg(doc, opts), `${slugify(doc.title)}.svg`, 'image/svg+xml');
 }
 
 /**
  * Rasterises the SVG to PNG via an offscreen canvas. Returns a promise so
  * callers can await the encode. `scale` controls output resolution.
  */
-export async function downloadDocumentPng(doc: KrDocument, scale = 2): Promise<void> {
-  const svg = buildSvg(doc);
-  const layout = layoutDocument(doc, doc.layoutHints);
+export async function downloadDocumentPng(doc: KrDocument, scale = 2, opts: LayoutOptions = {}): Promise<void> {
+  const svg = buildSvg(doc, opts);
+  const layout = layoutDocument(doc, doc.layoutHints, opts);
   const width = (layout.width + 32) * scale;
   const height = (layout.height + 32) * scale;
 
@@ -65,8 +66,8 @@ function svgToPngBlob(svg: string, width: number, height: number): Promise<Blob>
 }
 
 /** Opens a print-friendly window containing just the diagram. */
-export function printDocument(doc: KrDocument): void {
-  const svg = buildSvg(doc);
+export function printDocument(doc: KrDocument, opts: LayoutOptions = {}): void {
+  const svg = buildSvg(doc, opts);
   const w = window.open('', '_blank', 'noopener,noreferrer');
   if (!w) return;
   w.document.write(`<!doctype html><html><head><title>${escapeHtml(doc.title)}</title>

@@ -19,12 +19,14 @@ export function DiagramCanvas() {
   const linking = useEditorStore((s) => s.linking);
   const relinkTo = useEditorStore((s) => s.relinkTo);
   const cancelRelink = useEditorStore((s) => s.cancelRelink);
+  const verticalScale = useEditorStore((s) => s.verticalScale);
+  const setVerticalScale = useEditorStore((s) => s.setVerticalScale);
   const [scale, setScale] = useState(1);
   const [collapsed, setCollapsed] = useState(false);
 
   const layout = useMemo(
-    () => layoutDocument(doc, doc.layoutHints),
-    [doc],
+    () => layoutDocument(doc, doc.layoutHints, { verticalScale }),
+    [doc, verticalScale],
   );
 
   // Esc cancels an in-progress relink.
@@ -50,6 +52,23 @@ export function DiagramCanvas() {
     <div className={`canvas${collapsed ? ' collapsed' : ''}`}>
       <div className="panel-head">
         <span className="panel-head-title">Diagram</span>
+        <div className="canvas-zoom" title="Row spacing">
+          <button
+            title="Tighter row spacing"
+            onClick={() => setVerticalScale(Math.round((verticalScale - 0.15) * 100) / 100)}
+          >
+            ↕−
+          </button>
+          <button title="Reset row spacing" onClick={() => setVerticalScale(1)}>
+            {Math.round(verticalScale * 100)}%
+          </button>
+          <button
+            title="Looser row spacing"
+            onClick={() => setVerticalScale(Math.round((verticalScale + 0.15) * 100) / 100)}
+          >
+            ↕+
+          </button>
+        </div>
         <div className="canvas-zoom">
           <button title="Zoom out" onClick={() => setScale((s) => Math.max(0.4, s - 0.1))}>
             −

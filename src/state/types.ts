@@ -27,6 +27,8 @@ export interface EditorState {
   selection: Selection;
   /** Active click-to-relink interaction, if any. */
   linking: Linking | null;
+  /** User-tunable row spacing (vertical-gap multiplier) for the diagram. */
+  verticalScale: number;
   /** Current provisional inferences awaiting accept/reject. */
   inferences: Inference[];
   status: SaveStatus;

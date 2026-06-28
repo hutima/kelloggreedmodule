@@ -6,4 +6,4 @@
 export * from './types';
 export * from './constants';
 export { measureText } from './measure';
-export { layoutDocument } from './engine';
+export { layoutDocument, type LayoutOptions } from './engine';
