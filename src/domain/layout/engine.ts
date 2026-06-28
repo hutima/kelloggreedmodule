@@ -107,12 +107,15 @@ function layoutHead(
   const text = nodeText(ctx.doc, node) || node.label || '∅';
   const wordW = measureText(text) + LAYOUT.wordPadX * 2;
 
-  // Every dependent of a word hangs beneath it (modifiers, prepositional
-  // objects, embedded clauses). Listing them all — rather than an allow-list of
-  // roles — means new relation types render without touching the engine.
+  // Every dependent of a word hangs beneath it. Word/modifier dependents flow
+  // horizontally in a row (adjectives, adverbs, prepositional phrases); clause
+  // dependents (relative/complement clauses) are tall, so they stack vertically
+  // on a shared stem instead — keeping the diagram narrow and untangled.
   const depRels = collapsed ? [] : childRelations(ctx.doc.syntax, node.id);
+  const wordRels = depRels.filter((r) => !isClauseChild(ctx, r.dependentId));
+  const clauseRels = depRels.filter((r) => isClauseChild(ctx, r.dependentId));
 
-  const depBlocks = depRels.map((r) => ({
+  const depBlocks = wordRels.map((r) => ({
     rel: r,
     block: layoutNode(ctx, r.dependentId, seen),
   }));
@@ -121,8 +124,8 @@ function layoutHead(
     depBlocks.reduce((s, d) => s + d.block.width, 0) +
     Math.max(0, depBlocks.length - 1) * LAYOUT.dependentGap;
 
-  const width = Math.max(wordW, depTotalW);
-  const center = width / 2;
+  const rowWidth = Math.max(wordW, depTotalW);
+  const center = rowWidth / 2;
   const wordLeft = center - wordW / 2;
   const wordRight = center + wordW / 2;
 
@@ -133,7 +136,7 @@ function layoutHead(
     wordText(eid(), center, -LAYOUT.textRise, text, 'middle', node),
   );
 
-  // Lay dependents left-to-right beneath, each joined by a slant/stem.
+  // Lay modifier dependents left-to-right beneath, each joined by a slant/stem.
   let cursor = center - depTotalW / 2;
   const depTop = LAYOUT.slantDrop;
   let maxDepHeight = 0;
@@ -143,8 +146,7 @@ function layoutHead(
     // Connector from head baseline to the dependent's word.
     const childCenter = dx + block.width / 2;
     const attachX = clampAttach(wordLeft, wordRight, center, i, depBlocks.length);
-    const clauseChild = isClauseChild(ctx, rel.dependentId);
-    const stem = clauseChild || STEM_ROLES.includes(rel.type);
+    const stem = STEM_ROLES.includes(rel.type);
     elements.push(
       line(
         eid(),
@@ -152,7 +154,7 @@ function layoutHead(
         0,
         stem ? childCenter : dx + block.wordLeft + LAYOUT.slantRun,
         depTop,
-        clauseChild ? 'dotted' : 'solid',
+        'solid',
         stem ? 'stem' : 'slant',
         undefined,
         rel.id,
@@ -167,13 +169,69 @@ function layoutHead(
     maxDepHeight = Math.max(maxDepHeight, block.height);
   });
 
+  const rowHeight = depBlocks.length ? depTop + maxDepHeight : 0;
+
+  // Clause dependents stack vertically on a stem dropping from the head.
+  let bottom = rowHeight;
+  let right = rowWidth;
+  if (clauseRels.length) {
+    const topY = (rowHeight > 0 ? rowHeight : 0) + LAYOUT.adjunctDrop;
+    const stack = stackClauses(ctx, clauseRels, seen, center, topY);
+    elements.push(line(eid(), center, 0, center, topY, 'dotted', 'stem'));
+    elements.push(...stack.elements);
+    bottom = Math.max(bottom, stack.bottom);
+    right = Math.max(right, stack.right);
+  }
+
   return {
-    width,
-    height: depBlocks.length ? depTop + maxDepHeight : 0,
+    width: right,
+    height: depBlocks.length || clauseRels.length ? bottom : 0,
     elements,
     wordLeft,
     wordRight,
   };
+}
+
+/**
+ * Stack clause-valued dependents vertically on a shared vertical stem rooted at
+ * (`spineX`, `topY`). Each clause is laid out fully and hung off the stem by a
+ * short horizontal connector, so coordinated and subordinate clauses read top
+ * to bottom rather than sprawling across the page. Returns the placed elements
+ * plus the extent reached (`right`, `bottom`) in the caller's coordinate space.
+ */
+function stackClauses(
+  ctx: Ctx,
+  rels: { id: string; dependentId: string; label?: string }[],
+  seen: Set<string>,
+  spineX: number,
+  topY: number,
+): { elements: DiagramElement[]; right: number; bottom: number } {
+  const elements: DiagramElement[] = [];
+  let y = topY + LAYOUT.clauseFirstDrop;
+  let right = spineX;
+  let bottom = topY;
+  let lastBaselineY = topY;
+  const blockX = spineX + LAYOUT.spineIndent;
+
+  rels.forEach((r) => {
+    const block = layoutNode(ctx, r.dependentId, seen);
+    elements.push(...translate(block, blockX, y));
+    // Short connector from the stem to this clause's baseline.
+    elements.push(
+      line(eid(), spineX, y, blockX + block.wordLeft, y, 'dotted', 'stem', undefined, r.id),
+    );
+    if (r.label && showLabel(ctx, r.dependentId)) {
+      elements.push(smallText(eid(), spineX + 6, y - 6, r.label, 'start', r.id));
+    }
+    lastBaselineY = y;
+    right = Math.max(right, blockX + block.width);
+    bottom = Math.max(bottom, y + block.height);
+    y += block.height + LAYOUT.clauseStackGap;
+  });
+
+  // The vertical stem itself, spanning from its top to the last clause.
+  elements.unshift(line(eid(), spineX, topY, spineX, lastBaselineY, 'dotted', 'stem'));
+  return { elements, right, bottom };
 }
 
 function clampAttach(
@@ -207,9 +265,13 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     ? layoutHead(ctx, verbNode, seen, true)
     : impliedBlock('(verb)');
 
-  // Complements live under the verb node but render on the baseline.
+  // Complements live under the verb node but render on the baseline — unless a
+  // complement is itself a clause (e.g. a noun clause as direct object), which
+  // is too tall for the baseline and instead drops below on a stem.
   const verbRels = predicateRel ? childRelations(model, predicateRel.dependentId) : [];
-  const complementRels = verbRels.filter((r) => BASELINE_COMPLEMENTS.includes(r.type));
+  const isBaselineComplement = (r: { type: SyntacticRole; dependentId: string }) =>
+    BASELINE_COMPLEMENTS.includes(r.type) && !isClauseChild(ctx, r.dependentId);
+  const complementRels = verbRels.filter(isBaselineComplement);
   const complementBlocks = complementRels.map((r) => ({
     rel: r,
     block: layoutNode(ctx, r.dependentId, seen),
@@ -259,35 +321,75 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
 
   const baselineWidth = x;
 
-  // Adjuncts of the clause (PPs, adverbials, subordinate clauses) and of the
-  // verb hang below the baseline, connected by stems from the verb region.
+  // Adjuncts of the clause and of the verb hang below the baseline. Word-level
+  // adjuncts (PPs, adverbials) flow in a horizontal row; clause-level adjuncts
+  // (subordinate/complement/coordinate clauses) are tall and stack vertically
+  // on a stem below that row, so nothing fans out across the page.
   const adjunctRels = [
     ...rels.filter((r) => r !== subjectRel && r !== predicateRel),
-    ...verbRels.filter((r) => !BASELINE_COMPLEMENTS.includes(r.type)),
+    ...verbRels.filter((r) => !isBaselineComplement(r)),
   ];
+  const wordAdjuncts = adjunctRels.filter((r) => !isClauseChild(ctx, r.dependentId));
+  const clauseAdjuncts = adjunctRels.filter((r) => isClauseChild(ctx, r.dependentId));
 
   const belowTop = baselineHeight + LAYOUT.adjunctDrop;
   let belowMaxBottom = belowTop;
-  let bx = Math.max(0, divX);
-  adjunctRels.forEach((r) => {
+  let rowRight = baselineWidth;
+  // Verb adjuncts cascade to the right of the verb, each attaching at its OWN
+  // point along the baseline with a short local connector — rather than fanning
+  // out from a single point, which produces long crossing lines. The baseline
+  // is extended rightward to carry those attachment points.
+  let bx = baselineWidth + LAYOUT.dependentGap;
+  let railRight = baselineWidth;
+  wordAdjuncts.forEach((r) => {
     const block = layoutNode(ctx, r.dependentId, seen);
     elements.push(...translate(block, bx, belowTop));
-    const childCenter = bx + block.width / 2;
+    const stem = STEM_ROLES.includes(r.type);
+    // Attach above the adjunct's own head, so the connector stays short. A PP
+    // drops on a near-vertical stem; an adverbial leans on a slant.
+    const attachX = bx + block.wordLeft;
+    const headCenter = bx + (block.wordLeft + block.wordRight) / 2;
     elements.push(
-      line(eid(), divX + 4, LAYOUT.dividerDown, childCenter, belowTop, 'dotted', 'stem',
-        undefined, r.id),
+      line(
+        eid(),
+        attachX,
+        0,
+        stem ? headCenter : attachX + LAYOUT.slantRun,
+        belowTop,
+        'solid',
+        stem ? 'stem' : 'slant',
+        undefined,
+        r.id,
+      ),
     );
     if (r.label && showLabel(ctx, r.dependentId)) {
       elements.push(
-        smallText(eid(), (divX + childCenter) / 2, belowTop - 6, r.label, 'middle', r.id),
+        smallText(eid(), attachX + 4, belowTop - 6, r.label, 'start', r.id),
       );
     }
-    bx += block.width + LAYOUT.dependentGap * 1.5;
+    railRight = Math.max(railRight, attachX);
+    bx += block.width + LAYOUT.dependentGap;
+    rowRight = Math.max(rowRight, bx);
     belowMaxBottom = Math.max(belowMaxBottom, belowTop + block.height);
   });
+  // Extend the baseline to carry the adjunct attachment points.
+  if (wordAdjuncts.length) {
+    elements.push(line(eid(), baselineWidth, 0, railRight, 0, 'solid', 'baseline'));
+  }
 
-  const width = Math.max(baselineWidth, bx);
-  const height = Math.max(baselineHeight, adjunctRels.length ? belowMaxBottom : 0);
+  let width = Math.max(baselineWidth, rowRight);
+  let height = Math.max(baselineHeight, wordAdjuncts.length ? belowMaxBottom : 0);
+
+  if (clauseAdjuncts.length) {
+    const spineX = Math.max(0, divX);
+    const stackTop = (wordAdjuncts.length ? belowMaxBottom : baselineHeight) + LAYOUT.adjunctDrop;
+    elements.push(line(eid(), divX, LAYOUT.dividerDown, spineX, stackTop, 'dotted', 'stem'));
+    const stack = stackClauses(ctx, clauseAdjuncts, seen, spineX, stackTop);
+    elements.push(...stack.elements);
+    width = Math.max(width, stack.right);
+    height = Math.max(height, stack.bottom);
+  }
+
   return { width, height, elements, wordLeft: 0, wordRight: baselineWidth };
 }
 
