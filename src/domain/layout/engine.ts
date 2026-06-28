@@ -38,8 +38,53 @@ const BASELINE_COMPLEMENTS: SyntacticRole[] = [
   'genitiveComplement',
 ];
 
-// Roles drawn with a (more vertical) stem rather than a modifier slant.
-const STEM_ROLES: SyntacticRole[] = ['prepositionalPhrase', 'prepositionObject'];
+/**
+ * If `rel` introduces a prepositional phrase, return the object node id so the
+ * preposition can be written ON the diagonal (traditional Kellogg-Reed) and the
+ * object laid out on its own horizontal baseline beneath it. Returns null for
+ * anything that is not a `preposition + prepositionObject` shape.
+ */
+function prepObjectId(ctx: Ctx, rel: { type: SyntacticRole; dependentId: string }): string | null {
+  if (rel.type !== 'prepositionalPhrase') return null;
+  const objRel = childRelations(ctx.doc.syntax, rel.dependentId).find(
+    (r) => r.type === 'prepositionObject',
+  );
+  return objRel ? objRel.dependentId : null;
+}
+
+/** A single-word modifier with no dependents — written along its diagonal. */
+function isLeafModifier(ctx: Ctx, nodeId: string): boolean {
+  const node = getNode(ctx.doc.syntax, nodeId);
+  if (!node || node.kind !== 'word') return false;
+  return childRelations(ctx.doc.syntax, nodeId).length === 0;
+}
+
+const DEG = 180 / Math.PI;
+
+/** Text written along a diagonal, rotated to lie on the line from (x1,y1)→(x2,y2). */
+function diagonalText(
+  text: string,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  relationId?: string,
+  nodeId?: string,
+): TextElement {
+  const angle = Math.atan2(y2 - y1, x2 - x1) * DEG;
+  // Midpoint, nudged just above the line so the word rests on the diagonal.
+  return {
+    kind: 'text',
+    id: eid(),
+    x: (x1 + x2) / 2,
+    y: (y1 + y2) / 2 - 3,
+    text,
+    anchor: 'middle',
+    rotate: angle,
+    relationId,
+    nodeId,
+  };
+}
 
 function translate(block: Block, dx: number, dy: number): DiagramElement[] {
   return block.elements.map((el) => {
@@ -115,69 +160,74 @@ function layoutHead(
   const wordRels = depRels.filter((r) => !isClauseChild(ctx, r.dependentId));
   const clauseRels = depRels.filter((r) => isClauseChild(ctx, r.dependentId));
 
-  const depBlocks = wordRels.map((r) => ({
-    rel: r,
-    block: layoutNode(ctx, r.dependentId, seen),
-  }));
-
-  const depTotalW =
-    depBlocks.reduce((s, d) => s + d.block.width, 0) +
-    Math.max(0, depBlocks.length - 1) * LAYOUT.dependentGap;
-
-  const rowWidth = Math.max(wordW, depTotalW);
-  const center = rowWidth / 2;
-  const wordLeft = center - wordW / 2;
-  const wordRight = center + wordW / 2;
-
   const elements: DiagramElement[] = [];
-  // The head word sits on its own short baseline so children can attach to it.
-  elements.push(line(eid(), wordLeft, 0, wordRight, 0, 'solid', 'baseline', node.id));
-  elements.push(
-    wordText(eid(), center, -LAYOUT.textRise, text, 'middle', node),
-  );
-
-  // Lay modifier dependents left-to-right beneath, each joined by a slant/stem.
-  let cursor = center - depTotalW / 2;
   const depTop = LAYOUT.slantDrop;
+  // The head word sits at the left of its baseline; modifiers cascade to the
+  // right and hang below on diagonals, the way a Kellogg-Reed noun/verb carries
+  // its modifiers. The baseline is extended rightward to reach them.
+  const wordLeft = 0;
+  const wordRight = wordW;
+  elements.push(wordText(eid(), wordW / 2, -LAYOUT.textRise, text, 'middle', node));
+
+  let cursor = wordW;
+  let railRight = wordW;
   let maxDepHeight = 0;
-  depBlocks.forEach(({ rel, block }, i) => {
-    const dx = cursor;
-    elements.push(...translate(block, dx, depTop));
-    // Connector from head baseline to the dependent's word.
-    const childCenter = dx + block.width / 2;
-    const attachX = clampAttach(wordLeft, wordRight, center, i, depBlocks.length);
-    const stem = STEM_ROLES.includes(rel.type);
-    elements.push(
-      line(
-        eid(),
-        attachX,
-        0,
-        stem ? childCenter : dx + block.wordLeft + LAYOUT.slantRun,
-        depTop,
-        'solid',
-        stem ? 'stem' : 'slant',
-        undefined,
-        rel.id,
-      ),
-    );
-    if (rel.label && showLabel(ctx, rel.dependentId)) {
-      elements.push(
-        smallText(eid(), attachX + 6, depTop / 2, rel.label, 'start', rel.id),
-      );
+  wordRels.forEach((rel) => {
+    cursor += LAYOUT.dependentGap;
+    const objId = prepObjectId(ctx, rel);
+    if (objId) {
+      // Preposition written ALONG the diagonal; object on its baseline below.
+      const block = layoutNode(ctx, objId, seen);
+      const attachX = cursor;
+      const objX = cursor + LAYOUT.diagRun;
+      const endX = objX + block.wordLeft;
+      elements.push(...translate(block, objX, depTop));
+      elements.push(line(eid(), attachX, 0, endX, depTop, 'solid', 'slant', undefined, rel.id));
+      const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, rel.dependentId)!) || '';
+      elements.push(diagonalText(prep, attachX, 0, endX, depTop, rel.id, rel.dependentId));
+      railRight = Math.max(railRight, attachX);
+      maxDepHeight = Math.max(maxDepHeight, block.height);
+      cursor = objX + block.width;
+    } else if (rel.type !== 'conjunct' && isLeafModifier(ctx, rel.dependentId)) {
+      // Single-word modifier written ALONG its diagonal; no sub-baseline.
+      const n2 = getNode(ctx.doc.syntax, rel.dependentId)!;
+      const t = nodeText(ctx.doc, n2) || n2.label || '';
+      const attachX = cursor;
+      const endX = cursor + LAYOUT.diagRun;
+      elements.push(line(eid(), attachX, 0, endX, depTop, 'solid', 'slant', undefined, rel.id));
+      elements.push(diagonalText(t, attachX, 0, endX, depTop, rel.id, rel.dependentId));
+      railRight = Math.max(railRight, attachX);
+      cursor = endX + measureText(t) * 0.6;
+    } else {
+      // A phrase that carries its own structure keeps a sub-baseline, hung on a
+      // short stem.
+      const block = layoutNode(ctx, rel.dependentId, seen);
+      const attachX = cursor;
+      const objX = cursor + LAYOUT.diagRun;
+      elements.push(...translate(block, objX, depTop));
+      elements.push(line(eid(), attachX, 0, objX + block.wordLeft, depTop, 'solid', 'stem', undefined, rel.id));
+      if (rel.label && showLabel(ctx, rel.dependentId)) {
+        elements.push(smallText(eid(), attachX + 4, depTop - 6, rel.label, 'start', rel.id));
+      }
+      railRight = Math.max(railRight, attachX);
+      maxDepHeight = Math.max(maxDepHeight, block.height);
+      cursor = objX + block.width;
     }
-    cursor += block.width + LAYOUT.dependentGap;
-    maxDepHeight = Math.max(maxDepHeight, block.height);
   });
 
-  const rowHeight = depBlocks.length ? depTop + maxDepHeight : 0;
+  // The head's baseline, extended to carry any modifier diagonals.
+  elements.unshift(line(eid(), 0, 0, Math.max(wordW, railRight), 0, 'solid', 'baseline', node.id));
 
-  // Clause dependents stack vertically on a stem dropping from the head.
+  const rowHeight = wordRels.length ? depTop + maxDepHeight : 0;
+
+  // Clause dependents stack vertically on a stem dropping from the head word.
   let bottom = rowHeight;
-  let right = rowWidth;
+  let right = Math.max(cursor, wordW);
   if (clauseRels.length) {
+    const spineX = wordW / 2;
     const topY = (rowHeight > 0 ? rowHeight : 0) + LAYOUT.adjunctDrop;
-    const stack = stackClauses(ctx, clauseRels, seen, center, topY);
-    elements.push(line(eid(), center, 0, center, topY, 'dotted', 'stem'));
+    const stack = stackClauses(ctx, clauseRels, seen, spineX, topY);
+    elements.push(line(eid(), spineX, 0, spineX, topY, 'dotted', 'stem'));
     elements.push(...stack.elements);
     bottom = Math.max(bottom, stack.bottom);
     right = Math.max(right, stack.right);
@@ -185,7 +235,7 @@ function layoutHead(
 
   return {
     width: right,
-    height: depBlocks.length || clauseRels.length ? bottom : 0,
+    height: wordRels.length || clauseRels.length ? bottom : 0,
     elements,
     wordLeft,
     wordRight,
@@ -232,18 +282,6 @@ function stackClauses(
   // The vertical stem itself, spanning from its top to the last clause.
   elements.unshift(line(eid(), spineX, topY, spineX, lastBaselineY, 'dotted', 'stem'));
   return { elements, right, bottom };
-}
-
-function clampAttach(
-  left: number,
-  right: number,
-  center: number,
-  i: number,
-  n: number,
-): number {
-  if (n <= 1) return center;
-  const t = (i + 1) / (n + 1);
-  return left + (right - left) * t;
 }
 
 // --- a clause baseline --------------------------------------------------------
@@ -342,30 +380,45 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   let bx = baselineWidth + LAYOUT.dependentGap;
   let railRight = baselineWidth;
   wordAdjuncts.forEach((r) => {
+    const objId = prepObjectId(ctx, r);
+    if (objId) {
+      // Preposition on the diagonal; object on its baseline below.
+      const block = layoutNode(ctx, objId, seen);
+      elements.push(...translate(block, bx, belowTop));
+      const attachX = bx;
+      const endX = bx + block.wordLeft;
+      const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '';
+      elements.push(line(eid(), attachX, 0, endX, belowTop, 'solid', 'slant', undefined, r.id));
+      elements.push(diagonalText(prep, attachX, 0, endX, belowTop, r.id, r.dependentId));
+      railRight = Math.max(railRight, attachX);
+      bx += block.width + LAYOUT.dependentGap;
+      rowRight = Math.max(rowRight, bx);
+      belowMaxBottom = Math.max(belowMaxBottom, belowTop + block.height);
+      return;
+    }
+    if (r.type !== 'conjunct' && isLeafModifier(ctx, r.dependentId)) {
+      // Adverb / particle written along its diagonal.
+      const node2 = getNode(ctx.doc.syntax, r.dependentId)!;
+      const t = nodeText(ctx.doc, node2) || node2.label || '';
+      const w = measureText(t) + LAYOUT.wordPadX * 2;
+      const attachX = bx;
+      const endX = bx + w / 2;
+      elements.push(line(eid(), attachX, 0, endX, belowTop, 'solid', 'slant', undefined, r.id));
+      elements.push(diagonalText(t, attachX, 0, endX, belowTop, r.id, r.dependentId));
+      railRight = Math.max(railRight, attachX);
+      bx += w + LAYOUT.dependentGap;
+      rowRight = Math.max(rowRight, bx);
+      belowMaxBottom = Math.max(belowMaxBottom, belowTop);
+      return;
+    }
     const block = layoutNode(ctx, r.dependentId, seen);
     elements.push(...translate(block, bx, belowTop));
-    const stem = STEM_ROLES.includes(r.type);
-    // Attach above the adjunct's own head, so the connector stays short. A PP
-    // drops on a near-vertical stem; an adverbial leans on a slant.
     const attachX = bx + block.wordLeft;
-    const headCenter = bx + (block.wordLeft + block.wordRight) / 2;
     elements.push(
-      line(
-        eid(),
-        attachX,
-        0,
-        stem ? headCenter : attachX + LAYOUT.slantRun,
-        belowTop,
-        'solid',
-        stem ? 'stem' : 'slant',
-        undefined,
-        r.id,
-      ),
+      line(eid(), attachX, 0, attachX + LAYOUT.slantRun, belowTop, 'solid', 'slant', undefined, r.id),
     );
     if (r.label && showLabel(ctx, r.dependentId)) {
-      elements.push(
-        smallText(eid(), attachX + 4, belowTop - 6, r.label, 'start', r.id),
-      );
+      elements.push(smallText(eid(), attachX + 4, belowTop - 6, r.label, 'start', r.id));
     }
     railRight = Math.max(railRight, attachX);
     bx += block.width + LAYOUT.dependentGap;

@@ -14,6 +14,8 @@ export const LAYOUT = {
   slantDrop: 34,
   /** Horizontal run of a modifier slant. */
   slantRun: 18,
+  /** Horizontal run of a diagonal carrying a preposition / leaf modifier. */
+  diagRun: 26,
   /** Gap between stacked dependents beneath a head. */
   dependentGap: 22,
   /** Extra room reserved below the clause for phrase/clause adjuncts. */

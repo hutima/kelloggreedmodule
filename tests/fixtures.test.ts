@@ -5,8 +5,8 @@ import { layoutDocument } from '@/domain/layout';
 import { layoutToSvg } from '@/domain/render';
 
 describe('sample fixtures', () => {
-  it('bundles all five required samples', () => {
-    expect(sampleDocuments).toHaveLength(5);
+  it('bundles all required samples', () => {
+    expect(sampleDocuments).toHaveLength(7);
   });
 
   for (const doc of sampleDocuments) {

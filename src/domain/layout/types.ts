@@ -45,6 +45,12 @@ export interface TextElement {
   /** Smaller text for connector labels (prepositions, conjunctions). */
   small?: boolean;
   muted?: boolean; // implied/elided elements
+  /**
+   * Clockwise rotation in degrees about (x, y). Used to write a word ALONG a
+   * diagonal connector — the traditional Kellogg-Reed treatment of
+   * prepositions and single-word modifiers.
+   */
+  rotate?: number;
   nodeId?: string;
   relationId?: string;
 }

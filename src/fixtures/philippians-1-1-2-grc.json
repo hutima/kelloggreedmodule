@@ -1,0 +1,874 @@
+{
+  "schemaVersion": 1,
+  "id": "doc_sample_phil_1_1_2_grc",
+  "title": "Φιλιππησίους 1:1-2 (SBLGNT)",
+  "language": "grc",
+  "text": "Παῦλος καὶ Τιμόθεος δοῦλοι Χριστοῦ Ἰησοῦ πᾶσιν τοῖς ἁγίοις ἐν Χριστῷ Ἰησοῦ τοῖς οὖσιν ἐν Φιλίπποις σὺν ἐπισκόποις καὶ διακόνοις· χάρις ὑμῖν καὶ εἰρήνη ἀπὸ θεοῦ πατρὸς ἡμῶν καὶ κυρίου Ἰησοῦ Χριστοῦ.",
+  "notes": "Hand-tagged Kellogg-Reed parse of Philippians 1:1-2 (SBLGNT), with morphology. Articles attach by case/gender/number agreement, not adjacency.",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "layoutHints": {},
+  "tokens": [
+    {
+      "id": "t1",
+      "index": 0,
+      "surface": "Παῦλος",
+      "pos": "propernoun",
+      "language": "grc",
+      "morphology": {
+        "case": "nominative",
+        "number": "singular",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t2",
+      "index": 1,
+      "surface": "καὶ",
+      "pos": "conjunction",
+      "language": "grc"
+    },
+    {
+      "id": "t3",
+      "index": 2,
+      "surface": "Τιμόθεος",
+      "pos": "propernoun",
+      "language": "grc",
+      "morphology": {
+        "case": "nominative",
+        "number": "singular",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t4",
+      "index": 3,
+      "surface": "δοῦλοι",
+      "pos": "noun",
+      "language": "grc",
+      "morphology": {
+        "case": "nominative",
+        "number": "plural",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t5",
+      "index": 4,
+      "surface": "Χριστοῦ",
+      "pos": "propernoun",
+      "language": "grc",
+      "morphology": {
+        "case": "genitive",
+        "number": "singular",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t6",
+      "index": 5,
+      "surface": "Ἰησοῦ",
+      "pos": "propernoun",
+      "language": "grc",
+      "morphology": {
+        "case": "genitive",
+        "number": "singular",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t7",
+      "index": 6,
+      "surface": "ἁγίοις",
+      "pos": "adjective",
+      "language": "grc",
+      "morphology": {
+        "case": "dative",
+        "number": "plural",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t8",
+      "index": 7,
+      "surface": "πᾶσιν",
+      "pos": "adjective",
+      "language": "grc",
+      "morphology": {
+        "case": "dative",
+        "number": "plural",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t9",
+      "index": 8,
+      "surface": "τοῖς",
+      "pos": "article",
+      "language": "grc",
+      "morphology": {
+        "case": "dative",
+        "number": "plural",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t10",
+      "index": 9,
+      "surface": "ἐν",
+      "pos": "preposition",
+      "language": "grc"
+    },
+    {
+      "id": "t11",
+      "index": 10,
+      "surface": "Χριστῷ",
+      "pos": "propernoun",
+      "language": "grc",
+      "morphology": {
+        "case": "dative",
+        "number": "singular",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t12",
+      "index": 11,
+      "surface": "Ἰησοῦ",
+      "pos": "propernoun",
+      "language": "grc",
+      "morphology": {
+        "case": "dative",
+        "number": "singular",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t13",
+      "index": 12,
+      "surface": "τοῖς",
+      "pos": "article",
+      "language": "grc",
+      "morphology": {
+        "case": "dative",
+        "number": "plural",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t14",
+      "index": 13,
+      "surface": "οὖσιν",
+      "pos": "participle",
+      "language": "grc",
+      "morphology": {
+        "case": "dative",
+        "number": "plural",
+        "gender": "masculine",
+        "tense": "present",
+        "voice": "active",
+        "mood": "participle"
+      }
+    },
+    {
+      "id": "t15",
+      "index": 14,
+      "surface": "ἐν",
+      "pos": "preposition",
+      "language": "grc"
+    },
+    {
+      "id": "t16",
+      "index": 15,
+      "surface": "Φιλίπποις",
+      "pos": "propernoun",
+      "language": "grc",
+      "morphology": {
+        "case": "dative",
+        "number": "plural",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t17",
+      "index": 16,
+      "surface": "σὺν",
+      "pos": "preposition",
+      "language": "grc"
+    },
+    {
+      "id": "t18",
+      "index": 17,
+      "surface": "ἐπισκόποις",
+      "pos": "noun",
+      "language": "grc",
+      "morphology": {
+        "case": "dative",
+        "number": "plural",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t19",
+      "index": 18,
+      "surface": "καὶ",
+      "pos": "conjunction",
+      "language": "grc"
+    },
+    {
+      "id": "t20",
+      "index": 19,
+      "surface": "διακόνοις",
+      "pos": "noun",
+      "language": "grc",
+      "morphology": {
+        "case": "dative",
+        "number": "plural",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t21",
+      "index": 20,
+      "surface": "χάρις",
+      "pos": "noun",
+      "language": "grc",
+      "morphology": {
+        "case": "nominative",
+        "number": "singular",
+        "gender": "feminine"
+      }
+    },
+    {
+      "id": "t22",
+      "index": 21,
+      "surface": "καὶ",
+      "pos": "conjunction",
+      "language": "grc"
+    },
+    {
+      "id": "t23",
+      "index": 22,
+      "surface": "εἰρήνη",
+      "pos": "noun",
+      "language": "grc",
+      "morphology": {
+        "case": "nominative",
+        "number": "singular",
+        "gender": "feminine"
+      }
+    },
+    {
+      "id": "t24",
+      "index": 23,
+      "surface": "ὑμῖν",
+      "pos": "pronoun",
+      "language": "grc",
+      "morphology": {
+        "case": "dative",
+        "number": "plural",
+        "person": "second"
+      }
+    },
+    {
+      "id": "t25",
+      "index": 24,
+      "surface": "ἀπὸ",
+      "pos": "preposition",
+      "language": "grc"
+    },
+    {
+      "id": "t26",
+      "index": 25,
+      "surface": "θεοῦ",
+      "pos": "noun",
+      "language": "grc",
+      "morphology": {
+        "case": "genitive",
+        "number": "singular",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t27",
+      "index": 26,
+      "surface": "πατρὸς",
+      "pos": "noun",
+      "language": "grc",
+      "morphology": {
+        "case": "genitive",
+        "number": "singular",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t28",
+      "index": 27,
+      "surface": "ἡμῶν",
+      "pos": "pronoun",
+      "language": "grc",
+      "morphology": {
+        "case": "genitive",
+        "number": "plural",
+        "person": "first"
+      }
+    },
+    {
+      "id": "t29",
+      "index": 28,
+      "surface": "καὶ",
+      "pos": "conjunction",
+      "language": "grc"
+    },
+    {
+      "id": "t30",
+      "index": 29,
+      "surface": "κυρίου",
+      "pos": "noun",
+      "language": "grc",
+      "morphology": {
+        "case": "genitive",
+        "number": "singular",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t31",
+      "index": 30,
+      "surface": "Ἰησοῦ",
+      "pos": "propernoun",
+      "language": "grc",
+      "morphology": {
+        "case": "genitive",
+        "number": "singular",
+        "gender": "masculine"
+      }
+    },
+    {
+      "id": "t32",
+      "index": 31,
+      "surface": "Χριστοῦ",
+      "pos": "propernoun",
+      "language": "grc",
+      "morphology": {
+        "case": "genitive",
+        "number": "singular",
+        "gender": "masculine"
+      }
+    }
+  ],
+  "syntax": {
+    "rootId": "nh1",
+    "nodes": [
+      {
+        "id": "nh1",
+        "kind": "word",
+        "tokenIds": [],
+        "label": "Φιλιππησίους 1"
+      },
+      {
+        "id": "nc2",
+        "kind": "clause",
+        "clauseType": "independent",
+        "tokenIds": []
+      },
+      {
+        "id": "nt1",
+        "kind": "word",
+        "tokenIds": [
+          "t1"
+        ],
+        "role": "subject"
+      },
+      {
+        "id": "nt2",
+        "kind": "word",
+        "tokenIds": [
+          "t2"
+        ],
+        "role": "coordinator"
+      },
+      {
+        "id": "nt3",
+        "kind": "word",
+        "tokenIds": [
+          "t3"
+        ]
+      },
+      {
+        "id": "ni3",
+        "kind": "word",
+        "tokenIds": [],
+        "implied": true,
+        "label": "(εἰσίν)",
+        "role": "predicate"
+      },
+      {
+        "id": "nt4",
+        "kind": "word",
+        "tokenIds": [
+          "t4"
+        ],
+        "role": "predicateNominative"
+      },
+      {
+        "id": "nt5",
+        "kind": "word",
+        "tokenIds": [
+          "t5"
+        ],
+        "role": "genitive"
+      },
+      {
+        "id": "nt6",
+        "kind": "word",
+        "tokenIds": [
+          "t6"
+        ]
+      },
+      {
+        "id": "nt7",
+        "kind": "word",
+        "tokenIds": [
+          "t7"
+        ],
+        "role": "dativeComplement"
+      },
+      {
+        "id": "nt8",
+        "kind": "word",
+        "tokenIds": [
+          "t8"
+        ],
+        "role": "adjectival"
+      },
+      {
+        "id": "nt9",
+        "kind": "word",
+        "tokenIds": [
+          "t9"
+        ],
+        "role": "determiner"
+      },
+      {
+        "id": "nt10",
+        "kind": "word",
+        "tokenIds": [
+          "t10"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt11",
+        "kind": "word",
+        "tokenIds": [
+          "t11"
+        ]
+      },
+      {
+        "id": "nt12",
+        "kind": "word",
+        "tokenIds": [
+          "t12"
+        ]
+      },
+      {
+        "id": "nc4",
+        "kind": "clause",
+        "clauseType": "participial",
+        "tokenIds": []
+      },
+      {
+        "id": "nt13",
+        "kind": "word",
+        "tokenIds": [
+          "t13"
+        ],
+        "role": "determiner"
+      },
+      {
+        "id": "nt14",
+        "kind": "word",
+        "tokenIds": [
+          "t14"
+        ],
+        "role": "predicate"
+      },
+      {
+        "id": "nt15",
+        "kind": "word",
+        "tokenIds": [
+          "t15"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt16",
+        "kind": "word",
+        "tokenIds": [
+          "t16"
+        ]
+      },
+      {
+        "id": "nt17",
+        "kind": "word",
+        "tokenIds": [
+          "t17"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt18",
+        "kind": "word",
+        "tokenIds": [
+          "t18"
+        ]
+      },
+      {
+        "id": "nt19",
+        "kind": "word",
+        "tokenIds": [
+          "t19"
+        ],
+        "role": "coordinator"
+      },
+      {
+        "id": "nt20",
+        "kind": "word",
+        "tokenIds": [
+          "t20"
+        ]
+      },
+      {
+        "id": "nc5",
+        "kind": "clause",
+        "clauseType": "independent",
+        "tokenIds": []
+      },
+      {
+        "id": "nt21",
+        "kind": "word",
+        "tokenIds": [
+          "t21"
+        ],
+        "role": "subject"
+      },
+      {
+        "id": "nt22",
+        "kind": "word",
+        "tokenIds": [
+          "t22"
+        ],
+        "role": "coordinator"
+      },
+      {
+        "id": "nt23",
+        "kind": "word",
+        "tokenIds": [
+          "t23"
+        ]
+      },
+      {
+        "id": "ni6",
+        "kind": "word",
+        "tokenIds": [],
+        "implied": true,
+        "label": "(εἴη)",
+        "role": "predicate"
+      },
+      {
+        "id": "nt24",
+        "kind": "word",
+        "tokenIds": [
+          "t24"
+        ],
+        "role": "dativeComplement"
+      },
+      {
+        "id": "nt25",
+        "kind": "word",
+        "tokenIds": [
+          "t25"
+        ],
+        "role": "prepositionalPhrase"
+      },
+      {
+        "id": "nt26",
+        "kind": "word",
+        "tokenIds": [
+          "t26"
+        ]
+      },
+      {
+        "id": "nt27",
+        "kind": "word",
+        "tokenIds": [
+          "t27"
+        ]
+      },
+      {
+        "id": "nt28",
+        "kind": "word",
+        "tokenIds": [
+          "t28"
+        ],
+        "role": "genitive"
+      },
+      {
+        "id": "nt29",
+        "kind": "word",
+        "tokenIds": [
+          "t29"
+        ],
+        "role": "coordinator"
+      },
+      {
+        "id": "nt30",
+        "kind": "word",
+        "tokenIds": [
+          "t30"
+        ]
+      },
+      {
+        "id": "nt31",
+        "kind": "word",
+        "tokenIds": [
+          "t31"
+        ]
+      },
+      {
+        "id": "nt32",
+        "kind": "word",
+        "tokenIds": [
+          "t32"
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "id": "r1",
+        "type": "conjunct",
+        "headId": "nh1",
+        "dependentId": "nc2",
+        "label": "1"
+      },
+      {
+        "id": "r2",
+        "type": "subject",
+        "headId": "nc2",
+        "dependentId": "nt1"
+      },
+      {
+        "id": "r3",
+        "type": "coordinator",
+        "headId": "nt1",
+        "dependentId": "nt2"
+      },
+      {
+        "id": "r4",
+        "type": "conjunct",
+        "headId": "nt1",
+        "dependentId": "nt3"
+      },
+      {
+        "id": "r5",
+        "type": "predicate",
+        "headId": "nc2",
+        "dependentId": "ni3"
+      },
+      {
+        "id": "r6",
+        "type": "predicateNominative",
+        "headId": "ni3",
+        "dependentId": "nt4"
+      },
+      {
+        "id": "r7",
+        "type": "genitive",
+        "headId": "nt4",
+        "dependentId": "nt5"
+      },
+      {
+        "id": "r8",
+        "type": "apposition",
+        "headId": "nt5",
+        "dependentId": "nt6"
+      },
+      {
+        "id": "r9",
+        "type": "dativeComplement",
+        "headId": "ni3",
+        "dependentId": "nt7"
+      },
+      {
+        "id": "r10",
+        "type": "adjectival",
+        "headId": "nt7",
+        "dependentId": "nt8"
+      },
+      {
+        "id": "r11",
+        "type": "determiner",
+        "headId": "nt7",
+        "dependentId": "nt9"
+      },
+      {
+        "id": "r12",
+        "type": "prepositionalPhrase",
+        "headId": "nt7",
+        "dependentId": "nt10"
+      },
+      {
+        "id": "r13",
+        "type": "prepositionObject",
+        "headId": "nt10",
+        "dependentId": "nt11"
+      },
+      {
+        "id": "r14",
+        "type": "apposition",
+        "headId": "nt11",
+        "dependentId": "nt12"
+      },
+      {
+        "id": "r15",
+        "type": "adjectival",
+        "headId": "nt7",
+        "dependentId": "nc4"
+      },
+      {
+        "id": "r16",
+        "type": "determiner",
+        "headId": "nt14",
+        "dependentId": "nt13"
+      },
+      {
+        "id": "r17",
+        "type": "predicate",
+        "headId": "nc4",
+        "dependentId": "nt14"
+      },
+      {
+        "id": "r18",
+        "type": "prepositionalPhrase",
+        "headId": "nt14",
+        "dependentId": "nt15"
+      },
+      {
+        "id": "r19",
+        "type": "prepositionObject",
+        "headId": "nt15",
+        "dependentId": "nt16"
+      },
+      {
+        "id": "r20",
+        "type": "prepositionalPhrase",
+        "headId": "nt7",
+        "dependentId": "nt17"
+      },
+      {
+        "id": "r21",
+        "type": "prepositionObject",
+        "headId": "nt17",
+        "dependentId": "nt18"
+      },
+      {
+        "id": "r22",
+        "type": "coordinator",
+        "headId": "nt18",
+        "dependentId": "nt19"
+      },
+      {
+        "id": "r23",
+        "type": "conjunct",
+        "headId": "nt18",
+        "dependentId": "nt20"
+      },
+      {
+        "id": "r24",
+        "type": "conjunct",
+        "headId": "nh1",
+        "dependentId": "nc5",
+        "label": "2"
+      },
+      {
+        "id": "r25",
+        "type": "subject",
+        "headId": "nc5",
+        "dependentId": "nt21"
+      },
+      {
+        "id": "r26",
+        "type": "coordinator",
+        "headId": "nt21",
+        "dependentId": "nt22"
+      },
+      {
+        "id": "r27",
+        "type": "conjunct",
+        "headId": "nt21",
+        "dependentId": "nt23"
+      },
+      {
+        "id": "r28",
+        "type": "predicate",
+        "headId": "nc5",
+        "dependentId": "ni6"
+      },
+      {
+        "id": "r29",
+        "type": "dativeComplement",
+        "headId": "ni6",
+        "dependentId": "nt24"
+      },
+      {
+        "id": "r30",
+        "type": "prepositionalPhrase",
+        "headId": "ni6",
+        "dependentId": "nt25"
+      },
+      {
+        "id": "r31",
+        "type": "prepositionObject",
+        "headId": "nt25",
+        "dependentId": "nt26"
+      },
+      {
+        "id": "r32",
+        "type": "apposition",
+        "headId": "nt26",
+        "dependentId": "nt27"
+      },
+      {
+        "id": "r33",
+        "type": "genitive",
+        "headId": "nt27",
+        "dependentId": "nt28"
+      },
+      {
+        "id": "r34",
+        "type": "coordinator",
+        "headId": "nt26",
+        "dependentId": "nt29"
+      },
+      {
+        "id": "r35",
+        "type": "conjunct",
+        "headId": "nt26",
+        "dependentId": "nt30"
+      },
+      {
+        "id": "r36",
+        "type": "apposition",
+        "headId": "nt30",
+        "dependentId": "nt31"
+      },
+      {
+        "id": "r37",
+        "type": "apposition",
+        "headId": "nt31",
+        "dependentId": "nt32"
+      }
+    ]
+  }
+}

@@ -4,12 +4,14 @@ import wordFlesh from './word-became-flesh.json';
 import john11a from './john-1-1a.json';
 import john114a from './john-1-14a.json';
 import john1John11 from './1-john-1-1.json';
+import phil116 from './philippians-1-1-6.json';
+import phil112grc from './philippians-1-1-2-grc.json';
 
 /**
  * Bundled sample analyses. Each is validated against the schema at module load
  * so a malformed fixture fails loudly in development and in tests.
  */
-const raw: unknown[] = [fox, wordFlesh, john11a, john114a, john1John11];
+const raw: unknown[] = [fox, wordFlesh, john11a, john114a, john1John11, phil116, phil112grc];
 
 export const sampleDocuments: KrDocument[] = raw.map((r) => KrDocumentSchema.parse(r));
 

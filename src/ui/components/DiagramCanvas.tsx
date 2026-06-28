@@ -108,6 +108,7 @@ export function DiagramCanvas() {
                 fontSize={el.small ? 13 : 18}
                 fontStyle={el.italic ? 'italic' : undefined}
                 fill={el.muted ? '#8a97a3' : '#1f2933'}
+                {...(el.rotate ? { transform: `rotate(${el.rotate} ${el.x} ${el.y})` } : {})}
                 onClick={() =>
                   el.nodeId
                     ? select({ nodeId: el.nodeId })

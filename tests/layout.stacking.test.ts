@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { layoutDocument } from '@/domain/layout';
 import { KrDocumentSchema, type KrDocument } from '@/domain/schema';
+import { cloneSample } from '@/fixtures';
 
 /**
  * Regression tests for the readability fix: tall clause-valued children stack
@@ -51,6 +52,21 @@ const subjectYs = (layout: ReturnType<typeof layoutDocument>) =>
     .filter((e) => e.kind === 'text' && (e as { text: string }).text === 'I')
     .map((e) => (e as { y: number }).y)
     .sort((a, b) => a - b);
+
+describe('traditional Kellogg-Reed diagonals', () => {
+  it('writes a preposition along a rotated diagonal, not on its own baseline', () => {
+    // "over the dog" — the preposition rides the diagonal; the object sits on
+    // a horizontal baseline below it.
+    const doc = cloneSample('doc_sample_fox')!;
+    const layout = layoutDocument(doc, doc.layoutHints);
+    const over = layout.elements.find(
+      (e) => e.kind === 'text' && (e as { text: string }).text === 'over',
+    ) as { rotate?: number } | undefined;
+    expect(over).toBeDefined();
+    expect(over!.rotate).toBeDefined();
+    expect(Math.abs(over!.rotate!)).toBeGreaterThan(15); // genuinely slanted
+  });
+});
 
 describe('clause stacking keeps the diagram readable', () => {
   it('stacks coordinated clauses vertically, not horizontally', () => {
