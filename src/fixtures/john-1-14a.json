@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "doc_sample_john_1_14a",
+  "title": "Καὶ ὁ λόγος σὰρξ ἐγένετο",
+  "language": "grc",
+  "text": "Καὶ ὁ λόγος σὰρξ ἐγένετο.",
+  "notes": "John 1:14a. Predicate nominative in Greek: both ὁ λόγος (subject) and σὰρξ (predicate nominative) are nominative — the roles are distinguished by syntax, not order. σὰρξ precedes the verb ἐγένετο. Καὶ is a discourse connective.",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "layoutHints": {},
+  "tokens": [
+    { "id": "t1", "index": 0, "surface": "Καὶ", "lemma": "καί", "language": "grc", "pos": "conjunction", "gloss": "and" },
+    { "id": "t2", "index": 1, "surface": "ὁ", "lemma": "ὁ", "language": "grc", "pos": "article", "gloss": "the", "morphology": { "case": "nominative", "gender": "masculine", "number": "singular" } },
+    { "id": "t3", "index": 2, "surface": "λόγος", "lemma": "λόγος", "language": "grc", "pos": "noun", "gloss": "Word", "morphology": { "case": "nominative", "gender": "masculine", "number": "singular" } },
+    { "id": "t4", "index": 3, "surface": "σὰρξ", "lemma": "σάρξ", "language": "grc", "pos": "noun", "gloss": "flesh", "morphology": { "case": "nominative", "gender": "feminine", "number": "singular" } },
+    { "id": "t5", "index": 4, "surface": "ἐγένετο.", "lemma": "γίνομαι", "language": "grc", "pos": "verb", "gloss": "became", "morphology": { "tense": "aorist", "voice": "middle", "mood": "indicative", "person": "third", "number": "singular" } }
+  ],
+  "syntax": {
+    "rootId": "n_root",
+    "nodes": [
+      { "id": "n_root", "kind": "clause", "clauseType": "independent", "tokenIds": [] },
+      { "id": "n_egeneto", "kind": "word", "role": "predicate", "tokenIds": ["t5"] },
+      { "id": "n_logos", "kind": "word", "role": "subject", "tokenIds": ["t3"] },
+      { "id": "n_ho", "kind": "word", "role": "determiner", "tokenIds": ["t2"] },
+      { "id": "n_sarx", "kind": "word", "role": "predicateNominative", "tokenIds": ["t4"] },
+      { "id": "n_kai", "kind": "word", "role": "particle", "tokenIds": ["t1"], "label": "Καὶ" }
+    ],
+    "relations": [
+      { "id": "r1", "type": "predicate", "headId": "n_root", "dependentId": "n_egeneto" },
+      { "id": "r2", "type": "subject", "headId": "n_root", "dependentId": "n_logos" },
+      { "id": "r3", "type": "determiner", "headId": "n_logos", "dependentId": "n_ho" },
+      { "id": "r4", "type": "predicateNominative", "headId": "n_egeneto", "dependentId": "n_sarx", "label": "ἐγένετο" },
+      { "id": "r5", "type": "particle", "headId": "n_root", "dependentId": "n_kai", "label": "connective" }
+    ]
+  }
+}

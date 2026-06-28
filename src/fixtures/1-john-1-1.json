@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "id": "doc_sample_1john_1_1",
+  "title": "ὃ ἦν ἀπ᾽ ἀρχῆς …",
+  "language": "grc",
+  "text": "ὃ ἦν ἀπ᾽ ἀρχῆς, ὃ ἀκηκόαμεν, ὃ ἑωράκαμεν τοῖς ὀφθαλμοῖς ἡμῶν.",
+  "notes": "1 John 1:1. Three asyndetic relative clauses modifying an implied antecedent ('that which …'). Demonstrates embedded/relative clauses, implied (pro-drop) subjects, a prepositional phrase, a dative of means (τοῖς ὀφθαλμοῖς), and an adnominal genitive (ἡμῶν).",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "layoutHints": {},
+  "tokens": [
+    { "id": "t1", "index": 0, "surface": "ὃ", "lemma": "ὅς", "language": "grc", "pos": "pronoun", "gloss": "which", "morphology": { "case": "nominative", "gender": "neuter", "number": "singular" } },
+    { "id": "t2", "index": 1, "surface": "ἦν", "lemma": "εἰμί", "language": "grc", "pos": "verb", "gloss": "was", "morphology": { "tense": "imperfect", "voice": "active", "mood": "indicative", "person": "third", "number": "singular" } },
+    { "id": "t3", "index": 2, "surface": "ἀπ᾽", "lemma": "ἀπό", "language": "grc", "pos": "preposition", "gloss": "from" },
+    { "id": "t4", "index": 3, "surface": "ἀρχῆς,", "lemma": "ἀρχή", "language": "grc", "pos": "noun", "gloss": "beginning", "morphology": { "case": "genitive", "gender": "feminine", "number": "singular" } },
+    { "id": "t5", "index": 4, "surface": "ὃ", "lemma": "ὅς", "language": "grc", "pos": "pronoun", "gloss": "which", "morphology": { "case": "accusative", "gender": "neuter", "number": "singular" } },
+    { "id": "t6", "index": 5, "surface": "ἀκηκόαμεν,", "lemma": "ἀκούω", "language": "grc", "pos": "verb", "gloss": "we have heard", "morphology": { "tense": "perfect", "voice": "active", "mood": "indicative", "person": "first", "number": "plural" } },
+    { "id": "t7", "index": 6, "surface": "ὃ", "lemma": "ὅς", "language": "grc", "pos": "pronoun", "gloss": "which", "morphology": { "case": "accusative", "gender": "neuter", "number": "singular" } },
+    { "id": "t8", "index": 7, "surface": "ἑωράκαμεν", "lemma": "ὁράω", "language": "grc", "pos": "verb", "gloss": "we have seen", "morphology": { "tense": "perfect", "voice": "active", "mood": "indicative", "person": "first", "number": "plural" } },
+    { "id": "t9", "index": 8, "surface": "τοῖς", "lemma": "ὁ", "language": "grc", "pos": "article", "gloss": "the", "morphology": { "case": "dative", "gender": "masculine", "number": "plural" } },
+    { "id": "t10", "index": 9, "surface": "ὀφθαλμοῖς", "lemma": "ὀφθαλμός", "language": "grc", "pos": "noun", "gloss": "eyes", "morphology": { "case": "dative", "gender": "masculine", "number": "plural" } },
+    { "id": "t11", "index": 10, "surface": "ἡμῶν.", "lemma": "ἐγώ", "language": "grc", "pos": "pronoun", "gloss": "of us", "morphology": { "case": "genitive", "person": "first", "number": "plural" } }
+  ],
+  "syntax": {
+    "rootId": "n_root",
+    "nodes": [
+      { "id": "n_root", "kind": "phrase", "tokenIds": [], "implied": true, "label": "(that which …)" },
+
+      { "id": "n_rc1", "kind": "clause", "clauseType": "relative", "tokenIds": [] },
+      { "id": "n_hn1", "kind": "word", "role": "predicate", "tokenIds": ["t2"] },
+      { "id": "n_ho1", "kind": "word", "role": "subject", "tokenIds": ["t1"] },
+      { "id": "n_apo", "kind": "word", "role": "prepositionalPhrase", "tokenIds": ["t3"] },
+      { "id": "n_arches", "kind": "word", "role": "prepositionObject", "tokenIds": ["t4"] },
+
+      { "id": "n_rc2", "kind": "clause", "clauseType": "relative", "tokenIds": [] },
+      { "id": "n_akekoamen", "kind": "word", "role": "predicate", "tokenIds": ["t6"] },
+      { "id": "n_we2", "kind": "word", "role": "subject", "tokenIds": [], "implied": true, "label": "(we)" },
+      { "id": "n_ho2", "kind": "word", "role": "directObject", "tokenIds": ["t5"] },
+
+      { "id": "n_rc3", "kind": "clause", "clauseType": "relative", "tokenIds": [] },
+      { "id": "n_heorakamen", "kind": "word", "role": "predicate", "tokenIds": ["t8"] },
+      { "id": "n_we3", "kind": "word", "role": "subject", "tokenIds": [], "implied": true, "label": "(we)" },
+      { "id": "n_ho3", "kind": "word", "role": "directObject", "tokenIds": ["t7"] },
+      { "id": "n_ophthalmois", "kind": "word", "role": "adverbial", "tokenIds": ["t10"] },
+      { "id": "n_tois", "kind": "word", "role": "determiner", "tokenIds": ["t9"] },
+      { "id": "n_hemon", "kind": "word", "role": "genitive", "tokenIds": ["t11"] }
+    ],
+    "relations": [
+      { "id": "r1", "type": "adjectival", "headId": "n_root", "dependentId": "n_rc1", "label": "rel." },
+      { "id": "r2", "type": "adjectival", "headId": "n_root", "dependentId": "n_rc2", "label": "rel." },
+      { "id": "r3", "type": "adjectival", "headId": "n_root", "dependentId": "n_rc3", "label": "rel." },
+
+      { "id": "r4", "type": "predicate", "headId": "n_rc1", "dependentId": "n_hn1" },
+      { "id": "r5", "type": "subject", "headId": "n_rc1", "dependentId": "n_ho1" },
+      { "id": "r6", "type": "prepositionalPhrase", "headId": "n_hn1", "dependentId": "n_apo", "label": "ἀπ᾽" },
+      { "id": "r7", "type": "prepositionObject", "headId": "n_apo", "dependentId": "n_arches" },
+
+      { "id": "r8", "type": "predicate", "headId": "n_rc2", "dependentId": "n_akekoamen" },
+      { "id": "r9", "type": "subject", "headId": "n_rc2", "dependentId": "n_we2" },
+      { "id": "r10", "type": "directObject", "headId": "n_akekoamen", "dependentId": "n_ho2" },
+
+      { "id": "r11", "type": "predicate", "headId": "n_rc3", "dependentId": "n_heorakamen" },
+      { "id": "r12", "type": "subject", "headId": "n_rc3", "dependentId": "n_we3" },
+      { "id": "r13", "type": "directObject", "headId": "n_heorakamen", "dependentId": "n_ho3" },
+      { "id": "r14", "type": "adverbial", "headId": "n_heorakamen", "dependentId": "n_ophthalmois", "label": "dat. of means" },
+      { "id": "r15", "type": "determiner", "headId": "n_ophthalmois", "dependentId": "n_tois" },
+      { "id": "r16", "type": "genitive", "headId": "n_ophthalmois", "dependentId": "n_hemon" }
+    ]
+  }
+}
