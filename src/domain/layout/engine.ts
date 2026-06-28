@@ -307,6 +307,12 @@ function layoutHead(
     railRight = Math.max(railRight, cursor);
   });
 
+  // A modifier hangs BELOW the head word, so its diagonal can start from the
+  // middle of the word rather than after it — they share the baseline, so the
+  // connection is unambiguous and the diagram stays narrower. (With appositives
+  // present the baseline already extends right, so we start after them.)
+  if (!apposRels.length) cursor = wordW / 2 - LAYOUT.dependentGap;
+
   wordRels.forEach((rel) => {
     cursor += LAYOUT.dependentGap;
     const objId = prepObjectId(ctx, rel);
@@ -499,11 +505,15 @@ function layoutCoordination(
   const wideX = openLeft ? junctionX - prong : prong;
   elements.push(line(eid(), wideX, topY, wideX, botY, 'dashed', 'coordination', node.id));
   if (coordText) {
+    // Sit the coordinator in the clear gap just above the last conjunct, not at
+    // the geometric centre — an earlier conjunct may hang descendants through
+    // the middle of the fork.
+    const labelY = botY - (LAYOUT.coordMemberGap * ctx.vScale + LAYOUT.dividerUp) / 2 + 4;
     elements.push({
       kind: 'text',
       id: eid(),
       x: openLeft ? wideX - 6 : wideX + 6,
-      y: 4,
+      y: labelY,
       text: coordText,
       anchor: openLeft ? 'end' : 'start',
       small: true,

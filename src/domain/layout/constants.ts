@@ -31,8 +31,9 @@ export const LAYOUT = {
   clauseFirstDrop: 24,
   /** Vertical gap between the bottom of one stacked clause and the next. */
   clauseStackGap: 34,
-  /** Coordination fork: vertical gap between stacked conjunct baselines. */
-  coordMemberGap: 16,
+  /** Coordination fork: vertical gap between stacked conjunct baselines. Wide
+   * enough to give the coordinator (and / καί) clear room on its dashed line. */
+  coordMemberGap: 28,
   /** Coordination fork: horizontal run of the prongs from the junction. */
   coordProngRun: 30,
   fontSize: 18,
