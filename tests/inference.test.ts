@@ -46,6 +46,33 @@ describe('inference engine', () => {
     expect(subjectInfs.some((i) => i.title.toLowerCase().includes('implied'))).toBe(true);
   });
 
+  it('assigns Greek case roles, marking ambiguous ones low-confidence', () => {
+    // ἀγαπῶμεν τὸν θεὸν τῇ καρδίᾳ τοῦ ἀνθρώπου
+    // (we love)  (the) (God-ACC) (the) (heart-DAT) (the) (man-GEN)
+    const doc = docWith('grc', 'verb');
+    doc.tokens = [
+      { id: 't1', index: 0, surface: 'ἀγαπῶμεν', pos: 'verb', morphology: { mood: 'indicative' } },
+      { id: 't2', index: 1, surface: 'θεὸν', pos: 'noun', morphology: { case: 'accusative' } },
+      { id: 't3', index: 2, surface: 'καρδίᾳ', pos: 'noun', morphology: { case: 'dative' } },
+      { id: 't4', index: 3, surface: 'ἀνθρώπου', pos: 'noun', morphology: { case: 'genitive' } },
+    ];
+    const infs = runInference(doc).inferences;
+    const obj = infs.find((i) => i.title.startsWith('directObject'));
+    const dat = infs.find((i) => i.title.startsWith('dativeComplement'));
+    const gen = infs.find((i) => i.title.startsWith('genitive'));
+    expect(obj?.provenance.confidence).toBe('high'); // accusative→object is reliable
+    expect(dat?.provenance.confidence).toBe('low'); // dative is ambiguous
+    expect(gen?.provenance.confidence).toBe('low'); // genitive attachment uncertain
+    // The genitive attaches to a noun head, not the verb.
+    expect(gen?.title).toContain('καρδίᾳ');
+  });
+
+  it('does not assign case roles in English (no morphology)', () => {
+    const doc = docWith('en', 'The quick brown fox jumps over the lazy dog.');
+    const infs = runInference(doc).inferences;
+    expect(infs.some((i) => i.title.startsWith('dativeComplement'))).toBe(false);
+  });
+
   it('accepting an inference flips provenance to confirmed and is idempotent', () => {
     const doc = docWith('en', 'The Word became flesh.');
     const { inferences } = runInference(doc);

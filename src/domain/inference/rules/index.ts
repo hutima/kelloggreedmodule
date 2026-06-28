@@ -1,6 +1,7 @@
 import type { InferenceRule } from '../types';
 import { posRule } from './posRule';
 import { clauseRule } from './clauseRule';
+import { caseRoleRule } from './caseRoleRule';
 import { determinerRule } from './determinerRule';
 import { prepositionRule } from './prepositionRule';
 import { coordinationRule } from './coordinationRule';
@@ -13,6 +14,7 @@ import { coordinationRule } from './coordinationRule';
 export const defaultRules: InferenceRule[] = [
   posRule,
   clauseRule,
+  caseRoleRule,
   determinerRule,
   prepositionRule,
   coordinationRule,
@@ -21,6 +23,7 @@ export const defaultRules: InferenceRule[] = [
 export {
   posRule,
   clauseRule,
+  caseRoleRule,
   determinerRule,
   prepositionRule,
   coordinationRule,
