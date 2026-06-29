@@ -80,6 +80,63 @@ function isDiagonalLeaf(ctx: Ctx, nodeId: string): boolean {
   return tok?.pos ? DIAGONAL_POS.has(tok.pos) : false;
 }
 
+/** POS of a word node, if it carries one token. */
+function wordPos(ctx: Ctx, nodeId: string): string | undefined {
+  const node = getNode(ctx.doc.syntax, nodeId);
+  if (!node || node.kind !== 'word' || !node.tokenIds.length) return undefined;
+  return ctx.doc.tokens.find((t) => t.id === node.tokenIds[0])?.pos;
+}
+
+/**
+ * A closed-class modifier (article, adjective, adverb…) that is drawn ALONG a
+ * diagonal — extended from `isDiagonalLeaf` to allow it to carry its OWN diagonal
+ * modifiers (an adverb modifying an adjective: "very friendly"; an adverb
+ * modifying an adverb: "quite often"). Those sub-modifiers hang as further
+ * diagonals off the word, so a stack of qualifiers reads down a zig-zag of
+ * slants rather than dropping onto a horizontal sub-baseline.
+ */
+function isDiagonalModifier(ctx: Ctx, nodeId: string): boolean {
+  const pos = wordPos(ctx, nodeId);
+  if (!pos || !DIAGONAL_POS.has(pos)) return false;
+  return childRelations(ctx.doc.syntax, nodeId).every(
+    (r) => r.type !== 'conjunct' && r.type !== 'coordinator' && isDiagonalModifier(ctx, r.dependentId),
+  );
+}
+
+/**
+ * Draw a diagonal modifier and, recursively, its own diagonal modifiers as
+ * further slants hanging off its word. Returns the geometry's lowest/rightmost
+ * extent so the caller can reserve room. Lines/text are pushed into `out`.
+ */
+function drawDiagonalModifier(
+  ctx: Ctx,
+  node: SyntaxNode,
+  attachX: number,
+  attachY: number,
+  relId: string | undefined,
+  out: DiagramElement[],
+): { bottom: number; right: number } {
+  const t = nodeText(ctx.doc, node) || node.label || '';
+  const { run, drop } = diagLeafGeom(t);
+  const endX = attachX + run;
+  const endY = attachY + drop;
+  out.push(line(eid(), attachX, attachY, endX, endY, 'solid', 'slant', undefined, relId));
+  out.push(diagonalText(t, attachX, attachY, endX, endY, relId, node.id, DIAG_TEXT_FRAC));
+  let bottom = diagonalDepth(attachX, attachY, endX, endY, t, DIAG_TEXT_FRAC);
+  let right = endX + measureText(t) * 0.6;
+  // Sub-modifiers hang from the lower end of this slant, fanning right.
+  let cx = endX;
+  for (const r of childRelations(ctx.doc.syntax, node.id)) {
+    const child = getNode(ctx.doc.syntax, r.dependentId);
+    if (!child) continue;
+    const sub = drawDiagonalModifier(ctx, child, cx, endY, r.id, out);
+    bottom = Math.max(bottom, sub.bottom);
+    right = Math.max(right, sub.right);
+    cx += LAYOUT.dependentGap;
+  }
+  return { bottom, right };
+}
+
 /** The word-level `conjunct` members of a coordinated node (clauses excluded). */
 function wordConjunctRels(ctx: Ctx, nodeId: string) {
   return childRelations(ctx.doc.syntax, nodeId).filter(
@@ -335,7 +392,7 @@ function layoutHead(
   // stranded far to the right of its noun, past a long genitive chain, looking
   // detached (e.g. βασιλείαν … τὴν). Stable sort preserves order within a class.
   const isLeaf = (r: { type: SyntacticRole; dependentId: string }) =>
-    r.type !== 'conjunct' && !prepObjectId(ctx, r) && isDiagonalLeaf(ctx, r.dependentId);
+    r.type !== 'conjunct' && !prepObjectId(ctx, r) && isDiagonalModifier(ctx, r.dependentId);
   const wordRels = allWordRels
     .filter((r) => r.type !== 'apposition')
     .sort((a, b) => Number(isLeaf(b)) - Number(isLeaf(a)));
@@ -386,20 +443,17 @@ function layoutHead(
       railRight = Math.max(railRight, attachX);
       belowBottom = Math.max(belowBottom, depTop + block.height, diagonalDepth(attachX, 0, endX, depTop, prep));
       cursor = objX + block.width;
-    } else if (rel.type !== 'conjunct' && isDiagonalLeaf(ctx, rel.dependentId)) {
-      // Closed-class modifier written ALONG its diagonal; no sub-baseline. The
+    } else if (rel.type !== 'conjunct' && isDiagonalModifier(ctx, rel.dependentId)) {
+      // Closed-class modifier written ALONG its diagonal; no sub-baseline. It may
+      // carry its own qualifier ("very friendly") as a further slant. The
       // run/drop scale to the word so a long possessive (ἡμῶν) hangs clear of
       // the head's baseline instead of clashing with it.
       const n2 = getNode(ctx.doc.syntax, rel.dependentId)!;
-      const t = nodeText(ctx.doc, n2) || n2.label || '';
-      const { run, drop } = diagLeafGeom(t);
       const attachX = cursor;
-      const endX = cursor + run;
-      elements.push(line(eid(), attachX, 0, endX, drop, 'solid', 'slant', undefined, rel.id));
-      elements.push(diagonalText(t, attachX, 0, endX, drop, rel.id, rel.dependentId, DIAG_TEXT_FRAC));
+      const ext = drawDiagonalModifier(ctx, n2, attachX, 0, rel.id, elements);
       railRight = Math.max(railRight, attachX);
-      belowBottom = Math.max(belowBottom, diagonalDepth(attachX, 0, endX, drop, t, DIAG_TEXT_FRAC));
-      cursor = endX + measureText(t) * 0.6;
+      belowBottom = Math.max(belowBottom, ext.bottom);
+      cursor = ext.right;
     } else {
       // A noun modifier / phrase keeps its own sub-baseline, hung on a stem.
       const block = layoutNode(ctx, rel.dependentId, seen);
@@ -428,7 +482,7 @@ function layoutHead(
     const spineX = wordW / 2;
     const topY = (rowHeight > 0 ? rowHeight : 0) + LAYOUT.adjunctDrop * ctx.vScale;
     const stack = stackClauses(ctx, clauseRels, seen, spineX, topY);
-    elements.push(line(eid(), spineX, 0, spineX, topY, 'dotted', 'stem'));
+    elements.push(line(eid(), spineX, 0, spineX, topY, 'dashed', 'stem'));
     elements.push(...stack.elements);
     bottom = Math.max(bottom, stack.bottom);
     right = Math.max(right, stack.right);
@@ -480,7 +534,7 @@ function stackClauses(
     elements.push(...translate(block, blockX, y));
     // Short connector from the stem to this clause's baseline.
     elements.push(
-      line(eid(), spineX, y, blockX + block.wordLeft, y, 'dotted', 'stem', undefined, r.id),
+      line(eid(), spineX, y, blockX + block.wordLeft, y, 'dashed', 'stem', undefined, r.id),
     );
     if (labelled) {
       elements.push(smallText(eid(), (spineX + blockX) / 2, y - 6, r.label!, 'middle', r.id));
@@ -492,7 +546,7 @@ function stackClauses(
   });
 
   // The vertical stem itself, spanning from its top to the last clause.
-  elements.unshift(line(eid(), spineX, topY, spineX, lastBaselineY, 'dotted', 'stem'));
+  elements.unshift(line(eid(), spineX, topY, spineX, lastBaselineY, 'dashed', 'stem'));
   return { elements, right, bottom };
 }
 
@@ -674,6 +728,66 @@ function layoutCoordination(
   };
 }
 
+/**
+ * A COMPOUND PREDICATE sharing one object ("proofreads and edits her essays"):
+ * the baseline forks into the coordinated verbs and rejoins to a single point,
+ * after which the shared complement continues on the line. Drawn as a fork with
+ * a junction at BOTH ends (unlike layoutCoordination's single junction), so it
+ * sits inline on the main baseline between the divider and the object.
+ *
+ * Returned block: baseline at y = 0 entering at the left junction and leaving at
+ * the right junction (wordLeft = 0, wordRight = width); members straddle the line.
+ */
+function layoutCompoundPredicate(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): Block {
+  const conjunctRels = wordConjunctRels(ctx, verbNode.id);
+  const coordRel = childRelations(ctx.doc.syntax, verbNode.id).find((r) => r.type === 'coordinator');
+  const coordText = coordRel
+    ? nodeText(ctx.doc, getNode(ctx.doc.syntax, coordRel.dependentId)!) || ''
+    : '';
+
+  // Bare verb words (their shared complements are drawn by the clause after the
+  // fork; per-verb adverbials are uncommon and omitted from the fork members).
+  const memberNodes = [verbNode, ...conjunctRels.map((r) => getNode(ctx.doc.syntax, r.dependentId)!)];
+  const members = memberNodes.map((n) => layoutHead(ctx, n, seen, true));
+
+  const gap = LAYOUT.coordMemberGap * ctx.vScale + LAYOUT.dividerUp;
+  const ys: number[] = [];
+  let yy = 0;
+  members.forEach((m, i) => {
+    ys.push(yy);
+    if (i < members.length - 1) yy += m.height + gap;
+  });
+  const centerY = yy / 2;
+  const prong = LAYOUT.coordProngRun;
+  const maxW = Math.max(...members.map((m) => m.width));
+  const leftX = 0;
+  const rightX = prong + maxW + prong;
+  const elements: DiagramElement[] = [];
+
+  members.forEach((m, i) => {
+    const by = ys[i]! - centerY;
+    const mx = prong + (maxW - m.width) / 2;
+    elements.push(...translate(m, mx, by));
+    elements.push(line(eid(), leftX, 0, mx, by, 'solid', 'coordination'));
+    elements.push(line(eid(), mx + m.width, by, rightX, 0, 'solid', 'coordination'));
+  });
+
+  // Coordinator on a dashed bridge between the prongs, near the left junction.
+  const topY = ys[0]! - centerY;
+  const botY = ys[ys.length - 1]! - centerY;
+  const dashX = prong * 0.55;
+  elements.push(line(eid(), dashX, topY * 0.55, dashX, botY * 0.55, 'dashed', 'coordination', verbNode.id));
+  if (coordText) {
+    elements.push({
+      kind: 'text', id: eid(), x: dashX - 6, y: 0, text: coordText,
+      anchor: 'middle', small: true, rotate: -90, nodeId: coordRel?.dependentId,
+    });
+  }
+
+  const lastBottom = botY + members[members.length - 1]!.height;
+  return { width: rightX, height: lastBottom, elements, wordLeft: 0, wordRight: rightX };
+}
+
 // --- a clause baseline --------------------------------------------------------
 
 function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
@@ -770,10 +884,13 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     );
     x += 2;
   }
-  // predicate
+  // predicate — a compound predicate (proofreads AND edits) forks and rejoins so
+  // the shared object continues from a single point past the fork.
+  const verbIsCoord = !!verbNode && isWordCoordination(ctx, verbNode);
+  const predBlock = verbIsCoord ? layoutCompoundPredicate(ctx, verbNode!, seen) : verbBlock;
   const verbX0 = x;
-  placeBlock(verbBlock);
-  const verbMidX = verbX0 + (verbBlock.wordRight || verbBlock.width) / 2;
+  placeBlock(predBlock);
+  const verbMidX = verbX0 + (predBlock.wordRight || predBlock.width) / 2;
 
   // Adjuncts hang below the baseline on diagonals/stems. The verb's OWN
   // modifiers — an article substantivizing a participle (τοῖς οὖσιν…), an
@@ -808,16 +925,11 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
       const right = objX + block.width;
       return { right, next: right + LAYOUT.dependentGap };
     }
-    if (r.type !== 'conjunct' && isDiagonalLeaf(ctx, r.dependentId)) {
+    if (r.type !== 'conjunct' && isDiagonalModifier(ctx, r.dependentId)) {
       const node2 = getNode(ctx.doc.syntax, r.dependentId)!;
-      const t = nodeText(ctx.doc, node2) || node2.label || '';
-      const { run, drop } = diagLeafGeom(t);
-      const endX = attachX + run;
-      elements.push(line(eid(), attachX, 0, endX, drop, 'solid', 'slant', undefined, r.id));
-      elements.push(diagonalText(t, attachX, 0, endX, drop, r.id, r.dependentId, DIAG_TEXT_FRAC));
-      belowMaxBottom = Math.max(belowMaxBottom, diagonalDepth(attachX, 0, endX, drop, t, DIAG_TEXT_FRAC));
-      const right = endX + measureText(t) * 0.6;
-      return { right, next: right + LAYOUT.dependentGap };
+      const ext = drawDiagonalModifier(ctx, node2, attachX, 0, r.id, elements);
+      belowMaxBottom = Math.max(belowMaxBottom, ext.bottom);
+      return { right: ext.right, next: ext.right + LAYOUT.dependentGap };
     }
     const block = layoutNode(ctx, r.dependentId, seen);
     const objX = attachX + LAYOUT.diagRun;
@@ -845,9 +957,16 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     )
     .sort((a, b) => Number(!isDiagonalLeaf(ctx, a.dependentId)) - Number(!isDiagonalLeaf(ctx, b.dependentId)));
 
-  // Clause-level adjuncts (not owned by the verb).
+  // Clause-level adjuncts (not owned by the verb). A vocative (direct address)
+  // and an interjection are NOT part of the clause's grammar — they float on
+  // their own line above the diagram, unconnected — so they are handled apart.
   const clauseWordRels = rels.filter((r) => r !== subjectRel && r !== predicateRel);
-  const wordAdjuncts = clauseWordRels.filter((r) => !isClauseChild(ctx, r.dependentId));
+  const floatingRels = clauseWordRels.filter(
+    (r) => (r.type === 'vocative' || r.type === 'interjection') && !isClauseChild(ctx, r.dependentId),
+  );
+  const wordAdjuncts = clauseWordRels.filter(
+    (r) => !isClauseChild(ctx, r.dependentId) && r.type !== 'vocative' && r.type !== 'interjection',
+  );
   const clauseAdjuncts = [
     ...clauseWordRels.filter((r) => isClauseChild(ctx, r.dependentId)),
     // Clause complements that were pedestalled are drawn above the line, not here.
@@ -953,11 +1072,23 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   if (clauseAdjuncts.length) {
     const spineX = Math.max(0, divX);
     const stackTop = Math.max(baselineHeight, belowMaxBottom) + LAYOUT.adjunctDrop * ctx.vScale;
-    elements.push(line(eid(), divX, LAYOUT.dividerDown, spineX, stackTop, 'dotted', 'stem'));
+    elements.push(line(eid(), divX, LAYOUT.dividerDown, spineX, stackTop, 'dashed', 'stem'));
     const stack = stackClauses(ctx, clauseAdjuncts, seen, spineX, stackTop);
     elements.push(...stack.elements);
     width = Math.max(width, stack.right);
     height = Math.max(height, stack.bottom);
+  }
+
+  // Direct address / interjection: each rides its own short line floating ABOVE
+  // the clause, unconnected — it is outside the sentence's grammar.
+  if (floatingRels.length) {
+    let fy = -LAYOUT.dividerUp - LAYOUT.slantDrop;
+    for (const r of floatingRels) {
+      const block = layoutNode(ctx, r.dependentId, seen);
+      elements.push(...translate(block, 0, fy));
+      width = Math.max(width, block.width);
+      fy -= block.height + LAYOUT.slantDrop;
+    }
   }
 
   return { width, height, elements, wordLeft: 0, wordRight: baselineWidth };
