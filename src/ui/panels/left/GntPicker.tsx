@@ -83,8 +83,8 @@ export function GntPicker() {
             }}
           >
             {GNT_BOOKS.map((b) => (
-              <option key={b.num} value={b.num}>
-                {b.num}. {b.name}
+              <option key={b.num} value={b.num} title={b.name}>
+                {b.num}. {b.abbr}
                 {BUNDLED_BOOKS.has(b.num) ? ' ✓' : ''}
               </option>
             ))}
