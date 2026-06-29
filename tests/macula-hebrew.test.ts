@@ -4,6 +4,7 @@ import { maculaHebrewToDocuments } from '@/io/macula-hebrew';
 import { KrDocumentSchema } from '@/domain/schema';
 import { layoutDocument } from '@/domain/layout';
 import { measureText } from '@/domain/layout/measure';
+import { alignParallelHebrew, type OtParallelBook } from '@/io';
 
 /**
  * The Hebrew Bible mode converts Clear-Bible macula-hebrew (WLC) Lowfat trees.
@@ -147,6 +148,35 @@ describe('right-to-left Hebrew layout', () => {
     const x = (l: typeof auto, t: string) =>
       (l.elements.find((e) => e.kind === 'text' && e.text === t) as { x: number } | undefined)?.x;
     expect(x(auto, 'אֱלֹהִ֑ים')).toBeCloseTo(x(rtl, 'אֱלֹהִ֑ים')!, 4);
+  });
+});
+
+describe('Hebrew parallel-English alignment (by shared word id)', () => {
+  it('links Hebrew tokens to their BSB English words by morpheme id', () => {
+    const [d] = maculaHebrewToDocuments(xml(), { book: 'Genesis' });
+    // A minimal BSB book: God (idx 3) and heavens/earth, keyed by morpheme id.
+    // אֱלֹהִים id o010010010031 → morpheme key "0031"; הַשָּׁמַיִם noun o010010010052 → "0052".
+    const book: OtParallelBook = {
+      version: 'BSB',
+      book: 'Genesis',
+      bookNum: 1,
+      verses: { '1.1': ['In', 'the', 'beginning', 'God', 'created', 'the', 'heavens', 'and', 'the', 'earth'] },
+      links: {
+        '1.1': [
+          { i: '0031', e: [3] }, // God
+          { i: '0052', e: [6] }, // heavens
+        ],
+      },
+    };
+    const view = alignParallelHebrew(d!, book);
+    expect(view.verses).toHaveLength(1);
+    expect(view.verses[0]!.words[3]!.t).toBe('God');
+    // The אֱלֹהִים node maps to the English "God" (index 3).
+    const godNode = d!.syntax.nodes.find((n) =>
+      n.tokenIds.some((t) => d!.tokens.find((x) => x.id === t)?.gloss === 'God'),
+    )!;
+    expect(view.nodeToEn.get(godNode.id)).toContain('1.1#3');
+    expect(view.enToNodes.get('1.1#3')).toContain(godNode.id);
   });
 });
 

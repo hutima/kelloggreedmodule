@@ -226,15 +226,12 @@ async function buildNt(wantedNums) {
 
 async function buildOt(wantedNums) {
   console.log('Loading Clear-Bible OT alignment sources (cached after first run)…');
-  const [hebTsv, engTsv, alignJson] = await Promise.all([
-    cached(OT_FILES.hebrew),
+  // Matching is purely by shared word id, so the Hebrew source TSV isn't needed —
+  // only the English target and the alignment.
+  const [engTsv, alignJson] = await Promise.all([
     cached(OT_FILES.english),
     cached(OT_FILES.align),
   ]);
-
-  // Hebrew words → Strong's, keyed by full WLC id (= our macula-hebrew xml:id).
-  const heb = new Map();
-  for (const r of tsv(hebTsv)) heb.set(r.id, strongInt(r.strongs));
   const { engVerse, posOfId } = indexEnglish(engTsv);
 
   // Alignment: WLC morpheme id → the English positions it maps to.
@@ -269,18 +266,18 @@ async function buildOt(wantedNums) {
       const d = wid.replace(/^o/, ''); // 12 digits: bb ccc vvv www m
       const cc = +d.slice(2, 5);
       const vv = +d.slice(5, 8);
-      const ww = +d.slice(8, 11);
       const vkey = `${cc}.${vv}`;
       const en = [];
       for (const p of hLinks.get(wid) ?? []) {
         const [pk, pos] = p.split('#');
         if (pk === `${bb}.${cc}.${vv}`) en.push(Number(pos));
       }
+      if (!en.length) continue; // unaligned morpheme: no link needed
       en.sort((a, b) => a - b);
-      // `id` is the per-verse morpheme key (word+morpheme, last 4 digits): the
-      // runtime matches our macula-hebrew tokens to it EXACTLY. g/s are fallbacks.
-      const link = { id: d.slice(8), g: ww, s: heb.get(wid) ?? 0, en };
-      (links[vkey] ??= []).push(link);
+      // macula-hebrew and WLC share the SAME word ids, so the runtime matches by
+      // id EXACTLY (no lexeme/position fallback). `i` is the per-verse morpheme
+      // key (word+morpheme, last 4 digits of the id).
+      (links[vkey] ??= []).push({ i: d.slice(8), e: en });
     }
     const doc = { version: 'BSB', book: name, bookNum: num, verses, nosp, excl, links };
     const json = JSON.stringify(doc);
