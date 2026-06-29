@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { ExportModal } from './ExportModal';
 import { AboutModal } from './AboutModal';
+import { GuideModal } from './GuideModal';
 
 export function TopBar() {
   const doc = useEditorStore((s) => s.doc);
@@ -13,6 +14,7 @@ export function TopBar() {
 
   const [exportOpen, setExportOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   // Keyboard shortcuts for undo/redo (the toolbar buttons were retired in favour
   // of a single Export action; undo/redo stay available from the keyboard).
@@ -55,6 +57,9 @@ export function TopBar() {
         <button className="btn" onClick={() => setAboutOpen(true)} title="About & contact">
           About
         </button>
+        <button className="btn" onClick={() => setGuideOpen(true)} title="How to use">
+          Guide
+        </button>
         <button className="btn primary" onClick={() => setExportOpen(true)} title="Export diagram">
           Export
         </button>
@@ -74,6 +79,7 @@ export function TopBar() {
         <ExportModal doc={doc} verticalScale={verticalScale} onClose={() => setExportOpen(false)} />
       )}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+      {guideOpen && <GuideModal onClose={() => setGuideOpen(false)} />}
     </header>
   );
 }
