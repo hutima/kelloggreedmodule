@@ -282,13 +282,24 @@ const DIAG_TEXT_FRAC = 0.72;
  * low on the line (DIAG_TEXT_FRAC) — clears the head's baseline above it. Both
  * stay at least the constant minimums, so short words look exactly as before.
  */
+/**
+ * The ONE slant angle every downward modifier diagonal uses, so all of them read
+ * as parallel (an article, a possessive, a prepositional phrase's stem). Length
+ * varies with the modifier; the angle never does.
+ */
+const SLANT_ANGLE = 57 / DEG;
+
+/** Horizontal run of a standard-angle slant that drops by `drop`. */
+function slantRun(drop: number): number {
+  return drop / Math.tan(SLANT_ANGLE);
+}
+
 function diagLeafGeom(text: string): { run: number; drop: number } {
   const w = measureText(text);
   // The word sits between DIAG_TEXT_FRAC±half along the line; size the line so
   // that band (plus headroom for the upper end) is at least the word's length.
   const len = Math.max(LAYOUT.diagRun * 2, w + LAYOUT.fontSize * 1.4);
-  const angle = 57 / DEG; // consistent slant; steeper than a long shallow run
-  return { run: len * Math.cos(angle), drop: len * Math.sin(angle) };
+  return { run: len * Math.cos(SLANT_ANGLE), drop: len * Math.sin(SLANT_ANGLE) };
 }
 
 /** Text written along a diagonal, rotated to lie on the line from (x1,y1)→(x2,y2). */
@@ -566,8 +577,10 @@ function layoutHead(
       const block = layoutNode(ctx, objId, seen);
       const oTop = depTop + blockAscent(block);
       const attachX = cursor;
-      const objX = cursor + LAYOUT.diagRun;
-      const endX = objX + block.wordLeft;
+      // Stem at the standard slant angle (run derived from the drop), so every
+      // PP diagonal is parallel to the article/possessive slants.
+      const endX = attachX + slantRun(oTop);
+      const objX = endX - block.wordLeft;
       elements.push(...translate(block, objX, oTop));
       elements.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, rel.id));
       const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, rel.dependentId)!) || '';
@@ -1157,8 +1170,9 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
       // (ἀπὸ Θεοῦ … καὶ Κυρίου …) whose upper conjunct rises above its baseline
       // doesn't land back on the main line.
       const oTop = belowTop + blockAscent(block);
-      const objX = attachX + LAYOUT.diagRun;
-      const endX = objX + block.wordLeft;
+      // Standard slant angle (run from the drop), parallel to every other slant.
+      const endX = attachX + slantRun(oTop);
+      const objX = endX - block.wordLeft;
       elements.push(...translate(block, objX, oTop));
       const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '';
       elements.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, r.id));
