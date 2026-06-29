@@ -1,9 +1,10 @@
 # CLAUDE.md — Domain & Linguistic Reference
 
 This document is the canonical reference for the **linguistic model** and
-**data design** behind the Kellogg-Reed Diagrammer. Read it before changing the
-schema, the inference engine, the layout engine, or the renderer. (For build/run
-instructions and the high-level architecture, see `README.md`.)
+**data design** behind **Scripture Diagrammer**. ("Kellogg-Reed" names a *diagram
+mode*, not the app — the app renders several visualizations.) Read it before
+changing the schema, the inference engine, the layout engine, or the renderer.
+(For build/run instructions and the high-level architecture, see `README.md`.)
 
 ---
 
@@ -274,22 +275,36 @@ needs special geometry. Keep the three concerns separate.
 ## 10. App modes, visualizations, and the editing core
 
 The product is split into three **app modes** (`AppMode` in `state/types.ts`):
-**Explore** (default, especially on mobile), **Edit** (desktop/tablet-first), and
-**Sermon Prep**. These are orthogonal to the legacy inference **working mode**
-(`WorkMode` = parsed/assisted/manual), which now only drives the inference engine.
+**Explore** (default, especially on mobile), **Edit** (**desktop-only** — `canEdit`
+= `vp.isDesktop`, i.e. a real desktop or forced-desktop), and **Sermon Prep**.
+These are orthogonal to the legacy inference **working mode** (`WorkMode` =
+parsed/assisted/manual), which now only drives the inference engine.
 
 A **visualization** (`DiagramMode`: kellogg-reed · phrase-block · dependency ·
 morphology) is a *lens* over the one shared syntax graph — never a separate model.
+An **English-gloss toggle** (`glossMode`) swaps the *displayed* words to their
+glosses via the pure `glossDoc(doc)` (ids/relations/layout unchanged) for the
+structural modes; Morphology stays in the source language.
 
-Editing is mediated by **view adapters** (`ui/editor/adapters.ts`, implementing
-`EditorViewAdapter`). Given the current selection, an adapter returns the
-contextual `EditorAction[]` that fit *what the user is looking at*; the
-`EditorController` shows them in a `SelectionActionSheet` and routes each
-serializable `EditIntent` either to a store edit (which flows to the shared
-model) or to a guided modal (`RelationBuilder`, `RoleEditor`, `BlockEditor`,
-`MorphologyEditor`, `Note`). Semantic edits change the syntax graph and appear in
-every view; layout-only edits (`resetLayout`) stay view-local. The old dense
-Inspector remains behind `EDITING_ENABLED` (off) as a dev-only fallback.
+Editing is **tier-aware and mode-aware**. An `EditTier` (`basic` | `advanced`,
+Basic by default) drives each visualization's own behaviour through a **view
+adapter** (`ui/editor/adapters.ts`, implementing `EditorViewAdapter`): an adapter
+returns `getBasicActions` / `getAdvancedActions` for the current selection, a
+tier-aware `getPrimaryAction`, mode/tier `getHelpContent`, and an optional
+`basicInteraction` config. Basic is visual-first (plain-English chips, visual
+word→word linking, row promote/demote/move-under, grouping); Advanced is
+modal-rich (full role lists, morphology, manual relation building).
+
+Every contextual surface routes its serializable `EditIntent` through ONE
+dispatcher (`ui/editor/dispatch.ts`): a store edit (which flows to the shared
+model), a hierarchy move resolved to `attachNodeTo`, a tool/visual-link action, or
+a centrally-hosted guided modal (`RelationBuilder`, `RoleEditor`, `BlockEditor`,
+`AdvancedWordDetails`, `QuickGloss`, `Note` — keyed by the store's `editModal`).
+The contextual UI is the `InlineSyntaxPopover` (Basic) or the
+`SelectionActionSheet` (Advanced); Phrase/Block edits inline in its own
+`PhraseBlockEditor` workbench. The `EditModeToolbar` (Basic/Advanced toggle,
+active tool, undo/redo, How-to-edit) mounts in Edit mode. Semantic edits appear in
+every view; layout-only edits (`resetLayout`) stay view-local.
 
 ## 11. Patch / diff persistence (base + patch model)
 
@@ -325,3 +340,25 @@ in `domain/sermon`.
 - `AppMode` was repurposed for Explore/Edit/Sermon; the old value set is now
   `WorkMode`. `useViewport`'s force-desktop flag lives in the store so the shell
   and command bar stay in sync.
+
+## 14. Contested syntax / alternate readings
+
+The base 1904 (GNT LowFat) and WLC (macula-hebrew) parse is the DEFAULT and is
+never mutated. Debated passages are recorded in a curated registry
+(`src/data/contestedSyntax.ts`, validated by `schema/contested.ts`) authored
+against REAL passage ids (dump them with `npm run dump-syntax`; validate with
+`npm run contested:check`). Each `ContestedSyntaxIssue` uses the smallest faithful
+encoding via its `sourceType`: `review-only` · `semantic-only` · `syntax-only` ·
+`punctuation-only` · `textual-variant` · `passage-inclusion`.
+
+An `AlternateReading` carries at most one of: a `syntaxPatch` (the SyntaxPatch ops,
+reused — applied with `applyPatch` for preview, turned back into a normal user
+patch with `diffDocuments` on adopt), a `semanticOverlay` (same tree, different
+construal), or a `textualVariant` (different wording — NEVER merged into the base
+tokens). Helpers live in `domain/contested` (registry access,
+`applyAlternateReadingPreview`, `canAdopt`/`adoptAlternateReading`,
+`diffBaseAndAlternate`); UI in `ui/contested` (badge, mobile bar/sheet, desktop
+drawer, single-frame preview, side-by-side `VariantComparisonView` with linked
+scroll + difference highlighting, and a Phrase/Block outline diff that crosses out
+a moved row's old position). Preview NEVER persists; only an explicit adopt writes
+a patch.

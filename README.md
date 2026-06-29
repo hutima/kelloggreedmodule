@@ -1,72 +1,78 @@
-# Kellogg-Reed Diagrammer
+# Scripture Diagrammer
 
-A Progressive Web App for creating, editing, and exporting **hybrid
-Kellogg-Reed sentence diagrams** for both **English** and **Koine / Biblical
-Greek**.
+A Progressive Web App for exploring, editing, and exporting **sentence diagrams**
+of the Bible across several visualizations — **Kellogg-Reed**, **Phrase / Block**,
+**Dependency**, and **Morphology / Word Details** — for **English**, **Koine /
+Biblical Greek**, and **Biblical Hebrew**, treated as equal first-class languages.
 
 It is an installable, offline-capable PWA with local persistence, a clean
-domain-driven architecture, and SVG-based rendering. It treats English and
-Greek as equal first-class languages and never forces Greek syntax into rigid
-English word-order patterns.
+domain-driven architecture, and SVG-based rendering. It never forces Greek or
+Hebrew syntax into rigid English word-order patterns: structure follows the
+*relationships*, not the order of the words.
 
-> The linguistic model, JSON schema, and rendering conventions are documented
-> in detail in [`CLAUDE.md`](./CLAUDE.md).
+> The linguistic model, JSON schema, and rendering conventions are documented in
+> detail in [`CLAUDE.md`](./CLAUDE.md).
 
 ---
 
 ## Three user-facing modes (one shared model)
 
-The app presents three distinct experiences — all lenses over the **same**
-document model (tokens · syntax nodes · relations · layout hints · provenance):
+All experiences are lenses over the **same** document model (tokens · syntax
+nodes · relations · layout hints · provenance):
 
 - **Explore** — the default, especially on mobile. Read the original text, tap a
-  word to see its lemma/parsing/gloss/role, and switch visualizations
+  word to see its lemma / parsing / gloss / role, and switch visualizations
   (Kellogg-Reed · Phrase/Block · Dependency · Morphology). Optional English
-  alignment.
-- **Edit** (desktop/tablet-first) — direct, tap-driven editing. Select a word,
-  relation, or block; a contextual action sheet offers exactly the edits that fit
-  the active visualization, opening guided modals (relationship builder, role,
-  block hierarchy, morphology). Every semantic edit flows to the shared graph and
-  shows in all views; layout tweaks stay view-local. Hidden on phones unless you
-  force desktop mode.
+  alignment and an **English-gloss toggle** that swaps the displayed words to
+  their glosses while keeping the Greek/Hebrew parse.
+- **Edit** (**desktop-only**) — a tier-aware, mode-aware editing system. A
+  **Basic / Advanced** toggle drives each visualization's own editing behaviour:
+  Basic is visual-first (chips, taps, drag, visual word→word linking, row
+  promote/demote in Phrase/Block); Advanced is technical (full role lists,
+  morphology, manual relation building). Every semantic edit flows to the shared
+  graph and shows in all views; layout tweaks stay view-local. Hidden on phones
+  and tablets unless desktop mode is forced.
 - **Sermon Prep** — notes, highlights, observations, and an outline anchored to
   stable ids, kept separate from syntax. A persistent drawer on desktop, a light
   sheet on mobile.
 
-Responsive by design: mobile, tablet, and desktop get tailored layouts. User
-edits are stored as **compact diffs against the gold-standard base** (never
+User edits are stored as **compact diffs against the gold-standard base** (never
 duplicated documents) and are exportable, importable, and resettable.
+
+## Contested syntax & alternate readings
+
+Where a passage carries a debated syntactic decision or a textual variant, the
+base 1904 / WLC parse remains the default, and **alternate readings are encoded
+as overlays** — using the smallest representation that captures the difference
+(review · semantic · syntax · punctuation · textual). A discreet badge appears
+only on passages with contested data; a panel explains the issue in neutral
+language, you can **preview** an alternate (never saved) or **compare it
+side-by-side** with linked scrolling and difference highlighting, and on desktop
+**adopt** a structural alternate as your custom parse. See `src/data/contestedSyntax.ts`
+and `src/domain/contested/`.
 
 ## Features
 
-- **Legacy inference engine** (behind the rebuilt UI)
-  - **Parsed** — render a complete parse (JSON or the gold-standard passages).
-  - **Assisted** — let the **inference engine** propose structure. Every
-    inference carries `source` / `confidence` / `reason` and is accept/rejectable.
-  - **Manual** — build a diagram from scratch, node by node.
-- **Hybrid Kellogg-Reed renderer (SVG)** — baseline, subject/predicate divider,
-  objects & complements, slanted modifiers, prepositional phrases, coordination,
-  subordinate & nested clauses, implied elements, and free Greek word order.
-- **Three-panel editor** — sources (text · tokens · parse · JSON) · diagram
-  canvas · inspector (grammar · relations · notes · layout hints · inferences).
+- **Four visualizations over one graph** — Kellogg-Reed (formal SVG diagram),
+  Phrase/Block (interactive outline / workbench), Dependency (head→dependent
+  arcs), and Morphology / Word Details (forms + agreement arcs).
+- **Tier-aware editing** — per-mode Basic and Advanced edit experiences, a
+  mode-aware "How to edit" help, visual linking, and a relationship quick-picker.
+- **Gold-standard data** — GNT (Nestle1904 LowFat, macula-greek) and OT (WLC
+  LowFat, macula-hebrew), fetched on demand and cached; Philippians is bundled
+  for offline/first-run. Hand-tagged sample documents are bundled too.
+- **Legacy inference engine** — Parsed / Assisted / Manual working modes; every
+  inference carries `source` / `confidence` / `reason` and is accept/rejectable.
 - **Separation of concerns** — surface word order, syntactic relationships, and
-  diagram layout are independent. The renderer never derives structure from
-  token order, so discontinuous constituents and free word order just work.
-- **Persistence** — autosave to IndexedDB (with a localStorage fallback) and a
-  recent-documents list.
+  diagram layout are independent; the renderer never derives structure from token
+  order, so discontinuous constituents and free word order just work.
+- **Persistence** — autosave to IndexedDB (localStorage fallback); per-passage
+  patch/diff, sermon prep, and notes kept in separate keys.
 - **Import / export** — JSON (round-trips losslessly, schema-validated), SVG,
   PNG, and a print-friendly view.
-- **Copy parse prompt** — the Text tab generates a ready-to-use LLM prompt
-  (schema + rules + a worked example) pre-filled with your sentence. Run it in
-  any chat, paste the JSON back into the JSON tab, and Apply. The reusable
-  template also lives at [`docs/parse-prompt.txt`](./docs/parse-prompt.txt).
 - **Offline & installable** — `vite-plugin-pwa` (`injectManifest`) with a
-  race-condition-safe update flow: a new worker installs and **waits**, never
-  auto-reloading mid-session (which can freeze iOS standalone PWAs). When an
-  update is ready a mandatory "Refresh now" prompt applies it inside a user tap;
-  the ⟳ top-bar menu also offers *Check for updates* and *Clear cache & reload*
-  to fix a stale/broken cache.
-- **Polytonic Greek** — a Unicode-complete serif font stack and
+  race-condition-safe update flow.
+- **Polytonic Greek & Hebrew** — Unicode-complete font stacks and
   diacritic-aware text measurement.
 
 ---
@@ -80,41 +86,25 @@ npm install        # install dependencies
 npm run dev        # start the dev server (Vite) → http://localhost:5173
 ```
 
-Then open the app and pick a sample from the **Samples** menu, or type a
-sentence in the **Text** tab and click **Tokenize**.
+Open the app, pick a passage from **Sources** (GNT / OT) or a bundled **sample**,
+or type a sentence in the **Text** tab and **Tokenize**.
 
-### Other scripts
-
-```bash
-npm run build      # type-check (tsc -b) and build the production PWA into dist/
-npm run preview    # preview the production build locally
-npm test           # run the unit test suite (Vitest)
-npm run test:watch # watch mode
-npm run coverage   # coverage report
-npm run lint       # ESLint
-npm run typecheck  # type-check only
-```
-
-Sample diagrams can be regenerated as standalone SVGs with:
+### Scripts
 
 ```bash
-npx vite-node scripts/render-samples.mts
+npm run build            # type-check (tsc -b) and build the production PWA into dist/
+npm run preview          # preview the production build locally
+npm test                 # run the unit test suite (Vitest)
+npm run lint             # ESLint
+npm run typecheck        # type-check only
+
+# Developer utilities for the contested-syntax registry:
+npm run dump-syntax -- "Php 1:1"   # print a passage's real token/node/relation ids
+npm run contested:check            # validate the registry against the real base data
 ```
 
----
-
-## Application modes in practice
-
-1. **Parsed input** — Paste JSON into the **JSON** tab and *Apply*, or build the
-   structure explicitly in the **Parse** tab, then read the rendered diagram.
-2. **Assisted parse** — Enter text, **Tokenize**, switch the mode toggle to
-   **Assisted**. The **Inferences** tab fills with suggestions; accept/reject
-   them individually or in bulk, then refine by hand.
-3. **Manual diagram** — Add tokens (or none), then create nodes and relations in
-   the **Parse** tab and tune positions with **Layout** hints.
-
-Selecting any word, line, token, or relation opens it in the **Inspector** for
-editing (part of speech, full morphology, role, clause type, notes, …).
+Sample diagrams can be regenerated as standalone SVGs with
+`npx vite-node scripts/render-samples.mts`.
 
 ---
 
@@ -127,17 +117,27 @@ isolation. Dependencies point inward toward the domain.
 src/
   domain/
     schema/        Zod schemas — the single source of truth for all data shapes
-    model/         pure helpers: id minting, graph queries, immutable mutations, tokenizer
+                   (token · syntax · layout · sermon · patch · contested)
+    model/         pure helpers: ids, graph queries, immutable mutations, tokenize, outline
     inference/     provisional inference engine (pluggable rules/, declarative ops, apply)
-    layout/        syntax model → pure diagram geometry (never reads word order)
+    layout/        syntax model → pure diagram geometry, per visualization mode
     render/        geometry → SVG string, shared visual theme
-  state/           zustand editor store: selection, undo/redo, autosave
-  persistence/     IndexedDB via idb, with a localStorage fallback; recent docs
-  io/              JSON / SVG / PNG / print import & export
+    patch/         PatchManager: base + diff ⇄ edited document (pure, idempotent)
+    sermon/        pure sermon-prep mutations (notes / highlights / outline)
+    contested/     alternate-reading overlays: registry access, apply, diff
+  data/            curated contested-syntax registry (authored against real ids)
+  state/           zustand editor store: selection, tiers, undo/redo, autosave
+  persistence/     IndexedDB via idb (+ localStorage fallback); patches, sermon, notes
+  io/              GNT / OT loaders, JSON / SVG / PNG / print import & export
   fixtures/        bundled, schema-validated sample documents
-  ui/              three-panel React application (components + panels + styles)
-tests/             schema, inference, layout, render, io, and store unit tests
-scripts/           icon generation + sample SVG rendering
+  ui/
+    shell/         responsive shell, mode / visualization switchers
+    editor/        tier-aware editing core (adapters, dispatch, toolbar, modals)
+    contested/     badge, panel/sheet/drawer, side-by-side comparison, diff highlighting
+    sermon/        sermon-prep drawer / mobile sheet / highlight toolbar
+    components/    diagram canvas + the HTML diagram views
+tests/             schema, inference, layout, render, io, store, adapter, contested tests
+scripts/           icon generation, sample rendering, dump-syntax, contested:check
 ```
 
 ### The central idea: three separated concerns
@@ -148,34 +148,24 @@ scripts/           icon generation + sample SVG rendering
 | Syntactic **relationships** | `domain/schema/syntax.ts` | carry pixels |
 | Diagram **layout** | `domain/layout` + `schema/layout.ts` | re-derive syntax |
 
-This is why the diagrammer renders Greek correctly: a fronted prepositional
-phrase, an implied subject, or a discontinuous constituent is described by its
-*relationships*, and the layout engine places it accordingly — independent of
-where the words physically appear in the sentence.
+This is why the diagrammer renders Greek and Hebrew correctly: a fronted
+prepositional phrase, an implied subject, or a discontinuous constituent is
+described by its *relationships*, and the layout engine places it accordingly —
+independent of where the words physically appear.
 
 ### Extending the app
 
 - **New grammatical feature** → add the value to the relevant Zod enum in
   `domain/schema/` first. Documents remain backward-compatible.
 - **New inference** → write an `InferenceRule` and register it in
-  `domain/inference/rules/index.ts`. Nothing else changes.
+  `domain/inference/rules/index.ts`.
 - **New diagram convention** → adjust the layout engine; the renderer follows
-  automatically because it only draws primitives.
+  because it only draws primitives.
+- **New contested reading** → dump the passage's real ids
+  (`npm run dump-syntax -- "<ref>"`), add the issue/alternate to
+  `src/data/contestedSyntax.ts`, and validate with `npm run contested:check`.
 
 See [`CLAUDE.md`](./CLAUDE.md) for the full linguistic and schema reference.
-
----
-
-## Sample data
-
-The bundled samples (Samples menu, and `src/fixtures/*.json`) include:
-
-- *The quick brown fox jumps over the lazy dog.* — modifiers + prepositional phrase
-- *The Word became flesh.* — linking verb + predicate nominative
-- *Ἐν ἀρχῇ ἦν ὁ λόγος.* — fronted PP, copula before subject (word-order independence)
-- *Καὶ ὁ λόγος σὰρξ ἐγένετο.* — predicate nominative distinguished by syntax, not order
-- *ὃ ἦν ἀπ᾽ ἀρχῆς, ὃ ἀκηκόαμεν, ὃ ἑωράκαμεν τοῖς ὀφθαλμοῖς ἡμῶν.* — three
-  embedded relative clauses, implied subjects, dative of means, adnominal genitive
 
 ---
 
