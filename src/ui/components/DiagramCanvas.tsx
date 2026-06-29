@@ -19,6 +19,7 @@ import type { KrDocument } from '@/domain/schema';
 import { MIN_SCALE, clamp, minZoomScale, maxZoomScale, clampPan } from '@/ui/zoom';
 import { PhraseBlockView } from './diagram/PhraseBlockView';
 import { MorphologyView } from './diagram/MorphologyView';
+import { nodeHighlightColors } from '@/ui/sermon/highlights';
 
 const TENTATIVE = '#c2410c';
 const INK = '#1f2933';
@@ -50,6 +51,7 @@ export function DiagramCanvas() {
   const gntPassages = useEditorStore((s) => s.gntPassages);
   const gntIndex = useEditorStore((s) => s.gntIndex);
   const stepGnt = useEditorStore((s) => s.stepGnt);
+  const highlights = useEditorStore((s) => s.sermon.highlights);
   const [collapsed, setCollapsed] = useState(false);
   // Which label element anchors the glossary popover (so it opens at the exact
   // tag tapped, even when several arcs share a label/colour).
@@ -100,6 +102,10 @@ export function DiagramCanvas() {
   // The running source text as interactive words: each maps to the syntax node it
   // belongs to, grouped by verse (a passage stacks several verses).
   const sourceItems = useMemo(() => buildSourceItems(doc), [doc]);
+
+  // Sermon-prep highlights, as a nodeId → colour lookup, so a tagged word shows
+  // its category colour in the diagram AND the running text (not just the panel).
+  const hlByNode = useMemo(() => nodeHighlightColors(highlights), [highlights]);
 
   // Fetch the matching parallel book — Greek (GNT) or Hebrew (OT) — on open.
   useEffect(() => {
@@ -532,11 +538,17 @@ export function DiagramCanvas() {
                         </span>
                       );
                     const key = `${v.key}#${w.i}`;
+                    const hlNode = (parallel!.enToNodes.get(key) ?? []).find((n) =>
+                      hlByNode.has(n),
+                    );
                     return (
                       <Fragment key={w.i}>
                         {space}
                         <span
-                          className={`src-word${hover.en.has(key) ? ' hovered' : ''}`}
+                          className={`src-word${hover.en.has(key) ? ' hovered' : ''}${
+                            hlNode ? ' highlighted' : ''
+                          }`}
+                          style={hlNode ? { background: hlByNode.get(hlNode) } : undefined}
                           onMouseEnter={() => hoverEnglish(key)}
                           onMouseLeave={() => hoverEnglish(undefined)}
                           onClick={() => {
@@ -570,7 +582,12 @@ export function DiagramCanvas() {
                       key={it.tid}
                       className={`src-word${it.nodeId && it.nodeId === selection.nodeId ? ' selected' : ''}${
                         it.nodeId && hover.nodes.has(it.nodeId) ? ' hovered' : ''
-                      }`}
+                      }${it.nodeId && hlByNode.has(it.nodeId) ? ' highlighted' : ''}`}
+                      style={
+                        it.nodeId && hlByNode.has(it.nodeId)
+                          ? { background: hlByNode.get(it.nodeId) }
+                          : undefined
+                      }
                       onMouseEnter={() => it.nodeId && hoverDiagram(it.nodeId)}
                       onMouseLeave={() => hoverDiagram(undefined)}
                       onClick={() => it.nodeId && !linking && select({ nodeId: it.nodeId })}
@@ -740,8 +757,37 @@ export function DiagramCanvas() {
                   />
                 );
               })();
+              // A highlighter swash behind a sermon-tagged word, in its category
+              // colour, so highlights read on the diagram (not only in the panel).
+              const hlFill = el.nodeId ? hlByNode.get(el.nodeId) : undefined;
+              const hlRect =
+                hlFill && !el.box
+                  ? (() => {
+                      const size = el.small ? 13 : 18;
+                      const w = measureText(el.text, el.small ? SMALL_FONT : BASE_FONT);
+                      const padX = 3;
+                      const padY = 1.5;
+                      const bw = w + padX * 2;
+                      const bh = size * 0.95 + padY * 2;
+                      const bx =
+                        el.anchor === 'middle'
+                          ? el.x - bw / 2
+                          : el.anchor === 'end'
+                            ? el.x - bw + padX
+                            : el.x - padX;
+                      const by = el.y - size * 0.72 - padY;
+                      return (
+                        <rect
+                          x={bx} y={by} width={bw} height={bh} rx={3}
+                          fill={hlFill}
+                          {...(el.rotate ? { transform: `rotate(${el.rotate} ${el.x} ${el.y})` } : {})}
+                        />
+                      );
+                    })()
+                  : null;
               return (
                 <g key={el.id}>
+                  {hlRect}
                   {chip}
                   <text
                     className={`kr-text${sel ? ' selected' : ''}${hov ? ' hovered' : ''}${

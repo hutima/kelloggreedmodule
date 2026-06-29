@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { buildOutline, type OutlineNode } from '@/domain/model';
+import { nodeHighlightColors } from '@/ui/sermon/highlights';
 
 /**
  * PHRASE / BLOCK view (HTML) — the clause + phrase hierarchy as an interactive,
@@ -21,6 +22,8 @@ export function PhraseBlockView({
   const doc = useEditorStore((s) => s.doc);
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
+  const highlights = useEditorStore((s) => s.sermon.highlights);
+  const hlByNode = useMemo(() => nodeHighlightColors(highlights), [highlights]);
 
   const outline = useMemo(() => buildOutline(doc), [doc]);
   const greek = doc.language === 'grc';
@@ -69,6 +72,7 @@ export function PhraseBlockView({
           toggle={toggle}
           selectedId={selection.nodeId}
           hovered={hovered}
+          highlights={hlByNode}
           onSelect={(id) => select({ nodeId: id })}
           onHover={onHover}
         />
@@ -84,6 +88,7 @@ function OutlineRow({
   toggle,
   selectedId,
   hovered,
+  highlights,
   onSelect,
   onHover,
 }: {
@@ -93,6 +98,7 @@ function OutlineRow({
   toggle: (id: string) => void;
   selectedId: string | undefined;
   hovered: Set<string>;
+  highlights: Map<string, string>;
   onSelect: (id: string) => void;
   onHover: (id?: string) => void;
 }) {
@@ -100,6 +106,7 @@ function OutlineRow({
   const isCollapsed = collapsed.has(node.id);
   const selected = node.id === selectedId;
   const hot = hovered.has(node.id);
+  const hl = highlights.get(node.id);
   return (
     <li role="treeitem" aria-expanded={hasKids ? !isCollapsed : undefined}>
       <div
@@ -129,7 +136,12 @@ function OutlineRow({
         )}
         {node.label && <span className="ob-label">{node.label}</span>}
         {node.text ? (
-          <span className={`ob-text${node.implied ? ' implied' : ''}`}>{node.text}</span>
+          <span
+            className={`ob-text${node.implied ? ' implied' : ''}${hl ? ' highlighted' : ''}`}
+            style={hl ? { background: hl } : undefined}
+          >
+            {node.text}
+          </span>
         ) : (
           node.implied && <span className="ob-text implied">(implied)</span>
         )}
@@ -145,6 +157,7 @@ function OutlineRow({
               toggle={toggle}
               selectedId={selectedId}
               hovered={hovered}
+              highlights={highlights}
               onSelect={onSelect}
               onHover={onHover}
             />

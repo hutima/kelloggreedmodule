@@ -72,6 +72,12 @@ export interface EditorState {
   gntIndex: number;
   /** Whether the left (sources) panel is collapsed to a thin strip. */
   leftCollapsed: boolean;
+  /**
+   * True on a device's first-ever launch (no prior session to restore). Drives a
+   * friendlier cold start: open to a default passage with the passage selector
+   * revealed so it's obvious where to choose a text.
+   */
+  firstRun: boolean;
   /** User override: force the desktop layout/editing on a small screen. */
   forceDesktop: boolean;
 }

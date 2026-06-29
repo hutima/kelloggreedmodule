@@ -4,6 +4,7 @@ import { childRelations, getNode, morphCodes, grammarTone } from '@/domain/model
 import { toneColor } from '@/domain/render';
 import type { KrDocument, Token } from '@/domain/schema';
 import { useGloss } from './useGloss';
+import { nodeHighlightColors } from '@/ui/sermon/highlights';
 
 /**
  * MORPHOLOGY CLAUSE view (HTML) — Greek/Hebrew in surface order, grouped by
@@ -86,6 +87,8 @@ export function MorphologyView({
   const doc = useEditorStore((s) => s.doc);
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
+  const highlights = useEditorStore((s) => s.sermon.highlights);
+  const hlByNode = useMemo(() => nodeHighlightColors(highlights), [highlights]);
   const { openGloss, glossNode } = useGloss();
 
   const greek = doc.language === 'grc';
@@ -184,6 +187,7 @@ export function MorphologyView({
             const tone = grammarTone(tok);
             const sel = nodeId && nodeId === selection.nodeId;
             const hot = nodeId && hovered.has(nodeId);
+            const hl = nodeId ? hlByNode.get(nodeId) : undefined;
             return (
               <div
                 key={tok.id}
@@ -193,7 +197,13 @@ export function MorphologyView({
                 onMouseEnter={() => nodeId && onHover(nodeId)}
                 onMouseLeave={() => onHover(undefined)}
               >
-                <div className="mc-surface" style={tone ? { color: toneColor(tone) } : undefined}>
+                <div
+                  className={`mc-surface${hl ? ' highlighted' : ''}`}
+                  style={{
+                    ...(tone ? { color: toneColor(tone) } : {}),
+                    ...(hl ? { background: hl } : {}),
+                  }}
+                >
                   {tok.surface}
                 </div>
                 <div className="mc-codes">

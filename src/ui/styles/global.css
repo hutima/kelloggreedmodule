@@ -620,6 +620,18 @@ textarea.code,
 .src-word.selected {
   background: color-mix(in srgb, var(--hl, #17935a) 45%, transparent);
 }
+/* Sermon-prep highlights paint the tagged word in its category colour across
+   every view; the exact colour is set inline, these rules just shape the swash
+   (rounded, a touch of padding) and keep dark, legible ink over pale colours. */
+.src-word.highlighted,
+.ob-text.highlighted,
+.mc-surface.highlighted {
+  border-radius: 4px;
+  padding: 0 3px;
+  color: var(--ink, #1f2933);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
 .src-punc {
   color: var(--ink, #1f2933);
 }
@@ -971,6 +983,9 @@ textarea.code,
 }
 .modal {
   background: var(--paper);
+  /* The dialogs are rendered inside the dark `.topbar` (light text), so set an
+     explicit ink colour or the body copy inherits the topbar's faint colour. */
+  color: var(--ink);
   border-radius: 12px;
   box-shadow: 0 12px 40px rgba(31, 41, 51, 0.3);
   padding: 20px;
@@ -1280,6 +1295,16 @@ textarea.code,
   /* The command group is now just a few compact buttons — keep it on the row. */
   .topbar .btn-group {
     order: 10;
+  }
+  /* The overflow menu is anchored to the ⋯ button with right:0, which on a
+     narrow screen pushes the dropdown off the left edge (its first items get
+     clipped). Open it rightward from the button instead and clamp the width to
+     the viewport so every item stays on screen. */
+  .menu {
+    right: auto;
+    left: 0;
+    min-width: 200px;
+    max-width: calc(100vw - 24px);
   }
   .topbar .status {
     order: 11;
@@ -1689,7 +1714,10 @@ button.mc-code.glossed:hover {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 56;
   background: var(--paper); color: var(--ink);
   border-top-left-radius: 16px; border-top-right-radius: 16px;
-  box-shadow: 0 -10px 30px rgba(31,41,51,0.25); max-height: 70vh; display: flex; flex-direction: column;
+  box-shadow: 0 -10px 30px rgba(31,41,51,0.25);
+  /* Keep the sheet to the lower half so the diagram + source text stay visible
+     while tagging — a highlight should be seen landing on the word above. */
+  max-height: 50vh; display: flex; flex-direction: column;
 }
 .mobile-sheet-head {
   display: flex; align-items: center; justify-content: space-between;
