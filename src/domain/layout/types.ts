@@ -59,7 +59,32 @@ export interface TextElement {
   relationId?: string;
 }
 
-export type DiagramElement = LineElement | TextElement;
+/**
+ * A quadratic Bézier curve (start → control → end). Used by the alternate
+ * diagram modes — dependency arcs over the token row, discourse-flow connectors —
+ * where a straight `LineElement` would read as crossings. The Kellogg-Reed layout
+ * never emits these.
+ */
+export interface CurveElement {
+  kind: 'curve';
+  id: string;
+  x1: number;
+  y1: number;
+  /** Control point. */
+  cx: number;
+  cy: number;
+  x2: number;
+  y2: number;
+  style: LineStyle;
+  role: ElementRole;
+  /** Draw a small arrowhead at the end point. */
+  arrow?: boolean;
+  nodeId?: string;
+  relationId?: string;
+  tentative?: boolean;
+}
+
+export type DiagramElement = LineElement | TextElement | CurveElement;
 
 export interface DiagramLayout {
   width: number;

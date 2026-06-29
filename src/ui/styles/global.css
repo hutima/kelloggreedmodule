@@ -305,6 +305,30 @@ textarea.code,
   display: flex;
   gap: 6px;
 }
+/* Diagram-mode picker: a compact dropdown so five modes fit on a phone without
+   cluttering the controls. */
+.mode-select select {
+  height: 30px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  padding: 0 6px;
+  font-size: 13px;
+  box-shadow: var(--shadow);
+  max-width: 9.5rem;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .canvas-zoom button {
   background: #fff;
   border: 1px solid var(--line-strong);

@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
-import { layoutDocument } from '@/domain/layout';
+import { layoutForMode, DIAGRAM_MODES } from '@/domain/layout';
 import { dashFor } from '@/domain/render';
 import { describeFunction, getNode, childRelations } from '@/domain/model';
 import { loadParallelBook, alignParallel, bookForDoc, type ParallelBook, type ParallelView } from '@/io';
@@ -34,6 +34,8 @@ export function DiagramCanvas() {
   const cancelRelink = useEditorStore((s) => s.cancelRelink);
   const verticalScale = useEditorStore((s) => s.verticalScale);
   const setVerticalScale = useEditorStore((s) => s.setVerticalScale);
+  const diagramMode = useEditorStore((s) => s.diagramMode);
+  const setDiagramMode = useEditorStore((s) => s.setDiagramMode);
   const gntPassages = useEditorStore((s) => s.gntPassages);
   const gntIndex = useEditorStore((s) => s.gntIndex);
   const stepGnt = useEditorStore((s) => s.stepGnt);
@@ -72,8 +74,8 @@ export function DiagramCanvas() {
   );
 
   const layout = useMemo(
-    () => layoutDocument(doc, doc.layoutHints, { verticalScale }),
-    [doc, verticalScale],
+    () => layoutForMode(diagramMode, doc, doc.layoutHints, { verticalScale }),
+    [diagramMode, doc, verticalScale],
   );
 
   // The running source text as interactive words: each maps to the syntax node it
@@ -292,6 +294,20 @@ export function DiagramCanvas() {
       <div className="panel-head">
         <span className="panel-head-title">Diagram</span>
         <div className="canvas-tools">
+          <label className="mode-select" title={DIAGRAM_MODES.find((m) => m.id === diagramMode)?.description}>
+            <span className="sr-only">Diagram mode</span>
+            <select
+              aria-label="Diagram mode"
+              value={diagramMode}
+              onChange={(e) => setDiagramMode(e.target.value as typeof diagramMode)}
+            >
+              {DIAGRAM_MODES.map((m) => (
+                <option key={m.id} value={m.id} title={m.description}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="canvas-zoom" title="Row spacing">
             <button title="Tighter rows" onClick={() => setVerticalScale(Math.round((verticalScale - 0.15) * 100) / 100)}>↕−</button>
             <button title="Reset rows" onClick={() => setVerticalScale(1)}>{Math.round(verticalScale * 100)}%</button>
@@ -505,6 +521,37 @@ export function DiagramCanvas() {
                           if (moved.current) return;
                           if (el.nodeId) onNode(el.nodeId);
                           else if (el.relationId && !linking) select({ relationId: el.relationId });
+                        }}
+                      />
+                    )}
+                  </g>
+                );
+              }
+              if (el.kind === 'curve') {
+                const sel = isSelected(el.nodeId, el.relationId);
+                const dash = dashFor(el.style);
+                const d = `M ${el.x1} ${el.y1} Q ${el.cx} ${el.cy} ${el.x2} ${el.y2}`;
+                // Arrowhead: a small triangle at the end, aimed along the tangent.
+                const ang = Math.atan2(el.y2 - el.cy, el.x2 - el.cx);
+                const s = 6;
+                const head = el.arrow
+                  ? `M ${el.x2} ${el.y2} L ${el.x2 + s * Math.cos(ang + Math.PI - 0.4)} ${el.y2 + s * Math.sin(ang + Math.PI - 0.4)} L ${el.x2 + s * Math.cos(ang + Math.PI + 0.4)} ${el.y2 + s * Math.sin(ang + Math.PI + 0.4)} Z`
+                  : '';
+                const color = el.tentative ? TENTATIVE : INK;
+                return (
+                  <g key={el.id}>
+                    <path
+                      className={`kr-line${sel ? ' selected' : ''}`}
+                      d={d} fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round"
+                      {...(dash ? { strokeDasharray: dash } : {})}
+                    />
+                    {head && <path d={head} fill={color} stroke="none" />}
+                    {el.relationId && (
+                      <path
+                        className="kr-hit" d={d} fill="none"
+                        onClick={() => {
+                          if (moved.current) return;
+                          if (el.relationId && !linking) select({ relationId: el.relationId });
                         }}
                       />
                     )}

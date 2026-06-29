@@ -1,5 +1,6 @@
 import type { KrDocument } from '@/domain/schema';
 import type { Inference } from '@/domain/inference';
+import type { DiagramMode } from '@/domain/layout';
 
 /** The three application modes from the spec. */
 export type AppMode = 'parsed' | 'assisted' | 'manual';
@@ -29,6 +30,8 @@ export interface EditorState {
   linking: Linking | null;
   /** User-tunable row spacing (vertical-gap multiplier) for the diagram. */
   verticalScale: number;
+  /** Which diagram renderer is active (Kellogg-Reed by default). */
+  diagramMode: DiagramMode;
   /** Current provisional inferences awaiting accept/reject. */
   inferences: Inference[];
   status: SaveStatus;
