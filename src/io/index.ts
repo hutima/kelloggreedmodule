@@ -19,3 +19,12 @@ export {
   type ParallelWord,
 } from './parallel';
 export { downloadText, downloadBlob, copyText, slugify } from './download';
+export {
+  buildPatch,
+  buildPassagePackage,
+  exportAllUserData,
+  detectImport,
+  type PassagePackage,
+  type ImportKind,
+  type ImportDetect,
+} from './backup';

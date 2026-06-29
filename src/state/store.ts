@@ -119,6 +119,9 @@ export interface EditorActions {
   loadDocument: (doc: KrDocument, opts?: { corpus?: Corpus }) => void;
   /** Restore the last viewed passage (after a reload), if any. */
   restoreLastSession: () => Promise<void>;
+  /** Re-derive the live doc + sermon for the current passage from storage
+   *  (after an import / backup restore writes new patch/sermon records). */
+  reloadCurrent: () => void;
   setMode: (mode: WorkMode) => void;
   /** Switch the user-facing app mode (Explore / Edit / Sermon Prep). */
   setAppMode: (mode: AppMode) => void;
@@ -383,6 +386,22 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         linking: null,
         status: 'saved',
       });
+    },
+
+    reloadCurrent: () => {
+      const { baseDoc, doc } = get();
+      const id = baseDoc?.id ?? doc.id;
+      const sermon = loadSermonPrep(id) ?? emptySermonPrep(id, systemClock());
+      if (baseDoc) {
+        const stored = loadPatch(baseDoc.id);
+        const live0 = stored ? applyPatch(baseDoc, stored) : baseDoc;
+        const saved = loadPassageNotes(baseDoc.id);
+        const live = saved != null ? { ...live0, notes: saved } : live0;
+        set({ doc: live, sermon, past: [], future: [], selection: {}, linking: null, status: 'saved' });
+        persistOpened(live);
+      } else {
+        set({ sermon });
+      }
     },
 
     setMode: (mode) => {

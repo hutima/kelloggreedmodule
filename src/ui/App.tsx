@@ -1,17 +1,15 @@
 import { useEffect } from 'react';
 import { useEditorStore } from '@/state';
-import { TopBar } from './components/TopBar';
-import { DiagramCanvas } from './components/DiagramCanvas';
-import { LeftPanel } from './panels/LeftPanel';
-import { RightPanel } from './panels/RightPanel';
+import { ResponsiveShell } from './shell/ResponsiveShell';
 import { UpdateModal } from './components/UpdateModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DiagnosticsBanner } from './components/DiagnosticsBanner';
 
 /**
- * Application shell: a three-panel workspace (sources · diagram · inspector)
- * beneath a command bar. Each side panel (and the source strip) collapses in
- * place via its own caret, so the top bar stays clean — just the Export action.
+ * Application shell. The responsive layout (mobile / tablet / desktop) and the
+ * three user-facing modes (Explore / Edit / Sermon Prep) are decided by
+ * {@link ResponsiveShell}; everything edits or displays ONE shared document
+ * model. This component only mounts the shell plus the global overlays.
  */
 export function App() {
   // Restore the last viewed passage after a reload (e.g. an iOS pinch-zoom that
@@ -23,22 +21,13 @@ export function App() {
 
   return (
     <ErrorBoundary>
-      <div className="app">
-        <TopBar />
-        <div className="workspace">
-          <LeftPanel />
-          <main className="panel" style={{ borderRight: 'none', background: 'var(--bg)' }}>
-            <DiagramCanvas />
-          </main>
-          <RightPanel />
-        </div>
-        {/* Mounted for the mandatory "Update available" overlay; the manual
-            updates/cache utility was retired with the top-bar ⟳ button. */}
-        <UpdateModal open={false} onClose={() => undefined} />
-        {/* Shows the on-device error log after a reload (pinch white-screen
-            diagnostic); renders nothing when the log is empty. */}
-        <DiagnosticsBanner />
-      </div>
+      <ResponsiveShell />
+      {/* Mounted for the mandatory "Update available" overlay; the manual
+          updates/cache utility was retired with the top-bar ⟳ button. */}
+      <UpdateModal open={false} onClose={() => undefined} />
+      {/* Shows the on-device error log after a reload (pinch white-screen
+          diagnostic); renders nothing when the log is empty. */}
+      <DiagnosticsBanner />
     </ErrorBoundary>
   );
 }
