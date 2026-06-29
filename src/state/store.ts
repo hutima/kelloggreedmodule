@@ -52,6 +52,7 @@ import {
 } from '@/persistence';
 import { applyPatch, diffDocuments, hashBase } from '@/domain/patch';
 import { isEmptySyntaxPatch } from '@/domain/schema';
+import { cloneSample } from '@/fixtures';
 import { DEFAULT_MODE, type DiagramMode } from '@/domain/layout';
 import { loadForceDesktop, saveForceDesktop } from '@/ui/responsive/viewport';
 import { scheduleAutosave } from './autosave';
@@ -69,6 +70,19 @@ const MANUAL: Provenance = { source: 'manual', confidence: 'high' };
  * the pointer to it.
  */
 const LAST_DOC_KEY = 'kr:lastDoc';
+
+/** The sample shown on a device's first-ever launch (no session to restore). */
+const FIRST_RUN_SAMPLE_ID = 'doc_sample_john_1_1a';
+
+/** True when there is no prior session pointer — i.e. this is a cold first run. */
+function isFirstRun(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    return !localStorage.getItem(LAST_DOC_KEY);
+  } catch {
+    return false;
+  }
+}
 
 function rememberLastDoc(id: string): void {
   if (typeof localStorage === 'undefined') return;
@@ -290,6 +304,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     gntPassages: [],
     gntIndex: -1,
     leftCollapsed: false,
+    firstRun: isFirstRun(),
     forceDesktop: loadForceDesktop(),
 
     setGntContext: (passages, index) => set({ gntPassages: passages, gntIndex: index }),
@@ -374,7 +389,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       } catch {
         return;
       }
-      if (!id || id === get().doc.id) return;
+      // First-ever launch: open to a sensible default (John 1:1) and reveal the
+      // passage selector so it's obvious where to choose a different text.
+      if (!id) {
+        const sample = cloneSample(FIRST_RUN_SAMPLE_ID);
+        if (sample) {
+          get().loadDocument(sample, { corpus: 'gnt' });
+          set({ leftCollapsed: false });
+        }
+        return;
+      }
+      if (id === get().doc.id) return;
       const live = await getDocument(id);
       if (!live) return;
       const base = (await getBase(id)) ?? null;

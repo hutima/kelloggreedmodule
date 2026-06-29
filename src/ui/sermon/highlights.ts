@@ -1,4 +1,4 @@
-import type { HighlightCategory, SermonAnchor, KrDocument } from '@/domain/schema';
+import type { HighlightCategory, SermonAnchor, KrDocument, Highlight } from '@/domain/schema';
 import { getNode, getRelation, nodeText } from '@/domain/model';
 
 /** Highlight categories with a short label and a swatch colour. */
@@ -19,6 +19,22 @@ export const HIGHLIGHT_CATEGORIES: { id: HighlightCategory; label: string; color
 
 export function highlightColor(category: HighlightCategory): string {
   return HIGHLIGHT_CATEGORIES.find((c) => c.id === category)?.color ?? '#fde047';
+}
+
+/**
+ * Build a `nodeId → highlight colour` lookup from the sermon highlights so every
+ * view (diagram + running text) can paint a tagged word in its category colour.
+ * A node/block anchor maps directly; the most recently added highlight wins when
+ * a node carries several. Relation/passage highlights aren't word-level and are
+ * skipped here.
+ */
+export function nodeHighlightColors(highlights: Highlight[]): Map<string, string> {
+  const colors = new Map<string, string>();
+  for (const h of highlights) {
+    const nodeId = h.anchor.nodeId ?? h.anchor.blockId;
+    if (nodeId) colors.set(nodeId, highlightColor(h.category));
+  }
+  return colors;
 }
 
 /** Human label for an anchor (for the sermon lists). */

@@ -25,17 +25,20 @@ export function ResponsiveShell() {
   const leftCollapsed = useEditorStore((s) => s.leftCollapsed);
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
   const setDiagramMode = useEditorStore((s) => s.setDiagramMode);
+  const firstRun = useEditorStore((s) => s.firstRun);
 
   // On a phone, lead with the most finger-friendly syntax lens, and keep the
-  // sources drawer closed so the diagram gets the screen. One-time per mount.
+  // sources drawer closed so the diagram gets the screen. One-time per mount —
+  // except on a first-ever launch, where we deliberately reveal the passage
+  // selector (restoreLastSession opens it) so it's obvious where to pick a text.
   const initedMobile = useRef(false);
   useEffect(() => {
     if (vp.isMobile && !initedMobile.current) {
       initedMobile.current = true;
       setDiagramMode('phrase-block');
-      setLeftCollapsed(true);
+      if (!firstRun) setLeftCollapsed(true);
     }
-  }, [vp.isMobile, setDiagramMode, setLeftCollapsed]);
+  }, [vp.isMobile, firstRun, setDiagramMode, setLeftCollapsed]);
 
   if (vp.isMobile) {
     return (
