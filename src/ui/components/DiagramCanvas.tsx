@@ -15,15 +15,7 @@ import {
   type ParallelView,
 } from '@/io';
 import type { KrDocument } from '@/domain/schema';
-import {
-  MIN_SCALE,
-  clamp,
-  minZoomScale,
-  maxZoomScale,
-  clampPan,
-  scheduleRepaint,
-} from '@/ui/zoom';
-import { breadcrumb } from '@/ui/errorLog';
+import { MIN_SCALE, clamp, minZoomScale, maxZoomScale, clampPan } from '@/ui/zoom';
 
 const TENTATIVE = '#c2410c';
 const INK = '#1f2933';
@@ -195,31 +187,6 @@ export function DiagramCanvas() {
     return clampPan(x, y, scale, vp.clientWidth, vp.clientHeight, w, h);
   }, []);
 
-  /** Recover from the iOS pinch blank when a multi-touch gesture ends. The
-   *  symptom is the WHOLE page going white (only the body background paints), so
-   *  the nudge targets the app ROOT, not just the pan layer — hiding and
-   *  restoring it across an animation frame forces WebKit to drop and rebuild the
-   *  document's compositing tiles (a synchronous toggle is coalesced into a
-   *  no-op; see {@link scheduleRepaint}). One frame of flicker on gesture-end is a
-   *  cheap price for turning a stuck-white-until-reload into a self-healing blink. */
-  const forceRepaint = useCallback(() => {
-    const raf =
-      typeof requestAnimationFrame === 'function'
-        ? (cb: () => void) => requestAnimationFrame(cb)
-        : (cb: () => void) => setTimeout(cb, 0);
-    const root = typeof document !== 'undefined' ? document.getElementById('root') : null;
-    breadcrumb('repaint:hide');
-    scheduleRepaint(root ?? panRef.current, (cb) =>
-      raf(() => {
-        breadcrumb('repaint:show');
-        cb();
-      }),
-    );
-    // Two frames after release: if THIS crumb is the last one in the trail after a
-    // blank, the page died during the post-gesture paint (not in our JS).
-    raf(() => raf(() => breadcrumb('post-gesture alive')));
-  }, []);
-
   /** Fit the whole diagram into the viewport (centred horizontally, top-aligned
    *  so a tall passage starts at the top and you scroll down into it). */
   const fit = useCallback(() => {
@@ -293,7 +260,6 @@ export function DiagramCanvas() {
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ dist: number; cx: number; cy: number } | null>(null);
   const moved = useRef(false);
-  const pinched = useRef(false);
 
   const centroid = () => {
     const pts = [...pointers.current.values()];
@@ -310,8 +276,6 @@ export function DiagramCanvas() {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     moved.current = false;
     pinch.current = null;
-    if (pointers.current.size < 2) pinched.current = false;
-    breadcrumb(`down n=${pointers.current.size}`);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const prev = pointers.current.get(e.pointerId);
@@ -325,16 +289,20 @@ export function DiagramCanvas() {
       // Only zoom once we have a valid previous separation (guards 0/0 → NaN when
       // two touches momentarily coincide).
       if (pinch.current && pinch.current.dist > 0 && dist > 0) {
-        zoomBy(dist / pinch.current.dist, cx - rect.left, cy - rect.top);
+        // Read the previous pinch frame into LOCALS before calling setView. The
+        // updater below runs deferred (React batches it), and onPointerUp nulls
+        // `pinch.current` the instant a finger lifts — so dereferencing the ref
+        // lazily inside the updater throws `null.cx` mid-render, which (pre-error
+        // boundary) unmounted the whole app and was THE pinch white-screen.
+        const { dist: prevDist, cx: prevCx, cy: prevCy } = pinch.current;
+        zoomBy(dist / prevDist, cx - rect.left, cy - rect.top);
         setView((v) => ({
           ...v,
-          ...clampView(v.x + (cx - pinch.current!.cx), v.y + (cy - pinch.current!.cy), v.scale),
+          ...clampView(v.x + (cx - prevCx), v.y + (cy - prevCy), v.scale),
         }));
       }
-      if (!pinched.current) breadcrumb('pinch-start');
       pinch.current = { dist, cx, cy };
       moved.current = true;
-      pinched.current = true;
       return;
     }
     const dx = e.clientX - prev.x;
@@ -345,12 +313,6 @@ export function DiagramCanvas() {
   const onPointerUp = (e: React.PointerEvent) => {
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
-    breadcrumb(`up n=${pointers.current.size} pinched=${pinched.current} scale=${view.scale.toFixed(2)}`);
-    // When the last finger of a pinch lifts, evict any layer iOS left blank.
-    if (pointers.current.size === 0 && pinched.current) {
-      pinched.current = false;
-      forceRepaint();
-    }
   };
 
   // ---- selection / relink ------------------------------------------------
