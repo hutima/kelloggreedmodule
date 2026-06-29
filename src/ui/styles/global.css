@@ -1319,3 +1319,189 @@ textarea.code,
     flex-shrink: 0;
   }
 }
+
+/* ============================================================================
+   HTML diagram views (Phrase/Block outline, Morphology grid). These render
+   text-heavy modes as interactive HTML instead of the pan/zoom SVG; SVG/PNG
+   export still uses the geometric layout. The shared scroll container.
+   ============================================================================ */
+.canvas-viewport.html-mode {
+  overflow: auto;
+  cursor: default;
+  touch-action: auto;
+  background: var(--paper);
+  padding: 12px 14px 20px;
+}
+
+/* ---- Phrase / Block: collapsible outline ---- */
+.ob-view {
+  font-family: var(--ui);
+  font-size: 14px;
+}
+.ob-view.greek .ob-text {
+  font-family: var(--greek);
+}
+.ob-view.hebrew .ob-text {
+  font-family: var(--hebrew);
+  direction: rtl;
+}
+.ob-toolbar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.ob-tree,
+.ob-tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ob-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1.5;
+}
+.ob-row:hover,
+.ob-row.hovered {
+  background: var(--accent-soft);
+}
+.ob-row.selected {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.ob-row.tentative .ob-label {
+  color: var(--tentative, #c2410c);
+}
+.ob-toggle {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+}
+.ob-toggle:hover {
+  color: var(--ink);
+}
+.ob-bullet {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  color: var(--line-strong);
+}
+.ob-label {
+  flex: none;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+.ob-text {
+  font-size: 17px;
+  color: var(--ink);
+}
+.ob-text.implied {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---- Morphology: word grid + agreement-arc overlay ---- */
+.mc-view {
+  position: relative;
+  font-family: var(--ui);
+  min-width: max-content;
+}
+.mc-arcs {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.mc-arc-label {
+  font-size: 11px;
+  font-style: italic;
+  fill: var(--muted);
+  pointer-events: auto;
+  cursor: help;
+}
+.mc-arc-label:hover {
+  text-decoration: underline;
+}
+.mc-clause {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 10px 2px 44px; /* bottom room for the agreement arcs */
+}
+.mc-clause.divided {
+  border-top: 1px dotted var(--line);
+}
+.mc-word {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.mc-word:hover,
+.mc-word.hovered {
+  background: var(--accent-soft);
+}
+.mc-word.selected {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.mc-view.greek .mc-surface {
+  font-family: var(--greek);
+}
+.mc-view.hebrew .mc-surface {
+  font-family: var(--hebrew);
+}
+.mc-surface {
+  font-size: 20px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.mc-codes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+  max-width: 160px;
+}
+.mc-code {
+  font-size: 11px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  padding: 0 1px;
+}
+button.mc-code.glossed {
+  cursor: help;
+}
+button.mc-code.glossed:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.mc-gloss {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* The HTML views' glossary popover is positioned fixed from JS. */
+.kr-gloss-fixed {
+  z-index: 1000;
+}
