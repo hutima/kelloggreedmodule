@@ -214,6 +214,8 @@ export interface EditorActions {
   // view
   setVerticalScale: (scale: number) => void;
   setDiagramMode: (mode: DiagramMode) => void;
+  /** Toggle English-gloss display in the structural diagrams. */
+  setGlossMode: (value: boolean) => void;
   // --- tier-aware editing (Basic / Advanced) ---
   /** Switch the editing surface; resets any in-progress tool/link state. */
   setEditTier: (tier: EditTier) => void;
@@ -375,6 +377,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     previewDoc: null,
     verticalScale: 1,
     diagramMode: DEFAULT_MODE,
+    glossMode: false,
     inferences: [],
     status: 'idle',
     past: [],
@@ -844,6 +847,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     setSelectedRange: (tokenIds) => set({ selectedRange: tokenIds }),
+
+    setGlossMode: (value) => set({ glossMode: value }),
 
     openEditModal: (modal) => set({ editModal: modal }),
     closeEditModal: () => set({ editModal: null }),
