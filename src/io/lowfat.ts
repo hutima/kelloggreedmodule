@@ -300,8 +300,15 @@ export class SentenceConverter {
         const clauseId = this.makeClause(el, 'coordinate');
         for (const c of clauseKids) this.rel('conjunct', clauseId, this.convert(c));
         for (const w of wordKids) {
-          const wc = w.getAttribute('class');
-          this.rel(wc === 'conj' || wc === 'ptcl' ? 'coordinator' : 'adjunct', clauseId, this.convert(w));
+          // A real conjunction joins the conjuncts; a discourse particle (γε,
+          // μέν…) is not a coordinator — give it the `particle` role so it stays
+          // visible in the clause instead of being exiled to the fork bar.
+          const role = isCoordinatorWord(w)
+            ? 'coordinator'
+            : w.getAttribute('class') === 'ptcl'
+              ? 'particle'
+              : 'adjunct';
+          this.rel(role, clauseId, this.convert(w));
         }
         return clauseId;
       }
@@ -416,8 +423,11 @@ export class SentenceConverter {
     // Determiners: Greek `det`, Hebrew article `art`, and the Hebrew direct-object
     // marker אֵת (`om`), which rides a slant under the noun it marks.
     if (cls === 'det' || cls === 'art' || cls === 'om') return 'determiner';
-    // Coordinators: Greek `conj`/`ptcl`, Hebrew conjunction `cj`.
-    if (cls === 'conj' || cls === 'ptcl' || cls === 'cj') return 'coordinator';
+    // Coordinators: a real conjunction (Greek `conj`, Hebrew `cj`) or the
+    // coordinating particle τε. A non-coordinating particle (γε, μέν…) keeps the
+    // `particle` role rather than being mistaken for a conjunction.
+    if (isCoordinatorWord(child)) return 'coordinator';
+    if (cls === 'ptcl') return 'particle';
     // Coordination is decided FIRST, so a coordinated sibling constituent becomes
     // a CONJUNCT of the head rather than being mis-read as a modifier of it. This
     // is what fixes a dropped second PP in "ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς"
@@ -450,6 +460,37 @@ function isCoordinationRule(rule: string): boolean {
   if (/^conj/i.test(rule)) return true;
   if (/(^|[a-z])a(np|pp|adjp|adj|vp|cl)/i.test(rule)) return true;
   return /^\d*(np|adjp|adj|vp|pp|cl)(\1)+$/i.test(rule);
+}
+
+/**
+ * Particles (Lowfat `class="ptcl"`) that genuinely COORDINATE conjuncts — only
+ * the connective τε ("and", "both…and"). Every other particle (γε, μέν, δή, γάρ,
+ * οὖν, …) is emphatic/connective, NOT a conjunction: forcing it onto a
+ * coordination fork buries it as a rotated "coordinator" far from where it
+ * stands in the clause (the bug behind the missing initial γε in Phil 3:8). Such
+ * particles take the dedicated `particle` role instead.
+ */
+const COORDINATING_PARTICLES = new Set(['τε']);
+
+/** Accent-stripped, lower-cased lemma (or surface) of a word element. */
+function bareLemma(el: Element): string {
+  return (el.getAttribute('lemma') || el.textContent || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ᷀-᷿]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Whether a word actually coordinates conjuncts — a real conjunction (Greek
+ * `conj`, Hebrew `cj`) or a coordinating particle (τε) — as opposed to a
+ * discourse particle that merely colours the clause.
+ */
+function isCoordinatorWord(el: Element): boolean {
+  const cls = el.getAttribute('class');
+  if (cls === 'conj' || cls === 'cj') return true;
+  if (cls === 'ptcl') return COORDINATING_PARTICLES.has(bareLemma(el));
+  return false;
 }
 
 export interface LowfatDocOptions {
