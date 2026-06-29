@@ -1,16 +1,31 @@
+import { useState } from 'react';
 import { useEditorStore } from '@/state';
 import { getNode, getRelation, nodeText } from '@/domain/model';
 import { CLAUSE_TYPE_OPTIONS, MORPH_FIELDS, POS_OPTIONS, ROLE_OPTIONS } from '@/ui/options';
 import type { Morphology, SyntacticRole, Token } from '@/domain/schema';
 
-/** Grammatical inspector for the current selection (token, node, or relation). */
+/**
+ * Inspector panel: edit the current selection, plus an always-available control
+ * to add a word. Tap a word/line in the diagram to populate the editor.
+ */
 export function Inspector() {
+  return (
+    <div>
+      <SelectionEditor />
+      <AddWord />
+    </div>
+  );
+}
+
+/** Grammatical editor for the current selection (token, node, or relation). */
+function SelectionEditor() {
   const doc = useEditorStore((s) => s.doc);
   const sel = useEditorStore((s) => s.selection);
   const updateToken = useEditorStore((s) => s.updateToken);
   const updateNode = useEditorStore((s) => s.updateNode);
   const updateRelation = useEditorStore((s) => s.updateRelation);
   const removeRelation = useEditorStore((s) => s.removeRelation);
+  const removeWord = useEditorStore((s) => s.removeWord);
   const startRelink = useEditorStore((s) => s.startRelink);
   const linking = useEditorStore((s) => s.linking);
 
@@ -174,11 +189,48 @@ export function Inspector() {
             <TokenInspector token={t} grc={doc.language === 'grc'} onChange={(p) => updateToken(t.id, p)} />
           ) : null;
         })()}
+        {n.id !== doc.syntax.rootId && (
+          <button className="mini reject" style={{ marginTop: 8 }} onClick={() => removeWord(n.id)}>
+            Delete word
+          </button>
+        )}
       </div>
     );
   }
 
   return <Empty />;
+}
+
+/** Always-available control to add a word (e.g. for a variant reading). */
+function AddWord() {
+  const addWord = useEditorStore((s) => s.addWord);
+  const [surface, setSurface] = useState('');
+  const submit = () => {
+    if (!surface.trim()) return;
+    addWord(surface);
+    setSurface('');
+  };
+  return (
+    <div className="add-word">
+      <h3 className="section-title">Add a word</h3>
+      <div className="row">
+        <input
+          type="text"
+          aria-label="New word"
+          placeholder="word…"
+          value={surface}
+          onChange={(e) => setSurface(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+        />
+        <button className="mini accept" disabled={!surface.trim()} onClick={submit}>
+          Add
+        </button>
+      </div>
+      <p className="hint" style={{ margin: '6px 0 0' }}>
+        Adds a word attached to the sentence; select it to set its role or re-link it.
+      </p>
+    </div>
+  );
 }
 
 function Empty() {

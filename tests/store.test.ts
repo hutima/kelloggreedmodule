@@ -78,4 +78,32 @@ describe('editor store', () => {
     expect(rel.headId).toBe('a');
     expect(store.getState().linking).toBeNull();
   });
+
+  it('adds a word (token + node attached to the root) and selects it', () => {
+    const before = store.getState().doc.tokens.length;
+    store.getState().addWord('λόγος');
+    const { doc, selection } = store.getState();
+    expect(doc.tokens.map((t) => t.surface)).toContain('λόγος');
+    expect(doc.tokens).toHaveLength(before + 1);
+    const node = doc.syntax.nodes.find((n) => n.id === selection.nodeId)!;
+    expect(node.kind).toBe('word');
+    // It is attached to the root so it renders immediately.
+    expect(doc.syntax.relations.some((r) => r.headId === doc.syntax.rootId && r.dependentId === node.id)).toBe(true);
+  });
+
+  it('removes a word — its token, node, and relations — but never the root', () => {
+    store.getState().addWord('φῶς');
+    const nodeId = store.getState().selection.nodeId!;
+    const tokenId = store.getState().doc.syntax.nodes.find((n) => n.id === nodeId)!.tokenIds[0]!;
+    store.getState().removeWord(nodeId);
+    const { doc } = store.getState();
+    expect(doc.syntax.nodes.some((n) => n.id === nodeId)).toBe(false);
+    expect(doc.tokens.some((t) => t.id === tokenId)).toBe(false);
+    expect(doc.syntax.relations.some((r) => r.headId === nodeId || r.dependentId === nodeId)).toBe(false);
+    // Deleting the root is refused (it would orphan the document).
+    const rootId = doc.syntax.rootId;
+    store.getState().removeWord(rootId);
+    expect(store.getState().doc.syntax.rootId).toBe(rootId);
+    expect(store.getState().doc.syntax.nodes.some((n) => n.id === rootId)).toBe(true);
+  });
 });

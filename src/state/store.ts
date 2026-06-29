@@ -9,6 +9,7 @@ import type {
 } from '@/domain/schema';
 import {
   createDocument,
+  makeId,
   reindex,
   removeNodeSubtree,
   removeRelation,
@@ -107,6 +108,11 @@ export interface EditorActions {
   tokenizeText: () => void;
   setTokens: (tokens: Token[]) => void;
   updateToken: (id: string, patch: Partial<Token>) => void;
+  /** Add a new word (token + word node, attached to the root) for a variant
+   *  reading; selects it so it can be re-roled/relinked. */
+  addWord: (surface: string) => void;
+  /** Delete a word node, its token(s), and any relations touching it. */
+  removeWord: (nodeId: string) => void;
   // syntax
   upsertNode: (node: SyntaxNode) => void;
   updateNode: (id: string, patch: Partial<SyntaxNode>) => void;
@@ -254,6 +260,66 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setTokens: (tokens) => commit((d) => ({ ...d, tokens: reindex(tokens) })),
 
     updateToken: (id, patch) => commit((d) => mUpdateToken(d, id, patch)),
+
+    addWord: (surface) => {
+      const trimmed = surface.trim();
+      if (!trimmed) return;
+      const tokenId = makeId('tok');
+      const nodeId = makeId('node');
+      commit((d) => {
+        const token: Token = {
+          id: tokenId,
+          index: d.tokens.length,
+          surface: trimmed,
+          language: d.language,
+          provenance: { source: 'manual', confidence: 'high' },
+        };
+        const node: SyntaxNode = {
+          id: nodeId,
+          kind: 'word',
+          tokenIds: [tokenId],
+          provenance: { source: 'manual', confidence: 'high' },
+        };
+        // Attach to the root so the new word is visible immediately; the user can
+        // then change its role or relink it to the right head.
+        const relation: Relation = {
+          id: makeId('rel'),
+          type: 'adjunct',
+          headId: d.syntax.rootId,
+          dependentId: nodeId,
+          provenance: { source: 'manual', confidence: 'high' },
+        };
+        return {
+          ...d,
+          tokens: reindex([...d.tokens, token]),
+          syntax: {
+            ...d.syntax,
+            nodes: [...d.syntax.nodes, node],
+            relations: [...d.syntax.relations, relation],
+          },
+        };
+      });
+      set({ selection: { nodeId } });
+    },
+
+    removeWord: (nodeId) =>
+      commit((d) => {
+        const node = d.syntax.nodes.find((n) => n.id === nodeId);
+        if (!node || nodeId === d.syntax.rootId) return d; // never orphan the root
+        const tokenIds = new Set(node.tokenIds);
+        return {
+          ...d,
+          tokens: reindex(d.tokens.filter((t) => !tokenIds.has(t.id))),
+          syntax: {
+            ...d.syntax,
+            nodes: d.syntax.nodes.filter((n) => n.id !== nodeId),
+            // Drop relations touching the word; its former children simply detach.
+            relations: d.syntax.relations.filter(
+              (r) => r.headId !== nodeId && r.dependentId !== nodeId,
+            ),
+          },
+        };
+      }),
 
     upsertNode: (node) => commit((d) => ({ ...d, syntax: upsertNode(d.syntax, node) })),
     updateNode: (id, patch) =>
