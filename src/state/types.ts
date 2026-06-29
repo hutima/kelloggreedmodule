@@ -1,9 +1,23 @@
-import type { KrDocument } from '@/domain/schema';
+import type { KrDocument, SermonPrepData } from '@/domain/schema';
 import type { Inference } from '@/domain/inference';
 import type { DiagramMode } from '@/domain/layout';
 
-/** The three application modes from the spec. */
-export type AppMode = 'parsed' | 'assisted' | 'manual';
+/**
+ * Legacy inference WORKING mode (how a parse is built). Distinct from the
+ * user-facing app mode below. Kept for the inference engine / assisted flow.
+ */
+export type WorkMode = 'parsed' | 'assisted' | 'manual';
+
+/**
+ * User-facing application mode — the three top-level experiences from the spec.
+ * Explore is the default (especially on mobile); Edit is desktop-first; Sermon
+ * Prep is for exegetical preparation. All three are lenses over ONE shared
+ * document model.
+ */
+export type AppMode = 'explore' | 'edit' | 'sermon';
+
+/** Which corpus the current base assignment comes from (for patch identity). */
+export type Corpus = 'gnt' | 'ot' | 'custom';
 
 export interface Selection {
   nodeId?: string;
@@ -26,7 +40,19 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 export interface EditorState {
   doc: KrDocument;
-  mode: AppMode;
+  /**
+   * The pristine base (gold-standard) assignment for the current passage, if it
+   * came from source data. User edits are diffed against this and stored as a
+   * compact patch. `null` for brand-new custom documents (no base to diff).
+   */
+  baseDoc: KrDocument | null;
+  corpus: Corpus;
+  /** Sermon-prep data for the current passage (notes, highlights, outline). */
+  sermon: SermonPrepData;
+  /** Legacy inference working mode. */
+  mode: WorkMode;
+  /** User-facing app mode: Explore / Edit / Sermon Prep. */
+  appMode: AppMode;
   selection: Selection;
   /** Active click-to-relink interaction, if any. */
   linking: Linking | null;

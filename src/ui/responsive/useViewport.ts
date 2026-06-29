@@ -1,0 +1,67 @@
+import { useCallback, useEffect, useState } from 'react';
+import {
+  classifyWidth,
+  loadForceDesktop,
+  saveForceDesktop,
+  type ViewportKind,
+} from './viewport';
+
+export interface Viewport {
+  /** Physical device class from the window width. */
+  device: ViewportKind;
+  /**
+   * The class the UI should actually render for: the device class, unless the
+   * user forced desktop mode on a small screen.
+   */
+  effective: ViewportKind;
+  width: number;
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+  /** The user's "force desktop on this device" preference (persisted). */
+  forceDesktop: boolean;
+  setForceDesktop: (value: boolean) => void;
+}
+
+function currentWidth(): number {
+  return typeof window === 'undefined' ? 1280 : window.innerWidth;
+}
+
+/**
+ * React hook exposing the live viewport class plus the persisted force-desktop
+ * override. Listens to resize/orientation changes.
+ */
+export function useViewport(): Viewport {
+  const [width, setWidth] = useState<number>(() => currentWidth());
+  const [forceDesktop, setForce] = useState<boolean>(() => loadForceDesktop());
+
+  useEffect(() => {
+    const onResize = () => setWidth(currentWidth());
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
+
+  const setForceDesktop = useCallback((value: boolean) => {
+    saveForceDesktop(value);
+    setForce(value);
+  }, []);
+
+  const device = classifyWidth(width);
+  const effective: ViewportKind =
+    forceDesktop && device !== 'desktop' ? 'desktop' : device;
+
+  return {
+    device,
+    effective,
+    width,
+    isMobile: effective === 'mobile',
+    isTablet: effective === 'tablet',
+    isDesktop: effective === 'desktop',
+    forceDesktop,
+    setForceDesktop,
+  };
+}

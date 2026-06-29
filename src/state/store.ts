@@ -6,13 +6,23 @@ import type {
   SyntaxNode,
   Token,
   NodeLayoutHint,
+  SyntacticRole,
+  ClauseType,
+  SermonPrepData,
+  SermonNoteCategory,
+  HighlightCategory,
+  SermonAnchor,
+  Provenance,
 } from '@/domain/schema';
+import { emptySermonPrep } from '@/domain/schema';
 import {
   createDocument,
   makeId,
   reindex,
   removeNodeSubtree,
   removeRelation,
+  getRelation,
+  systemClock,
   tokenize,
   touch,
   updateNode as mUpdateNode,
@@ -21,18 +31,35 @@ import {
   upsertNode,
   upsertRelation,
 } from '@/domain/model';
+import * as sermonOps from '@/domain/sermon';
 import {
   applyInference,
   applyInferences,
   runInference,
   type Inference,
 } from '@/domain/inference';
-import { getDocument, saveDocument } from '@/persistence';
+import {
+  getDocument,
+  saveDocument,
+  saveBase,
+  getBase,
+  savePatch,
+  loadPatch,
+  deletePatch,
+  saveSermonPrep,
+  loadSermonPrep,
+  deleteSermonPrep,
+} from '@/persistence';
+import { applyPatch, diffDocuments, hashBase } from '@/domain/patch';
+import { isEmptySyntaxPatch } from '@/domain/schema';
 import { DEFAULT_MODE, type DiagramMode } from '@/domain/layout';
 import { scheduleAutosave } from './autosave';
-import type { AppMode, EditorState, Selection } from './types';
+import type { AppMode, Corpus, EditorState, Selection, WorkMode } from './types';
 
 const HISTORY_LIMIT = 100;
+
+/** Provenance stamp for any user-made manual edit. */
+const MANUAL: Provenance = { source: 'manual', confidence: 'high' };
 
 /**
  * The id of the last document the user was viewing/editing, so a refresh (or an
@@ -89,10 +116,12 @@ function savePassageNotes(docId: string, notes: string): void {
 export interface EditorActions {
   // lifecycle
   newDocument: (language: Language, title?: string) => void;
-  loadDocument: (doc: KrDocument) => void;
+  loadDocument: (doc: KrDocument, opts?: { corpus?: Corpus }) => void;
   /** Restore the last viewed passage (after a reload), if any. */
   restoreLastSession: () => Promise<void>;
-  setMode: (mode: AppMode) => void;
+  setMode: (mode: WorkMode) => void;
+  /** Switch the user-facing app mode (Explore / Edit / Sermon Prep). */
+  setAppMode: (mode: AppMode) => void;
   /** Set the GNT reading context (book's sentences + current index) for nav. */
   setGntContext: (passages: KrDocument[], index: number) => void;
   /** Collapse/expand the left (sources) panel. */
@@ -120,6 +149,19 @@ export interface EditorActions {
   upsertRelation: (relation: Relation) => void;
   updateRelation: (id: string, patch: Partial<Relation>) => void;
   removeRelation: (id: string) => void;
+  // --- semantic editing (used by the visualization edit adapters) ---
+  /** Set a node's grammatical role and align its incoming relation type. */
+  setNodeRole: (nodeId: string, role: SyntacticRole) => void;
+  /** Attach `dependentId` under `headId` as `type` (re-pointing its head). */
+  attachNodeTo: (dependentId: string, headId: string, type: SyntacticRole) => void;
+  /** Change an existing relation's type. */
+  changeRelationType: (relationId: string, type: SyntacticRole) => void;
+  /** Swap a relation's head and dependent. */
+  reverseRelation: (relationId: string) => void;
+  /** Set a clause node's clause type. */
+  setClauseType: (nodeId: string, clauseType: ClauseType) => void;
+  /** Mark a node implied/elided (or not). */
+  setImplied: (nodeId: string, implied: boolean) => void;
   // layout
   setLayoutHint: (nodeId: string, hint: NodeLayoutHint | undefined) => void;
   // selection
@@ -131,6 +173,32 @@ export interface EditorActions {
   startRelink: (relationId: string, end: 'head' | 'dependent') => void;
   cancelRelink: () => void;
   relinkTo: (nodeId: string) => void;
+  // --- sermon prep ---
+  addSermonNote: (input: {
+    anchor: SermonAnchor;
+    category: SermonNoteCategory;
+    title?: string;
+    body?: string;
+  }) => void;
+  updateSermonNote: (id: string, patch: { title?: string; body?: string; category?: SermonNoteCategory }) => void;
+  removeSermonNote: (id: string) => void;
+  toggleHighlight: (input: { anchor: SermonAnchor; category: HighlightCategory }) => void;
+  removeHighlight: (id: string) => void;
+  addObservation: (body: string, anchor?: SermonAnchor) => void;
+  updateObservation: (id: string, body: string) => void;
+  removeObservation: (id: string) => void;
+  setBigIdea: (text: string) => void;
+  addOutlineSection: () => void;
+  updateOutlineSection: (id: string, patch: { title?: string; body?: string }) => void;
+  removeOutlineSection: (id: string) => void;
+  setSermonPrep: (data: SermonPrepData) => void;
+  // --- reset ---
+  resetPassage: (opts: {
+    syntax?: boolean;
+    layout?: boolean;
+    sermon?: boolean;
+    notes?: boolean;
+  }) => void;
   // inference
   refreshInferences: () => void;
   acceptInference: (id: string) => void;
@@ -152,7 +220,32 @@ function initialDoc(): KrDocument {
   return createDocument({ language: 'en', title: 'Untitled' });
 }
 
+function corpusFor(doc: KrDocument): Corpus {
+  if (doc.language === 'grc') return 'gnt';
+  if (doc.language === 'hbo') return 'ot';
+  return 'custom';
+}
+
 export const useEditorStore = create<EditorStore>((set, get) => {
+  /**
+   * Derive and persist the compact user-edit patch (base vs live) for the
+   * current passage. A passage with a base stores edits as a DIFF; the whole
+   * live doc is still autosaved separately as the session-restore cache.
+   */
+  const persistEdits = (live: KrDocument) => {
+    const { baseDoc, corpus } = get();
+    if (!baseDoc || baseDoc.id !== live.id) return;
+    const now = systemClock();
+    const patch = diffDocuments(
+      baseDoc,
+      live,
+      { corpus, passageId: baseDoc.id, baseHash: hashBase(baseDoc) },
+      now,
+    );
+    if (isEmptySyntaxPatch(patch)) deletePatch(baseDoc.id);
+    else savePatch(baseDoc.id, patch);
+  };
+
   /** Apply a pure document transform, recording history + scheduling autosave. */
   const commit = (producer: (doc: KrDocument) => KrDocument) => {
     const { doc, past } = get();
@@ -161,11 +254,25 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     set({ doc: next, past: nextPast, future: [], status: 'saving' });
     scheduleAutosave(next, (status) => set({ status }));
     rememberLastDoc(next.id); // autosave persists the doc; remember it for restore
+    persistEdits(next);
   };
 
+  /** Apply a pure sermon-prep transform and persist it. */
+  const commitSermon = (producer: (s: SermonPrepData) => SermonPrepData) => {
+    const next = producer(get().sermon);
+    set({ sermon: next });
+    saveSermonPrep(next.passageId, next);
+  };
+
+  const init = initialDoc();
+
   return {
-    doc: initialDoc(),
+    doc: init,
+    baseDoc: null,
+    corpus: 'custom',
+    sermon: emptySermonPrep(init.id, init.createdAt),
     mode: 'manual',
+    appMode: 'explore',
     selection: {},
     linking: null,
     verticalScale: 1,
@@ -180,16 +287,22 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
     setGntContext: (passages, index) => set({ gntPassages: passages, gntIndex: index }),
     setLeftCollapsed: (collapsed) => set({ leftCollapsed: collapsed }),
+    setAppMode: (appMode) => set({ appMode }),
 
     stepGnt: (delta) => {
       const { gntPassages, gntIndex } = get();
       const next = gntIndex + delta;
       if (next < 0 || next >= gntPassages.length) return;
-      const doc = gntPassages[next]!;
-      const saved = loadPassageNotes(doc.id);
-      const withNotes = saved != null ? { ...doc, notes: saved } : doc;
+      const base = gntPassages[next]!;
+      const stored = loadPatch(base.id);
+      const live0 = stored ? applyPatch(base, stored) : base;
+      const saved = loadPassageNotes(base.id);
+      const live = saved != null ? { ...live0, notes: saved } : live0;
       set({
-        doc: withNotes,
+        doc: live,
+        baseDoc: base,
+        corpus: corpusFor(base),
+        sermon: loadSermonPrep(base.id) ?? emptySermonPrep(base.id, systemClock()),
         gntIndex: next,
         past: [],
         future: [],
@@ -198,21 +311,48 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         linking: null,
         status: 'saved',
       });
-      persistOpened(withNotes);
+      void saveBase(base).catch(() => {});
+      persistOpened(live);
     },
 
     newDocument: (language, title) => {
       const doc = createDocument({ language, title });
-      set({ doc, past: [], future: [], inferences: [], selection: {}, linking: null, status: 'idle' });
+      set({
+        doc,
+        baseDoc: null,
+        corpus: 'custom',
+        sermon: emptySermonPrep(doc.id, doc.createdAt),
+        past: [],
+        future: [],
+        inferences: [],
+        selection: {},
+        linking: null,
+        status: 'idle',
+      });
       scheduleAutosave(doc, (status) => set({ status }));
     },
 
-    loadDocument: (doc) => {
-      // Restore any notes saved for this passage (keyed by document id).
-      const saved = loadPassageNotes(doc.id);
-      const next = saved != null ? { ...doc, notes: saved } : doc;
-      set({ doc: next, past: [], future: [], inferences: [], selection: {}, linking: null, status: 'saved' });
-      persistOpened(next);
+    loadDocument: (doc, opts) => {
+      // The given doc is the pristine BASE; user edits are reconstructed on top.
+      const base = doc;
+      const stored = loadPatch(base.id);
+      const live0 = stored ? applyPatch(base, stored) : base;
+      const saved = loadPassageNotes(base.id);
+      const live = saved != null ? { ...live0, notes: saved } : live0;
+      set({
+        doc: live,
+        baseDoc: base,
+        corpus: opts?.corpus ?? corpusFor(base),
+        sermon: loadSermonPrep(base.id) ?? emptySermonPrep(base.id, systemClock()),
+        past: [],
+        future: [],
+        inferences: [],
+        selection: {},
+        linking: null,
+        status: 'saved',
+      });
+      void saveBase(base).catch(() => {});
+      persistOpened(live);
     },
 
     restoreLastSession: async () => {
@@ -224,12 +364,16 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         return;
       }
       if (!id || id === get().doc.id) return;
-      const doc = await getDocument(id);
-      if (!doc) return;
-      const saved = loadPassageNotes(doc.id);
-      const next = saved != null ? { ...doc, notes: saved } : doc;
+      const live = await getDocument(id);
+      if (!live) return;
+      const base = (await getBase(id)) ?? null;
+      const saved = loadPassageNotes(live.id);
+      const next = saved != null ? { ...live, notes: saved } : live;
       set({
         doc: next,
+        baseDoc: base,
+        corpus: corpusFor(next),
+        sermon: loadSermonPrep(live.id) ?? emptySermonPrep(live.id, systemClock()),
         // A restored gold-standard passage reads like a reopened one.
         mode: next.syntax.nodes.length ? 'parsed' : get().mode,
         past: [],
@@ -334,6 +478,69 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     removeRelation: (id) =>
       commit((d) => ({ ...d, syntax: removeRelation(d.syntax, id) })),
 
+    // --- semantic editing ---------------------------------------------------
+    setNodeRole: (nodeId, role) =>
+      commit((d) => {
+        let syntax = mUpdateNode(d.syntax, nodeId, { role, provenance: MANUAL });
+        const parent = d.syntax.relations.find((r) => r.dependentId === nodeId);
+        if (parent) syntax = mUpdateRelation(syntax, parent.id, { type: role, provenance: MANUAL });
+        return { ...d, syntax };
+      }),
+
+    attachNodeTo: (dependentId, headId, type) => {
+      if (dependentId === headId) return;
+      commit((d) => {
+        const parents = d.syntax.relations.filter((r) => r.dependentId === dependentId);
+        let syntax = d.syntax;
+        if (parents.length) {
+          const [first, ...rest] = parents;
+          syntax = mUpdateRelation(syntax, first!.id, { headId, type, provenance: MANUAL });
+          for (const r of rest) syntax = removeRelation(syntax, r.id);
+        } else {
+          syntax = upsertRelation(syntax, {
+            id: makeId('rel'),
+            type,
+            headId,
+            dependentId,
+            provenance: MANUAL,
+          });
+        }
+        return { ...d, syntax };
+      });
+    },
+
+    changeRelationType: (relationId, type) =>
+      commit((d) => ({
+        ...d,
+        syntax: mUpdateRelation(d.syntax, relationId, { type, provenance: MANUAL }),
+      })),
+
+    reverseRelation: (relationId) =>
+      commit((d) => {
+        const r = getRelation(d.syntax, relationId);
+        if (!r) return d;
+        return {
+          ...d,
+          syntax: mUpdateRelation(d.syntax, relationId, {
+            headId: r.dependentId,
+            dependentId: r.headId,
+            provenance: MANUAL,
+          }),
+        };
+      }),
+
+    setClauseType: (nodeId, clauseType) =>
+      commit((d) => ({
+        ...d,
+        syntax: mUpdateNode(d.syntax, nodeId, { clauseType, provenance: MANUAL }),
+      })),
+
+    setImplied: (nodeId, implied) =>
+      commit((d) => ({
+        ...d,
+        syntax: mUpdateNode(d.syntax, nodeId, { implied, provenance: MANUAL }),
+      })),
+
     setLayoutHint: (nodeId, hint) =>
       commit((d) => {
         const layoutHints = { ...d.layoutHints };
@@ -366,6 +573,60 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           provenance: { source: 'manual', confidence: 'high' },
         }),
       }));
+    },
+
+    // --- sermon prep --------------------------------------------------------
+    addSermonNote: (input) => commitSermon((s) => sermonOps.addNote(s, input, systemClock()).data),
+    updateSermonNote: (id, patch) =>
+      commitSermon((s) => sermonOps.updateNote(s, id, patch, systemClock())),
+    removeSermonNote: (id) => commitSermon((s) => sermonOps.removeNote(s, id, systemClock())),
+    toggleHighlight: (input) =>
+      commitSermon((s) => sermonOps.toggleHighlight(s, input, systemClock())),
+    removeHighlight: (id) => commitSermon((s) => sermonOps.removeHighlight(s, id, systemClock())),
+    addObservation: (body, anchor) =>
+      commitSermon((s) => sermonOps.addObservation(s, { body, anchor }, systemClock()).data),
+    updateObservation: (id, body) =>
+      commitSermon((s) => sermonOps.updateObservation(s, id, { body }, systemClock())),
+    removeObservation: (id) =>
+      commitSermon((s) => sermonOps.removeObservation(s, id, systemClock())),
+    setBigIdea: (text) => commitSermon((s) => sermonOps.setBigIdea(s, text, systemClock())),
+    addOutlineSection: () => commitSermon((s) => sermonOps.addOutlineSection(s, systemClock())),
+    updateOutlineSection: (id, patch) =>
+      commitSermon((s) => sermonOps.updateOutlineSection(s, id, patch, systemClock())),
+    removeOutlineSection: (id) =>
+      commitSermon((s) => sermonOps.removeOutlineSection(s, id, systemClock())),
+    setSermonPrep: (data) => {
+      set({ sermon: data });
+      saveSermonPrep(data.passageId, data);
+    },
+
+    // --- reset --------------------------------------------------------------
+    resetPassage: ({ syntax, layout, sermon, notes }) => {
+      const { baseDoc, doc } = get();
+      if ((syntax || layout) && baseDoc) {
+        commit((d) => {
+          // Rebuild the live doc, restoring the chosen categories from the base
+          // and keeping the rest as-is.
+          const next: KrDocument = { ...d };
+          if (syntax) {
+            next.syntax = baseDoc.syntax;
+            next.tokens = baseDoc.tokens;
+          }
+          if (layout) next.layoutHints = baseDoc.layoutHints;
+          return next;
+        });
+        // A fully-reset syntax+layout means no patch at all.
+        if (syntax && layout) deletePatch(baseDoc.id);
+      }
+      if (notes) {
+        savePassageNotes(doc.id, '');
+        commit((d) => ({ ...d, notes: '' }));
+      }
+      if (sermon) {
+        const empty = emptySermonPrep(doc.id, systemClock());
+        set({ sermon: empty });
+        deleteSermonPrep(doc.id);
+      }
     },
 
     refreshInferences: () => {
@@ -419,6 +680,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       if (!prev) return;
       set({ doc: prev, past: past.slice(0, -1), future: [doc, ...future], status: 'saving' });
       scheduleAutosave(prev, (status) => set({ status }));
+      persistEdits(prev);
     },
 
     redo: () => {
@@ -427,6 +689,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       if (!next) return;
       set({ doc: next, future: future.slice(1), past: [...past, doc], status: 'saving' });
       scheduleAutosave(next, (status) => set({ status }));
+      persistEdits(next);
     },
 
     markSaved: () => set({ status: 'saved' }),

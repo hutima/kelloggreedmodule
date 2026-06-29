@@ -64,7 +64,7 @@ export function OtPicker() {
     if (!passages) return;
     const selected = passages.filter((p) => checked.has(p.id));
     if (!selected.length) return;
-    loadDocument(combinePassage(selected));
+    loadDocument(combinePassage(selected), { corpus: 'ot' });
     const firstIdx = passages.findIndex((p) => checked.has(p.id));
     setGntContext(passages, firstIdx);
     setMode('parsed');

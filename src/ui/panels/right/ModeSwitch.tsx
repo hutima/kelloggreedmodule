@@ -1,5 +1,5 @@
 import { useEditorStore } from '@/state';
-import type { AppMode } from '@/state/types';
+import type { WorkMode } from '@/state/types';
 
 /**
  * The working-mode switch (re-exposed): how the diagram is built.
@@ -8,7 +8,7 @@ import type { AppMode } from '@/state/types';
  *  - Manual   — build/edit by hand.
  * Switching to Assisted runs the inference engine (handled by the store).
  */
-const MODES: { id: AppMode; label: string; title: string }[] = [
+const MODES: { id: WorkMode; label: string; title: string }[] = [
   { id: 'parsed', label: 'Parsed', title: 'Show a complete parse' },
   { id: 'assisted', label: 'Assisted', title: 'Suggest structure with the inference engine' },
   { id: 'manual', label: 'Manual', title: 'Build and edit by hand' },
