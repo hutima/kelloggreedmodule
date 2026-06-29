@@ -8,6 +8,8 @@ import { RightPanel } from '@/ui/panels/RightPanel';
 import { EditorController } from '@/ui/editor/EditorController';
 import { SermonPrepDrawer } from '@/ui/sermon/SermonPrepDrawer';
 import { MobileSermonPrepSheet } from '@/ui/sermon/MobileSermonPrepSheet';
+import { MobileAlternateReadingSheet } from '@/ui/contested/MobileAlternateReadingSheet';
+import { DesktopAlternateReadingDrawer } from '@/ui/contested/DesktopAlternateReadingDrawer';
 
 /**
  * Top-level responsive layout. ONE data model, three distinct experiences:
@@ -56,6 +58,7 @@ export function ResponsiveShell() {
         {appMode === 'sermon' && (
           <MobileSermonPrepSheet onClose={() => useEditorStore.getState().setAppMode('explore')} />
         )}
+        <MobileAlternateReadingSheet />
         <EditorController />
       </div>
     );
@@ -83,6 +86,7 @@ export function ResponsiveShell() {
           <RightPanel />
         )}
       </div>
+      <DesktopAlternateReadingDrawer />
       <EditorController />
     </div>
   );

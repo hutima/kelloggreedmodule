@@ -17,3 +17,4 @@ export * from './layout';
 export * from './document';
 export * from './sermon';
 export * from './patch';
+export * from './contested';
