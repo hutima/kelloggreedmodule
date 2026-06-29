@@ -9,14 +9,25 @@ import { KrDocumentSchema, type KrDocument } from '@/domain/schema';
  */
 
 const DB_NAME = 'kellogg-reed';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'documents';
+/**
+ * Pristine base (gold-standard) assignments, keyed by passage id, so user edits
+ * can be diffed against them and reset back to source after a reload. Kept in a
+ * SEPARATE store from `documents` (the live-doc session cache) so neither one's
+ * tuned behaviour leaks into the other.
+ */
+const BASE_STORE = 'bases';
 
 interface KrDB extends DBSchema {
   documents: {
     key: string;
     value: KrDocument;
     indexes: { 'by-updated': string };
+  };
+  bases: {
+    key: string;
+    value: KrDocument;
   };
 }
 
@@ -29,9 +40,14 @@ function hasIndexedDb(): boolean {
 function getDb(): Promise<IDBPDatabase<KrDB>> {
   if (!dbPromise) {
     dbPromise = openDB<KrDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        const store = db.createObjectStore(STORE, { keyPath: 'id' });
-        store.createIndex('by-updated', 'updatedAt');
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          const store = db.createObjectStore(STORE, { keyPath: 'id' });
+          store.createIndex('by-updated', 'updatedAt');
+        }
+        if (oldVersion < 2) {
+          db.createObjectStore(BASE_STORE, { keyPath: 'id' });
+        }
       },
     });
   }
@@ -112,4 +128,37 @@ export async function deleteDocument(id: string): Promise<void> {
   } else {
     localStorage.removeItem(LS_PREFIX + id);
   }
+}
+
+// --- base assignments ---------------------------------------------------------
+
+const LS_BASE_PREFIX = 'kr-base:';
+
+/** Persist a pristine base assignment so edits can be reset to source later. */
+export async function saveBase(doc: KrDocument): Promise<void> {
+  const valid = KrDocumentSchema.parse(doc);
+  if (hasIndexedDb()) {
+    const db = await getDb();
+    await db.put(BASE_STORE, valid);
+  } else {
+    try {
+      localStorage.setItem(LS_BASE_PREFIX + valid.id, JSON.stringify(valid));
+    } catch {
+      /* storage full — reset-to-source simply won't be available offline */
+    }
+  }
+}
+
+export async function getBase(id: string): Promise<KrDocument | undefined> {
+  if (hasIndexedDb()) {
+    const db = await getDb();
+    const raw = await db.get(BASE_STORE, id);
+    if (!raw) return undefined;
+    const parsed = KrDocumentSchema.safeParse(raw);
+    return parsed.success ? parsed.data : undefined;
+  }
+  const raw = localStorage.getItem(LS_BASE_PREFIX + id);
+  if (!raw) return undefined;
+  const parsed = KrDocumentSchema.safeParse(JSON.parse(raw));
+  return parsed.success ? parsed.data : undefined;
 }

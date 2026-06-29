@@ -37,6 +37,7 @@ interface View {
  */
 export function DiagramCanvas() {
   const doc = useEditorStore((s) => s.doc);
+  const appMode = useEditorStore((s) => s.appMode);
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
   const linking = useEditorStore((s) => s.linking);
@@ -353,7 +354,8 @@ export function DiagramCanvas() {
 
   // ---- reveal popover (clamped into the viewport) ------------------------
   const reveal = useMemo(() => {
-    if (linking || !selection.nodeId) return null;
+    // In Edit mode the contextual action sheet stands in for the reader popover.
+    if (linking || appMode === 'edit' || !selection.nodeId) return null;
     // Prefer a horizontal text anchor, but fall back to a rotated one so small
     // diagonal words (articles, πᾶς, prepositions) still get a detail popover.
     const texts = layout.elements.filter(
@@ -363,7 +365,7 @@ export function DiagramCanvas() {
     const summary = describeFunction(doc, selection.nodeId);
     if (!anchor || !summary) return null;
     return { anchor, summary };
-  }, [doc, layout, selection.nodeId, linking]);
+  }, [doc, layout, selection.nodeId, linking, appMode]);
 
   const revealPos = useMemo(() => {
     if (!reveal) return null;

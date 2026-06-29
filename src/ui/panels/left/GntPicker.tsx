@@ -60,7 +60,7 @@ export function GntPicker() {
     if (!passages) return;
     const selected = passages.filter((p) => checked.has(p.id));
     if (!selected.length) return;
-    loadDocument(combinePassage(selected));
+    loadDocument(combinePassage(selected), { corpus: 'gnt' });
     // Reading context for prev/next nav: the book's sentences + the first opened.
     const firstIdx = passages.findIndex((p) => checked.has(p.id));
     setGntContext(passages, firstIdx);

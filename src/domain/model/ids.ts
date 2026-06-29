@@ -5,7 +5,17 @@ import { customAlphabet } from 'nanoid';
 const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
 const nano = customAlphabet(alphabet, 8);
 
-export type IdPrefix = 'doc' | 'tok' | 'node' | 'rel' | 'inf';
+export type IdPrefix =
+  | 'doc'
+  | 'tok'
+  | 'node'
+  | 'rel'
+  | 'inf'
+  // sermon-prep entities
+  | 'note'
+  | 'hl'
+  | 'obs'
+  | 'sec';
 
 export function makeId(prefix: IdPrefix): string {
   return `${prefix}_${nano()}`;

@@ -15,3 +15,5 @@ export * from './token';
 export * from './syntax';
 export * from './layout';
 export * from './document';
+export * from './sermon';
+export * from './patch';
