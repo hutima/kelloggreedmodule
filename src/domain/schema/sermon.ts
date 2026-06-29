@@ -23,6 +23,9 @@ export const SermonAnchorTypeSchema = z.enum([
   'block',
   'highlight',
   'tokenRange',
+  // A contested-syntax issue or one of its alternate readings (additive — older
+  // builds simply ignore notes anchored this way).
+  'contestedIssue',
 ]);
 export type SermonAnchorType = z.infer<typeof SermonAnchorTypeSchema>;
 

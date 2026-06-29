@@ -13,7 +13,9 @@
     "test:ui": "vitest --ui",
     "coverage": "vitest run --coverage",
     "lint": "eslint . --ext .ts,.tsx",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "dump-syntax": "vite-node scripts/dump-passage-syntax.mts --",
+    "contested:check": "vite-node scripts/check-contested-registry.mts"
   },
   "dependencies": {
     "idb": "^8.0.0",

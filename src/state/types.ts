@@ -80,6 +80,29 @@ export interface Linking {
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
+/**
+ * How an alternate reading is shown. `base-only` = the 1904/WLC parse alone;
+ * `single-preview` = the selected alternate replaces the one diagram frame
+ * (temporary, never saved); `side-by-side` = base and alternate in two linked
+ * frames (desktop only). Mobile is restricted to base-only / single-preview.
+ */
+export type AlternateDisplayMode = 'base-only' | 'single-preview' | 'side-by-side';
+
+/** UI state for the contested-syntax / alternate-readings feature. */
+export interface ContestedUiState {
+  /** The contested issue whose panel is open, if any. */
+  selectedContestedIssueId?: string;
+  /** The alternate reading chosen in the panel (not necessarily previewed). */
+  selectedAlternateReadingId?: string;
+  /** The alternate currently PREVIEWED in the diagram (temporary, unsaved). */
+  previewAlternateReadingId?: string;
+  /** Whether the alternate-readings panel/sheet is open. */
+  showAlternateParsePanel: boolean;
+  alternateDisplayMode: AlternateDisplayMode;
+  /** Sync scroll/pan between the two comparison frames (desktop). */
+  linkedScrolling: boolean;
+}
+
 export interface EditorState {
   doc: KrDocument;
   /**
@@ -116,6 +139,14 @@ export interface EditorState {
   selectedRange: string[];
   /** The guided edit modal currently open (hosted centrally), if any. */
   editModal: ActiveEditModal;
+  /** Contested-syntax / alternate-readings UI state. */
+  contested: ContestedUiState;
+  /**
+   * The document to RENDER for a single-frame alternate preview (the base with
+   * the alternate overlay applied). In-memory only — previewing never persists.
+   * `null` when showing the base.
+   */
+  previewDoc: KrDocument | null;
   /** User-tunable row spacing (vertical-gap multiplier) for the diagram. */
   verticalScale: number;
   /** Which diagram renderer is active (Kellogg-Reed by default). */

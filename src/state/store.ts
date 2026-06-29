@@ -56,8 +56,13 @@ import { cloneSample } from '@/fixtures';
 import { DEFAULT_MODE, type DiagramMode } from '@/domain/layout';
 import { loadForceDesktop, saveForceDesktop } from '@/ui/responsive/viewport';
 import { scheduleAutosave } from './autosave';
+import {
+  applyAlternateReadingPreview,
+  getReadingById,
+} from '@/domain/contested';
 import type {
   ActiveEditModal,
+  AlternateDisplayMode,
   AppMode,
   BasicEditTool,
   Corpus,
@@ -71,6 +76,13 @@ const HISTORY_LIMIT = 100;
 
 /** Provenance stamp for any user-made manual edit. */
 const MANUAL: Provenance = { source: 'manual', confidence: 'high' };
+
+/** Fresh contested-syntax UI state for a newly loaded passage. */
+const FRESH_CONTESTED = {
+  showAlternateParsePanel: false,
+  alternateDisplayMode: 'base-only' as const,
+  linkedScrolling: true,
+};
 
 /**
  * The id of the last document the user was viewing/editing, so a refresh (or an
@@ -223,6 +235,23 @@ export interface EditorActions {
   openEditModal: (modal: NonNullable<ActiveEditModal>) => void;
   /** Close any open guided edit modal. */
   closeEditModal: () => void;
+  // --- contested syntax / alternate readings ---
+  /** Open the alternate-readings panel, optionally pre-selecting an issue. */
+  openContestedPanel: (issueId?: string) => void;
+  /** Close the panel and clear any preview (returns to the base parse). */
+  closeContestedPanel: () => void;
+  /** Select an issue in the panel (clears any prior preview). */
+  selectContestedIssue: (issueId: string) => void;
+  /** Preview an alternate in the diagram (temporary; never saved). Null = base. */
+  previewAlternateReading: (readingId: string | null) => void;
+  /** Clear the preview and return to the base parse. */
+  returnToBaseReading: () => void;
+  /** Set base-only / single-preview / side-by-side. */
+  setAlternateDisplayMode: (mode: AlternateDisplayMode) => void;
+  /** Toggle linked scrolling between comparison frames. */
+  setLinkedScrolling: (value: boolean) => void;
+  /** Adopt a structural alternate as the user's custom parse (persists a patch). */
+  adoptContestedReading: (readingId: string) => void;
   // click-to-relink
   startRelink: (relationId: string, end: 'head' | 'dependent') => void;
   cancelRelink: () => void;
@@ -336,6 +365,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     relationshipDraft: null,
     selectedRange: [],
     editModal: null,
+    contested: {
+      showAlternateParsePanel: false,
+      alternateDisplayMode: 'base-only',
+      linkedScrolling: true,
+    },
+    previewDoc: null,
     verticalScale: 1,
     diagramMode: DEFAULT_MODE,
     inferences: [],
@@ -376,6 +411,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         inferences: [],
         selection: {},
         linking: null,
+        previewDoc: null,
+        contested: { ...FRESH_CONTESTED },
         status: 'saved',
       });
       void saveBase(base).catch(() => {});
@@ -394,6 +431,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         inferences: [],
         selection: {},
         linking: null,
+        previewDoc: null,
+        contested: { ...FRESH_CONTESTED },
         status: 'idle',
       });
       scheduleAutosave(doc, (status) => set({ status }));
@@ -416,6 +455,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         inferences: [],
         selection: {},
         linking: null,
+        previewDoc: null,
+        contested: { ...FRESH_CONTESTED },
         status: 'saved',
       });
       void saveBase(base).catch(() => {});
@@ -458,6 +499,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         inferences: [],
         selection: {},
         linking: null,
+        previewDoc: null,
+        contested: { ...FRESH_CONTESTED },
         status: 'saved',
       });
     },
@@ -471,7 +514,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const live0 = stored ? applyPatch(baseDoc, stored) : baseDoc;
         const saved = loadPassageNotes(baseDoc.id);
         const live = saved != null ? { ...live0, notes: saved } : live0;
-        set({ doc: live, sermon, past: [], future: [], selection: {}, linking: null, status: 'saved' });
+        set({ doc: live, sermon, past: [], future: [], selection: {}, linking: null, previewDoc: null, contested: { ...FRESH_CONTESTED }, status: 'saved' });
         persistOpened(live);
       } else {
         set({ sermon });
@@ -802,6 +845,110 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
     openEditModal: (modal) => set({ editModal: modal }),
     closeEditModal: () => set({ editModal: null }),
+
+    // --- contested syntax / alternate readings ------------------------------
+    openContestedPanel: (issueId) =>
+      set((s) => ({
+        contested: {
+          ...s.contested,
+          showAlternateParsePanel: true,
+          selectedContestedIssueId: issueId ?? s.contested.selectedContestedIssueId,
+        },
+      })),
+
+    closeContestedPanel: () =>
+      set((s) => ({
+        previewDoc: null,
+        contested: {
+          ...s.contested,
+          showAlternateParsePanel: false,
+          previewAlternateReadingId: undefined,
+          alternateDisplayMode: 'base-only',
+        },
+      })),
+
+    selectContestedIssue: (issueId) =>
+      set((s) => ({
+        previewDoc: null,
+        contested: {
+          ...s.contested,
+          selectedContestedIssueId: issueId,
+          selectedAlternateReadingId: undefined,
+          previewAlternateReadingId: undefined,
+          alternateDisplayMode: 'base-only',
+        },
+      })),
+
+    previewAlternateReading: (readingId) => {
+      const reading = readingId ? getReadingById(readingId) : undefined;
+      const base = get().baseDoc ?? get().doc;
+      const previewDoc = reading ? applyAlternateReadingPreview(base, reading) : null;
+      set((s) => ({
+        previewDoc,
+        contested: {
+          ...s.contested,
+          previewAlternateReadingId: reading?.id,
+          selectedAlternateReadingId: reading?.id ?? s.contested.selectedAlternateReadingId,
+          alternateDisplayMode: reading
+            ? s.contested.alternateDisplayMode === 'base-only'
+              ? 'single-preview'
+              : s.contested.alternateDisplayMode
+            : 'base-only',
+        },
+      }));
+    },
+
+    returnToBaseReading: () =>
+      set((s) => ({
+        previewDoc: null,
+        contested: {
+          ...s.contested,
+          previewAlternateReadingId: undefined,
+          alternateDisplayMode: 'base-only',
+        },
+      })),
+
+    setAlternateDisplayMode: (mode) => {
+      const s = get();
+      if (mode === 'base-only') {
+        set((st) => ({ previewDoc: null, contested: { ...st.contested, alternateDisplayMode: mode } }));
+        return;
+      }
+      const readingId =
+        s.contested.previewAlternateReadingId ?? s.contested.selectedAlternateReadingId;
+      const reading = readingId ? getReadingById(readingId) : undefined;
+      const base = s.baseDoc ?? s.doc;
+      const previewDoc = reading ? applyAlternateReadingPreview(base, reading) : s.previewDoc;
+      set((st) => ({
+        previewDoc,
+        contested: {
+          ...st.contested,
+          alternateDisplayMode: mode,
+          previewAlternateReadingId: reading?.id ?? st.contested.previewAlternateReadingId,
+        },
+      }));
+    },
+
+    setLinkedScrolling: (value) =>
+      set((s) => ({ contested: { ...s.contested, linkedScrolling: value } })),
+
+    adoptContestedReading: (readingId) => {
+      const reading = getReadingById(readingId);
+      if (!reading || !reading.syntaxPatch) return; // only structural alternates adopt
+      // Apply onto the CURRENT doc so adoption merges with any prior edits, then
+      // commit so the normal patch/diff persistence stores it as a user edit.
+      const next = applyAlternateReadingPreview(get().doc, reading);
+      commit(() => next);
+      set((s) => ({
+        previewDoc: null,
+        contested: {
+          ...s.contested,
+          showAlternateParsePanel: false,
+          previewAlternateReadingId: undefined,
+          alternateDisplayMode: 'base-only',
+        },
+      }));
+    },
 
     startRelink: (relationId, end) => set({ linking: { relationId, end }, selection: { relationId } }),
     cancelRelink: () => set({ linking: null }),

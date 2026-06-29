@@ -23,6 +23,8 @@ import { nodeHighlightColors } from '@/ui/sermon/highlights';
 import { EditModeToolbar } from '@/ui/editor/EditModeToolbar';
 import { LinkPreviewOverlay } from '@/ui/editor/LinkPreviewOverlay';
 import { DependencyEditOverlay } from '@/ui/editor/dependency/DependencyEditOverlay';
+import { ContestedBadge, SinglePreviewView, VariantComparisonView } from '@/ui/contested';
+import { useViewport } from '@/ui/responsive';
 
 const TENTATIVE = '#c2410c';
 const INK = '#1f2933';
@@ -65,6 +67,13 @@ export function DiagramCanvas() {
   const gntIndex = useEditorStore((s) => s.gntIndex);
   const stepGnt = useEditorStore((s) => s.stepGnt);
   const highlights = useEditorStore((s) => s.sermon.highlights);
+  // Contested-syntax / alternate-readings display state.
+  const alternateDisplayMode = useEditorStore((s) => s.contested.alternateDisplayMode);
+  const previewDoc = useEditorStore((s) => s.previewDoc);
+  const viewport = useViewport();
+  // Mobile NEVER renders two variant frames; side-by-side is desktop/tablet only.
+  const sideBySide = alternateDisplayMode === 'side-by-side' && !!previewDoc && !viewport.isMobile;
+  const singlePreview = alternateDisplayMode === 'single-preview' && !!previewDoc;
   const [collapsed, setCollapsed] = useState(false);
   // Which label element anchors the glossary popover (so it opens at the exact
   // tag tapped, even when several arcs share a label/colour).
@@ -527,6 +536,7 @@ export function DiagramCanvas() {
             </>
           )}
         </div>
+        <ContestedBadge />
         <button
           className="collapse-btn"
           aria-expanded={!collapsed}
@@ -686,7 +696,15 @@ export function DiagramCanvas() {
           )}
         </div>
       )}
-      {htmlMode ? (
+      {sideBySide ? (
+        <div className="canvas-viewport compare-mode">
+          <VariantComparisonView />
+        </div>
+      ) : singlePreview ? (
+        <div className="canvas-viewport preview-mode">
+          <SinglePreviewView />
+        </div>
+      ) : htmlMode ? (
         <div className="canvas-viewport html-mode">
           {diagramMode === 'phrase-block' ? (
             <PhraseBlockView hovered={hover.nodes} onHover={hoverDiagram} />
