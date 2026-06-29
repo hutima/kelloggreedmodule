@@ -48,18 +48,6 @@ export function EditModeToolbar() {
         {modeLabel}
       </span>
 
-      {/* A general written walkthrough of Edit mode — kept on the left so it's
-          always visible, unlike the mode-specific How-to-edit at the far end. */}
-      <button
-        type="button"
-        className="btn edit-guide-btn"
-        title="Read the editing guide"
-        onClick={() => setGuideOpen(true)}
-      >
-        Guide
-      </button>
-      {guideOpen && <EditGuideModal onClose={() => setGuideOpen(false)} />}
-
       <EditTierToggle />
 
       {editTier === 'basic' ? (
