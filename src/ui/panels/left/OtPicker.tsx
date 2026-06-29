@@ -1,7 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { OT_BOOKS, cacheOtChapter, loadOtChapter, combinePassage, type OtBook } from '@/io';
 import type { KrDocument } from '@/domain/schema';
+
+/** The OT book whose name a passage/sentence title begins with, if any. */
+function otBookForTitle(title: string): OtBook | undefined {
+  return OT_BOOKS.find((b) => title.startsWith(b.name));
+}
+/** "Genesis 1:1" → 1 (the chapter), if present. */
+function chapterForTitle(title: string): number | undefined {
+  const m = title.match(/(\d+):\d+/);
+  return m ? Number(m[1]) : undefined;
+}
 
 /**
  * Hebrew Bible (Old Testament) passage picker. Pick a book and chapter, load it,
@@ -18,13 +28,37 @@ export function OtPicker() {
   const setMode = useEditorStore((s) => s.setMode);
   const setGntContext = useEditorStore((s) => s.setGntContext);
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
-  const [bookNum, setBookNum] = useState(1); // Genesis
-  const [chapter, setChapter] = useState(1);
+  const doc = useEditorStore((s) => s.doc);
+  // Seed from the CURRENT Hebrew passage so the Book/Chapter reflect what's open
+  // instead of always resetting to Genesis 1.
+  const openBook = doc.language === 'hbo' ? otBookForTitle(doc.title) : undefined;
+  const openChap = doc.language === 'hbo' ? chapterForTitle(doc.title) : undefined;
+  const [bookNum, setBookNum] = useState(openBook?.num ?? 1); // Genesis
+  const [chapter, setChapter] = useState(openChap ?? 1);
   const [passages, setPassages] = useState<KrDocument[] | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cacheState, setCacheState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  // Follow the OPEN document's book/chapter — a returning visit restores the
+  // passage asynchronously, after this panel first mounted on the placeholder
+  // doc, so the initial seed can miss it (the white-screen Genesis 1 default).
+  const lastSyncedDocId = useRef(doc.id);
+  useEffect(() => {
+    if (doc.id === lastSyncedDocId.current) return;
+    lastSyncedDocId.current = doc.id;
+    if (doc.language !== 'hbo') return; // a non-OT doc doesn't drive the OT picker
+    const b = otBookForTitle(doc.title);
+    const c = chapterForTitle(doc.title);
+    if (b && (b.num !== bookNum || (c != null && c !== chapter))) {
+      setBookNum(b.num);
+      if (c != null) setChapter(c);
+      setPassages(null); // the loaded list was for the old book/chapter
+      setChecked(new Set());
+      setCacheState('idle');
+    }
+  }, [doc.id, doc.language, doc.title, bookNum, chapter]);
 
   const book = OT_BOOKS.find((b) => b.num === bookNum)!;
 
