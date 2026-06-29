@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useEditorStore } from '@/state';
 import { buildOutline, glossDoc, type OutlineNode } from '@/domain/model';
 import { nodeHighlightColors } from '@/ui/sermon/highlights';
@@ -134,7 +134,9 @@ function OutlineRow({
         className={`ob-row${selected ? ' selected' : ''}${hot ? ' hovered' : ''}${
           node.tentative ? ' tentative' : ''
         }${contested ? ' contested-affected' : ''}`}
-        style={{ paddingLeft: 6 + depth * 18 }}
+        // Logical inline-start padding so the indent steps from the LEFT in
+        // Greek/English and from the RIGHT in Hebrew (the tree is `direction: rtl`).
+        style={{ paddingInlineStart: 6 + depth * 18 }}
         onClick={() => onSelect(node.id)}
         onMouseEnter={() => onHover(node.id)}
         onMouseLeave={() => onHover(undefined)}
@@ -168,7 +170,9 @@ function OutlineRow({
         )}
       </div>
       {hasKids && !isCollapsed && (
-        <ul role="group">
+        // The CSS var positions a vertical guide line under THIS row's toggle, so
+        // every nesting level draws its own line and block membership is explicit.
+        <ul role="group" style={{ ['--ob-depth']: depth } as CSSProperties}>
           {node.children.map((c) => (
             <OutlineRow
               key={c.id}

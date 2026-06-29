@@ -1381,6 +1381,28 @@ textarea.code,
   margin: 0;
   padding: 0;
 }
+/* Hebrew reads right-to-left, so the whole outline tree flows RTL: with logical
+   `padding-inline-start` on each row, the nesting indent then steps in from the
+   RIGHT instead of the left. (Scoped to the tree so the toolbar stays LTR.) */
+.ob-view.hebrew .ob-tree {
+  direction: rtl;
+}
+/* An explicit vertical guide per nesting level, so it's clear which rows belong
+   to which block. Each child group draws one line under its parent row's toggle;
+   nested groups stack into parallel lines. Logical inset/border so it sits on the
+   left in Greek/English and the right in Hebrew. */
+.ob-tree ul[role='group'] {
+  position: relative;
+}
+.ob-tree ul[role='group']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 6px;
+  inset-inline-start: calc(15px + var(--ob-depth, 0) * 18px);
+  border-inline-start: 1.5px solid var(--line);
+  pointer-events: none;
+}
 .ob-row {
   display: flex;
   align-items: baseline;
