@@ -570,9 +570,12 @@ function layoutHead(
       elements.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, rel.id));
       const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, rel.dependentId)!) || '';
       elements.push(diagonalText(prep, attachX, 0, endX, oTop, rel.id, rel.dependentId));
-      railRight = Math.max(railRight, attachX);
-      belowBottom = Math.max(belowBottom, oTop + block.height, diagonalDepth(attachX, 0, endX, oTop, prep));
       cursor = objX + block.width;
+      // Extend the head's baseline over the PP's object (not merely to the
+      // diagonal's attach point), so the object reads as hanging UNDER the head
+      // instead of floating off the baseline's right end (e.g. ἀδελφοῖς … ἐν Χριστῷ).
+      railRight = Math.max(railRight, cursor);
+      belowBottom = Math.max(belowBottom, oTop + block.height, diagonalDepth(attachX, 0, endX, oTop, prep));
     } else if (rel.type !== 'conjunct' && isDiagonalCoordination(ctx, rel.dependentId)) {
       // Coordinated adjectives/adverbs ("tall and distinguished") as parallel slants.
       const ext = drawDiagonalCoordination(ctx, rel.dependentId, cursor, elements);
@@ -1245,8 +1248,10 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     // dedup returns an empty block), skip it: drawing a pedestal foot + riser for
     // empty content leaves an orphan "Y" with no baseline on top.
     if (!block.elements.length) return;
-    // Object separator tick, then the pedestal foot a little to its right.
-    elements.push(line(eid(), x, 0, x, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id));
+    // Object separator tick (the direct-object stem), then the pedestal foot a
+    // little to its right.
+    const sepX = x;
+    elements.push(line(eid(), sepX, 0, sepX, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id));
     x += 6;
     const baseStart = x;
     // Embedded clause sits fully above the line; its baseline is high enough that
@@ -1256,6 +1261,10 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     // Connect at the centre of the embedded clause's own baseline span.
     const connectX = baseStart + (block.wordLeft + (block.wordRight || block.width)) / 2;
     const apexY = -LAYOUT.pedestalFootRise;
+    // The horizontal stretch of main line from the object stem out to the foot,
+    // so the pedestal reads as THIS verb's direct object rather than a detached
+    // "Y" floating off to the side.
+    elements.push(line(eid(), sepX, 0, connectX, 0, 'solid', 'baseline', undefined, rel.id));
     // The little forked foot standing on the main line.
     elements.push(line(eid(), connectX - LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
     elements.push(line(eid(), connectX + LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
