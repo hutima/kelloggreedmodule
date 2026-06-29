@@ -15,19 +15,16 @@ import {
   type ParallelView,
 } from '@/io';
 import type { KrDocument } from '@/domain/schema';
+import { MIN_SCALE, MAX_SCALE, clamp, minZoomScale } from '@/ui/zoom';
 
 const TENTATIVE = '#c2410c';
 const INK = '#1f2933';
-const MIN_SCALE = 0.1;
-const MAX_SCALE = 4;
 
 interface View {
   x: number;
   y: number;
   scale: number;
 }
-
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 /**
  * Interactive SVG canvas. It renders exactly the primitives the layout engine
@@ -146,18 +143,37 @@ export function DiagramCanvas() {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1 });
 
+  // Current layout size, mirrored into a ref so the stable zoom callbacks below
+  // can read fresh dimensions without being re-created (and re-binding the wheel
+  // listener) on every layout change.
+  const dimsRef = useRef({ w: layout.width, h: layout.height });
+  dimsRef.current = { w: layout.width, h: layout.height };
+
   // ---- pan / zoom --------------------------------------------------------
+  const PAD = 24;
+
+  /** The smallest scale we allow: the scale at which the whole diagram just fits
+   *  the viewport (never above 1, so a tiny diagram still rests at 100%). This is
+   *  the *zoom-out lock* — on iOS Safari an over-shrunk SVG stops repainting and
+   *  flashes white on gesture end, so the diagram must never shrink past fitting
+   *  the screen. Floored at MIN_SCALE for pathologically large diagrams. */
+  const minScale = useCallback(() => {
+    const vp = viewportRef.current;
+    const { w, h } = dimsRef.current;
+    if (!vp) return MIN_SCALE;
+    return minZoomScale(vp.clientWidth, vp.clientHeight, w, h, PAD);
+  }, []);
+
   /** Fit the whole diagram into the viewport (centred horizontally, top-aligned
    *  so a tall passage starts at the top and you scroll down into it). */
   const fit = useCallback(() => {
     const vp = viewportRef.current;
     if (!vp || layout.width <= 0) return;
-    const pad = 24;
-    const w = vp.clientWidth - pad * 2;
-    const h = vp.clientHeight - pad * 2;
+    const w = vp.clientWidth - PAD * 2;
+    const h = vp.clientHeight - PAD * 2;
     const scale = clamp(Math.min(w / layout.width, h / layout.height, 1.5), MIN_SCALE, MAX_SCALE);
-    const x = Math.max(pad, (vp.clientWidth - layout.width * scale) / 2);
-    setView({ x, y: pad, scale });
+    const x = Math.max(PAD, (vp.clientWidth - layout.width * scale) / 2);
+    setView({ x, y: PAD, scale });
   }, [layout.width, layout.height]);
 
   // Re-fit when a new document is opened or the viewport first sizes up.
@@ -174,20 +190,30 @@ export function DiagramCanvas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Enforce the zoom-out lock across layout changes (mode switch, row spacing):
+  // if the new minimum is above the current scale, pull the view back up so the
+  // SVG is never left over-shrunk (the iOS white-screen condition).
+  useEffect(() => {
+    const lo = minScale();
+    setView((v) => (v.scale < lo ? { ...v, scale: lo } : v));
+  }, [layout.width, layout.height, minScale]);
+
   const zoomBy = useCallback((factor: number, cx?: number, cy?: number) => {
     // A degenerate pinch (two touches coinciding → 0/0) can hand us a NaN/∞
     // factor; ignore it so `scale` never becomes NaN and the SVG never gets
     // width="NaN" (which renders as a blank white diagram).
     if (!Number.isFinite(factor) || factor <= 0) return;
     setView((v) => {
-      const scale = clamp(v.scale * factor, MIN_SCALE, MAX_SCALE);
+      // Lower bound is the fit-to-screen scale (the zoom-out lock), not a fixed
+      // tiny floor — this is what stops the iOS white-screen on pinch-out.
+      const scale = clamp(v.scale * factor, minScale(), MAX_SCALE);
       if (!Number.isFinite(scale)) return v;
       const k = scale / v.scale;
       const px = cx ?? (viewportRef.current?.clientWidth ?? 0) / 2;
       const py = cy ?? (viewportRef.current?.clientHeight ?? 0) / 2;
       return { scale, x: px - (px - v.x) * k, y: py - (py - v.y) * k };
     });
-  }, []);
+  }, [minScale]);
 
   // Wheel zoom toward the cursor. Attached non-passively so preventDefault stops
   // the page (or trackpad) from scrolling underneath the gesture.
