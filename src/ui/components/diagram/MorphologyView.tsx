@@ -71,7 +71,7 @@ function agreementLinks(doc: KrDocument): AgreementLink[] {
   };
   for (const r of doc.syntax.relations) {
     if (r.type === 'determiner' || r.type === 'adjectival') push(firstTok(r.dependentId), firstTok(r.headId), 'agr', 'agreement');
-    else if (r.type === 'prepositionObject') push(firstTok(r.dependentId), firstTok(r.headId), 'of', 'prepositionObject');
+    else if (r.type === 'prepositionObject') push(firstTok(r.dependentId), firstTok(r.headId), 'p-obj', 'prepositionObject');
     else if (r.type === 'subject') push(firstTok(r.dependentId), predTok(r.headId), 'subj', 'subject');
   }
   return out;

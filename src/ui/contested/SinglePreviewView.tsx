@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useEditorStore } from '@/state';
 import { getReadingById, diffBaseAndAlternate } from '@/domain/contested';
 import { StaticDiagramFrame } from './StaticDiagramFrame';
+import { BlockOutlineFrame } from './BlockOutlineFrame';
 
 /**
  * Single-frame alternate preview (mobile and desktop default). The one diagram
@@ -33,7 +34,17 @@ export function SinglePreviewView() {
           Return to base
         </button>
       </div>
-      <StaticDiagramFrame doc={previewDoc} mode={diagramMode} diff={diff} title="" />
+      {diagramMode === 'phrase-block' ? (
+        <BlockOutlineFrame
+          baseDoc={baseDoc}
+          variantDoc={previewDoc}
+          role="variant"
+          diff={diff}
+          title=""
+        />
+      ) : (
+        <StaticDiagramFrame doc={previewDoc} mode={diagramMode} diff={diff} title="" />
+      )}
     </div>
   );
 }

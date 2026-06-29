@@ -3,7 +3,7 @@ import type { KrDocument, AlternateDiff } from '@/domain/schema';
 import { layoutForMode, type DiagramMode } from '@/domain/layout';
 import { measureText, BASE_FONT, SMALL_FONT } from '@/domain/layout/measure';
 import { dashFor, toneColor } from '@/domain/render';
-import { highlightForElement } from './diffHighlighting';
+import { highlightForElement, impactedNodeIds } from './diffHighlighting';
 
 /**
  * A READ-ONLY diagram frame for one document and diagram mode. Used by the
@@ -23,33 +23,8 @@ export const StaticDiagramFrame = forwardRef<
 
   // Words impacted by the change, resolved AGAINST THIS FRAME'S document so the
   // base frame marks the OLD attachment and the variant frame marks the NEW one —
-  // making it clear in both which clause attachment is changing. The endpoints of
-  // any changed/added/removed relation present in this doc are highlighted.
-  const impactedNodes = useMemo(() => {
-    const set = new Set<string>();
-    if (!diff) return set;
-    for (const id of [...diff.changedNodeIds, ...diff.addedNodeIds, ...diff.removedNodeIds]) set.add(id);
-    const relIds = new Set([
-      ...diff.changedRelationIds,
-      ...diff.addedRelationIds,
-      ...diff.removedRelationIds,
-    ]);
-    for (const r of doc.syntax.relations) {
-      if (relIds.has(r.id)) {
-        set.add(r.headId);
-        set.add(r.dependentId);
-      }
-    }
-    if (diff.changedTokenIds.length) {
-      const tokenToNode = new Map<string, string>();
-      for (const n of doc.syntax.nodes) for (const t of n.tokenIds) tokenToNode.set(t, n.id);
-      for (const t of diff.changedTokenIds) {
-        const nid = tokenToNode.get(t);
-        if (nid) set.add(nid);
-      }
-    }
-    return set;
-  }, [diff, doc]);
+  // making it clear in both which clause attachment is changing.
+  const impactedNodes = useMemo(() => impactedNodeIds(diff, doc), [diff, doc]);
 
   // Drag-to-pan (grab the diagram and pull), in addition to wheel / scrollbar.
   const drag = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
