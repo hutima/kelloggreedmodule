@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { lowfatToDocuments } from '@/io/lowfat';
-import { buildOutline, morphCodes, grammarTone, type OutlineNode } from '@/domain/model';
+import { buildOutline, morphCodes, grammarTone, tidyGloss, glossDoc, type OutlineNode } from '@/domain/model';
 
 /**
  * Pure data behind the HTML diagram views (Phrase/Block outline + Morphology
@@ -30,6 +30,33 @@ describe('phrase/block outline', () => {
     // The article nests UNDER its noun κόσμον (a deeper row).
     const obj = find(tree, (n) => n.text === 'κόσμον')!;
     expect(obj.children.some((c) => c.text === 'τὸν' && c.label === 'article')).toBe(true);
+  });
+});
+
+describe('gloss tidying', () => {
+  it('turns macula dot-joined glosses into readable spaces', () => {
+    expect(tidyGloss('I.know')).toBe('I know');
+    expect(tidyGloss('of.appearance')).toBe('of appearance');
+    expect(tidyGloss('[are].a.woman')).toBe('[are] a woman');
+    expect(tidyGloss(undefined)).toBe('');
+    expect(tidyGloss('God')).toBe('God');
+  });
+
+  it('glossDoc shows the elided copula in English, not Greek', () => {
+    const d = doc();
+    // Inject an implied (ἐστίν) node like the converter would for a verbless clause.
+    const withCopula = {
+      ...d,
+      syntax: {
+        ...d.syntax,
+        nodes: [
+          ...d.syntax.nodes,
+          { id: 'impl_x', kind: 'word' as const, tokenIds: [], role: 'predicate' as const, implied: true, label: '(ἐστίν)' },
+        ],
+      },
+    };
+    const g = glossDoc(withCopula);
+    expect(g.syntax.nodes.find((n) => n.id === 'impl_x')!.label).toBe('(is)');
   });
 });
 

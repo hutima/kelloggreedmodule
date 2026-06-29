@@ -343,7 +343,10 @@ export class SentenceConverter {
         tokenIds: [],
         role: 'predicate',
         implied: true,
-        label: '(ἐστίν)', // the elided Greek copula, not English "is"
+        // The elided copula, in the passage's own language: Greek ἐστίν, but
+        // Hebrew has no copula word, so a verbless clause is marked "(is)" rather
+        // than borrowing the Greek form.
+        label: this.dialect.language === 'grc' ? '(ἐστίν)' : '(is)',
         provenance: { source: 'given', confidence: 'high' },
       });
     }

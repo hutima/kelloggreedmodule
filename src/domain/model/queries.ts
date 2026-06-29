@@ -69,15 +69,33 @@ export function isDiscontinuous(doc: KrDocument, node: SyntaxNode): boolean {
 }
 
 /**
+ * Tidy a macula gloss for display: the source data joins a multi-word gloss for a
+ * single token with dots ("I.know", "of.appearance", "[are].a.woman"), which read
+ * as spaces. Collapses the dots (and any doubled spaces) without touching the
+ * bracketed "[supplied]" markers.
+ */
+export function tidyGloss(gloss: string | undefined): string {
+  return (gloss ?? '').replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
  * A display-only copy of the document with each token's surface replaced by its
- * English gloss (falling back to the original surface when there's no gloss).
- * Ids, syntax, and layout are untouched — so the STRUCTURE is still the Greek/
- * Hebrew parse; only the words shown change, letting non-Greek readers follow it.
+ * (tidied) English gloss, falling back to the original surface when there's no
+ * gloss. Ids, syntax, and layout are untouched — so the STRUCTURE is still the
+ * Greek/Hebrew parse; only the words shown change, letting non-Greek readers
+ * follow it. The elided-copula label is shown in English ("(is)") too, so an
+ * English gloss never leaves a stray Greek "(ἐστίν)" behind.
  */
 export function glossDoc(doc: KrDocument): KrDocument {
   return {
     ...doc,
-    tokens: doc.tokens.map((t) => ({ ...t, surface: t.gloss?.trim() || t.surface })),
+    tokens: doc.tokens.map((t) => ({ ...t, surface: tidyGloss(t.gloss) || t.surface })),
+    syntax: {
+      ...doc.syntax,
+      nodes: doc.syntax.nodes.map((n) =>
+        n.label === '(ἐστίν)' ? { ...n, label: '(is)' } : n,
+      ),
+    },
   };
 }
 

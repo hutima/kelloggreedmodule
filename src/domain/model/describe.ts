@@ -1,5 +1,5 @@
 import type { KrDocument, Morphology, SyntacticRole } from '@/domain/schema';
-import { getNode, nodeText, parentRelations } from './queries';
+import { getNode, nodeText, parentRelations, tidyGloss } from './queries';
 import { transliterationOf } from './transliterate';
 
 /**
@@ -94,7 +94,7 @@ export function describeFunction(doc: KrDocument, nodeId: string): FunctionSumma
     role,
     detail,
     grammar: grammarString(doc, nodeId),
-    gloss: tok?.gloss,
+    gloss: tok?.gloss ? tidyGloss(tok.gloss) : undefined,
     translit: tok ? transliterationOf(tok) : undefined,
   };
 }
