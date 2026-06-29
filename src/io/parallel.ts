@@ -1,5 +1,6 @@
 import type { KrDocument, Token } from '@/domain/schema';
 import { GNT_BOOKS, type GntBook } from './gnt';
+import { OT_BOOKS, type OtBook } from './ot';
 
 /**
  * Parallel English text for the GNT. Each book is the Berean Standard Bible
@@ -71,6 +72,54 @@ export async function loadParallelBook(
     );
   }
   return cache.get(key)!;
+}
+
+// --- Old Testament (Hebrew) parallel -----------------------------------------
+// macula-hebrew and the WLC alignment share the SAME word ids, so OT links carry
+// the morpheme id and the runtime matches EXACTLY by id — no lexeme guessing.
+
+/** A Hebrew word's English link: `i` = morpheme key (word+morpheme), `e` = English indices. */
+interface HebrewLink {
+  i: string;
+  e: number[];
+}
+
+export interface OtParallelBook {
+  version: string;
+  book: string;
+  bookNum: number;
+  verses: Record<string, string[]>;
+  nosp?: Record<string, number[]>;
+  excl?: Record<string, number[]>;
+  links: Record<string, HebrewLink[]>;
+}
+
+const otCache = new Map<string, Promise<OtParallelBook | null>>();
+
+function otSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/** The OT book a passage belongs to, from its title ("Genesis 1:1"). */
+export function bookForOtDoc(doc: KrDocument): OtBook | undefined {
+  const title = doc.title ?? '';
+  return [...OT_BOOKS]
+    .sort((a, b) => b.name.length - a.name.length)
+    .find((b) => title === b.name || title.startsWith(`${b.name} `));
+}
+
+/** Fetch and cache a Hebrew parallel book (one JSON per OT book). */
+export async function loadParallelOtBook(book: OtBook): Promise<OtParallelBook | null> {
+  const key = `bsb/ot/${String(book.num).padStart(2, '0')}-${otSlug(book.name)}.json`;
+  if (!otCache.has(key)) {
+    otCache.set(
+      key,
+      fetch(base() + key)
+        .then((r) => (r.ok ? (r.json() as Promise<OtParallelBook>) : null))
+        .catch(() => null),
+    );
+  }
+  return otCache.get(key)!;
 }
 
 export interface ParallelWord {
@@ -180,6 +229,76 @@ export function alignParallel(doc: KrDocument, book: ParallelBook): ParallelView
       const node = tokenToNode.get(token.id);
       if (!node) continue;
       for (const ei of links[best]!.en) {
+        if (exclSet.has(ei)) continue;
+        const ek = `${key}#${ei}`;
+        push(enToNodes, ek, node);
+        push(nodeToEn, node, ek);
+      }
+    }
+
+    verses.push({
+      key,
+      label: key.replace('.', ':'),
+      words: words.map((t, i) => ({
+        i,
+        t,
+        excl: exclSet.has(i),
+        joinLeft: i > 0 && nospSet.has(i - 1),
+      })),
+    });
+  }
+
+  return { verses, enToNodes, nodeToEn };
+}
+
+/** A macula-hebrew token id "t_o<bb ccc vvv www m>" → [verseKey, morphemeKey]. */
+function parseHebrewId(id: string): [string, string] | undefined {
+  const m = /^t_o(\d{12})$/.exec(id);
+  if (!m) return undefined;
+  const d = m[1]!;
+  return [`${Number(d.slice(2, 5))}.${Number(d.slice(5, 8))}`, d.slice(8)];
+}
+
+/**
+ * Align a Hebrew passage to its parallel English book. Because macula-hebrew and
+ * the WLC alignment share word ids, this is a direct id lookup (no lexeme/
+ * position matching): each token's morpheme key selects its English words.
+ */
+export function alignParallelHebrew(doc: KrDocument, book: OtParallelBook): ParallelView {
+  const tokenToNode = new Map<string, string>();
+  for (const n of doc.syntax.nodes) for (const t of n.tokenIds) tokenToNode.set(t, n.id);
+
+  const byVerse = new Map<string, { token: Token; mkey: string }[]>();
+  const order: string[] = [];
+  for (const t of doc.tokens) {
+    const parsed = parseHebrewId(t.id);
+    if (!parsed) continue;
+    const [key, mkey] = parsed;
+    let list = byVerse.get(key);
+    if (!list) {
+      byVerse.set(key, (list = []));
+      order.push(key);
+    }
+    list.push({ token: t, mkey });
+  }
+
+  const enToNodes = new Map<string, string[]>();
+  const nodeToEn = new Map<string, string[]>();
+  const verses: ParallelVerse[] = [];
+
+  for (const key of order) {
+    const words = book.verses[key];
+    if (!words) continue;
+    const exclSet = new Set(book.excl?.[key] ?? []);
+    const nospSet = new Set(book.nosp?.[key] ?? []);
+    const enByMorpheme = new Map<string, number[]>();
+    for (const l of book.links[key] ?? []) enByMorpheme.set(l.i, l.e);
+
+    for (const { token, mkey } of byVerse.get(key) ?? []) {
+      const en = enByMorpheme.get(mkey);
+      const node = tokenToNode.get(token.id);
+      if (!en || !node) continue;
+      for (const ei of en) {
         if (exclSet.has(ei)) continue;
         const ek = `${key}#${ei}`;
         push(enToNodes, ek, node);

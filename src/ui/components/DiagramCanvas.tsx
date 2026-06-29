@@ -3,7 +3,17 @@ import { useEditorStore } from '@/state';
 import { layoutForMode, DIAGRAM_MODES } from '@/domain/layout';
 import { dashFor, toneColor } from '@/domain/render';
 import { describeFunction, getNode, childRelations } from '@/domain/model';
-import { loadParallelBook, alignParallel, bookForDoc, type ParallelBook, type ParallelView } from '@/io';
+import {
+  loadParallelBook,
+  alignParallel,
+  bookForDoc,
+  loadParallelOtBook,
+  alignParallelHebrew,
+  bookForOtDoc,
+  type ParallelBook,
+  type OtParallelBook,
+  type ParallelView,
+} from '@/io';
 import type { KrDocument } from '@/domain/schema';
 
 const TENTATIVE = '#c2410c';
@@ -49,8 +59,9 @@ export function DiagramCanvas() {
   }));
 
   // Parallel English text (Berean Standard Bible), loaded per book on demand, and
-  // which version the source strip shows. Only offered for Greek passages.
+  // which version the source strip shows. Offered for Greek (GNT) and Hebrew (OT).
   const [parallelBook, setParallelBook] = useState<ParallelBook | null>(null);
+  const [otParallelBook, setOtParallelBook] = useState<OtParallelBook | null>(null);
   const [version, setVersion] = useState<'grc' | 'en'>('grc');
   // The source/reference strip collapses out of the way to give the diagram room,
   // and its height is draggable to rebalance text vs. diagram.
@@ -82,22 +93,31 @@ export function DiagramCanvas() {
   // belongs to, grouped by verse (a passage stacks several verses).
   const sourceItems = useMemo(() => buildSourceItems(doc), [doc]);
 
-  // Fetch the matching parallel book when a Greek passage is opened.
+  // Fetch the matching parallel book — Greek (GNT) or Hebrew (OT) — on open.
   useEffect(() => {
     setParallelBook(null);
-    if (doc.language !== 'grc') return;
-    const book = bookForDoc(doc);
-    if (!book) return;
+    setOtParallelBook(null);
     let live = true;
-    loadParallelBook(book).then((b) => live && setParallelBook(b));
+    if (doc.language === 'grc') {
+      const book = bookForDoc(doc);
+      if (book) loadParallelBook(book).then((b) => live && setParallelBook(b));
+    } else if (doc.language === 'hbo') {
+      const book = bookForOtDoc(doc);
+      if (book) loadParallelOtBook(book).then((b) => live && setOtParallelBook(b));
+    }
     return () => {
       live = false;
     };
   }, [doc]);
 
   const parallel: ParallelView | null = useMemo(
-    () => (parallelBook ? alignParallel(doc, parallelBook) : null),
-    [doc, parallelBook],
+    () =>
+      parallelBook
+        ? alignParallel(doc, parallelBook)
+        : otParallelBook
+          ? alignParallelHebrew(doc, otParallelBook)
+          : null,
+    [doc, parallelBook, otParallelBook],
   );
   const hasEnglish = (parallel?.verses.length ?? 0) > 0;
   // Fall back to Greek if English isn't available for the current passage.
@@ -346,7 +366,7 @@ export function DiagramCanvas() {
                   className={!showEnglish ? 'active' : ''}
                   onClick={() => setVersion('grc')}
                 >
-                  Greek
+                  {doc.language === 'hbo' ? 'Hebrew' : 'Greek'}
                 </button>
                 <button
                   className={showEnglish ? 'active' : ''}
