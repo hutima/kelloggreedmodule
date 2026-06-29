@@ -1,5 +1,6 @@
 import type { KrDocument, Morphology, SyntacticRole } from '@/domain/schema';
 import { getNode, nodeText, parentRelations } from './queries';
+import { transliterationOf } from './transliterate';
 
 /**
  * Plain-language account of a word's job in the sentence, for the
@@ -17,6 +18,8 @@ export interface FunctionSummary {
   grammar?: string;
   /** Gloss, if the token carries one. */
   gloss?: string;
+  /** Romanized pronunciation (Greek generated, Hebrew from the source). */
+  translit?: string;
 }
 
 const ROLE_PHRASES: Partial<Record<SyntacticRole, { role: string; withHead: (h: string) => string }>> = {
@@ -92,5 +95,6 @@ export function describeFunction(doc: KrDocument, nodeId: string): FunctionSumma
     detail,
     grammar: grammarString(doc, nodeId),
     gloss: tok?.gloss,
+    translit: tok ? transliterationOf(tok) : undefined,
   };
 }

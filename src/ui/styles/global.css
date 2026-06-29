@@ -423,6 +423,11 @@ textarea.code,
   font-weight: 400;
   color: #a9b6c2;
 }
+.kr-reveal-translit {
+  margin-top: 1px;
+  font-style: italic;
+  color: #a9b6c2;
+}
 .kr-reveal-role {
   margin-top: 3px;
   font-weight: 600;

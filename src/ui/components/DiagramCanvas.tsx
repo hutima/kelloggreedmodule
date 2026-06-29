@@ -554,6 +554,9 @@ export function DiagramCanvas() {
               {reveal.summary.word}
               {reveal.summary.gloss && <span className="kr-reveal-gloss"> · {reveal.summary.gloss}</span>}
             </div>
+            {reveal.summary.translit && (
+              <div className="kr-reveal-translit">{reveal.summary.translit}</div>
+            )}
             <div className="kr-reveal-role">{reveal.summary.role}</div>
             <div className="kr-reveal-detail">{reveal.summary.detail}</div>
             {reveal.summary.grammar && <div className="kr-reveal-grammar">{reveal.summary.grammar}</div>}

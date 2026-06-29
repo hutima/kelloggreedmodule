@@ -73,6 +73,7 @@ function heMorphOf(w: Element): Morphology | undefined {
     ['state', 'state'],
     ['stem', 'stem'],
     ['type', 'type'],
+    ['transliteration', 'translit'], // academic romanization for the detail popover
     ['ref', 'ref'],
     ['strongnumberx', 'strong'],
     ['lang', 'lang'], // "H" Hebrew · "A" Aramaic
