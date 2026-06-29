@@ -153,8 +153,13 @@ export function DiagramCanvas() {
   }, []);
 
   const zoomBy = useCallback((factor: number, cx?: number, cy?: number) => {
+    // A degenerate pinch (two touches coinciding → 0/0) can hand us a NaN/∞
+    // factor; ignore it so `scale` never becomes NaN and the SVG never gets
+    // width="NaN" (which renders as a blank white diagram).
+    if (!Number.isFinite(factor) || factor <= 0) return;
     setView((v) => {
       const scale = clamp(v.scale * factor, MIN_SCALE, MAX_SCALE);
+      if (!Number.isFinite(scale)) return v;
       const k = scale / v.scale;
       const px = cx ?? (viewportRef.current?.clientWidth ?? 0) / 2;
       const py = cy ?? (viewportRef.current?.clientHeight ?? 0) / 2;
@@ -207,7 +212,9 @@ export function DiagramCanvas() {
       const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
       const { cx, cy } = centroid();
       const rect = viewportRef.current!.getBoundingClientRect();
-      if (pinch.current) {
+      // Only zoom once we have a valid previous separation (guards 0/0 → NaN when
+      // two touches momentarily coincide).
+      if (pinch.current && pinch.current.dist > 0 && dist > 0) {
         zoomBy(dist / pinch.current.dist, cx - rect.left, cy - rect.top);
         setView((v) => ({ ...v, x: v.x + (cx - pinch.current!.cx), y: v.y + (cy - pinch.current!.cy) }));
       }
@@ -463,8 +470,8 @@ export function DiagramCanvas() {
               browser stretching a rasterised layer (which looked fuzzy). */}
           <svg
             className="diagram-paper"
-            width={layout.width * view.scale}
-            height={layout.height * view.scale}
+            width={Number.isFinite(view.scale) ? layout.width * view.scale : layout.width}
+            height={Number.isFinite(view.scale) ? layout.height * view.scale : layout.height}
             viewBox={`0 0 ${layout.width} ${layout.height}`}
             role="img"
             aria-label={`Kellogg-Reed diagram of: ${doc.text || doc.title}`}

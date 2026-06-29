@@ -65,6 +65,8 @@ export interface EditorActions {
   setMode: (mode: AppMode) => void;
   /** Set the GNT reading context (book's sentences + current index) for nav. */
   setGntContext: (passages: KrDocument[], index: number) => void;
+  /** Collapse/expand the left (sources) panel. */
+  setLeftCollapsed: (collapsed: boolean) => void;
   /** Load the sentence `delta` away in the current GNT book (prev/next). */
   stepGnt: (delta: number) => void;
   // document fields
@@ -136,8 +138,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     future: [],
     gntPassages: [],
     gntIndex: -1,
+    leftCollapsed: false,
 
     setGntContext: (passages, index) => set({ gntPassages: passages, gntIndex: index }),
+    setLeftCollapsed: (collapsed) => set({ leftCollapsed: collapsed }),
 
     stepGnt: (delta) => {
       const { gntPassages, gntIndex } = get();

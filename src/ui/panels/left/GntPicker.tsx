@@ -13,6 +13,7 @@ export function GntPicker() {
   const loadDocument = useEditorStore((s) => s.loadDocument);
   const setMode = useEditorStore((s) => s.setMode);
   const setGntContext = useEditorStore((s) => s.setGntContext);
+  const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
   const [bookNum, setBookNum] = useState(11); // Philippians (bundled)
   const [passages, setPassages] = useState<KrDocument[] | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -64,6 +65,10 @@ export function GntPicker() {
     const firstIdx = passages.findIndex((p) => checked.has(p.id));
     setGntContext(passages, firstIdx);
     setMode('parsed');
+    // On a narrow screen, collapse the picker so the text + diagram get the room.
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches) {
+      setLeftCollapsed(true);
+    }
   };
 
   /** "Philippians 1:1" → "1:1" for a compact list. */
