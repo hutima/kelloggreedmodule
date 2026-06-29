@@ -23,7 +23,13 @@ import { nodeHighlightColors } from '@/ui/sermon/highlights';
 import { EditModeToolbar } from '@/ui/editor/EditModeToolbar';
 import { LinkPreviewOverlay } from '@/ui/editor/LinkPreviewOverlay';
 import { DependencyEditOverlay } from '@/ui/editor/dependency/DependencyEditOverlay';
-import { ContestedBadge, MobileContestedBar, SinglePreviewView, VariantComparisonView } from '@/ui/contested';
+import {
+  ContestedBadge,
+  MobileContestedBar,
+  SinglePreviewView,
+  VariantComparisonView,
+  useContestedAffectedNodes,
+} from '@/ui/contested';
 import { useViewport } from '@/ui/responsive';
 
 const TENTATIVE = '#c2410c';
@@ -70,6 +76,9 @@ export function DiagramCanvas() {
   // Contested-syntax / alternate-readings display state.
   const alternateDisplayMode = useEditorStore((s) => s.contested.alternateDisplayMode);
   const previewDoc = useEditorStore((s) => s.previewDoc);
+  // Words touched by the open contested issue — marked in the base diagram so the
+  // debated word stays visible even when the Base reading is selected.
+  const contestedAffected = useContestedAffectedNodes();
   const viewport = useViewport();
   // Mobile NEVER renders two variant frames; side-by-side is desktop/tablet only.
   const sideBySide = alternateDisplayMode === 'side-by-side' && !!previewDoc && !viewport.isMobile;
@@ -918,9 +927,13 @@ export function DiagramCanvas() {
               })();
               // A highlighter swash behind a sermon-tagged word, in its category
               // colour, so highlights read on the diagram (not only in the panel).
+              // A sermon highlight (category colour) wins; otherwise a soft amber
+              // wash marks a word the open contested issue is about.
               const hlFill = el.nodeId ? hlByNode.get(el.nodeId) : undefined;
+              const contestedHere = !hlFill && !!el.nodeId && contestedAffected.has(el.nodeId);
+              const markFill = hlFill ?? (contestedHere ? 'rgba(217,119,6,0.26)' : undefined);
               const hlRect =
-                hlFill && !el.box
+                markFill && !el.box
                   ? (() => {
                       const size = el.small ? 13 : 18;
                       const w = measureText(el.text, el.small ? SMALL_FONT : BASE_FONT);
@@ -938,7 +951,7 @@ export function DiagramCanvas() {
                       return (
                         <rect
                           x={bx} y={by} width={bw} height={bh} rx={3}
-                          fill={hlFill}
+                          fill={markFill}
                           {...(el.rotate ? { transform: `rotate(${el.rotate} ${el.x} ${el.y})` } : {})}
                         />
                       );

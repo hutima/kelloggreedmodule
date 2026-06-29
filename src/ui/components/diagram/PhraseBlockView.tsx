@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { buildOutline, glossDoc, type OutlineNode } from '@/domain/model';
 import { nodeHighlightColors } from '@/ui/sermon/highlights';
+import { useContestedAffectedNodes } from '@/ui/contested';
 import { PhraseBlockEditor } from '@/ui/editor/block/PhraseBlockEditor';
 
 /**
@@ -28,6 +29,7 @@ export function PhraseBlockView({
   const highlights = useEditorStore((s) => s.sermon.highlights);
   const glossMode = useEditorStore((s) => s.glossMode);
   const hlByNode = useMemo(() => nodeHighlightColors(highlights), [highlights]);
+  const contestedAffected = useContestedAffectedNodes();
 
   // English-gloss display swaps the shown words; structure (ids) is unchanged.
   const englishGloss = glossMode && appMode !== 'edit';
@@ -88,6 +90,7 @@ export function PhraseBlockView({
           selectedId={selection.nodeId}
           hovered={hovered}
           highlights={hlByNode}
+          affected={contestedAffected}
           onSelect={(id) => select(id === selection.nodeId ? {} : { nodeId: id })}
           onHover={onHover}
         />
@@ -104,6 +107,7 @@ function OutlineRow({
   selectedId,
   hovered,
   highlights,
+  affected,
   onSelect,
   onHover,
 }: {
@@ -114,6 +118,7 @@ function OutlineRow({
   selectedId: string | undefined;
   hovered: Set<string>;
   highlights: Map<string, string>;
+  affected: Set<string>;
   onSelect: (id: string) => void;
   onHover: (id?: string) => void;
 }) {
@@ -122,12 +127,13 @@ function OutlineRow({
   const selected = node.id === selectedId;
   const hot = hovered.has(node.id);
   const hl = highlights.get(node.id);
+  const contested = affected.has(node.id);
   return (
     <li role="treeitem" aria-expanded={hasKids ? !isCollapsed : undefined}>
       <div
         className={`ob-row${selected ? ' selected' : ''}${hot ? ' hovered' : ''}${
           node.tentative ? ' tentative' : ''
-        }`}
+        }${contested ? ' contested-affected' : ''}`}
         style={{ paddingLeft: 6 + depth * 18 }}
         onClick={() => onSelect(node.id)}
         onMouseEnter={() => onHover(node.id)}
@@ -173,6 +179,7 @@ function OutlineRow({
               selectedId={selectedId}
               hovered={hovered}
               highlights={highlights}
+              affected={affected}
               onSelect={onSelect}
               onHover={onHover}
             />

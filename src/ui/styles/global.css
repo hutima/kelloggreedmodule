@@ -1940,6 +1940,16 @@ button.mc-code.glossed:hover {
   font-size: 10px; min-width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px;
 }
 
+/* ---- Affected-word mark while the alternate panel is open ---- */
+.ob-row.contested-affected, .pbw-row.contested-affected {
+  background: color-mix(in srgb, #d97706 16%, transparent);
+  box-shadow: inset 3px 0 0 #d97706;
+}
+.mc-word.contested-affected {
+  background: color-mix(in srgb, #d97706 14%, transparent);
+  border-radius: 6px;
+}
+
 /* ---- Mobile contested bar (full-width, obvious, inline dropdown) ---- */
 .mcb { border-bottom: 1px solid var(--line); background: color-mix(in srgb, #c2410c 7%, var(--panel)); }
 .mcb-toggle {
