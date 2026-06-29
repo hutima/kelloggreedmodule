@@ -34,3 +34,36 @@ export function minZoomScale(
   const fitH = (viewportH - pad * 2) / layoutH;
   return clamp(Math.min(fitW, fitH, 1), MIN_SCALE, 1);
 }
+
+/**
+ * Constrain a pan offset so the diagram can never be moved (or pinch-flung)
+ * entirely out of view: at least `margin` px of it always stays inside the
+ * viewport on each axis. A fast pinch — especially at minimum zoom, where the
+ * scale is already pinned — otherwise throws the fitting diagram into the void,
+ * which looks identical to the white-screen bug. Returns the input unchanged
+ * when sizes are degenerate.
+ */
+export function clampPan(
+  x: number,
+  y: number,
+  scale: number,
+  viewportW: number,
+  viewportH: number,
+  layoutW: number,
+  layoutH: number,
+  margin = 80,
+): { x: number; y: number } {
+  if (!(layoutW > 0) || !(layoutH > 0) || !(scale > 0)) return { x, y };
+  const W = layoutW * scale;
+  const H = layoutH * scale;
+  const mx = Math.min(margin, W);
+  const my = Math.min(margin, H);
+  const xLo = mx - W;
+  const xHi = viewportW - mx;
+  const yLo = my - H;
+  const yHi = viewportH - my;
+  return {
+    x: clamp(x, Math.min(xLo, xHi), Math.max(xLo, xHi)),
+    y: clamp(y, Math.min(yLo, yHi), Math.max(yLo, yHi)),
+  };
+}

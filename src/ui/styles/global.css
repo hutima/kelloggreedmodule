@@ -290,7 +290,10 @@ textarea.code,
   top: 0;
   left: 0;
   transform-origin: 0 0;
-  will-change: transform;
+  /* Intentionally NOT promoted with `will-change: transform`: on iOS Safari a
+     persistent composited layer here is left blank after a rapid pinch (the
+     diagram turns white). Panning a single translated element stays smooth
+     without it, and the gesture-end repaint nudge evicts any stale layer. */
 }
 .canvas.collapsed .canvas-viewport {
   display: none;

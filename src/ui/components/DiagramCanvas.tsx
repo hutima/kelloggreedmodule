@@ -15,7 +15,7 @@ import {
   type ParallelView,
 } from '@/io';
 import type { KrDocument } from '@/domain/schema';
-import { MIN_SCALE, MAX_SCALE, clamp, minZoomScale } from '@/ui/zoom';
+import { MIN_SCALE, MAX_SCALE, clamp, minZoomScale, clampPan } from '@/ui/zoom';
 
 const TENTATIVE = '#c2410c';
 const INK = '#1f2933';
@@ -141,6 +141,7 @@ export function DiagramCanvas() {
   );
 
   const viewportRef = useRef<HTMLDivElement>(null);
+  const panRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1 });
 
   // Current layout size, mirrored into a ref so the stable zoom callbacks below
@@ -162,6 +163,28 @@ export function DiagramCanvas() {
     const { w, h } = dimsRef.current;
     if (!vp) return MIN_SCALE;
     return minZoomScale(vp.clientWidth, vp.clientHeight, w, h, PAD);
+  }, []);
+
+  /** Keep the diagram from being panned (or pinch-flung) entirely off-screen:
+   *  always leave a margin of it within the viewport. A fast pinch at minimum
+   *  zoom otherwise flings the already-fitting diagram into the void, which reads
+   *  as the same white screen. */
+  const clampView = useCallback((x: number, y: number, scale: number) => {
+    const vp = viewportRef.current;
+    const { w, h } = dimsRef.current;
+    if (!vp) return { x, y };
+    return clampPan(x, y, scale, vp.clientWidth, vp.clientHeight, w, h);
+  }, []);
+
+  /** Force the pan layer to re-rasterise. iOS Safari can leave a composited
+   *  layer blank after a rapid pinch; toggling `display` evicts and repaints it.
+   *  Called once when a multi-touch gesture ends. */
+  const forceRepaint = useCallback(() => {
+    const el = panRef.current;
+    if (!el) return;
+    el.style.display = 'none';
+    void el.offsetHeight; // reflow — forces the browser to drop the stale layer
+    el.style.display = '';
   }, []);
 
   /** Fit the whole diagram into the viewport (centred horizontally, top-aligned
@@ -211,9 +234,9 @@ export function DiagramCanvas() {
       const k = scale / v.scale;
       const px = cx ?? (viewportRef.current?.clientWidth ?? 0) / 2;
       const py = cy ?? (viewportRef.current?.clientHeight ?? 0) / 2;
-      return { scale, x: px - (px - v.x) * k, y: py - (py - v.y) * k };
+      return { scale, ...clampView(px - (px - v.x) * k, py - (py - v.y) * k, scale) };
     });
-  }, [minScale]);
+  }, [minScale, clampView]);
 
   // Wheel zoom toward the cursor. Attached non-passively so preventDefault stops
   // the page (or trackpad) from scrolling underneath the gesture.
@@ -234,6 +257,7 @@ export function DiagramCanvas() {
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ dist: number; cx: number; cy: number } | null>(null);
   const moved = useRef(false);
+  const pinched = useRef(false);
 
   const centroid = () => {
     const pts = [...pointers.current.values()];
@@ -250,6 +274,7 @@ export function DiagramCanvas() {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     moved.current = false;
     pinch.current = null;
+    if (pointers.current.size < 2) pinched.current = false;
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const prev = pointers.current.get(e.pointerId);
@@ -264,20 +289,29 @@ export function DiagramCanvas() {
       // two touches momentarily coincide).
       if (pinch.current && pinch.current.dist > 0 && dist > 0) {
         zoomBy(dist / pinch.current.dist, cx - rect.left, cy - rect.top);
-        setView((v) => ({ ...v, x: v.x + (cx - pinch.current!.cx), y: v.y + (cy - pinch.current!.cy) }));
+        setView((v) => ({
+          ...v,
+          ...clampView(v.x + (cx - pinch.current!.cx), v.y + (cy - pinch.current!.cy), v.scale),
+        }));
       }
       pinch.current = { dist, cx, cy };
       moved.current = true;
+      pinched.current = true;
       return;
     }
     const dx = e.clientX - prev.x;
     const dy = e.clientY - prev.y;
     if (Math.abs(dx) + Math.abs(dy) > 2) moved.current = true;
-    setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+    setView((v) => ({ ...v, ...clampView(v.x + dx, v.y + dy, v.scale) }));
   };
   const onPointerUp = (e: React.PointerEvent) => {
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
+    // When the last finger of a pinch lifts, evict any layer iOS left blank.
+    if (pointers.current.size === 0 && pinched.current) {
+      pinched.current = false;
+      forceRepaint();
+    }
   };
 
   // ---- selection / relink ------------------------------------------------
@@ -526,6 +560,7 @@ export function DiagramCanvas() {
         }}
       >
         <div
+          ref={panRef}
           className="diagram-pan"
           style={{ transform: `translate(${view.x}px, ${view.y}px)` }}
         >
