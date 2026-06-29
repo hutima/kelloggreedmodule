@@ -78,12 +78,6 @@ export function OtPicker() {
 
   return (
     <div className="gnt-picker">
-      <p className="hint">
-        Open a Hebrew Bible chapter, tick any sentences, then <strong>Open</strong> to diagram them
-        together — the published gold-standard parse (Clear-Bible macula-hebrew, WLC), rendered
-        right-to-left and ready to edit. Chapters download on first use
-        (<strong>Save offline</strong> keeps one for later).
-      </p>
       <div className="row">
         <label className="field" style={{ flex: 2 }}>
           <span>Book</span>

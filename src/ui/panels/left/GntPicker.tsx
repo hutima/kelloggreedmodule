@@ -76,11 +76,6 @@ export function GntPicker() {
 
   return (
     <div className="gnt-picker">
-      <p className="hint">
-        Open a Greek New Testament book, tick any sentences, then <strong>Open</strong> to diagram
-        them together — the published gold-standard parse, ready to edit. Only Philippians ships with
-        the app; other books download on first use (<strong>Save offline</strong> keeps one for later).
-      </p>
       <div className="row">
         <label className="field" style={{ flex: 1 }}>
           <span>Book</span>
