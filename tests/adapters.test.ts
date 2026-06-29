@@ -67,7 +67,7 @@ describe('editor view adapters', () => {
   it('Morphology view leads with the word-details editor', () => {
     const doc = makeDoc();
     const primary = morphologyAdapter.getPrimaryAction(doc, { nodeId: 'n1' });
-    expect(primary?.intent.kind).toBe('openMorphology');
+    expect(primary?.intent.kind).toBe('openAdvancedWordDetails');
   });
 
   it('Kellogg-Reed view offers a reset-layout action only when a hint exists', () => {

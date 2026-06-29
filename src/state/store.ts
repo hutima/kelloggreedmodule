@@ -56,7 +56,16 @@ import { cloneSample } from '@/fixtures';
 import { DEFAULT_MODE, type DiagramMode } from '@/domain/layout';
 import { loadForceDesktop, saveForceDesktop } from '@/ui/responsive/viewport';
 import { scheduleAutosave } from './autosave';
-import type { AppMode, Corpus, EditorState, Selection, WorkMode } from './types';
+import type {
+  ActiveEditModal,
+  AppMode,
+  BasicEditTool,
+  Corpus,
+  EditorState,
+  EditTier,
+  Selection,
+  WorkMode,
+} from './types';
 
 const HISTORY_LIMIT = 100;
 
@@ -184,11 +193,36 @@ export interface EditorActions {
   setImplied: (nodeId: string, implied: boolean) => void;
   // layout
   setLayoutHint: (nodeId: string, hint: NodeLayoutHint | undefined) => void;
+  /** Group the word nodes that own `tokenIds` into a single phrase/block node. */
+  groupTokens: (tokenIds: string[]) => void;
+  /** Split a multi-token node back into one word node per token. */
+  ungroupNode: (nodeId: string) => void;
   // selection
   select: (selection: Selection) => void;
   // view
   setVerticalScale: (scale: number) => void;
   setDiagramMode: (mode: DiagramMode) => void;
+  // --- tier-aware editing (Basic / Advanced) ---
+  /** Switch the editing surface; resets any in-progress tool/link state. */
+  setEditTier: (tier: EditTier) => void;
+  /** Select the active Basic-Edit tool; resets any in-progress link state. */
+  setActiveEditTool: (tool: BasicEditTool) => void;
+  /** Begin a visual relationship with `dependentId` as the dependent. */
+  startVisualLink: (dependentId: string) => void;
+  /** Set the candidate head currently hovered (drives the preview arc). */
+  setLinkPreviewTarget: (nodeId: string | null) => void;
+  /** Choose the head; opens the RelationshipQuickPicker (sets relationshipDraft). */
+  completeVisualLink: (headId: string) => void;
+  /** Abandon any in-progress visual link or relationship draft. */
+  cancelVisualLink: () => void;
+  /** Confirm the relationship draft with a chosen role (flows to attachNodeTo). */
+  confirmRelationshipDraft: (type: SyntacticRole) => void;
+  /** Replace the multi-selected token range (phrase grouping). */
+  setSelectedRange: (tokenIds: string[]) => void;
+  /** Open a guided edit modal (hosted centrally). */
+  openEditModal: (modal: NonNullable<ActiveEditModal>) => void;
+  /** Close any open guided edit modal. */
+  closeEditModal: () => void;
   // click-to-relink
   startRelink: (relationId: string, end: 'head' | 'dependent') => void;
   cancelRelink: () => void;
@@ -295,6 +329,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     appMode: 'explore',
     selection: {},
     linking: null,
+    editTier: 'basic',
+    activeEditTool: 'select',
+    pendingLinkStart: null,
+    linkPreviewTarget: null,
+    relationshipDraft: null,
+    selectedRange: [],
+    editModal: null,
     verticalScale: 1,
     diagramMode: DEFAULT_MODE,
     inferences: [],
@@ -601,11 +642,166 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         return { ...d, layoutHints };
       }),
 
+    // --- grouping (phrase/block) -------------------------------------------
+    groupTokens: (tokenIds) => {
+      const ids = [...new Set(tokenIds)];
+      if (ids.length < 2) return;
+      const newNodeId = makeId('node');
+      const newRelId = makeId('rel');
+      commit((d) => {
+        const idx = new Map(d.tokens.map((t) => [t.id, t.index]));
+        // Only group real tokens; bail unless they all resolve to word nodes.
+        const present = ids.filter((id) => idx.has(id));
+        if (present.length < 2) return d;
+        const tokenToNode = new Map<string, string>();
+        for (const n of d.syntax.nodes) for (const t of n.tokenIds) tokenToNode.set(t, n.id);
+        const sourceNodeIds = [...new Set(present.map((t) => tokenToNode.get(t)).filter((x): x is string => Boolean(x)))];
+        const sources = sourceNodeIds.map((id) => d.syntax.nodes.find((n) => n.id === id)!);
+        // Refuse to group clauses or the root, or nodes that carry extra tokens
+        // not in the selection (would silently drop words).
+        if (sources.some((n) => n.kind !== 'word' || n.id === d.syntax.rootId)) return d;
+        if (sources.some((n) => n.tokenIds.some((t) => !present.includes(t)))) return d;
+
+        // The new phrase attaches where the earliest (surface-order) source did.
+        const ordered = [...sources].sort(
+          (a, b) =>
+            Math.min(...a.tokenIds.map((t) => idx.get(t) ?? Infinity)) -
+            Math.min(...b.tokenIds.map((t) => idx.get(t) ?? Infinity)),
+        );
+        const first = ordered[0]!;
+        const removed = new Set(sourceNodeIds);
+
+        // The attach point is the first ancestor of `first` that is NOT itself
+        // being grouped (so grouping a parent together with its child still lands
+        // the new phrase on a surviving node, not a removed one).
+        let attach = d.syntax.relations.find((r) => r.dependentId === first.id);
+        while (attach && removed.has(attach.headId)) {
+          attach = d.syntax.relations.find((r) => r.dependentId === attach!.headId);
+        }
+        const parentHeadId = attach && !removed.has(attach.headId) ? attach.headId : d.syntax.rootId;
+        const parentType = attach?.type ?? 'adjunct';
+
+        const newNode: SyntaxNode = {
+          id: newNodeId,
+          kind: 'word',
+          role: parentType,
+          tokenIds: present.sort((a, b) => (idx.get(a) ?? 0) - (idx.get(b) ?? 0)),
+          provenance: MANUAL,
+        };
+        const nodes = [...d.syntax.nodes.filter((n) => !removed.has(n.id)), newNode];
+
+        const relations = d.syntax.relations
+          // Drop relations that pointed INTO a removed node from outside the group.
+          .filter((r) => !removed.has(r.dependentId))
+          // Re-point surviving children of removed nodes onto the new phrase node.
+          .map((r) => (removed.has(r.headId) ? { ...r, headId: newNodeId } : r))
+          // Avoid a self-loop if a child also happened to be in the group.
+          .filter((r) => r.headId !== r.dependentId);
+
+        relations.push({
+          id: newRelId,
+          type: parentType,
+          headId: parentHeadId,
+          dependentId: newNodeId,
+          provenance: MANUAL,
+        });
+        return { ...d, syntax: { ...d.syntax, nodes, relations } };
+      });
+      set({ selection: { nodeId: newNodeId }, selectedRange: [] });
+    },
+
+    ungroupNode: (nodeId) => {
+      commit((d) => {
+        const node = d.syntax.nodes.find((n) => n.id === nodeId);
+        if (!node || node.kind !== 'word' || node.tokenIds.length < 2) return d;
+        const idx = new Map(d.tokens.map((t) => [t.id, t.index]));
+        const toks = [...node.tokenIds].sort((a, b) => (idx.get(a) ?? 0) - (idx.get(b) ?? 0));
+        const parentRel = d.syntax.relations.find((r) => r.dependentId === nodeId);
+        const [keep, ...rest] = toks;
+        // The original node keeps the first token (and its children/parent edge).
+        let nodes = d.syntax.nodes.map((n) => (n.id === nodeId ? { ...n, tokenIds: [keep!] } : n));
+        const relations = [...d.syntax.relations];
+        for (const t of rest) {
+          const splitId = makeId('node');
+          nodes = [
+            ...nodes,
+            { id: splitId, kind: 'word', role: parentRel?.type, tokenIds: [t], provenance: MANUAL },
+          ];
+          relations.push({
+            id: makeId('rel'),
+            type: parentRel?.type ?? 'adjunct',
+            headId: parentRel?.headId ?? d.syntax.rootId,
+            dependentId: splitId,
+            provenance: MANUAL,
+          });
+        }
+        return { ...d, syntax: { ...d.syntax, nodes, relations } };
+      });
+    },
+
     select: (selection) => set({ selection }),
 
     setVerticalScale: (scale) => set({ verticalScale: Math.min(2.5, Math.max(0.6, scale)) }),
 
-    setDiagramMode: (mode) => set({ diagramMode: mode }),
+    setDiagramMode: (mode) =>
+      set({
+        diagramMode: mode,
+        // Mode-specific tools don't carry over; reset any in-progress link.
+        activeEditTool: 'select',
+        pendingLinkStart: null,
+        linkPreviewTarget: null,
+        relationshipDraft: null,
+        selectedRange: [],
+      }),
+
+    // --- tier-aware editing -------------------------------------------------
+    setEditTier: (tier) =>
+      set({
+        editTier: tier,
+        activeEditTool: 'select',
+        pendingLinkStart: null,
+        linkPreviewTarget: null,
+        relationshipDraft: null,
+      }),
+
+    setActiveEditTool: (tool) =>
+      set({
+        activeEditTool: tool,
+        pendingLinkStart: null,
+        linkPreviewTarget: null,
+        relationshipDraft: null,
+      }),
+
+    startVisualLink: (dependentId) =>
+      set({ pendingLinkStart: dependentId, linkPreviewTarget: null, relationshipDraft: null }),
+
+    setLinkPreviewTarget: (nodeId) => set({ linkPreviewTarget: nodeId }),
+
+    completeVisualLink: (headId) => {
+      const { pendingLinkStart } = get();
+      if (!pendingLinkStart || pendingLinkStart === headId) return;
+      set({
+        relationshipDraft: { dependentId: pendingLinkStart, headId },
+        pendingLinkStart: null,
+        linkPreviewTarget: null,
+      });
+    },
+
+    cancelVisualLink: () =>
+      set({ pendingLinkStart: null, linkPreviewTarget: null, relationshipDraft: null }),
+
+    confirmRelationshipDraft: (type) => {
+      const { relationshipDraft } = get();
+      if (!relationshipDraft) return;
+      const { dependentId } = relationshipDraft;
+      get().attachNodeTo(relationshipDraft.dependentId, relationshipDraft.headId, type);
+      set({ relationshipDraft: null, selection: { nodeId: dependentId } });
+    },
+
+    setSelectedRange: (tokenIds) => set({ selectedRange: tokenIds }),
+
+    openEditModal: (modal) => set({ editModal: modal }),
+    closeEditModal: () => set({ editModal: null }),
 
     startRelink: (relationId, end) => set({ linking: { relationId, end }, selection: { relationId } }),
     cancelRelink: () => set({ linking: null }),

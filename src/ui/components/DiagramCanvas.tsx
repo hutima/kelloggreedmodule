@@ -20,6 +20,9 @@ import { MIN_SCALE, clamp, minZoomScale, maxZoomScale, clampPan } from '@/ui/zoo
 import { PhraseBlockView } from './diagram/PhraseBlockView';
 import { MorphologyView } from './diagram/MorphologyView';
 import { nodeHighlightColors } from '@/ui/sermon/highlights';
+import { EditModeToolbar } from '@/ui/editor/EditModeToolbar';
+import { LinkPreviewOverlay } from '@/ui/editor/LinkPreviewOverlay';
+import { DependencyEditOverlay } from '@/ui/editor/dependency/DependencyEditOverlay';
 
 const TENTATIVE = '#c2410c';
 const INK = '#1f2933';
@@ -44,6 +47,16 @@ export function DiagramCanvas() {
   const linking = useEditorStore((s) => s.linking);
   const relinkTo = useEditorStore((s) => s.relinkTo);
   const cancelRelink = useEditorStore((s) => s.cancelRelink);
+  // Tier-aware editing: visual word→word linking, delete-on-tap, link preview.
+  const editTier = useEditorStore((s) => s.editTier);
+  const activeEditTool = useEditorStore((s) => s.activeEditTool);
+  const pendingLinkStart = useEditorStore((s) => s.pendingLinkStart);
+  const linkPreviewTarget = useEditorStore((s) => s.linkPreviewTarget);
+  const startVisualLink = useEditorStore((s) => s.startVisualLink);
+  const completeVisualLink = useEditorStore((s) => s.completeVisualLink);
+  const cancelVisualLink = useEditorStore((s) => s.cancelVisualLink);
+  const setLinkPreviewTarget = useEditorStore((s) => s.setLinkPreviewTarget);
+  const removeRelation = useEditorStore((s) => s.removeRelation);
   const verticalScale = useEditorStore((s) => s.verticalScale);
   const setVerticalScale = useEditorStore((s) => s.setVerticalScale);
   const diagramMode = useEditorStore((s) => s.diagramMode);
@@ -348,12 +361,75 @@ export function DiagramCanvas() {
     return () => window.removeEventListener('keydown', onKey);
   }, [linking, selection.nodeId, selection.glossKey, select]);
 
+  const editingBasic = appMode === 'edit' && editTier === 'basic';
+  const linkTool = editingBasic && activeEditTool === 'link';
+  const deleteTool = editingBasic && activeEditTool === 'delete';
+
   const onNode = (nodeId?: string) => {
     if (moved.current) return; // a drag, not a tap
-    if (!nodeId) return select({});
-    if (linking) relinkTo(nodeId);
-    else select({ nodeId });
+    if (!nodeId) {
+      if (linking) cancelRelink();
+      else if (pendingLinkStart) cancelVisualLink();
+      else select({});
+      return;
+    }
+    if (linking) {
+      relinkTo(nodeId);
+      return;
+    }
+    if (linkTool) {
+      // Tap the dependent, then tap its head → quick relationship picker.
+      if (!pendingLinkStart) startVisualLink(nodeId);
+      else if (nodeId === pendingLinkStart) cancelVisualLink();
+      else completeVisualLink(nodeId);
+      return;
+    }
+    select({ nodeId });
   };
+
+  /** Hover a word: light up the views, and preview the link arc when pending. */
+  const onNodeHover = (nodeId?: string) => {
+    hoverDiagram(nodeId);
+    if (pendingLinkStart)
+      setLinkPreviewTarget(nodeId && nodeId !== pendingLinkStart ? nodeId : null);
+  };
+
+  /** A click on a relation's hit area: delete it (delete tool) or select it. */
+  const onRelationHit = (relationId: string) => {
+    if (moved.current || linking) return;
+    if (deleteTool) {
+      removeRelation(relationId);
+      select({});
+    } else {
+      select({ relationId });
+    }
+  };
+
+  /** Layout-space anchor (x,y) for a node, preferring a horizontal text label. */
+  const anchorFor = (nodeId: string): { x: number; y: number } | null => {
+    const texts = layout.elements.filter(
+      (e) => e.kind === 'text' && e.nodeId === nodeId,
+    ) as { x: number; y: number; rotate?: number }[];
+    const a = texts.find((e) => !e.rotate) ?? texts[0];
+    return a ? { x: a.x, y: a.y } : null;
+  };
+
+  const linkPreview =
+    pendingLinkStart && anchorFor(pendingLinkStart)
+      ? {
+          from: anchorFor(pendingLinkStart)!,
+          to: linkPreviewTarget ? anchorFor(linkPreviewTarget) : null,
+        }
+      : null;
+
+  // Endpoint markers for the currently-selected relation (Basic tier), so a
+  // selected line shows where its head and dependent attach.
+  const selectedRelEndpoints =
+    editingBasic && selection.relationId
+      ? (layout.elements.filter(
+          (e) => (e.kind === 'line' || e.kind === 'curve') && e.relationId === selection.relationId,
+        ) as { x1: number; y1: number; x2: number; y2: number }[])
+      : [];
 
   const isSelected = (nodeId?: string, relationId?: string) =>
     (nodeId && nodeId === selection.nodeId) || (relationId && relationId === selection.relationId);
@@ -418,7 +494,7 @@ export function DiagramCanvas() {
   }, [gloss, view]);
 
   return (
-    <div className={`canvas${collapsed ? ' collapsed' : ''}`}>
+    <div className={`canvas${collapsed ? ' collapsed' : ''}${appMode === 'edit' ? ' editing' : ''}`}>
       <div className="panel-head">
         <span className="panel-head-title">Diagram</span>
         <div className="canvas-tools">
@@ -460,6 +536,8 @@ export function DiagramCanvas() {
           {collapsed ? '▸' : '▾'}
         </button>
       </div>
+      {appMode === 'edit' && <EditModeToolbar />}
+      {appMode === 'edit' && <DependencyEditOverlay />}
       {linking && (
         <div className="relink-banner">
           Click the word to use as the new <strong>{linking.end}</strong>.
@@ -683,7 +761,7 @@ export function DiagramCanvas() {
                         onClick={() => {
                           if (moved.current) return;
                           if (el.nodeId) onNode(el.nodeId);
-                          else if (el.relationId && !linking) select({ relationId: el.relationId });
+                          else if (el.relationId) onRelationHit(el.relationId);
                         }}
                       />
                     )}
@@ -714,7 +792,7 @@ export function DiagramCanvas() {
                         className="kr-hit" d={d} fill="none"
                         onClick={() => {
                           if (moved.current) return;
-                          if (el.relationId && !linking) select({ relationId: el.relationId });
+                          if (el.relationId) onRelationHit(el.relationId);
                         }}
                       />
                     )}
@@ -803,8 +881,8 @@ export function DiagramCanvas() {
                       : el.rotate
                         ? { transform: `rotate(${el.rotate} ${el.x} ${el.y})` }
                         : { stroke: '#fff', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' })}
-                    onMouseEnter={() => el.nodeId && hoverDiagram(el.nodeId)}
-                    onMouseLeave={() => el.nodeId && hoverDiagram(undefined)}
+                    onMouseEnter={() => el.nodeId && onNodeHover(el.nodeId)}
+                    onMouseLeave={() => el.nodeId && onNodeHover(undefined)}
                     onClick={onLabelClick}
                   >
                     {el.text}
@@ -812,6 +890,13 @@ export function DiagramCanvas() {
                 </g>
               );
             })}
+            {selectedRelEndpoints.map((e, i) => (
+              <g key={`ep${i}`} className="kr-endpoints" pointerEvents="none">
+                <circle className="kr-endpoint" cx={e.x1} cy={e.y1} r={4.5} />
+                <circle className="kr-endpoint" cx={e.x2} cy={e.y2} r={4.5} />
+              </g>
+            ))}
+            {linkPreview && <LinkPreviewOverlay from={linkPreview.from} to={linkPreview.to} />}
           </svg>
         </div>
         {reveal && revealPos && (
