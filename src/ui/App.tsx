@@ -5,6 +5,8 @@ import { DiagramCanvas } from './components/DiagramCanvas';
 import { LeftPanel } from './panels/LeftPanel';
 import { RightPanel } from './panels/RightPanel';
 import { UpdateModal } from './components/UpdateModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { DiagnosticsBanner } from './components/DiagnosticsBanner';
 
 /**
  * Application shell: a three-panel workspace (sources · diagram · inspector)
@@ -20,18 +22,23 @@ export function App() {
   }, [restoreLastSession]);
 
   return (
-    <div className="app">
-      <TopBar />
-      <div className="workspace">
-        <LeftPanel />
-        <main className="panel" style={{ borderRight: 'none', background: 'var(--bg)' }}>
-          <DiagramCanvas />
-        </main>
-        <RightPanel />
+    <ErrorBoundary>
+      <div className="app">
+        <TopBar />
+        <div className="workspace">
+          <LeftPanel />
+          <main className="panel" style={{ borderRight: 'none', background: 'var(--bg)' }}>
+            <DiagramCanvas />
+          </main>
+          <RightPanel />
+        </div>
+        {/* Mounted for the mandatory "Update available" overlay; the manual
+            updates/cache utility was retired with the top-bar ⟳ button. */}
+        <UpdateModal open={false} onClose={() => undefined} />
+        {/* Shows the on-device error log after a reload (pinch white-screen
+            diagnostic); renders nothing when the log is empty. */}
+        <DiagnosticsBanner />
       </div>
-      {/* Mounted for the mandatory "Update available" overlay; the manual
-          updates/cache utility was retired with the top-bar ⟳ button. */}
-      <UpdateModal open={false} onClose={() => undefined} />
-    </div>
+    </ErrorBoundary>
   );
 }

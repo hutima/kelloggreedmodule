@@ -194,18 +194,20 @@ export function DiagramCanvas() {
     return clampPan(x, y, scale, vp.clientWidth, vp.clientHeight, w, h);
   }, []);
 
-  /** Belt-and-suspenders: nudge the pan layer to re-rasterise once a multi-touch
-   *  gesture ends, in case iOS Safari still left a composited tile stale. The
-   *  toggle is deferred across an animation frame (see {@link scheduleRepaint});
-   *  a synchronous one is a no-op on WebKit. With zoom now a GPU transform rather
-   *  than a per-frame SVG resize, the page should no longer blank — this is only
-   *  insurance. */
+  /** Recover from the iOS pinch blank when a multi-touch gesture ends. The
+   *  symptom is the WHOLE page going white (only the body background paints), so
+   *  the nudge targets the app ROOT, not just the pan layer — hiding and
+   *  restoring it across an animation frame forces WebKit to drop and rebuild the
+   *  document's compositing tiles (a synchronous toggle is coalesced into a
+   *  no-op; see {@link scheduleRepaint}). One frame of flicker on gesture-end is a
+   *  cheap price for turning a stuck-white-until-reload into a self-healing blink. */
   const forceRepaint = useCallback(() => {
     const raf =
       typeof requestAnimationFrame === 'function'
         ? (cb: () => void) => requestAnimationFrame(cb)
         : (cb: () => void) => setTimeout(cb, 0);
-    scheduleRepaint(panRef.current, raf);
+    const root = typeof document !== 'undefined' ? document.getElementById('root') : null;
+    scheduleRepaint(root ?? panRef.current, raf);
   }, []);
 
   /** Fit the whole diagram into the viewport (centred horizontally, top-aligned
