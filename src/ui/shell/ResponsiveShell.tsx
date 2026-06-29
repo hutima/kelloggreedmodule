@@ -44,7 +44,9 @@ export function ResponsiveShell() {
 
   if (vp.isMobile) {
     return (
-      <div className="app mobile">
+      // `sermon-open` adds scroll room at the bottom of the diagram so the
+      // outline can clear the fixed Sermon-prep sheet instead of being covered.
+      <div className={`app mobile${appMode === 'sermon' ? ' sermon-open' : ''}`}>
         <TopBar />
         <main className="mobile-main">
           <DiagramCanvas />

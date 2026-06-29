@@ -1355,6 +1355,13 @@ textarea.code,
     padding: 0 5px;
   }
 
+  /* In Sermon mode the prep sheet is fixed over the lower half of the screen.
+     Give the scrollable diagram extra room at the bottom so its last rows can
+     scroll ABOVE the sheet instead of staying hidden behind it. */
+  .app.mobile.sermon-open .canvas-viewport.html-mode {
+    padding-bottom: 54vh;
+  }
+
   /* Source bar: the version picker + sentence nav wrap to a second line on a
      phone rather than overflowing past the edge. */
   .source-bar {
