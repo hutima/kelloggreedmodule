@@ -570,9 +570,12 @@ function layoutHead(
       elements.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, rel.id));
       const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, rel.dependentId)!) || '';
       elements.push(diagonalText(prep, attachX, 0, endX, oTop, rel.id, rel.dependentId));
-      railRight = Math.max(railRight, attachX);
-      belowBottom = Math.max(belowBottom, oTop + block.height, diagonalDepth(attachX, 0, endX, oTop, prep));
       cursor = objX + block.width;
+      // Extend the head's baseline over the PP's object (not merely to the
+      // diagonal's attach point), so the object reads as hanging UNDER the head
+      // instead of floating off the baseline's right end (e.g. ἀδελφοῖς … ἐν Χριστῷ).
+      railRight = Math.max(railRight, cursor);
+      belowBottom = Math.max(belowBottom, oTop + block.height, diagonalDepth(attachX, 0, endX, oTop, prep));
     } else if (rel.type !== 'conjunct' && isDiagonalCoordination(ctx, rel.dependentId)) {
       // Coordinated adjectives/adverbs ("tall and distinguished") as parallel slants.
       const ext = drawDiagonalCoordination(ctx, rel.dependentId, cursor, elements);
@@ -727,9 +730,15 @@ function layoutClauseSpine(
     const blockX = verbAlignX - vxOf(block); // ≥ 0; verbs line up at verbAlignX
     const y = cursorTop + blockAscent(block);
     elements.push(...translate(block, blockX, y));
-    // A subordinator that introduces a conjunct (ἵνα …) sits just before it.
+    // A subordinator that introduces a conjunct (Οὐχ ὅτι … / ἵνα …) sits on its
+    // OWN short horizontal stub above the conjunct, unconnected to the spine —
+    // the Kellogg-Reed home for an introductory "that".
     if (r.label && showLabel(ctx, r.dependentId)) {
-      elements.push(smallText(eid(), blockX - 4, y - 6, r.label!, 'end', r.id));
+      const stubW = measureText(r.label!, SMALL_FONT) + 12;
+      const stubX = blockX;
+      const stubY = y - LAYOUT.fontSize - 14;
+      elements.push(smallText(eid(), stubX + stubW / 2, stubY - 4, r.label!, 'middle', r.id));
+      elements.push(line(eid(), stubX, stubY, stubX + stubW, stubY, 'solid', 'baseline'));
     }
     verbYs.push(y);
     right = Math.max(right, blockX + block.width);
@@ -739,18 +748,21 @@ function layoutClauseSpine(
 
   const top = verbYs[0] ?? 0;
   const last = verbYs[verbYs.length - 1] ?? 0;
-  // The dashed bar runs verb-to-verb, tying the clauses together.
+  // The dashed bar runs verb-to-verb, tying the clauses together. It may pass
+  // behind the verb-aligned words, but the paper-coloured halo under each word
+  // (see the renderer) keeps them legible, so the bar stays a single clean line.
   elements.unshift(line(eid(), verbAlignX, top, verbAlignX, last, 'dashed', 'coordination', clause.id));
-  // The conjunction rides a short solid step set in the CLEAR BAND between the
-  // first two clauses (their baseline gap), so it never lands on a verb.
+  // The conjunction rides the dashed bar itself, rotated upright (90°) and
+  // centred in the CLEAR BAND between the first two clauses — so it reads ALONG
+  // the join, halfway between the clauses, rather than lying horizontally across
+  // the verb.
   if (coordTexts.length && laid.length >= 2) {
     const gapTop = verbYs[0]! + laid[0]!.block.height;
     const gapBot = verbYs[1]! - blockAscent(laid[1]!.block);
     const midY = (gapTop + gapBot) / 2;
-    elements.push(line(eid(), verbAlignX - 14, midY, verbAlignX + 14, midY, 'solid', 'coordination'));
     elements.push({
-      kind: 'text', id: eid(), x: verbAlignX, y: midY - 5, text: coordTexts.join(' '),
-      anchor: 'middle', small: true,
+      kind: 'text', id: eid(), x: verbAlignX, y: midY, text: coordTexts.join(' '),
+      anchor: 'middle', small: true, rotate: -90,
     });
   }
 
@@ -1232,8 +1244,14 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // is later placed, since the pedestal elements live at negative y.)
   pedestalRels.forEach((rel) => {
     const block = layoutNode(ctx, rel.dependentId, seen);
-    // Object separator tick, then the pedestal foot a little to its right.
-    elements.push(line(eid(), x, 0, x, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id));
+    // If the clause was already laid out elsewhere (shared reference → `seen`
+    // dedup returns an empty block), skip it: drawing a pedestal foot + riser for
+    // empty content leaves an orphan "Y" with no baseline on top.
+    if (!block.elements.length) return;
+    // Object separator tick (the direct-object stem), then the pedestal foot a
+    // little to its right.
+    const sepX = x;
+    elements.push(line(eid(), sepX, 0, sepX, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id));
     x += 6;
     const baseStart = x;
     // Embedded clause sits fully above the line; its baseline is high enough that
@@ -1243,6 +1261,10 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     // Connect at the centre of the embedded clause's own baseline span.
     const connectX = baseStart + (block.wordLeft + (block.wordRight || block.width)) / 2;
     const apexY = -LAYOUT.pedestalFootRise;
+    // The horizontal stretch of main line from the object stem out to the foot,
+    // so the pedestal reads as THIS verb's direct object rather than a detached
+    // "Y" floating off to the side.
+    elements.push(line(eid(), sepX, 0, connectX, 0, 'solid', 'baseline', undefined, rel.id));
     // The little forked foot standing on the main line.
     elements.push(line(eid(), connectX - LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
     elements.push(line(eid(), connectX + LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
