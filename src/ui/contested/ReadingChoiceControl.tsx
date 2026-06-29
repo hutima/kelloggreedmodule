@@ -3,23 +3,28 @@ import type { ContestedSyntaxIssue } from '@/domain/schema';
 import { getAlternateReadings } from '@/domain/contested';
 
 /**
- * Pick the reading to show: the BASE parse or one of the alternates. With a
- * single alternate this is a Base/alternate segmented control; with MORE THAN ONE
- * alternate it becomes a dropdown so the pane stays compact. Selecting an
- * alternate previews it (temporary, unsaved); selecting Base returns to the
- * 1904/WLC parse.
+ * Pick the reading to show: the BASE parse or one of the alternates. On MOBILE
+ * (or whenever there is more than one alternate) this is a labelled dropdown so
+ * the choice is obvious in a cramped sheet; with a single alternate on desktop it
+ * is a compact Base/alternate segmented control. Selecting an alternate previews
+ * it (temporary, unsaved); selecting Base returns to the 1904/WLC parse.
  */
-export function ReadingChoiceControl({ issue }: { issue: ContestedSyntaxIssue }) {
+export function ReadingChoiceControl({
+  issue,
+  variant = 'desktop',
+}: {
+  issue: ContestedSyntaxIssue;
+  variant?: 'mobile' | 'desktop';
+}) {
   const previewId = useEditorStore((s) => s.contested.previewAlternateReadingId);
   const preview = useEditorStore((s) => s.previewAlternateReading);
   const returnToBase = useEditorStore((s) => s.returnToBaseReading);
   const readings = getAlternateReadings(issue.id);
 
-  // Multiple alternates → dropdown.
-  if (readings.length > 1) {
+  if (variant === 'mobile' || readings.length > 1) {
     return (
       <label className="reading-choice-select">
-        <span className="sr-only">Choose reading</span>
+        <span className="reading-choice-select-label">Reading</span>
         <select
           value={previewId ?? '__base__'}
           onChange={(e) => {

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useEditorStore } from '@/state';
-import type { AlternateSourceType } from '@/domain/schema';
+import { type AlternateSourceType, isEmptySyntaxPatch } from '@/domain/schema';
+import { diffDocuments, hashBase } from '@/domain/patch';
 import {
   getIssuesForPassage,
   getIssueById,
@@ -28,7 +29,9 @@ const TYPE_LABEL: Record<AlternateSourceType, string> = {
 };
 
 export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'desktop' }) {
-  const baseDoc = useEditorStore((s) => s.baseDoc ?? s.doc);
+  const liveDoc = useEditorStore((s) => s.doc);
+  const pristine = useEditorStore((s) => s.baseDoc);
+  const baseDoc = pristine ?? liveDoc;
   const previewDoc = useEditorStore((s) => s.previewDoc);
   const selectedIssueId = useEditorStore((s) => s.contested.selectedContestedIssueId);
   const previewReadingId = useEditorStore((s) => s.contested.previewAlternateReadingId);
@@ -37,6 +40,20 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
   const setDisplayMode = useEditorStore((s) => s.setAlternateDisplayMode);
   const adopt = useEditorStore((s) => s.adoptContestedReading);
   const returnToBase = useEditorStore((s) => s.returnToBaseReading);
+  const restoreBase = useEditorStore((s) => s.restoreBaseParse);
+
+  // The live doc has diverged from the pristine base → a custom/adopted parse is
+  // in effect, so offer to restore the original tree.
+  const hasCustomParse = useMemo(() => {
+    if (!pristine || pristine === liveDoc) return false;
+    const patch = diffDocuments(
+      pristine,
+      liveDoc,
+      { corpus: 'custom', passageId: pristine.id, baseHash: hashBase(pristine) },
+      liveDoc.updatedAt,
+    );
+    return !isEmptySyntaxPatch(patch);
+  }, [pristine, liveDoc]);
 
   const issues = getIssuesForPassage(baseDoc);
   const issue = (selectedIssueId && getIssueById(selectedIssueId)) || issues[0];
@@ -95,9 +112,18 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
         <p>{issue.defaultReading.description}</p>
       </div>
 
+      {hasCustomParse && (
+        <div className="arp-custom">
+          <span className="arp-custom-note">A custom parse is saved for this passage.</span>
+          <button className="btn" onClick={() => restoreBase()} title="Discard the custom parse and restore the base tree">
+            Restore base parse
+          </button>
+        </div>
+      )}
+
       {readings.length > 0 ? (
         <>
-          <ReadingChoiceControl issue={issue} />
+          <ReadingChoiceControl issue={issue} variant={variant} />
 
           {previewReading ? (
             <div className="arp-reading">

@@ -1,4 +1,4 @@
-import { forwardRef, useMemo } from 'react';
+import { forwardRef, useMemo, useRef } from 'react';
 import type { KrDocument, AlternateDiff } from '@/domain/schema';
 import { layoutForMode, type DiagramMode } from '@/domain/layout';
 import { measureText, BASE_FONT, SMALL_FONT } from '@/domain/layout/measure';
@@ -21,10 +21,37 @@ export const StaticDiagramFrame = forwardRef<
   const greek = doc.language === 'grc';
   const hebrew = doc.language === 'hbo';
 
+  // Drag-to-pan (grab the diagram and pull), in addition to wheel / scrollbar.
+  const drag = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const el = e.currentTarget;
+    drag.current = { x: e.clientX, y: e.clientY, sl: el.scrollLeft, st: el.scrollTop };
+    el.setPointerCapture?.(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!drag.current) return;
+    const el = e.currentTarget;
+    el.scrollLeft = drag.current.sl - (e.clientX - drag.current.x);
+    el.scrollTop = drag.current.st - (e.clientY - drag.current.y);
+  };
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    drag.current = null;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+  };
+
   return (
     <div className="vc-frame">
-      <div className="vc-frame-head">{title}</div>
-      <div className="vc-frame-scroll" ref={ref} onScroll={onScrollSync}>
+      {title && <div className="vc-frame-head">{title}</div>}
+      <div
+        className="vc-frame-scroll"
+        ref={ref}
+        onScroll={onScrollSync}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
         <svg
           className={`diagram-paper${hebrew ? ' hebrew' : ''}`}
           width={layout.width}
