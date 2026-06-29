@@ -85,6 +85,8 @@ export function MorphologyView({
   onHover: (id?: string) => void;
 }) {
   const doc = useEditorStore((s) => s.doc);
+  const appMode = useEditorStore((s) => s.appMode);
+  const setDiagramMode = useEditorStore((s) => s.setDiagramMode);
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
   const highlights = useEditorStore((s) => s.sermon.highlights);
@@ -158,6 +160,19 @@ export function MorphologyView({
 
   return (
     <div className={`mc-view${greek ? ' greek' : ''}${hebrew ? ' hebrew' : ''}`} ref={containerRef}>
+      {appMode === 'edit' && (
+        <div className="mc-edit-hint">
+          Tap a word to edit its gloss, note, or function. For sentence structure, use{' '}
+          <button className="link-btn" onClick={() => setDiagramMode('dependency')}>
+            Dependency
+          </button>{' '}
+          or{' '}
+          <button className="link-btn" onClick={() => setDiagramMode('phrase-block')}>
+            Phrase/Block
+          </button>
+          .
+        </div>
+      )}
       <svg className="mc-arcs" width={size.w} height={size.h} aria-hidden="true">
         {arcs.map((a, i) => (
           <g key={i}>

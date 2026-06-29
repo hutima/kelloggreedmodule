@@ -1,29 +1,27 @@
-import { useState } from 'react';
-import type { SermonAnchor } from '@/domain/schema';
 import { useEditorStore } from '@/state';
 import { SelectionActionSheet } from './SelectionActionSheet';
+import { InlineSyntaxPopover } from './InlineSyntaxPopover';
+import { RelationshipQuickPicker } from './RelationshipQuickPicker';
 import { adapterFor } from './adapters';
-import type { EditIntent, EditorAction } from './types';
+import { dispatchEditIntent } from './dispatch';
+import type { EditorAction } from './types';
 import { RelationBuilderModal } from './modals/RelationBuilderModal';
 import { RoleEditorModal } from './modals/RoleEditorModal';
 import { BlockEditorModal } from './modals/BlockEditorModal';
-import { MorphologyEditorModal } from './modals/MorphologyEditorModal';
+import { AdvancedWordDetailsModal } from './modals/AdvancedWordDetailsModal';
+import { QuickGlossModal } from './modals/QuickGlossModal';
 import { NoteModal } from './modals/NoteModal';
 
-type ActiveModal =
-  | { type: 'relation'; dependentId?: string; headId?: string; relationId?: string }
-  | { type: 'role'; nodeId: string }
-  | { type: 'block'; nodeId: string }
-  | { type: 'morphology'; nodeId: string }
-  | { type: 'note'; anchor: SermonAnchor }
-  | null;
-
 /**
- * Shared editing orchestrator. It reads the active visualization adapter, asks
- * it for the actions appropriate to the current selection, shows them in a
- * SelectionActionSheet, and routes each chosen action either to a store edit
- * (which flows to the shared model) or to a guided modal. Mounted once; renders
- * nothing unless Edit mode is active with something selected.
+ * Shared editing orchestrator. It reads the active visualization adapter and the
+ * current EDIT TIER, asks for the tier's actions, and shows them in the right
+ * contextual surface: a compact InlineSyntaxPopover for Basic, the fuller
+ * SelectionActionSheet for Advanced. The visual relationship picker and all
+ * guided modals are hosted here too, but every action is routed through the one
+ * central dispatcher so semantic edits always reach the shared model.
+ *
+ * Phrase/Block edits inline in its own workbench (rendered in the canvas), so the
+ * floating contextual surfaces are suppressed there to avoid double UI.
  */
 export function EditorController() {
   const appMode = useEditorStore((s) => s.appMode);
@@ -31,108 +29,82 @@ export function EditorController() {
   const selection = useEditorStore((s) => s.selection);
   const linking = useEditorStore((s) => s.linking);
   const diagramMode = useEditorStore((s) => s.diagramMode);
+  const editTier = useEditorStore((s) => s.editTier);
+  const pendingLinkStart = useEditorStore((s) => s.pendingLinkStart);
+  const relationshipDraft = useEditorStore((s) => s.relationshipDraft);
+  const editModal = useEditorStore((s) => s.editModal);
   const select = useEditorStore((s) => s.select);
-  const store = useEditorStore;
+  const closeEditModal = useEditorStore((s) => s.closeEditModal);
+  const openEditModal = useEditorStore((s) => s.openEditModal);
+  const cancelVisualLink = useEditorStore((s) => s.cancelVisualLink);
 
-  const [modal, setModal] = useState<ActiveModal>(null);
-
-  const dispatch = (intent: EditIntent) => {
-    const s = store.getState();
-    switch (intent.kind) {
-      case 'setRole':
-        s.setNodeRole(intent.nodeId, intent.role);
-        break;
-      case 'setImplied':
-        s.setImplied(intent.nodeId, intent.implied);
-        break;
-      case 'setClauseType':
-        s.setClauseType(intent.nodeId, intent.clauseType);
-        break;
-      case 'attachNodeTo':
-        s.attachNodeTo(intent.dependentId, intent.headId, intent.type);
-        break;
-      case 'changeRelationType':
-        s.changeRelationType(intent.relationId, intent.type);
-        break;
-      case 'reverseRelation':
-        s.reverseRelation(intent.relationId);
-        break;
-      case 'removeRelation':
-        s.removeRelation(intent.relationId);
-        select({});
-        break;
-      case 'removeNode':
-        s.removeNode(intent.nodeId);
-        select({});
-        break;
-      case 'startRelink':
-        s.startRelink(intent.relationId, intent.end);
-        break;
-      case 'resetLayout':
-        s.setLayoutHint(intent.nodeId, undefined);
-        break;
-      case 'toggleHighlight':
-        s.toggleHighlight({ anchor: intent.anchor, category: intent.category });
-        break;
-      case 'openRelationBuilder':
-        setModal({
-          type: 'relation',
-          dependentId: intent.dependentId,
-          headId: intent.headId,
-          relationId: intent.relationId,
-        });
-        break;
-      case 'openRoleEditor':
-        setModal({ type: 'role', nodeId: intent.nodeId });
-        break;
-      case 'openBlockEditor':
-        setModal({ type: 'block', nodeId: intent.nodeId });
-        break;
-      case 'openMorphology':
-        setModal({ type: 'morphology', nodeId: intent.nodeId });
-        break;
-      case 'openNote':
-        setModal({ type: 'note', anchor: intent.anchor });
-        break;
-    }
-  };
-
-  const onAction = (a: EditorAction) => dispatch(a.intent);
+  const onAction = (a: EditorAction) => dispatchEditIntent(a.intent);
 
   const adapter = adapterFor(diagramMode);
-  const actions = appMode === 'edit' && !linking ? adapter.getActions(doc, selection) : [];
-  const title = appMode === 'edit' ? adapter.describeTarget(doc, selection) : null;
-  const showSheet = appMode === 'edit' && !linking && !modal && actions.length > 0;
+  const editing = appMode === 'edit';
+  // Phrase/Block uses its own inline row workbench; don't also float a sheet.
+  const inlineWorkbench = diagramMode === 'phrase-block';
+  const busy = Boolean(linking || pendingLinkStart || relationshipDraft || editModal);
+
+  const actions =
+    editing && !busy && !inlineWorkbench ? adapter.getActions(doc, selection, editTier) : [];
+  const title = editing ? adapter.describeTarget(doc, selection) : null;
+  const showContextual = editing && !busy && !inlineWorkbench && actions.length > 0;
 
   return (
     <>
-      {showSheet && (
-        <SelectionActionSheet
-          title={title}
-          actions={actions}
-          onAction={onAction}
-          onClose={() => select({})}
+      {showContextual &&
+        (editTier === 'basic' ? (
+          <InlineSyntaxPopover
+            title={title}
+            actions={actions}
+            onAction={onAction}
+            onClose={() => select({})}
+          />
+        ) : (
+          <SelectionActionSheet
+            title={title}
+            actions={actions}
+            onAction={onAction}
+            onClose={() => select({})}
+          />
+        ))}
+
+      {editing && relationshipDraft && (
+        <RelationshipQuickPicker
+          onAdvanced={() => {
+            openEditModal({
+              type: 'relation',
+              dependentId: relationshipDraft.dependentId,
+              headId: relationshipDraft.headId,
+            });
+            cancelVisualLink();
+          }}
         />
       )}
-      {modal?.type === 'relation' && (
+
+      {editModal?.type === 'relation' && (
         <RelationBuilderModal
-          dependentId={modal.dependentId}
-          headId={modal.headId}
-          relationId={modal.relationId}
-          onClose={() => setModal(null)}
+          dependentId={editModal.dependentId}
+          headId={editModal.headId}
+          relationId={editModal.relationId}
+          onClose={closeEditModal}
         />
       )}
-      {modal?.type === 'role' && (
-        <RoleEditorModal nodeId={modal.nodeId} onClose={() => setModal(null)} />
+      {editModal?.type === 'role' && (
+        <RoleEditorModal nodeId={editModal.nodeId} onClose={closeEditModal} />
       )}
-      {modal?.type === 'block' && (
-        <BlockEditorModal nodeId={modal.nodeId} onClose={() => setModal(null)} />
+      {editModal?.type === 'block' && (
+        <BlockEditorModal nodeId={editModal.nodeId} onClose={closeEditModal} />
       )}
-      {modal?.type === 'morphology' && (
-        <MorphologyEditorModal nodeId={modal.nodeId} onClose={() => setModal(null)} />
+      {editModal?.type === 'wordDetails' && (
+        <AdvancedWordDetailsModal nodeId={editModal.nodeId} onClose={closeEditModal} />
       )}
-      {modal?.type === 'note' && (
-        <NoteModal anchor={modal.anchor} onClose={() => setModal(null)} />
+      {editModal?.type === 'quickGloss' && (
+        <QuickGlossModal nodeId={editModal.nodeId} onClose={closeEditModal} />
+      )}
+      {editModal?.type === 'note' && (
+        <NoteModal anchor={editModal.anchor} onClose={closeEditModal} />
       )}
     </>
   );

@@ -1,7 +1,14 @@
-import type { KrDocument } from '@/domain/schema';
-import { getNode, getRelation, nodeText, describeFunction } from '@/domain/model';
+import type { KrDocument, SyntacticRole } from '@/domain/schema';
+import {
+  getNode,
+  getRelation,
+  nodeText,
+  describeFunction,
+  parentRelations,
+} from '@/domain/model';
 import type { Selection } from '@/state/types';
 import type { EditorAction } from './types';
+import { ROLE_LABEL, suggestRolesForHead } from './roles';
 
 /** Resolve what the current selection points at (relation wins over node). */
 export type ResolvedTarget =
@@ -63,14 +70,70 @@ export function describeNode(doc: KrDocument, id: string): string | null {
 export function describeRelation(doc: KrDocument, id: string): string | null {
   const r = getRelation(doc.syntax, id);
   if (!r) return null;
-  return `${nodeName(doc, r.dependentId)} → ${nodeName(doc, r.headId)} (${r.type})`;
+  return `${nodeName(doc, r.dependentId)} → ${nodeName(doc, r.headId)} (${ROLE_LABEL[r.type]})`;
+}
+
+/** Sermon-prep actions, shared by every tier (notes + highlight stay separate). */
+export function sermonNodeActions(nodeId: string): EditorAction[] {
+  return [
+    {
+      id: 'note',
+      label: 'Add / edit note',
+      hint: 'Attach a sermon-prep note',
+      group: 'sermon',
+      intent: { kind: 'openNote', anchor: { type: 'node', nodeId } },
+    },
+    {
+      id: 'highlight',
+      label: 'Highlight',
+      hint: 'Mark this for sermon prep',
+      group: 'sermon',
+      intent: { kind: 'toggleHighlight', anchor: { type: 'node', nodeId }, category: 'emphasis' },
+    },
+  ];
 }
 
 /**
- * Actions common to a selected NODE in every view. Mode adapters prepend their
- * own primary action and append mode-specific actions.
+ * Plain-English relationship chips for a NODE — they re-role the node and align
+ * its incoming relation in one tap (no dropdowns). Suggestions are contextual to
+ * the node's current head, so a word under a verb gets subject/object/… while a
+ * word under a noun gets adjectival/genitive/….
  */
-export function commonNodeActions(doc: KrDocument, nodeId: string): EditorAction[] {
+export function quickRoleChips(doc: KrDocument, nodeId: string): EditorAction[] {
+  const parent = parentRelations(doc.syntax, nodeId)[0];
+  const roles: SyntacticRole[] = parent
+    ? suggestRolesForHead(doc, parent.headId)
+    : ['subject', 'directObject', 'adjectival', 'adverbial', 'genitive'];
+  return roles.slice(0, 5).map((role) => ({
+    id: `role-${role}`,
+    label: ROLE_LABEL[role],
+    group: 'syntax',
+    chip: true,
+    intent: { kind: 'setRole', nodeId, role },
+  }));
+}
+
+/** Plain-English relabel chips for an existing RELATION (one-tap, no dropdowns). */
+export function quickRelationChips(doc: KrDocument, relationId: string): EditorAction[] {
+  const r = getRelation(doc.syntax, relationId);
+  if (!r) return [];
+  return suggestRolesForHead(doc, r.headId)
+    .slice(0, 5)
+    .map((role) => ({
+      id: `relabel-${role}`,
+      label: ROLE_LABEL[role],
+      group: 'syntax',
+      chip: true,
+      intent: { kind: 'changeRelationType', relationId, type: role },
+    }));
+}
+
+/**
+ * ADVANCED actions for a selected NODE — the full, precise set (role editor,
+ * manual relation builder, implied, morphology, delete). Mode adapters prepend
+ * their own primary action.
+ */
+export function advancedNodeActions(doc: KrDocument, nodeId: string): EditorAction[] {
   const node = getNode(doc.syntax, nodeId);
   if (!node) return [];
   const isRoot = nodeId === doc.syntax.rootId;
@@ -80,14 +143,14 @@ export function commonNodeActions(doc: KrDocument, nodeId: string): EditorAction
     actions.push({
       id: 'role',
       label: 'Change role',
-      hint: 'Subject, object, modifier…',
+      hint: 'Full role list — subject, object, modifier…',
       group: 'syntax',
       intent: { kind: 'openRoleEditor', nodeId },
     });
     actions.push({
       id: 'attach',
       label: 'Attach to another word…',
-      hint: 'Make this depend on a different head',
+      hint: 'Build the relation by hand',
       group: 'syntax',
       intent: { kind: 'openRelationBuilder', dependentId: nodeId },
     });
@@ -100,25 +163,13 @@ export function commonNodeActions(doc: KrDocument, nodeId: string): EditorAction
     });
   }
 
+  actions.push(...sermonNodeActions(nodeId));
   actions.push({
-    id: 'note',
-    label: 'Add / edit note',
-    group: 'sermon',
-    intent: { kind: 'openNote', anchor: { type: 'node', nodeId } },
-  });
-  actions.push({
-    id: 'highlight',
-    label: 'Highlight',
-    hint: 'Mark this for sermon prep',
-    group: 'sermon',
-    intent: { kind: 'toggleHighlight', anchor: { type: 'node', nodeId }, category: 'emphasis' },
-  });
-  actions.push({
-    id: 'morphology',
-    label: 'Advanced edit…',
-    hint: 'Lemma, gloss, part of speech, parsing',
+    id: 'word-details',
+    label: 'Word details…',
+    hint: 'Lemma, gloss, part of speech, full parsing',
     group: 'syntax',
-    intent: { kind: 'openMorphology', nodeId },
+    intent: { kind: 'openAdvancedWordDetails', nodeId },
   });
 
   if (!isRoot) {
@@ -132,14 +183,15 @@ export function commonNodeActions(doc: KrDocument, nodeId: string): EditorAction
   return actions;
 }
 
-/** Actions common to a selected RELATION/edge in every view. */
-export function commonRelationActions(doc: KrDocument, relationId: string): EditorAction[] {
+/** ADVANCED actions for a selected RELATION/edge — full manual control. */
+export function advancedRelationActions(doc: KrDocument, relationId: string): EditorAction[] {
   const r = getRelation(doc.syntax, relationId);
   if (!r) return [];
   return [
     {
       id: 'type',
-      label: 'Change relationship type',
+      label: 'Change relationship type…',
+      hint: 'Full role list',
       group: 'syntax',
       intent: { kind: 'openRelationBuilder', relationId },
     },
@@ -172,6 +224,44 @@ export function commonRelationActions(doc: KrDocument, relationId: string): Edit
     {
       id: 'delete-rel',
       label: 'Delete relation',
+      group: 'danger',
+      intent: { kind: 'removeRelation', relationId },
+    },
+  ];
+}
+
+/**
+ * BASIC actions for a selected RELATION — quick relabel chips, reattach (visual
+ * relink), delete, note. Shared by Kellogg-Reed and Dependency.
+ */
+export function basicRelationActions(doc: KrDocument, relationId: string): EditorAction[] {
+  const r = getRelation(doc.syntax, relationId);
+  if (!r) return [];
+  return [
+    ...quickRelationChips(doc, relationId),
+    {
+      id: 'reattach-head',
+      label: 'Reattach head…',
+      hint: 'Click the new word it points to',
+      group: 'syntax',
+      intent: { kind: 'startRelink', relationId, end: 'head' },
+    },
+    {
+      id: 'reattach-dep',
+      label: 'Reattach dependent…',
+      hint: 'Click the new dependent word',
+      group: 'syntax',
+      intent: { kind: 'startRelink', relationId, end: 'dependent' },
+    },
+    {
+      id: 'rel-note',
+      label: 'Add note',
+      group: 'sermon',
+      intent: { kind: 'openNote', anchor: { type: 'relation', relationId } },
+    },
+    {
+      id: 'delete-rel',
+      label: 'Delete relationship',
       group: 'danger',
       intent: { kind: 'removeRelation', relationId },
     },

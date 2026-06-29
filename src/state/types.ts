@@ -1,4 +1,4 @@
-import type { KrDocument, SermonPrepData } from '@/domain/schema';
+import type { KrDocument, SermonPrepData, SermonAnchor } from '@/domain/schema';
 import type { Inference } from '@/domain/inference';
 import type { DiagramMode } from '@/domain/layout';
 
@@ -18,6 +18,48 @@ export type AppMode = 'explore' | 'edit' | 'sermon';
 
 /** Which corpus the current base assignment comes from (for patch identity). */
 export type Corpus = 'gnt' | 'ot' | 'custom';
+
+/**
+ * Edit tier. The whole editing surface is split in two: BASIC is visual-first,
+ * sermon-prep-first, plain-English and mostly click/tap; ADVANCED is technical
+ * (full role lists, morphology, manual relation building). Orthogonal to the
+ * diagram mode — each visualization offers its own basic and advanced behavior.
+ */
+export type EditTier = 'basic' | 'advanced';
+
+/**
+ * The active Basic-Edit tool, shown in the EditModeToolbar. `select` inspects and
+ * shows the contextual popover; `link` draws a relationship word→word; `move`
+ * reparents a block by picking a target; `group` merges words into a phrase;
+ * `delete` removes the next clicked relation. Which tools apply depends on the
+ * diagram mode (see `BasicInteractionConfig`).
+ */
+export type BasicEditTool = 'select' | 'link' | 'move' | 'group' | 'delete';
+
+/**
+ * A relationship being built visually: a dependent and a head have been chosen
+ * (by tapping two words) and the user is about to pick the relationship label in
+ * the RelationshipQuickPicker. Confirming flows to `attachNodeTo`.
+ */
+export interface RelationshipDraft {
+  dependentId: string;
+  headId: string;
+}
+
+/**
+ * The guided modal currently open, if any. Hosted in the store (not a single
+ * component) so any editing surface — the inline popover, the action sheet, the
+ * phrase/block workbench, the dependency overlay — can open the same modals
+ * through one dispatcher. `null` when no modal is open.
+ */
+export type ActiveEditModal =
+  | { type: 'relation'; dependentId?: string; headId?: string; relationId?: string }
+  | { type: 'role'; nodeId: string }
+  | { type: 'block'; nodeId: string }
+  | { type: 'wordDetails'; nodeId: string }
+  | { type: 'quickGloss'; nodeId: string }
+  | { type: 'note'; anchor: SermonAnchor }
+  | null;
 
 export interface Selection {
   nodeId?: string;
@@ -56,6 +98,24 @@ export interface EditorState {
   selection: Selection;
   /** Active click-to-relink interaction, if any. */
   linking: Linking | null;
+  /** Basic vs Advanced editing surface (Basic by default). */
+  editTier: EditTier;
+  /** The active Basic-Edit tool (Select by default). */
+  activeEditTool: BasicEditTool;
+  /**
+   * The first word tapped while the Link tool is active: it becomes the
+   * DEPENDENT of the relationship once a head is tapped. `null` when no link is
+   * in progress.
+   */
+  pendingLinkStart: string | null;
+  /** The node currently hovered as a candidate head, for the link preview arc. */
+  linkPreviewTarget: string | null;
+  /** A relationship awaiting its label in the RelationshipQuickPicker. */
+  relationshipDraft: RelationshipDraft | null;
+  /** Token ids currently multi-selected for grouping into a phrase/block. */
+  selectedRange: string[];
+  /** The guided edit modal currently open (hosted centrally), if any. */
+  editModal: ActiveEditModal;
   /** User-tunable row spacing (vertical-gap multiplier) for the diagram. */
   verticalScale: number;
   /** Which diagram renderer is active (Kellogg-Reed by default). */

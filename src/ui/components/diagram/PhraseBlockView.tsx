@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { buildOutline, type OutlineNode } from '@/domain/model';
 import { nodeHighlightColors } from '@/ui/sermon/highlights';
+import { PhraseBlockEditor } from '@/ui/editor/block/PhraseBlockEditor';
 
 /**
- * PHRASE / BLOCK view (HTML) — the clause + phrase hierarchy as an interactive,
- * COLLAPSIBLE outline. Each row is a function label + its Greek words, indented
- * beneath the word/clause it depends on, in Greek order. Rows are selectable and
- * hover-linked to the source strip; branches collapse to fold away detail.
+ * PHRASE / BLOCK view (HTML) — the clause + phrase hierarchy. In Explore/Sermon
+ * it is a selectable, COLLAPSIBLE outline; in EDIT mode it becomes an interactive
+ * workbench (PhraseBlockEditor) where rows can be promoted, demoted, moved under
+ * one another, relabeled, and grouped. Both render the same hierarchy in Greek
+ * order, hover-linked to the source strip.
  *
  * This is the on-screen renderer; SVG/PNG/print export still uses the geometric
  * `phrase-block` layout, so exports are unchanged.
@@ -20,6 +22,7 @@ export function PhraseBlockView({
   onHover: (id?: string) => void;
 }) {
   const doc = useEditorStore((s) => s.doc);
+  const appMode = useEditorStore((s) => s.appMode);
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
   const highlights = useEditorStore((s) => s.sermon.highlights);
@@ -49,6 +52,12 @@ export function PhraseBlockView({
     if (outline) collect(outline);
     return ids;
   }, [outline]);
+
+  // Edit mode swaps the read-only outline for the interactive workbench. (Placed
+  // after all hooks so the hook order is stable across mode switches.)
+  if (appMode === 'edit') {
+    return <PhraseBlockEditor hovered={hovered} onHover={onHover} />;
+  }
 
   if (!outline) return <p className="empty">No structure to outline yet.</p>;
 
