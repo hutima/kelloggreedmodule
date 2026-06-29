@@ -157,6 +157,20 @@ export class SentenceConverter {
     return this.dialect.idOf(el) || `${this.idPrefix}${this.seq++}`;
   }
 
+  /**
+   * Re-order tokens into SURFACE (reading) order and reindex them. The tree walk
+   * visits constituents head-first, so the raw token list is in TREE order — the
+   * source text strip and `doc.text` would otherwise read scrambled. The source
+   * id (`n` for Greek, `xml:id` for Hebrew) is zero-padded by position, so a
+   * lexicographic sort of the token ids recovers the original word order.
+   */
+  orderTokensBySurface(): void {
+    this.tokens.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    this.tokens.forEach((t, i) => {
+      t.index = i;
+    });
+  }
+
   private rel(type: SyntacticRole, headId: string, dependentId: string, label?: string): void {
     if (headId === dependentId) return;
     this.relations.push({
@@ -456,6 +470,7 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
     const conv = new SentenceConverter(`s${i}_`, greekDialect);
     const rootId = conv.convert(topWg);
     if (!conv.tokens.length) return;
+    conv.orderTokensBySurface();
 
     const ref = verseRef(sentence);
     const ts = '2024-01-01T00:00:00.000Z';

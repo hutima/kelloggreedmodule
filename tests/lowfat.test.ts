@@ -218,6 +218,27 @@ describe('Lowfat clause coordination & subordination', () => {
     }
   });
 
+  it('lists tokens in SURFACE order, not tree order (fronted PP before the verb)', () => {
+    // The converter walks head-first, so ἦν (the verb) is visited before the
+    // fronted PP "Ἐν ἀρχῇ". The document text and token order must still read in
+    // surface order, recovered from the position-encoding `n` ids.
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl" rule="ADV-V-S">
+      <wg role="adv" class="pp" rule="PrepNp">
+        <w class="prep" n="010010010010010">Ἐν</w>
+        <w class="noun" head="true" n="010010010020010">ἀρχῇ</w>
+      </wg>
+      <w class="verb" role="v" n="010010010030010">ἦν</w>
+      <wg role="s" class="np" rule="DetNp">
+        <w class="det" n="010010010040010">ὁ</w>
+        <w class="noun" head="true" n="010010010050010">λόγος</w>
+      </wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    expect(doc!.tokens.map((t) => t.surface)).toEqual(['Ἐν', 'ἀρχῇ', 'ἦν', 'ὁ', 'λόγος']);
+    expect(doc!.text).toBe('Ἐν ἀρχῇ ἦν ὁ λόγος');
+    expect(doc!.tokens.every((t, i) => t.index === i)).toBe(true);
+  });
+
   it('passes a single-child wrapper straight through (no extra clause node)', () => {
     const xml = `<book name="Test"><sentence><wg role="cl">
       <wg class="cl" rule="S-V"><w class="pron" role="s">ἐγώ</w><w class="verb" role="v">τρέχω</w></wg>

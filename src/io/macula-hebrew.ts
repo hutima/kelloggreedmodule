@@ -150,6 +150,7 @@ export function maculaHebrewToDocuments(
     const conv = new SentenceConverter(`h${i}_`, hebrewDialect);
     const rootId = conv.convert(topWg);
     if (!conv.tokens.length) return;
+    conv.orderTokensBySurface();
 
     const ref = hebrewVerseRef(sentence);
     const ts = '2024-01-01T00:00:00.000Z';
