@@ -12,6 +12,7 @@ import type { KrDocument } from '@/domain/schema';
 export function GntPicker() {
   const loadDocument = useEditorStore((s) => s.loadDocument);
   const setMode = useEditorStore((s) => s.setMode);
+  const setGntContext = useEditorStore((s) => s.setGntContext);
   const [bookNum, setBookNum] = useState(11); // Philippians (bundled)
   const [passages, setPassages] = useState<KrDocument[] | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -59,6 +60,9 @@ export function GntPicker() {
     const selected = passages.filter((p) => checked.has(p.id));
     if (!selected.length) return;
     loadDocument(combinePassage(selected));
+    // Reading context for prev/next nav: the book's sentences + the first opened.
+    const firstIdx = passages.findIndex((p) => checked.has(p.id));
+    setGntContext(passages, firstIdx);
     setMode('parsed');
   };
 

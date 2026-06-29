@@ -35,4 +35,8 @@ export interface EditorState {
   /** Undo/redo stacks (document snapshots). */
   past: KrDocument[];
   future: KrDocument[];
+  /** The loaded GNT book's sentences, for prev/next sentence navigation. */
+  gntPassages: KrDocument[];
+  /** Index into `gntPassages` of the first sentence currently shown (-1 = none). */
+  gntIndex: number;
 }

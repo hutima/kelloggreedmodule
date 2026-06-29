@@ -34,6 +34,9 @@ export function DiagramCanvas() {
   const cancelRelink = useEditorStore((s) => s.cancelRelink);
   const verticalScale = useEditorStore((s) => s.verticalScale);
   const setVerticalScale = useEditorStore((s) => s.setVerticalScale);
+  const gntPassages = useEditorStore((s) => s.gntPassages);
+  const gntIndex = useEditorStore((s) => s.gntIndex);
+  const stepGnt = useEditorStore((s) => s.stepGnt);
   const [collapsed, setCollapsed] = useState(false);
   // What is currently hovered — in the diagram, the Greek strip, or the English
   // strip — kept as the set of diagram nodes AND English words it touches, so all
@@ -331,6 +334,29 @@ export function DiagramCanvas() {
               </div>
             ) : (
               <span className="source-label">Source text</span>
+            )}
+            {gntIndex >= 0 && gntPassages.length > 0 && (
+              <div className="sentence-nav" role="group" aria-label="Navigate sentences">
+                <button
+                  title="Previous sentence"
+                  aria-label="Previous sentence"
+                  disabled={gntIndex <= 0}
+                  onClick={() => stepGnt(-1)}
+                >
+                  ◀
+                </button>
+                <span className="sentence-pos">
+                  {gntIndex + 1}/{gntPassages.length}
+                </span>
+                <button
+                  title="Next sentence"
+                  aria-label="Next sentence"
+                  disabled={gntIndex >= gntPassages.length - 1}
+                  onClick={() => stepGnt(1)}
+                >
+                  ▶
+                </button>
+              </div>
             )}
             <button
               className="collapse-btn"
