@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
-import { childRelations, getNode, morphCodes, grammarTone } from '@/domain/model';
+import { childRelations, getNode, morphCodes, grammarTone, tidyGloss } from '@/domain/model';
 import { toneColor } from '@/domain/render';
 import type { KrDocument, Token } from '@/domain/schema';
 import { useGloss } from './useGloss';
@@ -245,7 +245,7 @@ export function MorphologyView({
                     ),
                   )}
                 </div>
-                {tok.gloss && <div className="mc-gloss">{tok.gloss}</div>}
+                {tok.gloss && <div className="mc-gloss">{tidyGloss(tok.gloss)}</div>}
               </div>
             );
           })}
