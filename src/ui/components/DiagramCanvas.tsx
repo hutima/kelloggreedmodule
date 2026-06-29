@@ -616,8 +616,9 @@ export function DiagramCanvas() {
                 <button
                   className={showEnglish ? 'active' : ''}
                   onClick={() => setVersion('en')}
+                  title="Berean Standard Bible (word-aligned)"
                 >
-                  English
+                  English (BSB)
                 </button>
               </div>
             ) : (
