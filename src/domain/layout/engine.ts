@@ -474,6 +474,7 @@ function blockAscent(block: Block): number {
   let minY = 0;
   for (const el of block.elements) {
     if (el.kind === 'line') minY = Math.min(minY, el.y1, el.y2);
+    else if (el.kind === 'curve') minY = Math.min(minY, el.y1, el.cy, el.y2);
     else minY = Math.min(minY, el.y - (el.small ? LAYOUT.smallFontSize : LAYOUT.fontSize));
   }
   return Math.max(0, -minY);
@@ -483,6 +484,14 @@ function translate(block: Block, dx: number, dy: number): DiagramElement[] {
   return block.elements.map((el) => {
     if (el.kind === 'line') {
       return { ...el, x1: el.x1 + dx, y1: el.y1 + dy, x2: el.x2 + dx, y2: el.y2 + dy };
+    }
+    if (el.kind === 'curve') {
+      return {
+        ...el,
+        x1: el.x1 + dx, y1: el.y1 + dy,
+        cx: el.cx + dx, cy: el.cy + dy,
+        x2: el.x2 + dx, y2: el.y2 + dy,
+      };
     }
     return { ...el, x: el.x + dx, y: el.y + dy };
   });
@@ -554,6 +563,9 @@ function mirrorX(elements: DiagramElement[], width: number): DiagramElement[] {
     if (el.kind === 'line') {
       return { ...el, x1: width - el.x1, x2: width - el.x2 };
     }
+    if (el.kind === 'curve') {
+      return { ...el, x1: width - el.x1, cx: width - el.cx, x2: width - el.x2 };
+    }
     return {
       ...el,
       x: width - el.x,
@@ -590,6 +602,10 @@ function bounds(elements: DiagramElement[]): {
   for (const el of elements) {
     if (el.kind === 'line') {
       see(el.x1, el.y1);
+      see(el.x2, el.y2);
+    } else if (el.kind === 'curve') {
+      see(el.x1, el.y1);
+      see(el.cx, el.cy);
       see(el.x2, el.y2);
     } else {
       see(el.x, el.y);

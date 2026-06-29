@@ -7,3 +7,10 @@ export * from './types';
 export * from './constants';
 export { measureText } from './measure';
 export { layoutDocument, type LayoutOptions } from './engine';
+export {
+  layoutForMode,
+  DIAGRAM_MODES,
+  DEFAULT_MODE,
+  type DiagramMode,
+  type DiagramModeInfo,
+} from './modes';

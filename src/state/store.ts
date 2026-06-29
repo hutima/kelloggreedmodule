@@ -27,6 +27,7 @@ import {
   type Inference,
 } from '@/domain/inference';
 import { getDocument, saveDocument } from '@/persistence';
+import { DEFAULT_MODE, type DiagramMode } from '@/domain/layout';
 import { scheduleAutosave } from './autosave';
 import type { AppMode, EditorState, Selection } from './types';
 
@@ -119,6 +120,7 @@ export interface EditorActions {
   select: (selection: Selection) => void;
   // view
   setVerticalScale: (scale: number) => void;
+  setDiagramMode: (mode: DiagramMode) => void;
   // click-to-relink
   startRelink: (relationId: string, end: 'head' | 'dependent') => void;
   cancelRelink: () => void;
@@ -161,6 +163,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     selection: {},
     linking: null,
     verticalScale: 1,
+    diagramMode: DEFAULT_MODE,
     inferences: [],
     status: 'idle',
     past: [],
@@ -276,6 +279,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     select: (selection) => set({ selection }),
 
     setVerticalScale: (scale) => set({ verticalScale: Math.min(2.5, Math.max(0.6, scale)) }),
+
+    setDiagramMode: (mode) => set({ diagramMode: mode }),
 
     startRelink: (relationId, end) => set({ linking: { relationId, end }, selection: { relationId } }),
     cancelRelink: () => set({ linking: null }),

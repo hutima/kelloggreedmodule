@@ -28,6 +28,12 @@ function elementToSvg(el: DiagramElement): string {
     const color = el.tentative ? THEME.tentative : THEME.ink;
     return `<line x1="${r(el.x1)}" y1="${r(el.y1)}" x2="${r(el.x2)}" y2="${r(el.y2)}" stroke="${color}" stroke-width="${THEME.strokeWidth}"${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linecap="round" />`;
   }
+  if (el.kind === 'curve') {
+    const dash = dashFor(el.style);
+    const color = el.tentative ? THEME.tentative : THEME.ink;
+    const head = el.arrow ? arrowheadPath(el.cx, el.cy, el.x2, el.y2, color) : '';
+    return `<path d="M ${r(el.x1)} ${r(el.y1)} Q ${r(el.cx)} ${r(el.cy)} ${r(el.x2)} ${r(el.y2)}" fill="none" stroke="${color}" stroke-width="${THEME.strokeWidth}"${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linecap="round" />${head}`;
+  }
   const fill = el.tentative ? THEME.tentative : el.muted ? THEME.muted : THEME.ink;
   const size = el.small ? THEME.smallFontSize : THEME.fontSize;
   const style = el.italic ? ' font-style="italic"' : '';
@@ -45,6 +51,17 @@ function elementToSvg(el: DiagramElement): string {
 
 function r(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/** A small filled triangle at (x2,y2), pointing along the tangent from (cx,cy). */
+function arrowheadPath(cx: number, cy: number, x2: number, y2: number, color: string): string {
+  const ang = Math.atan2(y2 - cy, x2 - cx);
+  const s = 6;
+  const a1 = ang + Math.PI - 0.4;
+  const a2 = ang + Math.PI + 0.4;
+  const p1 = `${r(x2 + s * Math.cos(a1))} ${r(y2 + s * Math.sin(a1))}`;
+  const p2 = `${r(x2 + s * Math.cos(a2))} ${r(y2 + s * Math.sin(a2))}`;
+  return `<path d="M ${r(x2)} ${r(y2)} L ${p1} L ${p2} Z" fill="${color}" stroke="none" />`;
 }
 
 export function layoutToSvg(layout: DiagramLayout, opts: SvgOptions = {}): string {
