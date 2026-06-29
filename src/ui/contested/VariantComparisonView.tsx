@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useEditorStore } from '@/state';
+import { glossDoc } from '@/domain/model';
 import { getReadingById, diffBaseAndAlternate } from '@/domain/contested';
 import { StaticDiagramFrame } from './StaticDiagramFrame';
 import { BlockOutlineFrame } from './BlockOutlineFrame';
@@ -16,6 +17,7 @@ export function VariantComparisonView() {
   const baseDoc = useEditorStore((s) => s.baseDoc ?? s.doc);
   const previewDoc = useEditorStore((s) => s.previewDoc);
   const diagramMode = useEditorStore((s) => s.diagramMode);
+  const glossMode = useEditorStore((s) => s.glossMode);
   const linked = useEditorStore((s) => s.contested.linkedScrolling);
   const setLinked = useEditorStore((s) => s.setLinkedScrolling);
   const returnToBase = useEditorStore((s) => s.returnToBaseReading);
@@ -33,7 +35,16 @@ export function VariantComparisonView() {
 
   const { leftRef, rightRef, onLeftScroll, onRightScroll } = useLinkedDiagramView(linked);
 
-  if (!previewDoc || !reading) return null;
+  // English-gloss display (structure unchanged; diff stays computed on the real
+  // docs since their ids are identical). Morphology keeps the source language.
+  const gloss = glossMode && diagramMode !== 'morphology';
+  const baseShow = useMemo(() => (gloss ? glossDoc(baseDoc) : baseDoc), [gloss, baseDoc]);
+  const variantShow = useMemo(
+    () => (gloss && previewDoc ? glossDoc(previewDoc) : previewDoc),
+    [gloss, previewDoc],
+  );
+
+  if (!previewDoc || !reading || !variantShow) return null;
 
   return (
     <div className="variant-compare">
@@ -62,8 +73,8 @@ export function VariantComparisonView() {
           <>
             <BlockOutlineFrame
               ref={leftRef}
-              baseDoc={baseDoc}
-              variantDoc={previewDoc}
+              baseDoc={baseShow}
+              variantDoc={variantShow}
               role="base"
               diff={diff}
               title="Base 1904 parse"
@@ -71,8 +82,8 @@ export function VariantComparisonView() {
             />
             <BlockOutlineFrame
               ref={rightRef}
-              baseDoc={baseDoc}
-              variantDoc={previewDoc}
+              baseDoc={baseShow}
+              variantDoc={variantShow}
               role="variant"
               diff={diff}
               title={`Alternate: ${reading.shortLabel ?? reading.label}`}
@@ -83,7 +94,7 @@ export function VariantComparisonView() {
           <>
             <StaticDiagramFrame
               ref={leftRef}
-              doc={baseDoc}
+              doc={baseShow}
               mode={diagramMode}
               diff={diff}
               title="Base 1904 parse"
@@ -91,7 +102,7 @@ export function VariantComparisonView() {
             />
             <StaticDiagramFrame
               ref={rightRef}
-              doc={previewDoc}
+              doc={variantShow}
               mode={diagramMode}
               diff={diff}
               title={`Alternate: ${reading.shortLabel ?? reading.label}`}

@@ -3,7 +3,7 @@ import { useEditorStore } from '@/state';
 import { layoutForMode, DIAGRAM_MODES } from '@/domain/layout';
 import { measureText, SMALL_FONT, BASE_FONT } from '@/domain/layout/measure';
 import { dashFor, toneColor } from '@/domain/render';
-import { describeFunction, getNode, childRelations, lookupGloss } from '@/domain/model';
+import { describeFunction, getNode, childRelations, lookupGloss, glossDoc } from '@/domain/model';
 import {
   loadParallelBook,
   alignParallel,
@@ -112,9 +112,17 @@ export function DiagramCanvas() {
     [srcHeight],
   );
 
+  // English-gloss display: structure stays the Greek parse; only the shown words
+  // change (Morphology stays in the source language — it's a form study).
+  const glossMode = useEditorStore((s) => s.glossMode);
+  const setGlossMode = useEditorStore((s) => s.setGlossMode);
+  const layoutDoc = useMemo(
+    () => (glossMode && diagramMode !== 'morphology' ? glossDoc(doc) : doc),
+    [glossMode, diagramMode, doc],
+  );
   const layout = useMemo(
-    () => layoutForMode(diagramMode, doc, doc.layoutHints, { verticalScale }),
-    [diagramMode, doc, verticalScale],
+    () => layoutForMode(diagramMode, layoutDoc, doc.layoutHints, { verticalScale }),
+    [diagramMode, layoutDoc, doc.layoutHints, verticalScale],
   );
 
   // Text-heavy modes render as interactive HTML on screen (collapsible outline /
@@ -532,6 +540,24 @@ export function DiagramCanvas() {
               ))}
             </select>
           </label>
+          {doc.language !== 'en' && diagramMode !== 'morphology' && (
+            <div className="lang-toggle" role="group" aria-label="Diagram words">
+              <button
+                className={!glossMode ? 'active' : ''}
+                title="Show the Greek / Hebrew words"
+                onClick={() => setGlossMode(false)}
+              >
+                {doc.language === 'hbo' ? 'עב' : 'Ελ'}
+              </button>
+              <button
+                className={glossMode ? 'active' : ''}
+                title="Show English glosses (structure stays the same)"
+                onClick={() => setGlossMode(true)}
+              >
+                Eng
+              </button>
+            </div>
+          )}
           {!htmlMode && (
             <>
               <div className="canvas-zoom" title="Row spacing">

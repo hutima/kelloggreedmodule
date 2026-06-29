@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '@/state';
-import { buildOutline, type OutlineNode } from '@/domain/model';
+import { buildOutline, glossDoc, type OutlineNode } from '@/domain/model';
 import { nodeHighlightColors } from '@/ui/sermon/highlights';
 import { PhraseBlockEditor } from '@/ui/editor/block/PhraseBlockEditor';
 
@@ -26,11 +26,17 @@ export function PhraseBlockView({
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
   const highlights = useEditorStore((s) => s.sermon.highlights);
+  const glossMode = useEditorStore((s) => s.glossMode);
   const hlByNode = useMemo(() => nodeHighlightColors(highlights), [highlights]);
 
-  const outline = useMemo(() => buildOutline(doc), [doc]);
-  const greek = doc.language === 'grc';
-  const hebrew = doc.language === 'hbo';
+  // English-gloss display swaps the shown words; structure (ids) is unchanged.
+  const englishGloss = glossMode && appMode !== 'edit';
+  const outline = useMemo(
+    () => buildOutline(englishGloss ? glossDoc(doc) : doc),
+    [doc, englishGloss],
+  );
+  const greek = doc.language === 'grc' && !englishGloss;
+  const hebrew = doc.language === 'hbo' && !englishGloss;
 
   // Collapsed branch ids (controlled), reset when the document changes.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());

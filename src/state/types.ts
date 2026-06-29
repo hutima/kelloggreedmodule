@@ -151,6 +151,13 @@ export interface EditorState {
   verticalScale: number;
   /** Which diagram renderer is active (Kellogg-Reed by default). */
   diagramMode: DiagramMode;
+  /**
+   * Show English glosses instead of the Greek/Hebrew words in the structural
+   * diagrams (Kellogg-Reed / Phrase-Block / Dependency). The PARSE stays the
+   * Greek one — only the displayed words change — so non-Greek readers can follow
+   * the structure. Morphology stays in the source language (it's a form study).
+   */
+  glossMode: boolean;
   /** Current provisional inferences awaiting accept/reject. */
   inferences: Inference[];
   status: SaveStatus;

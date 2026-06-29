@@ -68,6 +68,19 @@ export function isDiscontinuous(doc: KrDocument, node: SyntaxNode): boolean {
   return false;
 }
 
+/**
+ * A display-only copy of the document with each token's surface replaced by its
+ * English gloss (falling back to the original surface when there's no gloss).
+ * Ids, syntax, and layout are untouched — so the STRUCTURE is still the Greek/
+ * Hebrew parse; only the words shown change, letting non-Greek readers follow it.
+ */
+export function glossDoc(doc: KrDocument): KrDocument {
+  return {
+    ...doc,
+    tokens: doc.tokens.map((t) => ({ ...t, surface: t.gloss?.trim() || t.surface })),
+  };
+}
+
 /** All descendant node ids of a node (depth-first), excluding the node itself. */
 export function descendantIds(model: SyntaxModel, nodeId: string): string[] {
   const out: string[] = [];
