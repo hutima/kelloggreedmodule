@@ -822,22 +822,27 @@ function layoutCompoundPredicate(ctx: Ctx, verbNode: SyntaxNode, seen: Set<strin
   const rightX = prong + maxW + prong;
   const elements: DiagramElement[] = [];
 
+  // Left-align every member and run each baseline to the SAME length (maxW), so
+  // the left corners (where each diagonal prong meets its horizontal) line up in
+  // one column — the coordinator's dashed bar drops cleanly through them.
   members.forEach((m, i) => {
     const by = ys[i]! - centerY;
-    const mx = prong + (maxW - m.width) / 2;
-    elements.push(...translate(m, mx, by));
-    elements.push(line(eid(), leftX, 0, mx, by, 'solid', 'coordination'));
-    elements.push(line(eid(), mx + m.width, by, rightX, 0, 'solid', 'coordination'));
+    elements.push(...translate(m, prong, by));
+    if (m.width < maxW) {
+      elements.push(line(eid(), prong + m.width, by, prong + maxW, by, 'solid', 'baseline'));
+    }
+    elements.push(line(eid(), leftX, 0, prong, by, 'solid', 'coordination')); // left prong
+    elements.push(line(eid(), prong + maxW, by, rightX, 0, 'solid', 'coordination')); // right prong
   });
 
-  // Coordinator on a dashed bridge between the prongs, near the left junction.
+  // Coordinator on the dashed bar joining the left corners, the conjunction
+  // riding it in the throat of the fork (just left of the corner column).
   const topY = ys[0]! - centerY;
   const botY = ys[ys.length - 1]! - centerY;
-  const dashX = prong * 0.55;
-  elements.push(line(eid(), dashX, topY * 0.55, dashX, botY * 0.55, 'dashed', 'coordination', verbNode.id));
+  elements.push(line(eid(), prong, topY, prong, botY, 'dashed', 'coordination', verbNode.id));
   if (coordText) {
     elements.push({
-      kind: 'text', id: eid(), x: dashX - 6, y: 0, text: coordText,
+      kind: 'text', id: eid(), x: prong - 7, y: (topY + botY) / 2, text: coordText,
       anchor: 'middle', small: true, rotate: -90, nodeId: coordRel?.dependentId,
     });
   }
