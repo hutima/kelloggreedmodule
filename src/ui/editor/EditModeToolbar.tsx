@@ -30,6 +30,10 @@ export function EditModeToolbar() {
   const redo = useEditorStore((s) => s.redo);
   const canUndo = useEditorStore(selectCanUndo);
   const canRedo = useEditorStore(selectCanRedo);
+  // "Clean up" re-flows the Kellogg-Reed diagram from the parse by clearing all
+  // manual placement hints — the main lever for clearing clashes after edits.
+  const cleanLayout = useEditorStore((s) => s.cleanLayout);
+  const hasLayoutHints = useEditorStore((s) => Object.keys(s.doc.layoutHints).length > 0);
 
   const adapter = adapterFor(diagramMode);
   const modeLabel = DIAGRAM_MODES.find((m) => m.id === diagramMode)?.label ?? adapter.label;
@@ -69,6 +73,25 @@ export function EditModeToolbar() {
       )}
 
       <div className="spacer" />
+
+      {diagramMode === 'kellogg-reed' && (
+        <button
+          type="button"
+          className="tool-btn clean-btn"
+          disabled={!hasLayoutHints}
+          title={
+            hasLayoutHints
+              ? 'Clean up: re-flow the diagram from the parse to clear placement clashes'
+              : 'Nothing to clean — the diagram already follows the parse'
+          }
+          onClick={cleanLayout}
+        >
+          <span className="tool-icon" aria-hidden="true">
+            ✦
+          </span>
+          <span className="tool-label">Clean up</span>
+        </button>
+      )}
 
       <div className="tool-group" role="group" aria-label="History">
         <button type="button" className="tool-btn" disabled={!canUndo} title="Undo" onClick={undo}>

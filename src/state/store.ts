@@ -210,6 +210,13 @@ export interface EditorActions {
   setImplied: (nodeId: string, implied: boolean) => void;
   // layout
   setLayoutHint: (nodeId: string, hint: NodeLayoutHint | undefined) => void;
+  /**
+   * Clear ALL manual layout hints (offsets / collapsed / slant), forcing the
+   * diagram to re-flow purely from the parse via the layout engine. Used by the
+   * Kellogg-Reed "Clean up" control to undo placement clashes left over after
+   * structural edits. No-op when there are no hints. Undoable.
+   */
+  cleanLayout: () => void;
   /** Group the word nodes that own `tokenIds` into a single phrase/block node. */
   groupTokens: (tokenIds: string[]) => void;
   /** Split a multi-token node back into one word node per token. */
@@ -727,6 +734,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         else delete layoutHints[nodeId];
         return { ...d, layoutHints };
       }),
+
+    cleanLayout: () => {
+      if (!Object.keys(get().doc.layoutHints).length) return; // nothing to clean
+      commit((d) => ({ ...d, layoutHints: {} }));
+    },
 
     // --- grouping (phrase/block) -------------------------------------------
     groupTokens: (tokenIds) => {
