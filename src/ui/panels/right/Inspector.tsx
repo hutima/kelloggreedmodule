@@ -166,6 +166,14 @@ export function Inspector() {
           <span>Notes</span>
           <textarea value={n.notes ?? ''} onChange={(e) => updateNode(n.id, { notes: e.target.value })} />
         </label>
+        {/* A word node carries a token: edit its part of speech + morphology here
+            too, so a single tap on a word edits both its function and its form. */}
+        {(() => {
+          const t = n.tokenIds[0] ? doc.tokens.find((x) => x.id === n.tokenIds[0]) : undefined;
+          return t ? (
+            <TokenInspector token={t} grc={doc.language === 'grc'} onChange={(p) => updateToken(t.id, p)} />
+          ) : null;
+        })()}
       </div>
     );
   }
