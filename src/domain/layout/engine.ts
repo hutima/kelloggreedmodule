@@ -31,9 +31,12 @@ interface Block {
   verbX?: number;
 }
 
+// Complements that sit ON the main line with a separator. The INDIRECT object is
+// deliberately NOT here: in Reed-Kellogg it hangs BELOW the verb on a slanted
+// line (a stem to its own short baseline), distinct from the direct object's
+// upright tick on the baseline.
 const BASELINE_COMPLEMENTS: SyntacticRole[] = [
   'directObject',
-  'indirectObject',
   'predicateNominative',
   'predicateAdjective',
   'objectComplement',
