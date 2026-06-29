@@ -1,4 +1,5 @@
 import type { DiagramLayout, DiagramElement } from '@/domain/layout';
+import { measureText, SMALL_FONT, BASE_FONT } from '@/domain/layout/measure';
 import { THEME, dashFor, toneColor } from './theme';
 
 /**
@@ -25,21 +26,35 @@ function escapeXml(s: string): string {
 function elementToSvg(el: DiagramElement): string {
   if (el.kind === 'line') {
     const dash = dashFor(el.style);
-    const color = el.tentative ? THEME.tentative : THEME.ink;
+    const color = el.tentative ? THEME.tentative : el.color ?? THEME.ink;
     return `<line x1="${r(el.x1)}" y1="${r(el.y1)}" x2="${r(el.x2)}" y2="${r(el.y2)}" stroke="${color}" stroke-width="${THEME.strokeWidth}"${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linecap="round" />`;
   }
   if (el.kind === 'curve') {
     const dash = dashFor(el.style);
-    const color = el.tentative ? THEME.tentative : THEME.ink;
+    const color = el.tentative ? THEME.tentative : el.color ?? THEME.ink;
     const head = el.arrow ? arrowheadPath(el.cx, el.cy, el.x2, el.y2, color) : '';
     return `<path d="M ${r(el.x1)} ${r(el.y1)} Q ${r(el.cx)} ${r(el.cy)} ${r(el.x2)} ${r(el.y2)}" fill="none" stroke="${color}" stroke-width="${THEME.strokeWidth}"${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linecap="round" />${head}`;
   }
   const fill = el.tentative
     ? THEME.tentative
-    : toneColor(el.tone) ?? (el.muted ? THEME.muted : THEME.ink);
+    : el.color ?? toneColor(el.tone) ?? (el.muted ? THEME.muted : THEME.ink);
   const size = el.small ? THEME.smallFontSize : THEME.fontSize;
   const style = el.italic ? ' font-style="italic"' : '';
   const transform = el.rotate ? ` transform="rotate(${r(el.rotate)} ${r(el.x)} ${r(el.y)})"` : '';
+  // A label CHIP (Dependency arc tag): a rounded rect behind the text, white
+  // fill with the relation's colour as border + text, so the tag reads cleanly
+  // over crossing arcs and matches its arc's hue.
+  if (el.box) {
+    const w = measureText(el.text, el.small ? SMALL_FONT : BASE_FONT);
+    const padX = 5;
+    const padY = 2.5;
+    const bw = w + padX * 2;
+    const bh = size * 0.95 + padY * 2;
+    const bx = el.anchor === 'middle' ? el.x - bw / 2 : el.anchor === 'end' ? el.x - bw : el.x;
+    const by = el.y - size * 0.72 - padY;
+    const rect = `<rect x="${r(bx)}" y="${r(by)}" width="${r(bw)}" height="${r(bh)}" rx="4" fill="${THEME.paper}" stroke="${fill}" stroke-width="1" />`;
+    return `${rect}<text x="${r(el.x)}" y="${r(el.y)}" text-anchor="${el.anchor}" font-size="${size}" fill="${fill}"${style}${transform}>${escapeXml(el.text)}</text>`;
+  }
   // A paper-coloured halo painted UNDER the glyphs masks a line crossing behind a
   // word (e.g. the dashed verb spine through the verbs), so words stay legible
   // without gapping every line. ONLY for upright words: a diagonal word lies

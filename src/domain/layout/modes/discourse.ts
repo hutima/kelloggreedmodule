@@ -156,7 +156,14 @@ export function layoutDiscourse(doc: KrDocument): DiagramLayout {
   };
 
   // Lay the clause blocks top-to-bottom in reading order, indented by depth.
-  const box = new Map<string, { topX: number; topY: number; botX: number; botY: number }>();
+  interface Box {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+    midY: number;
+  }
+  const box = new Map<string, Box>();
   let y = 0;
   for (const cl of renderable) {
     const toks = ownTokens.get(cl)!;
@@ -176,30 +183,58 @@ export function layoutDiscourse(doc: KrDocument): DiagramLayout {
     elements.push(line(x0, boxBottom, boxRight, boxBottom, 'connector', 'solid'));
     elements.push(line(x0, y, x0, boxBottom, 'connector', 'solid'));
     elements.push(line(boxRight, y, boxRight, boxBottom, 'connector', 'solid'));
-    box.set(cl, { topX: (x0 + boxRight) / 2, topY: y, botX: (x0 + boxRight) / 2, botY: boxBottom });
+    box.set(cl, { left: x0, right: boxRight, top: y, bottom: boxBottom, midY: (y + boxBottom) / 2 });
     y = boxBottom + V_GAP;
   }
 
-  // Labelled arrows from each block to the block it depends on.
+  /**
+   * Connect each block to the block it depends on with an ELBOW routed through
+   * the indent channel (straight down a shared spine, then right into the child),
+   * not a diagonal from box-centre to box-centre. Children of one parent share
+   * the same vertical spine, so the arrows neither fan out from a single point
+   * nor cross each other or the labels — the chief complaint with the old map.
+   */
+  const JOIN = Math.round(INDENT_X * 0.5); // how far left of a child its spine sits
+  const elbow = (
+    spineX: number,
+    fromY: number,
+    target: Box,
+    style: 'solid' | 'dashed',
+    label: string,
+  ) => {
+    const ty = target.midY;
+    elements.push(
+      curve(spineX, fromY, spineX, ty, target.left, ty, 'connector', style, { arrow: true }),
+    );
+    if (label) {
+      elements.push(
+        text(spineX + 4, ty - 5, label, {
+          anchor: 'start',
+          small: true,
+          italic: true,
+          muted: true,
+          glossKey: label,
+        }),
+      );
+    }
+  };
+
+  // Parent → child elbows (subordinate / embedded blocks).
   let prevTop: string | undefined;
   for (const cl of renderable) {
     const here = box.get(cl)!;
     const parent = parentBlock(cl);
     if (parent && box.has(parent)) {
       const p = box.get(parent)!;
-      const midY = (p.botY + here.topY) / 2;
-      const label = relationLabel(cl);
-      elements.push(curve(p.botX, p.botY, (p.botX + here.topX) / 2, midY, here.topX, here.topY, 'connector', 'solid', { arrow: true }));
-      if (label) elements.push(text((p.botX + here.topX) / 2 + 6, midY, label, { anchor: 'start', small: true, italic: true, muted: true }));
+      const spineX = here.left - JOIN;
+      elbow(spineX, p.bottom, here, 'solid', relationLabel(cl));
     } else {
-      // Top-level assertions: thread them so the argument still reads top-down,
-      // labelling the link from the coordinating conjunction where there is one.
+      // Top-level assertions thread top-down through a left gutter spine, so the
+      // argument still reads as a single column without diagonal crossings.
       if (prevTop && box.has(prevTop)) {
         const p = box.get(prevTop)!;
-        const midY = (p.botY + here.topY) / 2;
-        const label = relationLabel(cl);
-        elements.push(curve(p.botX, p.botY, (p.botX + here.topX) / 2, midY, here.topX, here.topY, 'connector', 'dashed', { arrow: true }));
-        if (label) elements.push(text((p.botX + here.topX) / 2 + 6, midY, label, { anchor: 'start', small: true, italic: true, muted: true }));
+        const spineX = Math.min(p.left, here.left) - JOIN;
+        elbow(spineX, p.bottom, here, 'dashed', relationLabel(cl));
       }
       prevTop = cl;
     }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { lowfatToDocuments } from '@/io/lowfat';
 import { layoutForMode, DIAGRAM_MODES, DEFAULT_MODE } from '@/domain/layout';
+import { buildSvg } from '@/io';
 
 /**
  * Alternate diagram modes share the layout→primitive→canvas pipeline. These pin
@@ -60,6 +61,53 @@ describe('dependency mode', () => {
     const labels = layout.elements.filter((e) => e.kind === 'text' && e.small && e.italic).map((e) => (e as { text: string }).text);
     expect(labels).toContain('subj');
     expect(labels).toContain('obj');
+  });
+
+  it('colour-codes arcs and renders each label as a glossable chip', () => {
+    const layout = layoutForMode('dependency', doc(), {}, {});
+    // Every dependency arc carries an explicit colour.
+    const arcs = layout.elements.filter((e) => e.kind === 'curve' && e.relationId);
+    expect(arcs.length).toBeGreaterThan(0);
+    expect(arcs.every((c) => typeof (c as { color?: string }).color === 'string')).toBe(true);
+    // Each relation label is a chip and is tappable for its meaning.
+    const chips = layout.elements.filter(
+      (e) => e.kind === 'text' && (e as { box?: boolean }).box && (e as { relationId?: string }).relationId,
+    ) as Array<{ text: string; color?: string; glossKey?: string }>;
+    expect(chips.length).toBeGreaterThan(0);
+    expect(chips.every((c) => c.color && c.glossKey)).toBe(true);
+    const subj = chips.find((c) => c.text === 'subj');
+    expect(subj?.glossKey).toBe('subject');
+  });
+
+  it('stacks overlapping arcs at different heights so they do not collide', () => {
+    const layout = layoutForMode('dependency', doc(), {}, {});
+    const yOf = (label: string) =>
+      (layout.elements.find(
+        (e) => e.kind === 'text' && (e as { box?: boolean }).box && (e as { text: string }).text === label,
+      ) as { y: number }).y;
+    // The object arc spans across the determiner arc, so it must ride higher
+    // (smaller y) than the subject arc, which sits at the base level.
+    expect(yOf('obj')).toBeLessThan(yOf('subj'));
+  });
+
+  it('marks each sentence root with a glossable chip pointing at the main verb', () => {
+    const layout = layoutForMode('dependency', doc(), {}, {});
+    const root = layout.elements.find(
+      (e) => e.kind === 'text' && (e as { text: string }).text === 'root',
+    ) as { box?: boolean; glossKey?: string } | undefined;
+    expect(root?.box).toBe(true);
+    expect(root?.glossKey).toBe('root');
+  });
+});
+
+describe('mode-aware export', () => {
+  it('exports the SELECTED mode, not always Kellogg-Reed', () => {
+    const krSvg = buildSvg(doc()); // default kellogg-reed
+    const depSvg = buildSvg(doc(), {}, 'dependency');
+    expect(depSvg).not.toEqual(krSvg);
+    // Dependency chips are rounded rects (rx); Kellogg-Reed emits none.
+    expect(depSvg).toContain('rx="4"');
+    expect(krSvg).not.toContain('rx="4"');
   });
 });
 
@@ -135,5 +183,15 @@ describe('morphology clause mode', () => {
     expect(linkLabels).toContain('subj');
     expect(linkLabels).toContain('agr');
     expect(layout.elements.some((e) => e.kind === 'curve')).toBe(true);
+  });
+
+  it('makes the agreement / subject link labels tappable for their meaning', () => {
+    const layout = layoutForMode('morphology', doc(), {}, {});
+    const labelGloss = (text: string) =>
+      (layout.elements.find((e) => e.kind === 'text' && (e as { text: string }).text === text) as {
+        glossKey?: string;
+      }).glossKey;
+    expect(labelGloss('agr')).toBe('agreement');
+    expect(labelGloss('subj')).toBe('subject');
   });
 });

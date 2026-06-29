@@ -762,6 +762,19 @@ textarea.code,
   stroke: transparent;
   stroke-width: 14;
 }
+/* A glossed label (a dependency tag, an agreement link) invites a tap for its
+   meaning. */
+.diagram-paper .kr-text.glossed {
+  cursor: help;
+}
+.diagram-paper .kr-text.glossed:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
+/* The glossary popover reuses the dark detail card but reads as a definition. */
+.kr-gloss .kr-reveal-word {
+  color: #f5f7fa;
+}
 
 /* ---- Token list ---- */
 .token-row {

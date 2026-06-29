@@ -1,8 +1,9 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { layoutForMode, DIAGRAM_MODES } from '@/domain/layout';
+import { measureText, SMALL_FONT, BASE_FONT } from '@/domain/layout/measure';
 import { dashFor, toneColor } from '@/domain/render';
-import { describeFunction, getNode, childRelations } from '@/domain/model';
+import { describeFunction, getNode, childRelations, lookupGloss } from '@/domain/model';
 import {
   loadParallelBook,
   alignParallel,
@@ -47,6 +48,9 @@ export function DiagramCanvas() {
   const gntIndex = useEditorStore((s) => s.gntIndex);
   const stepGnt = useEditorStore((s) => s.stepGnt);
   const [collapsed, setCollapsed] = useState(false);
+  // Which label element anchors the glossary popover (so it opens at the exact
+  // tag tapped, even when several arcs share a label/colour).
+  const [glossAnchorId, setGlossAnchorId] = useState<string | null>(null);
   // What is currently hovered — in the diagram, the Greek strip, or the English
   // strip — kept as the set of diagram nodes AND English words it touches, so all
   // three views light up in lock-step (a Greek word ↔ its English translation).
@@ -323,13 +327,13 @@ export function DiagramCanvas() {
     return () => window.removeEventListener('keydown', onKey);
   }, [linking, cancelRelink]);
 
-  // Escape closes the tap-a-word detail popover.
+  // Escape closes the tap-a-word / tap-a-label detail popover.
   useEffect(() => {
-    if (linking || !selection.nodeId) return;
+    if (linking || (!selection.nodeId && !selection.glossKey)) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && select({});
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [linking, selection.nodeId, select]);
+  }, [linking, selection.nodeId, selection.glossKey, select]);
 
   const onNode = (nodeId?: string) => {
     if (moved.current) return; // a drag, not a tap
@@ -369,6 +373,35 @@ export function DiagramCanvas() {
       top: clamp(py, 8, Math.max(8, H - POP_H - 8)),
     };
   }, [reveal, view]);
+
+  // ---- glossary popover (tap a label, e.g. "agr") ------------------------
+  const gloss = useMemo(() => {
+    if (linking || !selection.glossKey) return null;
+    const entry = lookupGloss(selection.glossKey);
+    if (!entry) return null;
+    // Anchor at the exact tapped label when known, else the first matching one.
+    const labels = layout.elements.filter(
+      (e) => e.kind === 'text' && e.glossKey === selection.glossKey,
+    ) as { id: string; x: number; y: number }[];
+    const anchor = labels.find((e) => e.id === glossAnchorId) ?? labels[0];
+    if (!anchor) return null;
+    return { anchor, entry };
+  }, [layout, selection.glossKey, glossAnchorId, linking]);
+
+  const glossPos = useMemo(() => {
+    if (!gloss) return null;
+    const vp = viewportRef.current;
+    const W = vp?.clientWidth ?? 600;
+    const H = vp?.clientHeight ?? 400;
+    const POP_W = 250;
+    const POP_H = 130;
+    const px = view.x + gloss.anchor.x * view.scale;
+    const py = view.y + gloss.anchor.y * view.scale + 14;
+    return {
+      left: clamp(px - POP_W / 2, 8, Math.max(8, W - POP_W - 8)),
+      top: clamp(py, 8, Math.max(8, H - POP_H - 8)),
+    };
+  }, [gloss, view]);
 
   return (
     <div className={`canvas${collapsed ? ' collapsed' : ''}`}>
@@ -600,7 +633,7 @@ export function DiagramCanvas() {
                     <line
                       className={`kr-line${sel ? ' selected' : ''}`}
                       x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2}
-                      stroke={el.tentative ? TENTATIVE : INK}
+                      stroke={el.tentative ? TENTATIVE : el.color ?? INK}
                       strokeWidth={1.6}
                       strokeLinecap="round"
                       {...(dash ? { strokeDasharray: dash } : {})}
@@ -629,7 +662,7 @@ export function DiagramCanvas() {
                 const head = el.arrow
                   ? `M ${el.x2} ${el.y2} L ${el.x2 + s * Math.cos(ang + Math.PI - 0.4)} ${el.y2 + s * Math.sin(ang + Math.PI - 0.4)} L ${el.x2 + s * Math.cos(ang + Math.PI + 0.4)} ${el.y2 + s * Math.sin(ang + Math.PI + 0.4)} Z`
                   : '';
-                const color = el.tentative ? TENTATIVE : INK;
+                const color = el.tentative ? TENTATIVE : el.color ?? INK;
                 return (
                   <g key={el.id}>
                     <path
@@ -650,31 +683,66 @@ export function DiagramCanvas() {
                   </g>
                 );
               }
-              const sel = isSelected(el.nodeId, el.relationId);
+              const sel =
+                isSelected(el.nodeId, el.relationId) ||
+                (!!el.glossKey && el.glossKey === selection.glossKey && el.id === glossAnchorId);
               const hov = el.nodeId && hover.nodes.has(el.nodeId);
+              const fill = el.tentative
+                ? TENTATIVE
+                : el.color ?? toneColor(el.tone) ?? (el.muted ? '#8a97a3' : '#1f2933');
+              const onLabelClick = () => {
+                if (moved.current) return;
+                if (el.glossKey && !linking) {
+                  setGlossAnchorId(el.id);
+                  select({ glossKey: el.glossKey });
+                } else if (el.nodeId) onNode(el.nodeId);
+                else if (el.relationId && !linking) select({ relationId: el.relationId });
+                else if (!linking) select({});
+              };
+              // A label CHIP (Dependency arc tag): a rounded rect behind the text
+              // so the tag reads over crossing arcs, in the relation's colour.
+              const chip = (() => {
+                if (!el.box) return null;
+                const size = el.small ? 13 : 18;
+                const w = measureText(el.text, el.small ? SMALL_FONT : BASE_FONT);
+                const padX = 5;
+                const padY = 2.5;
+                const bw = w + padX * 2;
+                const bh = size * 0.95 + padY * 2;
+                const bx =
+                  el.anchor === 'middle' ? el.x - bw / 2 : el.anchor === 'end' ? el.x - bw : el.x;
+                const by = el.y - size * 0.72 - padY;
+                return (
+                  <rect
+                    x={bx} y={by} width={bw} height={bh} rx={4}
+                    fill="#fff" stroke={fill} strokeWidth={sel ? 2 : 1}
+                  />
+                );
+              })();
               return (
-                <text
-                  key={el.id}
-                  className={`kr-text${sel ? ' selected' : ''}${hov ? ' hovered' : ''}`}
-                  x={el.x} y={el.y}
-                  textAnchor={el.anchor}
-                  fontSize={el.small ? 13 : 18}
-                  fontStyle={el.italic ? 'italic' : undefined}
-                  fill={el.tentative ? TENTATIVE : toneColor(el.tone) ?? (el.muted ? '#8a97a3' : '#1f2933')}
-                  {...(el.rotate
-                    ? { transform: `rotate(${el.rotate} ${el.x} ${el.y})` }
-                    : { stroke: '#fff', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' })}
-                  onMouseEnter={() => el.nodeId && hoverDiagram(el.nodeId)}
-                  onMouseLeave={() => el.nodeId && hoverDiagram(undefined)}
-                  onClick={() => {
-                    if (moved.current) return;
-                    if (el.nodeId) onNode(el.nodeId);
-                    else if (el.relationId && !linking) select({ relationId: el.relationId });
-                    else if (!linking) select({});
-                  }}
-                >
-                  {el.text}
-                </text>
+                <g key={el.id}>
+                  {chip}
+                  <text
+                    className={`kr-text${sel ? ' selected' : ''}${hov ? ' hovered' : ''}${
+                      el.glossKey ? ' glossed' : ''
+                    }`}
+                    x={el.x} y={el.y}
+                    textAnchor={el.anchor}
+                    fontSize={el.small ? 13 : 18}
+                    fontStyle={el.italic ? 'italic' : undefined}
+                    fill={fill}
+                    {...(el.box
+                      ? {}
+                      : el.rotate
+                        ? { transform: `rotate(${el.rotate} ${el.x} ${el.y})` }
+                        : { stroke: '#fff', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' })}
+                    onMouseEnter={() => el.nodeId && hoverDiagram(el.nodeId)}
+                    onMouseLeave={() => el.nodeId && hoverDiagram(undefined)}
+                    onClick={onLabelClick}
+                  >
+                    {el.text}
+                  </text>
+                </g>
               );
             })}
           </svg>
@@ -699,6 +767,23 @@ export function DiagramCanvas() {
             <div className="kr-reveal-role">{reveal.summary.role}</div>
             <div className="kr-reveal-detail">{reveal.summary.detail}</div>
             {reveal.summary.grammar && <div className="kr-reveal-grammar">{reveal.summary.grammar}</div>}
+          </div>
+        )}
+        {gloss && glossPos && (
+          <div className="kr-reveal kr-gloss" style={{ left: glossPos.left, top: glossPos.top }} role="status">
+            <button
+              className="kr-reveal-close"
+              title="Close (Esc)"
+              aria-label="Close"
+              onClick={() => select({})}
+            >
+              ✕
+            </button>
+            <div className="kr-reveal-word">
+              {gloss.entry.term}
+              {gloss.entry.abbr && <span className="kr-reveal-gloss"> · {gloss.entry.abbr}</span>}
+            </div>
+            <div className="kr-reveal-detail">{gloss.entry.detail}</div>
           </div>
         )}
       </div>

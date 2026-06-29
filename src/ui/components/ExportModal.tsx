@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { KrDocument } from '@/domain/schema';
+import type { DiagramMode } from '@/domain/layout';
 import {
   documentNaturalSize,
   downloadDocumentPng,
@@ -11,20 +12,23 @@ import {
 /**
  * Export dialog. The diagram is vector, so SVG exports at any size; PNG lets the
  * reader pick exact pixel dimensions (aspect-locked to the diagram). JSON and
- * Print are offered as secondary actions.
+ * Print are offered as secondary actions. Export honours the active diagram
+ * `mode`, so what you see is what you export.
  */
 export function ExportModal({
   doc,
   verticalScale,
+  mode,
   onClose,
 }: {
   doc: KrDocument;
   verticalScale: number;
+  mode: DiagramMode;
   onClose: () => void;
 }) {
   const natural = useMemo(
-    () => documentNaturalSize(doc, { verticalScale }),
-    [doc, verticalScale],
+    () => documentNaturalSize(doc, { verticalScale }, mode),
+    [doc, verticalScale, mode],
   );
   const aspect = natural.height / natural.width;
 
@@ -45,13 +49,13 @@ export function ExportModal({
 
   const doExport = async () => {
     if (format === 'svg') {
-      downloadDocumentSvg(doc, { verticalScale });
+      downloadDocumentSvg(doc, { verticalScale }, mode);
       onClose();
       return;
     }
     setBusy(true);
     try {
-      await downloadDocumentPng(doc, width / natural.width, { verticalScale });
+      await downloadDocumentPng(doc, width / natural.width, { verticalScale }, mode);
       onClose();
     } finally {
       setBusy(false);
@@ -141,7 +145,7 @@ export function ExportModal({
             <button className="link-btn" onClick={() => downloadDocumentJson(doc)}>
               JSON
             </button>
-            <button className="link-btn" onClick={() => printDocument(doc, { verticalScale })}>
+            <button className="link-btn" onClick={() => printDocument(doc, { verticalScale }, mode)}>
               Print…
             </button>
           </div>

@@ -1,3 +1,58 @@
+import type { SyntacticRole } from '@/domain/schema';
+
+/**
+ * Per-relation colours for the Dependency graph. Grouped into meaning families
+ * (core arguments, complements, modifiers, prepositional, coordination …) so an
+ * arc and its label chip share a hue and the reader can tell which label belongs
+ * to which arc at a glance. The palette is chosen to stay distinguishable for
+ * common colour-vision deficiencies; the label text is always shown too, so
+ * colour is never the only cue.
+ */
+const REL_FAMILY: Record<string, string> = {
+  core: '#1565c0', // blue — subject / nsubj
+  object: '#c1440e', // rust — direct & indirect objects
+  complement: '#00838f', // teal — predicate nom./adj., copula, agent
+  modifier: '#2e7d32', // green — adjectival, adverbial, determiner, genitive, apposition
+  prepositional: '#6a1b9a', // purple — prepositional phrase & its object, case
+  coordination: '#9c6f1a', // amber — conjuncts, coordinator, conjunction, particle
+  clause: '#5b6470', // slate — clause-level / catch-all
+};
+
+const ROLE_TO_FAMILY: Partial<Record<SyntacticRole, keyof typeof REL_FAMILY>> = {
+  subject: 'core',
+  predicate: 'clause',
+  copula: 'complement',
+  directObject: 'object',
+  indirectObject: 'object',
+  predicateNominative: 'complement',
+  predicateAdjective: 'complement',
+  objectComplement: 'object',
+  dativeComplement: 'complement',
+  genitiveComplement: 'complement',
+  agent: 'complement',
+  adjectival: 'modifier',
+  adverbial: 'modifier',
+  determiner: 'modifier',
+  genitive: 'modifier',
+  apposition: 'modifier',
+  prepositionalPhrase: 'prepositional',
+  prepositionObject: 'prepositional',
+  conjunction: 'coordination',
+  coordinator: 'coordination',
+  conjunct: 'coordination',
+  particle: 'coordination',
+  vocative: 'clause',
+  interjection: 'clause',
+  adjunct: 'clause',
+  clause: 'clause',
+  unknown: 'clause',
+};
+
+/** Colour for a relation type, for the Dependency arc + its matching chip. */
+export function relationColor(role: SyntacticRole): string {
+  return REL_FAMILY[ROLE_TO_FAMILY[role] ?? 'clause']!;
+}
+
 /** Tunable geometry for the Kellogg-Reed renderer. All in SVG user units. */
 export const LAYOUT = {
   margin: 28,
