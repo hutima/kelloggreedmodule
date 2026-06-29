@@ -60,7 +60,7 @@ describe('Lowfat → KrDocument converter', () => {
     expect(rootChildren.some((r) => r.type === 'subject')).toBe(true);
     // Exactly one implied "(is)" predicate in the whole sentence (the real one),
     // not two (one of which would be the wrapper's).
-    const impliedIs = v2!.syntax.nodes.filter((n) => n.implied && n.label === '(is)');
+    const impliedIs = v2!.syntax.nodes.filter((n) => n.implied && n.label === '(ἐστίν)');
     expect(impliedIs).toHaveLength(1);
   });
 

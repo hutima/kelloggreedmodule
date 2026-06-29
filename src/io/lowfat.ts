@@ -265,7 +265,7 @@ class SentenceConverter {
         tokenIds: [],
         role: 'predicate',
         implied: true,
-        label: '(is)',
+        label: '(ἐστίν)', // the elided Greek copula, not English "is"
         provenance: { source: 'given', confidence: 'high' },
       });
     }

@@ -112,6 +112,11 @@ export function DiagramCanvas() {
           </button>
         </div>
       )}
+      {doc.text && (
+        <div className={`source-text${doc.language === 'grc' ? ' greek' : ''}`} title="Source text">
+          {doc.text}
+        </div>
+      )}
       <div className="canvas-wrap">
         <div className={`diagram-surface${linking ? ' relinking' : ''}`}>
         <svg

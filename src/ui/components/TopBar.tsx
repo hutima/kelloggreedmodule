@@ -1,11 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { useEditorStore, selectCanRedo, selectCanUndo, type AppMode } from '@/state';
-import { sampleEntries, cloneSample } from '@/fixtures';
-import {
-  listDocuments,
-  getDocument,
-  type DocumentSummary,
-} from '@/persistence';
 import {
   downloadDocumentJson,
   downloadDocumentSvg,
@@ -13,7 +7,6 @@ import {
   importJson,
   printDocument,
 } from '@/io';
-import type { Language } from '@/domain/schema';
 
 const MODES: { id: AppMode; label: string; hint: string }[] = [
   { id: 'parsed', label: 'Parsed', hint: 'Paste a full parse (JSON / Parse tab).' },
@@ -36,7 +29,6 @@ export function TopBar({
   const status = useEditorStore((s) => s.status);
   const setMode = useEditorStore((s) => s.setMode);
   const setTitle = useEditorStore((s) => s.setTitle);
-  const newDocument = useEditorStore((s) => s.newDocument);
   const loadDocument = useEditorStore((s) => s.loadDocument);
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
@@ -44,16 +36,10 @@ export function TopBar({
   const canRedo = useEditorStore(selectCanRedo);
 
   const fileRef = useRef<HTMLInputElement>(null);
-  const [recent, setRecent] = useState<DocumentSummary[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
   // On phones the command buttons collapse behind a menu toggle so they don't
   // consume most of the screen; on wider screens the group is always shown.
   const [menuOpen, setMenuOpen] = useState(false);
-
-  // Refresh the recent list whenever the doc id or save status changes.
-  useEffect(() => {
-    listDocuments().then(setRecent).catch(() => setRecent([]));
-  }, [doc.id, status]);
 
   // Keyboard shortcuts for undo/redo.
   useEffect(() => {
@@ -131,59 +117,6 @@ export function TopBar({
         <button className="btn" onClick={redo} disabled={!canRedo} title="Redo (Shift+Ctrl/Cmd+Z)">
           ↷
         </button>
-
-        <select
-          className="btn"
-          value=""
-          aria-label="New document"
-          onChange={(e) => {
-            if (e.target.value) newDocument(e.target.value as Language);
-            e.currentTarget.value = '';
-          }}
-        >
-          <option value="">＋ New</option>
-          <option value="en">English document</option>
-          <option value="grc">Greek document</option>
-        </select>
-
-        <select
-          className="btn"
-          value=""
-          aria-label="Load sample"
-          onChange={(e) => {
-            const d = cloneSample(e.target.value);
-            if (d) loadDocument(d);
-            e.currentTarget.value = '';
-          }}
-        >
-          <option value="">Samples</option>
-          {sampleEntries.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.language === 'grc' ? '🇬🇷 ' : ''}
-              {s.title}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className="btn"
-          value=""
-          aria-label="Recent documents"
-          onChange={(e) => {
-            const found = recent.find((r) => r.id === e.target.value);
-            if (found) {
-              void getDocument(found.id).then((d) => d && loadDocument(d));
-            }
-            e.currentTarget.value = '';
-          }}
-        >
-          <option value="">Recent</option>
-          {recent.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.title}
-            </option>
-          ))}
-        </select>
 
         <button className="btn" onClick={() => fileRef.current?.click()}>
           Import

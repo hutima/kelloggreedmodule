@@ -753,6 +753,41 @@ function layoutClauseSpine(
   return { width: right, height: bottom, elements, wordLeft: 0, wordRight: right, verbX: verbAlignX };
 }
 
+/**
+ * A discourse container: several independent sentences shown one above another,
+ * each its own full diagram with its verse reference floated above it. The
+ * sentences are NOT connected — this is a reading aid, a passage on one canvas.
+ */
+function layoutDiscourse(
+  ctx: Ctx,
+  _clause: SyntaxNode,
+  seen: Set<string>,
+  rels: { id: string; type: SyntacticRole; dependentId: string }[],
+): Block {
+  const memberRels = rels.filter((r) => isClauseChild(ctx, r.dependentId));
+  const elements: DiagramElement[] = [];
+  let cursorTop = 0;
+  let right = 0;
+  let bottom = 0;
+
+  for (const r of memberRels) {
+    const node = getNode(ctx.doc.syntax, r.dependentId);
+    const block = layoutNode(ctx, r.dependentId, seen);
+    const ascent = blockAscent(block);
+    const labelGap = LAYOUT.fontSize + 6;
+    const y = cursorTop + ascent + labelGap;
+    if (node?.label) {
+      elements.push(smallText(eid(), 0, y - ascent - 8, node.label, 'start', undefined));
+    }
+    elements.push(...translate(block, 0, y));
+    right = Math.max(right, block.width);
+    bottom = Math.max(bottom, y + block.height);
+    cursorTop = y + block.height + LAYOUT.clauseStackGap * 2.4 * ctx.vScale;
+  }
+
+  return { width: right, height: bottom, elements, wordLeft: 0, wordRight: right };
+}
+
 // --- a coordinated set of words (the two-prong fork) --------------------------
 
 /**
@@ -927,6 +962,10 @@ function layoutCompoundPredicate(ctx: Ctx, verbNode: SyntaxNode, seen: Set<strin
 function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   const model = ctx.doc.syntax;
   const rels = childRelations(model, clause.id);
+
+  // A passage: independent sentences stacked, each labelled with its verse, not
+  // tied together as a coordination.
+  if (clause.clauseType === 'discourse') return layoutDiscourse(ctx, clause, seen, rels);
 
   const subjectRel = rels.find((r) => r.type === 'subject');
   const predicateRel = rels.find((r) => r.type === 'predicate' || r.type === 'copula');
@@ -1139,7 +1178,10 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // long adverbial PP hanging under the verb (ὑπὲρ τοῦ σώματος…) overlaps the
   // direct object's own genitive chain hanging below it on the baseline.
   let vModRight = x;
-  let vCursor = verbMidX;
+  // Hang the first modifier from the middle of the verb, but never so far left
+  // that its diagonal text runs back over a SHORT verb (a one-word implied
+  // copula like "(ἐστίν)"): keep the attach point past the verb word's right edge.
+  let vCursor = Math.max(verbMidX, verbX0 + (predBlock.wordRight || predBlock.width) - LAYOUT.wordPadX);
   verbMods.forEach((r) => {
     const { right, next } = drawHanging(r, vCursor);
     vCursor = next;
