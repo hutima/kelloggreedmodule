@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { GNT_BOOKS, BUNDLED_BOOKS, cacheGntBook, loadGntBook, combinePassage, type GntBook } from '@/io';
 import type { KrDocument } from '@/domain/schema';
@@ -34,6 +34,25 @@ export function GntPicker() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cacheState, setCacheState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  // Keep the Book selector in sync with the OPEN passage's book. The initial
+  // state above captures whatever document was loaded when this panel first
+  // mounted — but on a returning visit the session is restored ASYNCHRONOUSLY,
+  // so the panel can mount on the placeholder doc and miss the swap to (e.g.)
+  // Romans, leaving the selector stuck on the Philippians default. When the open
+  // document changes to a different book, follow it.
+  const lastSyncedDocId = useRef(doc.id);
+  useEffect(() => {
+    if (doc.id === lastSyncedDocId.current) return;
+    lastSyncedDocId.current = doc.id;
+    if (currentBook && currentBook.num !== bookNum) {
+      setBookNum(currentBook.num);
+      // The previously loaded sentence list was for the old book.
+      setPassages(null);
+      setChecked(new Set());
+      setCacheState('idle');
+    }
+  }, [doc.id, currentBook, bookNum]);
 
   const book = GNT_BOOKS.find((b) => b.num === bookNum)!;
   const bundled = BUNDLED_BOOKS.has(book.num);
