@@ -62,6 +62,24 @@ function prepObjectId(ctx: Ctx, rel: { type: SyntacticRole; dependentId: string 
   return null;
 }
 
+/** The object node a preposition node governs (its `prepositionObject`), if any. */
+function prepObjectOf(ctx: Ctx, prepNodeId: string): string | null {
+  return (
+    childRelations(ctx.doc.syntax, prepNodeId).find((r) => r.type === 'prepositionObject')
+      ?.dependentId ?? null
+  );
+}
+
+/**
+ * The conjunct PP members of a coordinated preposition node — e.g. ἐπὶ τῆς γῆς,
+ * a conjunct of ἐν τοῖς οὐρανοῖς in "ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς". Only
+ * conjuncts that are themselves prepositions (carry their own object) qualify;
+ * an empty list means this is a plain (uncoordinated) PP.
+ */
+function ppConjunctRels(ctx: Ctx, prepNodeId: string) {
+  return wordConjunctRels(ctx, prepNodeId).filter((r) => !!prepObjectOf(ctx, r.dependentId));
+}
+
 /**
  * Closed-class / function words that are written ALONG a diagonal in the
  * traditional Kellogg-Reed style (articles, adjectives, adverbs, possessive
@@ -194,6 +212,98 @@ function drawInfinitive(
   out.push(...translate(block, objX, oTop));
   out.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, rel.id));
   return { right: objX + block.width, bottom: Math.max(oTop + block.height, oTop) };
+}
+
+/**
+ * Draw ONE prepositional phrase hanging from (`attachX`, 0): the preposition
+ * written along a standard-angle slant down to its object's own horizontal
+ * baseline. Returns the rightmost x reached, the lowest y, and the slant's
+ * bottom (`oTop`, the object baseline) so callers can align a coordinator bar.
+ */
+function drawPp(
+  ctx: Ctx,
+  prepNodeId: string,
+  objId: string,
+  relId: string,
+  attachX: number,
+  topY: number,
+  seen: Set<string>,
+  out: DiagramElement[],
+): { right: number; bottom: number; oTop: number } {
+  const block = layoutNode(ctx, objId, seen);
+  // Drop the slant deeper by the object's ascent so a COORDINATED object (whose
+  // upper conjunct rises above its baseline) doesn't land back on the head line.
+  const oTop = topY + blockAscent(block);
+  const endX = attachX + slantRun(oTop);
+  const objX = endX - block.wordLeft;
+  out.push(...translate(block, objX, oTop));
+  out.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, relId));
+  const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, prepNodeId)!) || '';
+  out.push(diagonalText(prep, attachX, 0, endX, oTop, relId, prepNodeId));
+  return {
+    right: objX + block.width,
+    bottom: Math.max(oTop + block.height, diagonalDepth(attachX, 0, endX, oTop, prep)),
+    oTop,
+  };
+}
+
+/**
+ * Draw a COORDINATION of prepositional phrases hanging from (`attachX`, 0) —
+ * "ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς". Each conjunct PP is drawn like a lone PP
+ * (preposition on its slant, object on a baseline below), set side by side, and
+ * the first two slants are bridged by a dashed coordinator bar carrying the
+ * conjunction (καί) — the Kellogg-Reed mark that the phrases are coordinate, not
+ * nested. Without this the engine's PP fast-path would draw only the head PP's
+ * object and silently drop the conjunct phrases.
+ */
+function drawPpCoordination(
+  ctx: Ctx,
+  headRel: { id: string; dependentId: string },
+  headObjId: string,
+  conjRels: { id: string; dependentId: string }[],
+  attachX: number,
+  topY: number,
+  seen: Set<string>,
+  out: DiagramElement[],
+): { right: number; bottom: number } {
+  const members = [
+    { prepNodeId: headRel.dependentId, objId: headObjId, relId: headRel.id },
+    ...conjRels.map((r) => ({
+      prepNodeId: r.dependentId,
+      objId: prepObjectOf(ctx, r.dependentId)!,
+      relId: r.id,
+    })),
+  ];
+  let cursor = attachX;
+  let right = attachX;
+  let bottom = topY;
+  let minOTop = Infinity;
+  const slants: number[] = [];
+  for (const m of members) {
+    slants.push(cursor);
+    const ext = drawPp(ctx, m.prepNodeId, m.objId, m.relId, cursor, topY, seen, out);
+    right = Math.max(right, ext.right);
+    bottom = Math.max(bottom, ext.bottom);
+    minOTop = Math.min(minOTop, ext.oTop);
+    cursor = ext.right + LAYOUT.dependentGap;
+  }
+  const coordRel = childRelations(ctx.doc.syntax, headRel.dependentId).find(
+    (r) => r.type === 'coordinator',
+  );
+  const coordText = coordRel
+    ? nodeText(ctx.doc, getNode(ctx.doc.syntax, coordRel.dependentId)!) || ''
+    : '';
+  if (coordText && slants.length >= 2) {
+    // Bridge the first two slants partway down, where both are still on the slant
+    // (above their object baselines); the conjunction rides the bar.
+    const d = minOTop * 0.55;
+    const dx = slantRun(d);
+    const x0 = slants[0]! + dx;
+    const x1 = slants[1]! + dx;
+    out.push(line(eid(), x0, d, x1, d, 'dashed', 'coordination', headRel.dependentId));
+    out.push(smallText(eid(), (x0 + x1) / 2, d - 4, coordText, 'middle', coordRel?.id));
+  }
+  return { right, bottom };
 }
 
 /**
@@ -565,32 +675,30 @@ function layoutHead(
   wordRels.forEach((rel) => {
     cursor += LAYOUT.dependentGap;
     const objId = prepObjectId(ctx, rel);
+    const ppConj = objId ? ppConjunctRels(ctx, rel.dependentId) : [];
     if (isInfinitival(ctx, rel.dependentId)) {
       // Infinitive phrase: empty diagonal to its own horizontal baseline.
       const ext = drawInfinitive(ctx, rel, cursor, depTop, seen, elements);
       railRight = Math.max(railRight, cursor);
       belowBottom = Math.max(belowBottom, ext.bottom);
       cursor = ext.right;
+    } else if (objId && ppConj.length) {
+      // Coordinated prepositional phrases ("ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς"):
+      // every conjunct PP drawn side by side, joined by the coordinator.
+      const ext = drawPpCoordination(ctx, rel, objId, ppConj, cursor, depTop, seen, elements);
+      cursor = ext.right;
+      railRight = Math.max(railRight, cursor);
+      belowBottom = Math.max(belowBottom, ext.bottom);
     } else if (objId) {
       // Preposition written ALONG the diagonal; object on its baseline below. Drop
       // deeper by the object's ascent so a coordinated object clears the head line.
-      const block = layoutNode(ctx, objId, seen);
-      const oTop = depTop + blockAscent(block);
-      const attachX = cursor;
-      // Stem at the standard slant angle (run derived from the drop), so every
-      // PP diagonal is parallel to the article/possessive slants.
-      const endX = attachX + slantRun(oTop);
-      const objX = endX - block.wordLeft;
-      elements.push(...translate(block, objX, oTop));
-      elements.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, rel.id));
-      const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, rel.dependentId)!) || '';
-      elements.push(diagonalText(prep, attachX, 0, endX, oTop, rel.id, rel.dependentId));
-      cursor = objX + block.width;
       // Extend the head's baseline over the PP's object (not merely to the
       // diagonal's attach point), so the object reads as hanging UNDER the head
       // instead of floating off the baseline's right end (e.g. ἀδελφοῖς … ἐν Χριστῷ).
+      const ext = drawPp(ctx, rel.dependentId, objId, rel.id, cursor, depTop, seen, elements);
+      cursor = ext.right;
       railRight = Math.max(railRight, cursor);
-      belowBottom = Math.max(belowBottom, oTop + block.height, diagonalDepth(attachX, 0, endX, oTop, prep));
+      belowBottom = Math.max(belowBottom, ext.bottom);
     } else if (rel.type !== 'conjunct' && isDiagonalCoordination(ctx, rel.dependentId)) {
       // Coordinated adjectives/adverbs ("tall and distinguished") as parallel slants.
       const ext = drawDiagonalCoordination(ctx, rel.dependentId, cursor, elements);
@@ -1164,23 +1272,22 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
       return { right: ext.right, next: ext.right + LAYOUT.dependentGap };
     }
     const objId = prepObjectId(ctx, r);
+    const ppConj = objId ? ppConjunctRels(ctx, r.dependentId) : [];
+    if (objId && ppConj.length) {
+      // Coordinated adverbial PPs hanging from the verb ("ἐν … καὶ ἐπὶ …"): draw
+      // every conjunct PP, joined by the coordinator, not just the first.
+      const ext = drawPpCoordination(ctx, r, objId, ppConj, attachX, belowTop, seen, elements);
+      belowMaxBottom = Math.max(belowMaxBottom, ext.bottom);
+      return { right: ext.right, next: ext.right + LAYOUT.dependentGap };
+    }
     if (objId) {
-      const block = layoutNode(ctx, objId, seen);
-      // Drop the diagonal deeper by the object's ascent so a COORDINATED object
-      // (ἀπὸ Θεοῦ … καὶ Κυρίου …) whose upper conjunct rises above its baseline
-      // doesn't land back on the main line.
-      const oTop = belowTop + blockAscent(block);
-      // Standard slant angle (run from the drop), parallel to every other slant.
-      const endX = attachX + slantRun(oTop);
-      const objX = endX - block.wordLeft;
-      elements.push(...translate(block, objX, oTop));
-      const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '';
-      elements.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, r.id));
-      elements.push(diagonalText(prep, attachX, 0, endX, oTop, r.id, r.dependentId));
-      belowMaxBottom = Math.max(belowMaxBottom, oTop + block.height,
-        diagonalDepth(attachX, 0, endX, oTop, prep));
-      const right = objX + block.width;
-      return { right, next: right + LAYOUT.dependentGap };
+      // Preposition on the slant, object on a baseline below. The slant drops
+      // deeper by the object's ascent so a COORDINATED object (ἀπὸ Θεοῦ … καὶ
+      // Κυρίου …) whose upper conjunct rises above its baseline doesn't land back
+      // on the main line.
+      const ext = drawPp(ctx, r.dependentId, objId, r.id, attachX, belowTop, seen, elements);
+      belowMaxBottom = Math.max(belowMaxBottom, ext.bottom);
+      return { right: ext.right, next: ext.right + LAYOUT.dependentGap };
     }
     if (r.type !== 'conjunct' && isDiagonalCoordination(ctx, r.dependentId)) {
       const ext = drawDiagonalCoordination(ctx, r.dependentId, attachX, elements);
