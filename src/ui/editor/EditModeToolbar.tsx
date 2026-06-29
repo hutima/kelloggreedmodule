@@ -4,7 +4,6 @@ import type { BasicEditTool } from '@/state/types';
 import { DIAGRAM_MODES } from '@/domain/layout';
 import { adapterFor } from './adapters';
 import { EditTierToggle } from './EditTierToggle';
-import { HowToEditButton } from './HowToEditButton';
 import { EditGuideModal } from './EditGuideModal';
 
 /**
@@ -116,8 +115,6 @@ export function EditModeToolbar() {
           ↷
         </button>
       </div>
-
-      <HowToEditButton />
     </div>
   );
 }

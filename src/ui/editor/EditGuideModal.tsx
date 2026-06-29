@@ -1,13 +1,19 @@
+import { useEditorStore } from '@/state';
 import { Modal } from '@/ui/components/common/Modal';
+import { adapterFor } from './adapters';
 
 /**
- * A general, written walkthrough of desktop Edit mode — the orientation that the
- * per-mode "How to edit" help doesn't give. It explains what editing is, how the
- * visualizations and the Basic/Advanced tiers relate, the workflow for a typical
- * edit, and how edits are saved and undone. Opened from the edit toolbar's Guide
- * button; the mode-specific "How to edit" stays available for the active lens.
+ * The single editing guide, opened from the edit toolbar's Guide button. It pairs
+ * a general walkthrough of Edit mode (what it is, views vs tiers, the workflow,
+ * how edits are saved) with the mode- AND tier-specific "how to" for the lens
+ * you're currently in — so one visible button covers both the orientation and
+ * the concrete steps, instead of a separate help button tucked off-screen.
  */
 export function EditGuideModal({ onClose }: { onClose: () => void }) {
+  const diagramMode = useEditorStore((s) => s.diagramMode);
+  const editTier = useEditorStore((s) => s.editTier);
+  const help = adapterFor(diagramMode).getHelpContent(editTier);
+
   return (
     <Modal
       title="Editing guide"
@@ -74,10 +80,26 @@ export function EditGuideModal({ onClose }: { onClose: () => void }) {
         </li>
       </ul>
 
-      <p className="help-bestfor">
-        Need the specifics for the view you&apos;re in? Use <strong>How to edit</strong> in the
-        toolbar — it&apos;s tailored to the current visualization and tier.
-      </p>
+      {/* The concrete steps for the lens + tier you're in right now. */}
+      <h3 className="help-h">In this view · {help.title}</h3>
+      <p className="help-bestfor">{help.bestFor}</p>
+      <ul className="help-list">
+        {help.whatItDoes.map((line, i) => (
+          <li key={i}>{line}</li>
+        ))}
+      </ul>
+      <dl className="help-dl">
+        <dt>Create a relationship</dt>
+        <dd>{help.createRelationship}</dd>
+        <dt>Move / reparent</dt>
+        <dd>{help.reparent}</dd>
+        <dt>Change a label</dt>
+        <dd>{help.changeLabel}</dd>
+        <dt>Delete a relationship</dt>
+        <dd>{help.deleteRelationship}</dd>
+        <dt>When to switch</dt>
+        <dd>{help.whenToSwitch}</dd>
+      </dl>
     </Modal>
   );
 }
