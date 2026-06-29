@@ -61,6 +61,45 @@ describe('compound predicate sharing one object', () => {
   });
 });
 
+describe('indirect object hangs below the verb (not on the baseline)', () => {
+  // "She gave the man a book." — `man` is the indirect object: in Reed-Kellogg it
+  // drops below the verb on a slanted line, unlike the direct object `book`,
+  // which sits on the baseline with an upright tick.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s'] },
+      { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+      { id: 'DO', kind: 'word', role: 'directObject', tokenIds: ['do'] },
+      { id: 'IO', kind: 'word', role: 'indirectObject', tokenIds: ['io'] },
+    ],
+    [
+      { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+      { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+      { id: 'r3', type: 'directObject', headId: 'V', dependentId: 'DO' },
+      { id: 'r4', type: 'indirectObject', headId: 'V', dependentId: 'IO' },
+    ],
+    [
+      { id: 's', index: 0, surface: 'She', pos: 'pronoun' },
+      { id: 'v', index: 1, surface: 'gave', pos: 'verb' },
+      { id: 'do', index: 2, surface: 'book', pos: 'noun' },
+      { id: 'io', index: 3, surface: 'man', pos: 'noun' },
+    ],
+  );
+
+  it('places the indirect object below the verb and direct object', () => {
+    const layout = layoutDocument(doc);
+    const verb = textEl(layout, 'gave')!;
+    const dObj = textEl(layout, 'book')!;
+    const iObj = textEl(layout, 'man')!;
+    expect(iObj).toBeDefined(); // not dropped
+    // The direct object sits on the baseline with the verb; the indirect object
+    // hangs well below both.
+    expect(Math.abs(dObj.y - verb.y)).toBeLessThan(8);
+    expect(iObj.y).toBeGreaterThan(verb.y + 10);
+  });
+});
+
 describe('direct address floats on its own line', () => {
   // "Heitor, address the class."
   const doc = build(
