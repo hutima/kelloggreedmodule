@@ -203,6 +203,25 @@ export function DiagramCanvas() {
   const panRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1 });
 
+  // Zoom is a CSS `scale()` transform (fast during pinch, and it dodges the iOS
+  // white-screen that resizing the SVG every frame would cause). The cost: a
+  // scaled-up raster layer makes text blurry, and a mouse wheel never "ends" a
+  // gesture to trigger a crisp re-raster. So on a fine pointer (desktop mouse),
+  // once the wheel settles, bake the zoom into the SVG's intrinsic size — the
+  // vector re-renders crisply — and carry only the residual in the transform.
+  // Touch devices keep the pure-transform path untouched.
+  const finePointer = useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches,
+    [],
+  );
+  const [crispScale, setCrispScale] = useState(1);
+  useEffect(() => {
+    if (!finePointer) return;
+    const id = window.setTimeout(() => setCrispScale(view.scale), 180);
+    return () => window.clearTimeout(id);
+  }, [view.scale, finePointer]);
+  const rasterScale = finePointer ? crispScale : 1;
+
   // Current layout size, mirrored into a ref so the stable zoom callbacks below
   // can read fresh dimensions without being re-created (and re-binding the wheel
   // listener) on every layout change.
@@ -840,15 +859,18 @@ export function DiagramCanvas() {
             // once it settles, now that the will-change layer is gone). The math is
             // identical: transform-origin is 0 0, so a point p still lands at
             // x + p*scale either way.
+            // On a fine pointer the SVG is pre-scaled by `rasterScale` (its
+            // intrinsic size), so the transform only needs to carry the residual
+            // scale/rasterScale — at rest that is 1 and the vector is crisp.
             transform: `translate(${view.x}px, ${view.y}px) scale(${
-              Number.isFinite(view.scale) ? view.scale : 1
+              (Number.isFinite(view.scale) ? view.scale : 1) / rasterScale
             })`,
           }}
         >
           <svg
             className={`diagram-paper${doc.language === 'hbo' ? ' hebrew' : ''}`}
-            width={layout.width}
-            height={layout.height}
+            width={layout.width * rasterScale}
+            height={layout.height * rasterScale}
             viewBox={`0 0 ${layout.width} ${layout.height}`}
             role="img"
             aria-label={`Kellogg-Reed diagram of: ${doc.text || doc.title}`}
