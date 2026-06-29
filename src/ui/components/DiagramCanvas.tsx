@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useEditorStore } from '@/state';
 import { layoutDocument } from '@/domain/layout';
 import { dashFor } from '@/domain/render';
-import { describeFunction } from '@/domain/model';
+import { describeFunction, getNode, childRelations } from '@/domain/model';
+import type { KrDocument } from '@/domain/schema';
 
 const TENTATIVE = '#c2410c';
 const INK = '#1f2933';
@@ -33,11 +34,18 @@ export function DiagramCanvas() {
   const verticalScale = useEditorStore((s) => s.verticalScale);
   const setVerticalScale = useEditorStore((s) => s.setVerticalScale);
   const [collapsed, setCollapsed] = useState(false);
+  // The node currently hovered — in the diagram OR the source text — so the two
+  // stay in sync (hover a word above, its diagram word lights up, and vice versa).
+  const [hoverNode, setHoverNode] = useState<string | undefined>();
 
   const layout = useMemo(
     () => layoutDocument(doc, doc.layoutHints, { verticalScale }),
     [doc, verticalScale],
   );
+
+  // The running source text as interactive words: each maps to the syntax node it
+  // belongs to, grouped by verse (a passage stacks several verses).
+  const sourceItems = useMemo(() => buildSourceItems(doc), [doc]);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1 });
@@ -218,9 +226,27 @@ export function DiagramCanvas() {
           <button className="mini" onClick={cancelRelink}>Cancel (Esc)</button>
         </div>
       )}
-      {doc.text && (
+      {sourceItems.length > 0 && (
         <div className={`source-text${doc.language === 'grc' ? ' greek' : ''}`} title="Source text">
-          {doc.text}
+          {sourceItems.map((it, i) =>
+            it.kind === 'verse' ? (
+              <span key={`v${i}`} className="src-verse">
+                {it.label}
+              </span>
+            ) : (
+              <span
+                key={it.tid}
+                className={`src-word${it.nodeId && it.nodeId === selection.nodeId ? ' selected' : ''}${
+                  it.nodeId && it.nodeId === hoverNode ? ' hovered' : ''
+                }`}
+                onMouseEnter={() => it.nodeId && setHoverNode(it.nodeId)}
+                onMouseLeave={() => setHoverNode(undefined)}
+                onClick={() => it.nodeId && !linking && select({ nodeId: it.nodeId })}
+              >
+                {it.surface}{' '}
+              </span>
+            ),
+          )}
         </div>
       )}
       <div
@@ -278,16 +304,19 @@ export function DiagramCanvas() {
                 );
               }
               const sel = isSelected(el.nodeId, el.relationId);
+              const hov = el.nodeId && el.nodeId === hoverNode;
               return (
                 <text
                   key={el.id}
-                  className={`kr-text${sel ? ' selected' : ''}`}
+                  className={`kr-text${sel ? ' selected' : ''}${hov ? ' hovered' : ''}`}
                   x={el.x} y={el.y}
                   textAnchor={el.anchor}
                   fontSize={el.small ? 13 : 18}
                   fontStyle={el.italic ? 'italic' : undefined}
                   fill={el.tentative ? TENTATIVE : el.muted ? '#8a97a3' : '#1f2933'}
                   {...(el.rotate ? { transform: `rotate(${el.rotate} ${el.x} ${el.y})` } : {})}
+                  onMouseEnter={() => el.nodeId && setHoverNode(el.nodeId)}
+                  onMouseLeave={() => el.nodeId && setHoverNode(undefined)}
                   onClick={() => {
                     if (moved.current) return;
                     if (el.nodeId) onNode(el.nodeId);
@@ -315,4 +344,56 @@ export function DiagramCanvas() {
       </div>
     </div>
   );
+}
+
+type SourceItem =
+  | { kind: 'verse'; label: string }
+  | { kind: 'word'; tid: string; nodeId?: string; surface: string };
+
+/** "Romans 5:1" → "5:1". */
+function verseOf(title: string): string {
+  const m = title.match(/(\d+:\d+(?:[–-]\d+)?)\s*$/);
+  return m ? m[1]! : '';
+}
+
+/**
+ * Flatten a document's tokens into an ordered list of verse labels + word spans,
+ * each word carrying the syntax node it belongs to so the source text and the
+ * diagram can highlight in lock-step.
+ */
+function buildSourceItems(doc: KrDocument): SourceItem[] {
+  const tokenToNode = new Map<string, string>();
+  for (const n of doc.syntax.nodes) for (const t of n.tokenIds) tokenToNode.set(t, n.id);
+
+  // Map each token to the verse of the sentence that contains it.
+  const tokenToVerse = new Map<string, string>();
+  const root = getNode(doc.syntax, doc.syntax.rootId);
+  const sentenceRoots =
+    root?.clauseType === 'discourse'
+      ? childRelations(doc.syntax, root.id).map((r) => getNode(doc.syntax, r.dependentId))
+      : [root];
+  for (const s of sentenceRoots) {
+    if (!s) continue;
+    const label = s.label || verseOf(doc.title);
+    const seen = new Set<string>();
+    const stack = [s.id];
+    while (stack.length) {
+      const id = stack.pop()!;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const node = getNode(doc.syntax, id);
+      node?.tokenIds.forEach((t) => tokenToVerse.set(t, label));
+      for (const r of childRelations(doc.syntax, id)) stack.push(r.dependentId);
+    }
+  }
+
+  const items: SourceItem[] = [];
+  let lastVerse: string | undefined;
+  for (const t of doc.tokens) {
+    const v = tokenToVerse.get(t.id) ?? '';
+    if (v && v !== lastVerse) items.push({ kind: 'verse', label: v });
+    lastVerse = v;
+    items.push({ kind: 'word', tid: t.id, nodeId: tokenToNode.get(t.id), surface: t.surface });
+  }
+  return items;
 }

@@ -488,6 +488,31 @@ textarea.code,
   font-family: var(--greek);
   font-size: 17px;
 }
+.src-verse {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent, #2f6f9f);
+  margin: 0 4px 0 2px;
+  vertical-align: 0.15em;
+}
+.src-word {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 1px;
+  transition: background-color 0.08s;
+}
+.src-word:hover,
+.src-word.hovered {
+  background: color-mix(in srgb, var(--accent, #2f6f9f) 22%, transparent);
+}
+.src-word.selected {
+  background: color-mix(in srgb, var(--accent, #2f6f9f) 38%, transparent);
+}
+/* A word hovered in the source text lights up in the diagram (and vice-versa). */
+.diagram-paper .kr-text.hovered {
+  fill: var(--accent, #2f6f9f) !important;
+  font-weight: 600;
+}
 .diagram-paper {
   background: var(--paper);
   box-shadow: var(--shadow);
