@@ -491,6 +491,14 @@ const eid = () => `el_${uid++}`;
 export interface LayoutOptions {
   /** Row-spacing multiplier on vertical gaps (default 1). */
   verticalScale?: number;
+  /**
+   * Mirror the finished diagram horizontally so it reads RIGHT-TO-LEFT (Hebrew):
+   * subject on the right, the baseline running leftward, modifiers slanting the
+   * mirrored way. Defaults to true for `language: 'hbo'` documents. The geometry
+   * is computed left-to-right exactly as for Greek/English and only the final
+   * placement is flipped, so all the layout logic stays direction-agnostic.
+   */
+  rtl?: boolean;
 }
 
 export function layoutDocument(
@@ -524,12 +532,32 @@ export function layoutDocument(
   // written along diagonals, which can overhang their line endpoints.
   const pad = LAYOUT.fontSize;
   const { minX, minY, maxX, maxY } = bounds(block.elements);
-  const elements = translate(block, m + pad - minX, m + pad - minY);
-  return {
-    width: maxX - minX + (m + pad) * 2,
-    height: maxY - minY + (m + pad) * 2,
-    elements,
-  };
+  const width = maxX - minX + (m + pad) * 2;
+  const height = maxY - minY + (m + pad) * 2;
+  const placed = translate(block, m + pad - minX, m + pad - minY);
+  const rtl = options.rtl ?? doc.language === 'hbo';
+  return { width, height, elements: rtl ? mirrorX(placed, width) : placed };
+}
+
+/**
+ * Mirror primitives horizontally about `width/2` for a right-to-left diagram.
+ * Positions flip (x → width − x) and slants reverse (rotation negated), but the
+ * GLYPHS are NOT mirrored — a Hebrew word is already shaped right-to-left by the
+ * text engine, so only the diagram's layout direction changes. Text anchors swap
+ * start↔end so left/right-aligned labels stay on their intended side.
+ */
+function mirrorX(elements: DiagramElement[], width: number): DiagramElement[] {
+  return elements.map((el) => {
+    if (el.kind === 'line') {
+      return { ...el, x1: width - el.x1, x2: width - el.x2 };
+    }
+    return {
+      ...el,
+      x: width - el.x,
+      anchor: el.anchor === 'start' ? 'end' : el.anchor === 'end' ? 'start' : 'middle',
+      rotate: el.rotate ? -el.rotate : el.rotate,
+    };
+  });
 }
 
 /** Axis-aligned bounding box of a set of primitives (line endpoints + text anchors). */
