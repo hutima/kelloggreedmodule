@@ -259,16 +259,37 @@ textarea.code,
   flex: 1;
   min-height: 0;
 }
-.canvas-wrap {
+/* Pan/zoom viewport: clips the transformed diagram; drag to pan, wheel to zoom. */
+.canvas-viewport {
   position: relative;
   background: var(--bg);
-  overflow: auto;
-  display: flex;
+  overflow: hidden;
   flex: 1;
   min-height: 0;
+  touch-action: none;
+  cursor: grab;
 }
-.canvas.collapsed .canvas-wrap {
+.canvas-viewport:active {
+  cursor: grabbing;
+}
+.canvas-viewport.relinking {
+  cursor: crosshair;
+}
+.diagram-pan {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.canvas.collapsed .canvas-viewport {
   display: none;
+}
+.canvas-tools {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 .canvas-zoom {
   display: flex;
@@ -327,18 +348,13 @@ textarea.code,
 .menu-toggle {
   display: none;
 }
-.diagram-surface {
-  margin: auto;
-  padding: 28px;
-  position: relative;
-}
-/* Tap-a-word popover, anchored over the selected word. */
+/* Tap-a-word popover. Positioned (and clamped into the viewport) from JS, so it
+   never clips at an edge. */
 .kr-reveal {
   position: absolute;
-  transform: translate(-50%, calc(-100% - 12px));
   z-index: 5;
   min-width: 150px;
-  max-width: 280px;
+  max-width: 240px;
   padding: 8px 10px;
   background: #1f2933;
   color: #f5f7fa;
@@ -347,16 +363,6 @@ textarea.code,
   pointer-events: none;
   font-size: 13px;
   line-height: 1.35;
-}
-.kr-reveal::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: -5px;
-  width: 10px;
-  height: 10px;
-  background: #1f2933;
-  transform: translateX(-50%) rotate(45deg);
 }
 .kr-reveal-word {
   font-family: var(--greek);
@@ -382,8 +388,7 @@ textarea.code,
   letter-spacing: 0.02em;
 }
 /* While re-linking, the diagram is a target: every word is a click candidate. */
-.diagram-surface.relinking .diagram-paper {
-  cursor: crosshair;
+.canvas-viewport.relinking .diagram-paper {
   outline: 2px dashed var(--tentative, #c2410c);
   outline-offset: 4px;
 }
@@ -482,6 +487,31 @@ textarea.code,
 .source-text.greek {
   font-family: var(--greek);
   font-size: 17px;
+}
+.src-verse {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent, #2f6f9f);
+  margin: 0 4px 0 2px;
+  vertical-align: 0.15em;
+}
+.src-word {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 1px;
+  transition: background-color 0.08s;
+}
+.src-word:hover,
+.src-word.hovered {
+  background: color-mix(in srgb, var(--accent, #2f6f9f) 22%, transparent);
+}
+.src-word.selected {
+  background: color-mix(in srgb, var(--accent, #2f6f9f) 38%, transparent);
+}
+/* A word hovered in the source text lights up in the diagram (and vice-versa). */
+.diagram-paper .kr-text.hovered {
+  fill: var(--accent, #2f6f9f) !important;
+  font-weight: 600;
 }
 .diagram-paper {
   background: var(--paper);
