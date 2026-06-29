@@ -1,7 +1,7 @@
 import type { KrDocument, LayoutHints, SyntacticRole, SyntaxNode } from '@/domain/schema';
 import { childRelations, getNode, nodeText } from '@/domain/model';
 import { LAYOUT } from './constants';
-import { measureText } from './measure';
+import { measureText, SMALL_FONT } from './measure';
 import type { DiagramElement, DiagramLayout, LineElement, TextElement } from './types';
 
 /**
@@ -165,6 +165,21 @@ function diagonalDepth(
   const along = (w / 2) * Math.abs(Math.sin(angle)); // half the word, projected on y
   const across = LAYOUT.fontSize * 0.75 * Math.abs(Math.cos(angle)); // glyph ascent/descent
   return midY + along + across + 2;
+}
+
+/**
+ * How far a block's drawing rises ABOVE its baseline (y = 0). Most blocks sit at
+ * or below the baseline, but a coordination fork lifts its upper conjunct into
+ * negative y; stacking must reserve that room or the block pokes into the row
+ * above. Returns ≥ 0.
+ */
+function blockAscent(block: Block): number {
+  let minY = 0;
+  for (const el of block.elements) {
+    if (el.kind === 'line') minY = Math.min(minY, el.y1, el.y2);
+    else minY = Math.min(minY, el.y - (el.small ? LAYOUT.smallFontSize : LAYOUT.fontSize));
+  }
+  return Math.max(0, -minY);
 }
 
 function translate(block: Block, dx: number, dy: number): DiagramElement[] {
@@ -443,26 +458,37 @@ function stackClauses(
   topY: number,
 ): { elements: DiagramElement[]; right: number; bottom: number } {
   const elements: DiagramElement[] = [];
-  let y = topY + LAYOUT.clauseFirstDrop * ctx.vScale;
+  // `cursorTop` is the highest y the next block may occupy; each block reserves
+  // its own ASCENT above its baseline (a coordination fork raises its upper
+  // conjunct above the baseline) so a tall member can't poke up into the row
+  // above it.
+  let cursorTop = topY + LAYOUT.clauseFirstDrop * ctx.vScale;
   let right = spineX;
   let bottom = topY;
   let lastBaselineY = topY;
-  const blockX = spineX + LAYOUT.spineIndent;
 
   rels.forEach((r) => {
     const block = layoutNode(ctx, r.dependentId, seen);
+    // A subordinator label (ὅτι, ἵνα, καθὼς…) rides the connector; lengthen it so
+    // the label fits between the stem and the clause word instead of colliding.
+    const labelled = r.label && showLabel(ctx, r.dependentId);
+    const indent = labelled
+      ? Math.max(LAYOUT.spineIndent, measureText(r.label!, SMALL_FONT) + 14)
+      : LAYOUT.spineIndent;
+    const blockX = spineX + indent;
+    const y = cursorTop + blockAscent(block);
     elements.push(...translate(block, blockX, y));
     // Short connector from the stem to this clause's baseline.
     elements.push(
       line(eid(), spineX, y, blockX + block.wordLeft, y, 'dotted', 'stem', undefined, r.id),
     );
-    if (r.label && showLabel(ctx, r.dependentId)) {
-      elements.push(smallText(eid(), spineX + 6, y - 6, r.label, 'start', r.id));
+    if (labelled) {
+      elements.push(smallText(eid(), (spineX + blockX) / 2, y - 6, r.label!, 'middle', r.id));
     }
     lastBaselineY = y;
     right = Math.max(right, blockX + block.width);
     bottom = Math.max(bottom, y + block.height);
-    y += block.height + LAYOUT.clauseStackGap * ctx.vScale;
+    cursorTop = y + block.height + LAYOUT.clauseStackGap * ctx.vScale;
   });
 
   // The vertical stem itself, spanning from its top to the last clause.
@@ -494,28 +520,33 @@ function layoutClauseSpine(
     .filter(Boolean);
 
   const spineX = 0;
-  const blockX = spineX + LAYOUT.spineIndent;
   const elements: DiagramElement[] = [];
   const baselineYs: number[] = [];
-  let y = 0;
-  let right = blockX;
+  let cursorTop = 0;
+  let right = spineX + LAYOUT.spineIndent;
   let bottom = 0;
 
-  memberRels.forEach((r, i) => {
+  memberRels.forEach((r) => {
     const block = layoutNode(ctx, r.dependentId, seen);
+    const labelled = r.label && showLabel(ctx, r.dependentId);
+    const indent = labelled
+      ? Math.max(LAYOUT.spineIndent, measureText(r.label!, SMALL_FONT) + 14)
+      : LAYOUT.spineIndent;
+    const blockX = spineX + indent;
+    const y = cursorTop + blockAscent(block);
     elements.push(...translate(block, blockX, y));
     // A solid connector from the spine to this member's baseline — the join is
     // drawn explicitly, never left to be inferred from vertical position.
     elements.push(
       line(eid(), spineX, y, blockX + block.wordLeft, y, 'solid', 'connector', undefined, r.id),
     );
-    if (r.label && showLabel(ctx, r.dependentId)) {
-      elements.push(smallText(eid(), spineX + 6, y - 6, r.label, 'start', r.id));
+    if (labelled) {
+      elements.push(smallText(eid(), (spineX + blockX) / 2, y - 6, r.label!, 'middle', r.id));
     }
     baselineYs.push(y);
     right = Math.max(right, blockX + block.width);
     bottom = Math.max(bottom, y + block.height);
-    if (i < memberRels.length - 1) y += block.height + LAYOUT.clauseStackGap * ctx.vScale;
+    cursorTop = y + block.height + LAYOUT.clauseStackGap * ctx.vScale;
   });
 
   const top = baselineYs[0] ?? 0;
@@ -817,12 +848,15 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     vModRight = Math.max(vModRight, right);
   });
 
-  // Clear the verb-modifier band before the first complement, bridging the gap
-  // with baseline so the object still reads as sitting on the main line.
-  if (complementBlocks.length && vModRight + LAYOUT.dependentGap > x) {
-    const newX = vModRight + LAYOUT.dependentGap;
+  // Extend the baseline under the whole verb-modifier cascade so every modifier
+  // visibly hangs from the MAIN LINE rather than from empty space (which reads as
+  // "connected by vertical position"). When complements follow, they start past
+  // the band so a long adverbial PP can't collide with the object's own
+  // modifiers; the bridging baseline keeps the object reading as on the line.
+  if (vModRight > x) {
+    const newX = complementBlocks.length ? vModRight + LAYOUT.dependentGap : vModRight;
     elements.push(line(eid(), x, 0, newX, 0, 'solid', 'baseline'));
-    x = newX;
+    if (complementBlocks.length) x = newX;
   }
 
   // complements on the baseline, each with the appropriate separator
