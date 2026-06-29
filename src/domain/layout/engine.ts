@@ -282,13 +282,24 @@ const DIAG_TEXT_FRAC = 0.72;
  * low on the line (DIAG_TEXT_FRAC) — clears the head's baseline above it. Both
  * stay at least the constant minimums, so short words look exactly as before.
  */
+/**
+ * The ONE slant angle every downward modifier diagonal uses, so all of them read
+ * as parallel (an article, a possessive, a prepositional phrase's stem). Length
+ * varies with the modifier; the angle never does.
+ */
+const SLANT_ANGLE = 57 / DEG;
+
+/** Horizontal run of a standard-angle slant that drops by `drop`. */
+function slantRun(drop: number): number {
+  return drop / Math.tan(SLANT_ANGLE);
+}
+
 function diagLeafGeom(text: string): { run: number; drop: number } {
   const w = measureText(text);
   // The word sits between DIAG_TEXT_FRAC±half along the line; size the line so
   // that band (plus headroom for the upper end) is at least the word's length.
   const len = Math.max(LAYOUT.diagRun * 2, w + LAYOUT.fontSize * 1.4);
-  const angle = 57 / DEG; // consistent slant; steeper than a long shallow run
-  return { run: len * Math.cos(angle), drop: len * Math.sin(angle) };
+  return { run: len * Math.cos(SLANT_ANGLE), drop: len * Math.sin(SLANT_ANGLE) };
 }
 
 /** Text written along a diagonal, rotated to lie on the line from (x1,y1)→(x2,y2). */
@@ -485,6 +496,7 @@ function layoutHead(
   seen: Set<string>,
   collapsed = false,
   excludeCoordination = false,
+  excludeApposition = false,
 ): Block {
   const text = nodeText(ctx.doc, node) || node.label || '∅';
   const wordW = measureText(text) + LAYOUT.wordPadX * 2;
@@ -504,8 +516,9 @@ function layoutHead(
     (r) => !isClauseChild(ctx, r.dependentId) || isInfinitival(ctx, r.dependentId),
   );
   // Appositives continue on the head's own baseline; everything else cascades
-  // below as a modifier.
-  const apposRels = allWordRels.filter((r) => r.type === 'apposition');
+  // below as a modifier. (A coordination may instead hoist its summary apposition
+  // onto a platform off the fork, so it can ask to exclude them here.)
+  const apposRels = excludeApposition ? [] : allWordRels.filter((r) => r.type === 'apposition');
   // Light closed-class leaves (article, adjective, possessive) tuck in CLOSEST to
   // the head; heavy sub-baseline modifiers (a genitive NP, a prepositional
   // phrase) cascade out to the right after them. Without this an article ends up
@@ -564,8 +577,10 @@ function layoutHead(
       const block = layoutNode(ctx, objId, seen);
       const oTop = depTop + blockAscent(block);
       const attachX = cursor;
-      const objX = cursor + LAYOUT.diagRun;
-      const endX = objX + block.wordLeft;
+      // Stem at the standard slant angle (run derived from the drop), so every
+      // PP diagonal is parallel to the article/possessive slants.
+      const endX = attachX + slantRun(oTop);
+      const objX = endX - block.wordLeft;
       elements.push(...translate(block, objX, oTop));
       elements.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, rel.id));
       const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, rel.dependentId)!) || '';
@@ -766,7 +781,20 @@ function layoutClauseSpine(
     });
   }
 
-  return { width: right, height: bottom, elements, wordLeft: 0, wordRight: right, verbX: verbAlignX };
+  // Expose the TOP of the spine bar as the block's connection point, at
+  // (verbAlignX, 0): a spine hung off a parent stem (e.g. παυόμεθα's participial
+  // object in Col 1:9) must reach the bar, not the empty top-left corner. Shift
+  // the whole spine up so the first verb baseline sits at y = 0; the content
+  // above it is then reserved by blockAscent like any other block.
+  const shifted = translate({ width: right, height: bottom, elements, wordLeft: 0, wordRight: 0 }, 0, -top);
+  return {
+    width: right,
+    height: bottom - top,
+    elements: shifted,
+    wordLeft: verbAlignX,
+    wordRight: verbAlignX,
+    verbX: verbAlignX,
+  };
 }
 
 /**
@@ -829,10 +857,15 @@ function layoutCoordination(
     ? nodeText(ctx.doc, getNode(ctx.doc.syntax, coordRel.dependentId)!) || ''
     : '';
 
+  // An apposition to the WHOLE group ("τὰ τρία ταῦτα" summarising πίστις, ἐλπίς,
+  // ἀγάπη) is hoisted onto a platform off the fork's bar, so it is excluded from
+  // the head conjunct's own inline modifiers below.
+  const apposRels = childRelations(ctx.doc.syntax, node.id).filter((r) => r.type === 'apposition');
+
   // Member 0 is the head word with its own (non-coordination) modifiers; the
   // rest are the conjunct subtrees.
   const members: Block[] = [
-    layoutHead(ctx, node, seen, false, true),
+    layoutHead(ctx, node, seen, false, true, apposRels.length > 0),
     ...conjunctRels.map((r) => layoutNode(ctx, r.dependentId, seen)),
   ];
 
@@ -899,9 +932,28 @@ function layoutCoordination(
     });
   }
 
+  // A summary apposition hangs on its own platform off the bar that joins the
+  // conjuncts, centred below the fork ("τὰ τρία ταῦτα" under faith/hope/love).
+  // It stays WITHIN the fork's width so the block's connection point (the
+  // junction) is unchanged — the parent's subject|predicate divider still
+  // attaches at the junction, keeping the fork tied to its verb.
+  let bottom = botY + lastMember.height;
+  for (const ar of apposRels) {
+    const ab = layoutNode(ctx, ar.dependentId, seen);
+    if (!ab.elements.length) continue;
+    const platTop = bottom + LAYOUT.adjunctDrop * ctx.vScale;
+    const platY = platTop + blockAscent(ab);
+    const span = ab.wordLeft + (ab.wordRight || ab.width);
+    const baseStart = Math.max(0, Math.min(dashX - span / 2, width - ab.width));
+    elements.push(...translate(ab, baseStart, platY));
+    // Stem from the joining bar down to the platform baseline.
+    elements.push(line(eid(), dashX, botY, dashX, platY, 'solid', 'stem', undefined, ar.id));
+    bottom = platY + ab.height;
+  }
+
   return {
     width,
-    height: botY + lastMember.height,
+    height: bottom,
     elements,
     wordLeft: junctionX,
     wordRight: junctionX,
@@ -1118,8 +1170,9 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
       // (ἀπὸ Θεοῦ … καὶ Κυρίου …) whose upper conjunct rises above its baseline
       // doesn't land back on the main line.
       const oTop = belowTop + blockAscent(block);
-      const objX = attachX + LAYOUT.diagRun;
-      const endX = objX + block.wordLeft;
+      // Standard slant angle (run from the drop), parallel to every other slant.
+      const endX = attachX + slantRun(oTop);
+      const objX = endX - block.wordLeft;
       elements.push(...translate(block, objX, oTop));
       const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '';
       elements.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, r.id));
