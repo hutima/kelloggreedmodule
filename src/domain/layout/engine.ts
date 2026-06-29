@@ -188,11 +188,12 @@ function drawInfinitive(
   out: DiagramElement[],
 ): { right: number; bottom: number } {
   const block = layoutNode(ctx, rel.dependentId, seen);
+  const oTop = topY + blockAscent(block);
   const objX = attachX + LAYOUT.diagRun;
   const endX = objX + block.wordLeft;
-  out.push(...translate(block, objX, topY));
-  out.push(line(eid(), attachX, 0, endX, topY, 'solid', 'slant', undefined, rel.id));
-  return { right: objX + block.width, bottom: Math.max(topY + block.height, topY) };
+  out.push(...translate(block, objX, oTop));
+  out.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, rel.id));
+  return { right: objX + block.width, bottom: Math.max(oTop + block.height, oTop) };
 }
 
 /**
@@ -558,17 +559,19 @@ function layoutHead(
       belowBottom = Math.max(belowBottom, ext.bottom);
       cursor = ext.right;
     } else if (objId) {
-      // Preposition written ALONG the diagonal; object on its baseline below.
+      // Preposition written ALONG the diagonal; object on its baseline below. Drop
+      // deeper by the object's ascent so a coordinated object clears the head line.
       const block = layoutNode(ctx, objId, seen);
+      const oTop = depTop + blockAscent(block);
       const attachX = cursor;
       const objX = cursor + LAYOUT.diagRun;
       const endX = objX + block.wordLeft;
-      elements.push(...translate(block, objX, depTop));
-      elements.push(line(eid(), attachX, 0, endX, depTop, 'solid', 'slant', undefined, rel.id));
+      elements.push(...translate(block, objX, oTop));
+      elements.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, rel.id));
       const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, rel.dependentId)!) || '';
-      elements.push(diagonalText(prep, attachX, 0, endX, depTop, rel.id, rel.dependentId));
+      elements.push(diagonalText(prep, attachX, 0, endX, oTop, rel.id, rel.dependentId));
       railRight = Math.max(railRight, attachX);
-      belowBottom = Math.max(belowBottom, depTop + block.height, diagonalDepth(attachX, 0, endX, depTop, prep));
+      belowBottom = Math.max(belowBottom, oTop + block.height, diagonalDepth(attachX, 0, endX, oTop, prep));
       cursor = objX + block.width;
     } else if (rel.type !== 'conjunct' && isDiagonalCoordination(ctx, rel.dependentId)) {
       // Coordinated adjectives/adverbs ("tall and distinguished") as parallel slants.
@@ -590,15 +593,16 @@ function layoutHead(
     } else {
       // A noun modifier / phrase keeps its own sub-baseline, hung on a stem.
       const block = layoutNode(ctx, rel.dependentId, seen);
+      const oTop = depTop + blockAscent(block);
       const attachX = cursor;
       const objX = cursor + LAYOUT.diagRun;
-      elements.push(...translate(block, objX, depTop));
-      elements.push(line(eid(), attachX, 0, objX + block.wordLeft, depTop, 'solid', 'stem', undefined, rel.id));
+      elements.push(...translate(block, objX, oTop));
+      elements.push(line(eid(), attachX, 0, objX + block.wordLeft, oTop, 'solid', 'stem', undefined, rel.id));
       if (rel.label && showLabel(ctx, rel.dependentId)) {
-        elements.push(smallText(eid(), attachX + 4, depTop - 6, rel.label, 'start', rel.id));
+        elements.push(smallText(eid(), attachX + 4, oTop - 6, rel.label, 'start', rel.id));
       }
       railRight = Math.max(railRight, attachX);
-      belowBottom = Math.max(belowBottom, depTop + block.height);
+      belowBottom = Math.max(belowBottom, oTop + block.height);
       cursor = objX + block.width;
     }
   });
@@ -1098,14 +1102,18 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     const objId = prepObjectId(ctx, r);
     if (objId) {
       const block = layoutNode(ctx, objId, seen);
+      // Drop the diagonal deeper by the object's ascent so a COORDINATED object
+      // (ἀπὸ Θεοῦ … καὶ Κυρίου …) whose upper conjunct rises above its baseline
+      // doesn't land back on the main line.
+      const oTop = belowTop + blockAscent(block);
       const objX = attachX + LAYOUT.diagRun;
       const endX = objX + block.wordLeft;
-      elements.push(...translate(block, objX, belowTop));
+      elements.push(...translate(block, objX, oTop));
       const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '';
-      elements.push(line(eid(), attachX, 0, endX, belowTop, 'solid', 'slant', undefined, r.id));
-      elements.push(diagonalText(prep, attachX, 0, endX, belowTop, r.id, r.dependentId));
-      belowMaxBottom = Math.max(belowMaxBottom, belowTop + block.height,
-        diagonalDepth(attachX, 0, endX, belowTop, prep));
+      elements.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, r.id));
+      elements.push(diagonalText(prep, attachX, 0, endX, oTop, r.id, r.dependentId));
+      belowMaxBottom = Math.max(belowMaxBottom, oTop + block.height,
+        diagonalDepth(attachX, 0, endX, oTop, prep));
       const right = objX + block.width;
       return { right, next: right + LAYOUT.dependentGap };
     }
@@ -1121,15 +1129,16 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
       return { right: ext.right, next: ext.right + LAYOUT.dependentGap };
     }
     const block = layoutNode(ctx, r.dependentId, seen);
+    const oTop = belowTop + blockAscent(block);
     const objX = attachX + LAYOUT.diagRun;
-    elements.push(...translate(block, objX, belowTop));
+    elements.push(...translate(block, objX, oTop));
     elements.push(
-      line(eid(), attachX, 0, objX + block.wordLeft, belowTop, 'solid', 'stem', undefined, r.id),
+      line(eid(), attachX, 0, objX + block.wordLeft, oTop, 'solid', 'stem', undefined, r.id),
     );
     if (r.label && showLabel(ctx, r.dependentId)) {
-      elements.push(smallText(eid(), attachX + 4, belowTop - 6, r.label, 'start', r.id));
+      elements.push(smallText(eid(), attachX + 4, oTop - 6, r.label, 'start', r.id));
     }
-    belowMaxBottom = Math.max(belowMaxBottom, belowTop + block.height);
+    belowMaxBottom = Math.max(belowMaxBottom, oTop + block.height);
     const right = objX + block.width;
     return { right, next: right + LAYOUT.dependentGap };
   };
