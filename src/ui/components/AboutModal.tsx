@@ -38,7 +38,17 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
             </a>
             .
           </p>
-          <p>If you have comments or issues, please reach out on LinkedIn.</p>
+          <p>
+            If you have comments or issues, please reach out on{' '}
+            <a
+              href="https://www.linkedin.com/in/timothyhutama"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              LinkedIn
+            </a>
+            .
+          </p>
 
           <p className="about-label">Other projects by Timothy:</p>
           <ul className="about-links">
@@ -79,6 +89,14 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
               (CC BY‑SA 4.0).
             </li>
             <li>
+              <strong>Hebrew Bible</strong> — the Westminster Leningrad Codex “Lowfat” syntax trees,
+              from Clear‑Bible{' '}
+              <a href="https://github.com/Clear-Bible/macula-hebrew" target="_blank" rel="noopener noreferrer">
+                macula‑hebrew
+              </a>{' '}
+              (CC BY 4.0).
+            </li>
+            <li>
               <strong>English parallel text</strong> — the{' '}
               <a href="https://berean.bible" target="_blank" rel="noopener noreferrer">
                 Berean Standard Bible
@@ -92,6 +110,10 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
             <li>
               <strong>Polytonic Greek fonts</strong> — Gentium Plus, Cardo, New Athena Unicode, and
               GFS Didot (open / SIL OFL licences).
+            </li>
+            <li>
+              <strong>Hebrew fonts</strong> — SBL Hebrew, Ezra SIL, and Taamey Frank CLM (free for
+              non‑commercial / scholarly use and open licences).
             </li>
             <li>
               <strong>Diagram conventions</strong> — the traditional Reed‑Kellogg (Kellogg‑Reed)
