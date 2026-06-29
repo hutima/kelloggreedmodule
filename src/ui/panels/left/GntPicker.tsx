@@ -109,30 +109,31 @@ export function GntPicker() {
 
   return (
     <div className="gnt-picker">
+      {/* Book selector spans the full width on its own line so the full book name
+          is readable; Load / Save offline sit on the row beneath it. */}
+      <label className="field">
+        <span>Book</span>
+        <select
+          value={bookNum}
+          onChange={(e) => {
+            setBookNum(Number(e.target.value));
+            setCacheState('idle');
+          }}
+        >
+          {GNT_BOOKS.map((b) => (
+            <option key={b.num} value={b.num} title={b.name}>
+              {b.name}
+              {BUNDLED_BOOKS.has(b.num) ? ' ✓' : ''}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="row">
-        <label className="field" style={{ flex: 1 }}>
-          <span>Book</span>
-          <select
-            value={bookNum}
-            onChange={(e) => {
-              setBookNum(Number(e.target.value));
-              setCacheState('idle');
-            }}
-          >
-            {GNT_BOOKS.map((b) => (
-              <option key={b.num} value={b.num} title={b.name}>
-                {b.num}. {b.abbr}
-                {BUNDLED_BOOKS.has(b.num) ? ' ✓' : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className="mini accept" style={{ alignSelf: 'flex-end' }} disabled={loading} onClick={() => void loadBook(book)}>
+        <button className="mini accept" disabled={loading} onClick={() => void loadBook(book)}>
           {loading ? 'Loading…' : 'Load'}
         </button>
         <button
           className="mini"
-          style={{ alignSelf: 'flex-end' }}
           disabled={bundled || cacheState === 'saving' || cacheState === 'saved'}
           title={bundled ? 'Bundled with the app' : 'Download this book for offline use'}
           onClick={() => void saveOffline(book)}

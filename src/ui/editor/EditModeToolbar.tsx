@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { useEditorStore, selectCanUndo, selectCanRedo } from '@/state';
 import type { BasicEditTool } from '@/state/types';
 import { DIAGRAM_MODES } from '@/domain/layout';
 import { adapterFor } from './adapters';
 import { EditTierToggle } from './EditTierToggle';
-import { HowToEditButton } from './HowToEditButton';
+import { EditGuideModal } from './EditGuideModal';
 
 /**
  * Edit-mode control strip. It does NOT replace the TopBar — it's the edit-only
@@ -39,12 +40,25 @@ export function EditModeToolbar() {
   const modeLabel = DIAGRAM_MODES.find((m) => m.id === diagramMode)?.label ?? adapter.label;
   // Always offer Select; append the mode's extra Basic tools.
   const tools: BasicEditTool[] = ['select', ...(adapter.basicInteraction?.tools ?? [])];
+  const [guideOpen, setGuideOpen] = useState(false);
 
   return (
     <div className="edit-toolbar" role="toolbar" aria-label="Edit tools">
       <span className="edit-toolbar-mode" title="Current diagram mode">
         {modeLabel}
       </span>
+
+      {/* A general written walkthrough of Edit mode — kept on the left so it's
+          always visible, unlike the mode-specific How-to-edit at the far end. */}
+      <button
+        type="button"
+        className="btn edit-guide-btn"
+        title="Read the editing guide"
+        onClick={() => setGuideOpen(true)}
+      >
+        Guide
+      </button>
+      {guideOpen && <EditGuideModal onClose={() => setGuideOpen(false)} />}
 
       <EditTierToggle />
 
@@ -101,8 +115,6 @@ export function EditModeToolbar() {
           ↷
         </button>
       </div>
-
-      <HowToEditButton />
     </div>
   );
 }

@@ -63,7 +63,7 @@ import {
   getIssuesForPassage,
   isMergeIssue,
 } from '@/domain/contested';
-import { combinePassage } from '@/io';
+import { combinePassage, loadGntBook, loadOtChapter, GNT_BOOKS, OT_BOOKS } from '@/io';
 import type { ContestedSyntaxIssue } from '@/domain/schema';
 import type {
   ActiveEditModal,
@@ -325,6 +325,43 @@ function corpusFor(doc: KrDocument): Corpus {
   return 'custom';
 }
 
+/** The verse a passage/sentence title starts on, e.g. "Philippians 1:1–3" → "1:1". */
+function startRef(title: string): string {
+  const m = title.match(/(\d+:\d+)/);
+  return m ? m[1]! : '';
+}
+
+/**
+ * Re-establish the prev/next sentence navigation after a session restore. A
+ * restored passage is rebuilt from its cache without the sibling sentences it
+ * was opened alongside, so reload the book/chapter it came from (cheap — the
+ * service worker has it) and point the index at the sentence it starts on.
+ * Best-effort: the nav simply stays hidden if the reload fails.
+ */
+async function restoreNavContext(
+  doc: KrDocument,
+  corpus: Corpus,
+  setGntContext: (passages: KrDocument[], index: number) => void,
+) {
+  try {
+    let passages: KrDocument[] | null = null;
+    if (corpus === 'gnt') {
+      const book = GNT_BOOKS.find((b) => doc.title.startsWith(b.name));
+      if (book) passages = await loadGntBook(book);
+    } else if (corpus === 'ot') {
+      const book = OT_BOOKS.find((b) => doc.title.startsWith(b.name));
+      const ch = doc.title.match(/(\d+):\d+/);
+      if (book && ch) passages = await loadOtChapter(book, Number(ch[1]));
+    }
+    if (!passages || passages.length === 0) return;
+    const ref = startRef(doc.title);
+    const idx = passages.findIndex((p) => startRef(p.title) === ref);
+    setGntContext(passages, idx >= 0 ? idx : 0);
+  } catch {
+    /* Leave the nav hidden if the book can't be reloaded. */
+  }
+}
+
 export const useEditorStore = create<EditorStore>((set, get) => {
   /**
    * Derive and persist the compact user-edit patch (base vs live) for the
@@ -553,6 +590,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         contested: { ...FRESH_CONTESTED },
         status: 'saved',
       });
+      // Rebuild prev/next sentence navigation for a restored gold-standard
+      // passage (the sibling list isn't part of the cached document).
+      const corpus = corpusFor(next);
+      if (corpus !== 'custom') void restoreNavContext(next, corpus, get().setGntContext);
     },
 
     reloadCurrent: () => {

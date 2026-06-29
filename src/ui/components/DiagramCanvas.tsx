@@ -20,6 +20,7 @@ import { MIN_SCALE, clamp, minZoomScale, maxZoomScale, clampPan } from '@/ui/zoo
 import { PhraseBlockView } from './diagram/PhraseBlockView';
 import { MorphologyView } from './diagram/MorphologyView';
 import { nodeHighlightColors, relationHighlightColors } from '@/ui/sermon/highlights';
+import { HighlightToolbar } from '@/ui/sermon/HighlightToolbar';
 import { EditModeToolbar } from '@/ui/editor/EditModeToolbar';
 import { LinkPreviewOverlay } from '@/ui/editor/LinkPreviewOverlay';
 import { DependencyEditOverlay } from '@/ui/editor/dependency/DependencyEditOverlay';
@@ -510,6 +511,17 @@ export function DiagramCanvas() {
     return describeFunction(doc, selection.nodeId);
   }, [htmlMode, appMode, linking, selection.nodeId, doc]);
 
+  // On a phone in Sermon Prep the highlight palette lives here, in the tapped
+  // word's detail card, instead of crowding the bottom sheet — so the sheet can
+  // stay a short notes pad. Highlighting always needs a selected word anyway,
+  // and the detail card is exactly what a selected word already pops up.
+  const sermonHighlight =
+    viewport.isMobile && appMode === 'sermon' && selection.nodeId ? (
+      <div className="kr-reveal-highlight">
+        <HighlightToolbar anchor={{ type: 'node', nodeId: selection.nodeId }} />
+      </div>
+    ) : null;
+
   // ---- glossary popover (tap a label, e.g. "agr") ------------------------
   const gloss = useMemo(() => {
     if (linking || !selection.glossKey) return null;
@@ -616,7 +628,12 @@ export function DiagramCanvas() {
           style={srcCollapsed ? undefined : { height: srcHeight }}
         >
           <div className="source-bar">
-            {hasEnglish ? (
+            {/* Collapsed: the language toggle is useless with no text showing, so
+                surface the passage reference instead — the strip stays anchored
+                rather than vanishing to a bare caret. */}
+            {srcCollapsed ? (
+              <span className="source-ref">{doc.title}</span>
+            ) : hasEnglish ? (
               <div className="version-picker" role="group" aria-label="Source language">
                 <button
                   className={!showEnglish ? 'active' : ''}
@@ -791,6 +808,7 @@ export function DiagramCanvas() {
               <div className="kr-reveal-role">{htmlReveal.role}</div>
               <div className="kr-reveal-detail">{htmlReveal.detail}</div>
               {htmlReveal.grammar && <div className="kr-reveal-grammar">{htmlReveal.grammar}</div>}
+              {sermonHighlight}
             </div>
           )}
         </div>
@@ -1034,6 +1052,7 @@ export function DiagramCanvas() {
             <div className="kr-reveal-role">{reveal.summary.role}</div>
             <div className="kr-reveal-detail">{reveal.summary.detail}</div>
             {reveal.summary.grammar && <div className="kr-reveal-grammar">{reveal.summary.grammar}</div>}
+            {sermonHighlight}
           </div>
         )}
         {gloss && glossPos && (
