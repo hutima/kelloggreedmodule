@@ -903,16 +903,16 @@ function layoutClauseSpine(
   // behind the verb-aligned words, but the paper-coloured halo under each word
   // (see the renderer) keeps them legible, so the bar stays a single clean line.
   elements.unshift(line(eid(), verbAlignX, top, verbAlignX, last, 'dashed', 'coordination', clause.id));
-  // The conjunction rides the dashed bar itself, rotated upright (90°) and
-  // centred in the CLEAR BAND between the first two clauses — so it reads ALONG
-  // the join, halfway between the clauses, rather than lying horizontally across
-  // the verb.
-  if (coordTexts.length && laid.length >= 2) {
-    const gapTop = verbYs[0]! + laid[0]!.block.height;
-    const gapBot = verbYs[1]! - blockAscent(laid[1]!.block);
-    const midY = (gapTop + gapBot) / 2;
+  // One coordinator per JOIN: the conjunction between clauses k and k+1 rides the
+  // dashed bar in the gap between them (so three clauses joined by "καὶ … καὶ"
+  // get a καὶ in each gap, not "καὶ καὶ" stacked in the first). It is centred on
+  // the midpoint of the two VERB baselines — the bar runs down the clear verb
+  // column (modifiers hang off to the right), so the join reads visually centred
+  // between the two main lines rather than sinking toward the lower clause.
+  for (let k = 0; k < laid.length - 1 && k < coordTexts.length; k++) {
+    const midY = (verbYs[k]! + verbYs[k + 1]!) / 2;
     elements.push({
-      kind: 'text', id: eid(), x: verbAlignX, y: midY, text: coordTexts.join(' '),
+      kind: 'text', id: eid(), x: verbAlignX, y: midY, text: coordTexts[k]!,
       anchor: 'middle', small: true, rotate: -90,
     });
   }
