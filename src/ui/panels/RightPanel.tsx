@@ -1,16 +1,18 @@
 import { useState } from 'react';
+import { Inspector } from './right/Inspector';
 import { RelationshipList } from './right/RelationshipList';
 import { NotesEditor } from './right/NotesEditor';
 
-type Tab = 'relationships' | 'notes';
+type Tab = 'edit' | 'relationships' | 'notes';
 
 /**
- * Right panel. For now only Relations and Notes are exposed; the Inspector,
- * Layout-hints, and Inference tabs are hidden until the tap-to-relate edit mode
- * lands (selecting a word still shows its parse in the diagram popover).
+ * Right panel. The Inspector ("Edit") edits the current selection — tap a word
+ * or line in the diagram, then change its part of speech, morphology, role,
+ * clause type, or relation, and re-attach connections (tap-to-relate). Relations
+ * lists every connection; Notes holds free-text per passage.
  */
 export function RightPanel({ hidden = false }: { hidden?: boolean }) {
-  const [tab, setTab] = useState<Tab>('relationships');
+  const [tab, setTab] = useState<Tab>('edit');
   // On phones the panel starts collapsed so the diagram is visible first; it can
   // be expanded with the caret in its tab bar.
   const [collapsed, setCollapsed] = useState(
@@ -18,6 +20,7 @@ export function RightPanel({ hidden = false }: { hidden?: boolean }) {
   );
 
   const tabs: { id: Tab; label: string }[] = [
+    { id: 'edit', label: 'Edit' },
     { id: 'relationships', label: 'Relations' },
     { id: 'notes', label: 'Notes' },
   ];
@@ -41,6 +44,7 @@ export function RightPanel({ hidden = false }: { hidden?: boolean }) {
         </button>
       </div>
       <div className="panel-body">
+        {tab === 'edit' && <Inspector />}
         {tab === 'relationships' && <RelationshipList />}
         {tab === 'notes' && <NotesEditor />}
       </div>
