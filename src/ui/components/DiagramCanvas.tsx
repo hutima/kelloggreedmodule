@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { layoutForMode, DIAGRAM_MODES } from '@/domain/layout';
-import { dashFor } from '@/domain/render';
+import { dashFor, toneColor } from '@/domain/render';
 import { describeFunction, getNode, childRelations } from '@/domain/model';
 import { loadParallelBook, alignParallel, bookForDoc, type ParallelBook, type ParallelView } from '@/io';
 import type { KrDocument } from '@/domain/schema';
@@ -568,7 +568,7 @@ export function DiagramCanvas() {
                   textAnchor={el.anchor}
                   fontSize={el.small ? 13 : 18}
                   fontStyle={el.italic ? 'italic' : undefined}
-                  fill={el.tentative ? TENTATIVE : el.muted ? '#8a97a3' : '#1f2933'}
+                  fill={el.tentative ? TENTATIVE : toneColor(el.tone) ?? (el.muted ? '#8a97a3' : '#1f2933')}
                   {...(el.rotate
                     ? { transform: `rotate(${el.rotate} ${el.x} ${el.y})` }
                     : { stroke: '#fff', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' })}

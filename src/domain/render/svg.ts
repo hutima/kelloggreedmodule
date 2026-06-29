@@ -1,5 +1,5 @@
 import type { DiagramLayout, DiagramElement } from '@/domain/layout';
-import { THEME, dashFor } from './theme';
+import { THEME, dashFor, toneColor } from './theme';
 
 /**
  * Pure SVG string serializer. Used by the export layer (SVG/PNG/print) and by
@@ -34,7 +34,9 @@ function elementToSvg(el: DiagramElement): string {
     const head = el.arrow ? arrowheadPath(el.cx, el.cy, el.x2, el.y2, color) : '';
     return `<path d="M ${r(el.x1)} ${r(el.y1)} Q ${r(el.cx)} ${r(el.cy)} ${r(el.x2)} ${r(el.y2)}" fill="none" stroke="${color}" stroke-width="${THEME.strokeWidth}"${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linecap="round" />${head}`;
   }
-  const fill = el.tentative ? THEME.tentative : el.muted ? THEME.muted : THEME.ink;
+  const fill = el.tentative
+    ? THEME.tentative
+    : toneColor(el.tone) ?? (el.muted ? THEME.muted : THEME.ink);
   const size = el.small ? THEME.smallFontSize : THEME.fontSize;
   const style = el.italic ? ' font-style="italic"' : '';
   const transform = el.rotate ? ` transform="rotate(${r(el.rotate)} ${r(el.x)} ${r(el.y)})"` : '';
