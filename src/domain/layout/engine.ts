@@ -95,6 +95,65 @@ function wordPos(ctx: Ctx, nodeId: string): string | undefined {
 }
 
 /**
+ * A coordination whose head and conjuncts are all diagonal modifiers
+ * (adjectives / adverbs): "tall and distinguished", "little and old". Drawn as
+ * parallel slants joined by a dashed coordinator bar, rather than the horizontal
+ * two-prong fork used for coordinated nouns.
+ */
+function isDiagonalCoordination(ctx: Ctx, nodeId: string): boolean {
+  const node = getNode(ctx.doc.syntax, nodeId);
+  if (!node || node.kind !== 'word') return false;
+  const conj = wordConjunctRels(ctx, nodeId);
+  if (!conj.length) return false;
+  const pos = wordPos(ctx, nodeId);
+  if (!pos || !DIAGONAL_POS.has(pos)) return false;
+  return conj.every((r) => {
+    const cp = wordPos(ctx, r.dependentId);
+    return !!cp && DIAGONAL_POS.has(cp);
+  });
+}
+
+/** Draw a coordination of adjective/adverb modifiers as parallel slants. */
+function drawDiagonalCoordination(
+  ctx: Ctx,
+  nodeId: string,
+  attachX: number,
+  out: DiagramElement[],
+): { bottom: number; right: number } {
+  const node = getNode(ctx.doc.syntax, nodeId)!;
+  const conjunctRels = wordConjunctRels(ctx, nodeId);
+  const coordRel = childRelations(ctx.doc.syntax, nodeId).find((r) => r.type === 'coordinator');
+  const coordText = coordRel
+    ? nodeText(ctx.doc, getNode(ctx.doc.syntax, coordRel.dependentId)!) || ''
+    : '';
+  const members = [node, ...conjunctRels.map((r) => getNode(ctx.doc.syntax, r.dependentId)!)];
+
+  let bottom = 0;
+  let right = attachX;
+  const starts: number[] = [];
+  let cx = attachX;
+  for (const m of members) {
+    starts.push(cx);
+    const ext = drawDiagonalModifier(ctx, m, cx, 0, undefined, out);
+    bottom = Math.max(bottom, ext.bottom);
+    right = Math.max(right, ext.right);
+    cx += LAYOUT.dependentGap * 1.4;
+  }
+  // The dashed coordinator bar bridges the first two parallel slants midway down,
+  // the conjunction (and / καί) riding it between them.
+  if (coordText && starts.length >= 2) {
+    const angle = 57 / DEG;
+    const d = diagLeafGeom('x').drop * 0.5;
+    const dx = d / Math.tan(angle);
+    const x0 = starts[0]! + dx;
+    const x1 = starts[1]! + dx;
+    out.push(line(eid(), x0, d, x1, d, 'dashed', 'coordination', node.id));
+    out.push(smallText(eid(), (x0 + x1) / 2, d - 4, coordText, 'middle', coordRel?.id));
+  }
+  return { bottom, right };
+}
+
+/**
  * An infinitive (a bare infinitive word, or a clause whose predicate is one).
  * Diagrammed like a prepositional phrase: an (empty, in Greek) diagonal leading
  * down to a horizontal baseline that carries the infinitive and its complements —
@@ -175,6 +234,9 @@ function drawDiagonalModifier(
   // own line ("very" under "friendly") rather than one long collinear streak.
   let cx = endX;
   for (const r of childRelations(ctx.doc.syntax, node.id)) {
+    // Conjunct/coordinator children belong to the coordination drawing, not to
+    // this word's own sub-modifier stack.
+    if (r.type === 'conjunct' || r.type === 'coordinator') continue;
     const child = getNode(ctx.doc.syntax, r.dependentId);
     if (!child) continue;
     const jog = LAYOUT.diagRun * 0.5;
@@ -505,6 +567,12 @@ function layoutHead(
       railRight = Math.max(railRight, attachX);
       belowBottom = Math.max(belowBottom, depTop + block.height, diagonalDepth(attachX, 0, endX, depTop, prep));
       cursor = objX + block.width;
+    } else if (rel.type !== 'conjunct' && isDiagonalCoordination(ctx, rel.dependentId)) {
+      // Coordinated adjectives/adverbs ("tall and distinguished") as parallel slants.
+      const ext = drawDiagonalCoordination(ctx, rel.dependentId, cursor, elements);
+      railRight = Math.max(railRight, cursor);
+      belowBottom = Math.max(belowBottom, ext.bottom);
+      cursor = ext.right;
     } else if (rel.type !== 'conjunct' && isDiagonalModifier(ctx, rel.dependentId)) {
       // Closed-class modifier written ALONG its diagonal; no sub-baseline. It may
       // carry its own qualifier ("very friendly") as a further slant. The
@@ -1002,6 +1070,11 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
         diagonalDepth(attachX, 0, endX, belowTop, prep));
       const right = objX + block.width;
       return { right, next: right + LAYOUT.dependentGap };
+    }
+    if (r.type !== 'conjunct' && isDiagonalCoordination(ctx, r.dependentId)) {
+      const ext = drawDiagonalCoordination(ctx, r.dependentId, attachX, elements);
+      belowMaxBottom = Math.max(belowMaxBottom, ext.bottom);
+      return { right: ext.right, next: ext.right + LAYOUT.dependentGap };
     }
     if (r.type !== 'conjunct' && isDiagonalModifier(ctx, r.dependentId)) {
       const node2 = getNode(ctx.doc.syntax, r.dependentId)!;

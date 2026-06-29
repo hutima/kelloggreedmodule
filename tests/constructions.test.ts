@@ -165,6 +165,49 @@ describe('adverbial PP rides the diagonal (verb-attached)', () => {
   });
 });
 
+describe('coordinated adjectives ride parallel slants', () => {
+  // "tall and distinguished" modifying a noun.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s'] },
+      { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+      { id: 'TA', kind: 'word', role: 'adjectival', tokenIds: ['ta'] },
+      { id: 'AND', kind: 'word', role: 'coordinator', tokenIds: ['an'] },
+      { id: 'DI', kind: 'word', role: 'conjunct', tokenIds: ['di'] },
+    ],
+    [
+      { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+      { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+      { id: 'r5', type: 'adjectival', headId: 'S', dependentId: 'TA' },
+      { id: 'r6', type: 'coordinator', headId: 'TA', dependentId: 'AND' },
+      { id: 'r7', type: 'conjunct', headId: 'TA', dependentId: 'DI' },
+    ],
+    [
+      { id: 's', index: 0, surface: 'man', pos: 'noun' },
+      { id: 'v', index: 1, surface: 'stood', pos: 'verb' },
+      { id: 'ta', index: 2, surface: 'tall', pos: 'adjective' },
+      { id: 'an', index: 3, surface: 'and', pos: 'conjunction' },
+      { id: 'di', index: 4, surface: 'old', pos: 'adjective' },
+    ],
+  );
+
+  it('draws both adjectives rotated on slants joined by a dashed coordinator', () => {
+    const layout = layoutDocument(doc);
+    const tall = textEl(layout, 'tall');
+    const old = textEl(layout, 'old');
+    expect(tall?.rotate).toBeDefined();
+    expect(old?.rotate).toBeDefined();
+    // The coordinator bridges them with a dashed coordination line.
+    expect(
+      layout.elements.some(
+        (e) => e.kind === 'line' && (e as { role: string }).role === 'coordination' && (e as { style: string }).style === 'dashed',
+      ),
+    ).toBe(true);
+    expect(texts(layout)).toContain('and');
+  });
+});
+
 describe('stacked adverb modifiers ride slants', () => {
   // "very friendly" — adverb modifying an adjective.
   const doc = build(
