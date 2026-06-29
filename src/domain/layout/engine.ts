@@ -485,6 +485,7 @@ function layoutHead(
   seen: Set<string>,
   collapsed = false,
   excludeCoordination = false,
+  excludeApposition = false,
 ): Block {
   const text = nodeText(ctx.doc, node) || node.label || '∅';
   const wordW = measureText(text) + LAYOUT.wordPadX * 2;
@@ -504,8 +505,9 @@ function layoutHead(
     (r) => !isClauseChild(ctx, r.dependentId) || isInfinitival(ctx, r.dependentId),
   );
   // Appositives continue on the head's own baseline; everything else cascades
-  // below as a modifier.
-  const apposRels = allWordRels.filter((r) => r.type === 'apposition');
+  // below as a modifier. (A coordination may instead hoist its summary apposition
+  // onto a platform off the fork, so it can ask to exclude them here.)
+  const apposRels = excludeApposition ? [] : allWordRels.filter((r) => r.type === 'apposition');
   // Light closed-class leaves (article, adjective, possessive) tuck in CLOSEST to
   // the head; heavy sub-baseline modifiers (a genitive NP, a prepositional
   // phrase) cascade out to the right after them. Without this an article ends up
@@ -766,7 +768,20 @@ function layoutClauseSpine(
     });
   }
 
-  return { width: right, height: bottom, elements, wordLeft: 0, wordRight: right, verbX: verbAlignX };
+  // Expose the TOP of the spine bar as the block's connection point, at
+  // (verbAlignX, 0): a spine hung off a parent stem (e.g. παυόμεθα's participial
+  // object in Col 1:9) must reach the bar, not the empty top-left corner. Shift
+  // the whole spine up so the first verb baseline sits at y = 0; the content
+  // above it is then reserved by blockAscent like any other block.
+  const shifted = translate({ width: right, height: bottom, elements, wordLeft: 0, wordRight: 0 }, 0, -top);
+  return {
+    width: right,
+    height: bottom - top,
+    elements: shifted,
+    wordLeft: verbAlignX,
+    wordRight: verbAlignX,
+    verbX: verbAlignX,
+  };
 }
 
 /**
@@ -829,10 +844,15 @@ function layoutCoordination(
     ? nodeText(ctx.doc, getNode(ctx.doc.syntax, coordRel.dependentId)!) || ''
     : '';
 
+  // An apposition to the WHOLE group ("τὰ τρία ταῦτα" summarising πίστις, ἐλπίς,
+  // ἀγάπη) is hoisted onto a platform off the fork's bar, so it is excluded from
+  // the head conjunct's own inline modifiers below.
+  const apposRels = childRelations(ctx.doc.syntax, node.id).filter((r) => r.type === 'apposition');
+
   // Member 0 is the head word with its own (non-coordination) modifiers; the
   // rest are the conjunct subtrees.
   const members: Block[] = [
-    layoutHead(ctx, node, seen, false, true),
+    layoutHead(ctx, node, seen, false, true, apposRels.length > 0),
     ...conjunctRels.map((r) => layoutNode(ctx, r.dependentId, seen)),
   ];
 
@@ -899,9 +919,28 @@ function layoutCoordination(
     });
   }
 
+  // A summary apposition hangs on its own platform off the bar that joins the
+  // conjuncts, centred below the fork ("τὰ τρία ταῦτα" under faith/hope/love).
+  // It stays WITHIN the fork's width so the block's connection point (the
+  // junction) is unchanged — the parent's subject|predicate divider still
+  // attaches at the junction, keeping the fork tied to its verb.
+  let bottom = botY + lastMember.height;
+  for (const ar of apposRels) {
+    const ab = layoutNode(ctx, ar.dependentId, seen);
+    if (!ab.elements.length) continue;
+    const platTop = bottom + LAYOUT.adjunctDrop * ctx.vScale;
+    const platY = platTop + blockAscent(ab);
+    const span = ab.wordLeft + (ab.wordRight || ab.width);
+    const baseStart = Math.max(0, Math.min(dashX - span / 2, width - ab.width));
+    elements.push(...translate(ab, baseStart, platY));
+    // Stem from the joining bar down to the platform baseline.
+    elements.push(line(eid(), dashX, botY, dashX, platY, 'solid', 'stem', undefined, ar.id));
+    bottom = platY + ab.height;
+  }
+
   return {
     width,
-    height: botY + lastMember.height,
+    height: bottom,
     elements,
     wordLeft: junctionX,
     wordRight: junctionX,
