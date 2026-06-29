@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { minZoomScale, clampPan, clamp, MIN_SCALE, MAX_SCALE } from '@/ui/zoom';
+import { minZoomScale, clampPan, clamp, scheduleRepaint, MIN_SCALE, MAX_SCALE } from '@/ui/zoom';
 
 describe('zoom-out lock (minZoomScale)', () => {
   it('locks zoom-out at the fit-to-screen scale for a diagram wider than the viewport', () => {
@@ -75,5 +75,34 @@ describe('pan lock (clampPan)', () => {
   it('passes through unchanged for degenerate sizes', () => {
     expect(clampPan(10, 20, 1, 800, 600, 0, 0)).toEqual({ x: 10, y: 20 });
     expect(clampPan(10, 20, 0, 800, 600, 100, 100)).toEqual({ x: 10, y: 20 });
+  });
+});
+
+describe('gesture-end repaint (scheduleRepaint)', () => {
+  it('hides the layer now and restores it only on the next frame', () => {
+    // The whole point of the fix: a synchronous display none→'' is a no-op on
+    // WebKit, so the restore MUST be deferred to a later frame. Capture the
+    // scheduled callback instead of running it immediately.
+    const el = { style: { display: 'block' } };
+    let frame: (() => void) | null = null;
+    scheduleRepaint(el, (cb) => {
+      frame = cb;
+    });
+    // Synchronously the layer is hidden — the eviction is in flight, not undone.
+    expect(el.style.display).toBe('none');
+    // Running the deferred frame restores it.
+    frame!();
+    expect(el.style.display).toBe('');
+  });
+
+  it('is a no-op (no throw) when there is no element yet', () => {
+    let scheduled = false;
+    expect(() =>
+      scheduleRepaint(null, () => {
+        scheduled = true;
+      }),
+    ).not.toThrow();
+    // Nothing to repaint, so nothing is scheduled.
+    expect(scheduled).toBe(false);
   });
 });
