@@ -15,7 +15,7 @@ import {
   type ParallelView,
 } from '@/io';
 import type { KrDocument } from '@/domain/schema';
-import { MIN_SCALE, MAX_SCALE, clamp, minZoomScale, clampPan } from '@/ui/zoom';
+import { MIN_SCALE, MAX_SCALE, clamp, minZoomScale, clampPan, scheduleRepaint } from '@/ui/zoom';
 
 const TENTATIVE = '#c2410c';
 const INK = '#1f2933';
@@ -176,15 +176,18 @@ export function DiagramCanvas() {
     return clampPan(x, y, scale, vp.clientWidth, vp.clientHeight, w, h);
   }, []);
 
-  /** Force the pan layer to re-rasterise. iOS Safari can leave a composited
-   *  layer blank after a rapid pinch; toggling `display` evicts and repaints it.
-   *  Called once when a multi-touch gesture ends. */
+  /** Belt-and-suspenders: nudge the pan layer to re-rasterise once a multi-touch
+   *  gesture ends, in case iOS Safari still left a composited tile stale. The
+   *  toggle is deferred across an animation frame (see {@link scheduleRepaint});
+   *  a synchronous one is a no-op on WebKit. With zoom now a GPU transform rather
+   *  than a per-frame SVG resize, the page should no longer blank — this is only
+   *  insurance. */
   const forceRepaint = useCallback(() => {
-    const el = panRef.current;
-    if (!el) return;
-    el.style.display = 'none';
-    void el.offsetHeight; // reflow — forces the browser to drop the stale layer
-    el.style.display = '';
+    const raf =
+      typeof requestAnimationFrame === 'function'
+        ? (cb: () => void) => requestAnimationFrame(cb)
+        : (cb: () => void) => setTimeout(cb, 0);
+    scheduleRepaint(panRef.current, raf);
   }, []);
 
   /** Fit the whole diagram into the viewport (centred horizontally, top-aligned
@@ -562,15 +565,25 @@ export function DiagramCanvas() {
         <div
           ref={panRef}
           className="diagram-pan"
-          style={{ transform: `translate(${view.x}px, ${view.y}px)` }}
+          style={{
+            // Zoom is a GPU CSS transform, NOT a change to the SVG's intrinsic
+            // width/height. Resizing the SVG element re-lays-out and re-rasterises
+            // a large vector on every pinch frame — common to zoom-in and zoom-out
+            // — which thrashes iOS Safari's compositor until it discards the whole
+            // page's tiles and the screen flashes white. A transform reuses one
+            // texture during the gesture (Safari re-rasterises the vector crisply
+            // once it settles, now that the will-change layer is gone). The math is
+            // identical: transform-origin is 0 0, so a point p still lands at
+            // x + p*scale either way.
+            transform: `translate(${view.x}px, ${view.y}px) scale(${
+              Number.isFinite(view.scale) ? view.scale : 1
+            })`,
+          }}
         >
-          {/* Zoom drives the SVG's intrinsic size (viewBox fixed) rather than a
-              CSS scale() — so the vector re-renders crisply instead of the
-              browser stretching a rasterised layer (which looked fuzzy). */}
           <svg
             className={`diagram-paper${doc.language === 'hbo' ? ' hebrew' : ''}`}
-            width={Number.isFinite(view.scale) ? layout.width * view.scale : layout.width}
-            height={Number.isFinite(view.scale) ? layout.height * view.scale : layout.height}
+            width={layout.width}
+            height={layout.height}
             viewBox={`0 0 ${layout.width} ${layout.height}`}
             role="img"
             aria-label={`Kellogg-Reed diagram of: ${doc.text || doc.title}`}

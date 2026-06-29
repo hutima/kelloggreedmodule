@@ -67,3 +67,36 @@ export function clampPan(
     y: clamp(y, Math.min(yLo, yHi), Math.max(yLo, yHi)),
   };
 }
+
+/** The minimal shape {@link scheduleRepaint} touches — just a writable
+ *  `style.display`. Lets the helper be unit-tested without a real DOM node. */
+export interface RepaintTarget {
+  style: { display: string };
+}
+
+/**
+ * Force a composited layer to re-rasterise after a touch gesture has resized it.
+ *
+ * On iOS Safari, changing an SVG's intrinsic width/height — which a pinch does
+ * in *either* direction, zoom-in **or** zoom-out — can leave its backing tile
+ * blank, so the diagram flashes white on touch release. The cure is to evict the
+ * stale tile by hiding the layer and restoring it, but the toggle MUST cross a
+ * frame boundary: a synchronous `display = 'none'` → `display = ''` in one task
+ * is coalesced by WebKit into a net no-op (reading a layout property forces a
+ * reflow but never a repaint), so the blank tile survives and the nudge does
+ * nothing. Hiding now and restoring on the next animation frame makes the
+ * compositor actually drop and rebuild the layer.
+ *
+ * Pure and injectable: pass the element and a `requestAnimationFrame`-like
+ * scheduler so the cross-frame behaviour can be verified in tests.
+ */
+export function scheduleRepaint(
+  el: RepaintTarget | null,
+  raf: (cb: () => void) => void,
+): void {
+  if (!el) return;
+  el.style.display = 'none';
+  raf(() => {
+    el.style.display = '';
+  });
+}
