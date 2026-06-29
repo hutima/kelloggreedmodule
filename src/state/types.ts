@@ -72,4 +72,6 @@ export interface EditorState {
   gntIndex: number;
   /** Whether the left (sources) panel is collapsed to a thin strip. */
   leftCollapsed: boolean;
+  /** User override: force the desktop layout/editing on a small screen. */
+  forceDesktop: boolean;
 }

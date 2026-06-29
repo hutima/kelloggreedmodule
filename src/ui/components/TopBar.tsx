@@ -29,7 +29,9 @@ export function TopBar() {
   const redo = useEditorStore((s) => s.redo);
 
   const vp = useViewport();
-  const canEdit = vp.isDesktop || vp.forceDesktop;
+  // Editing is desktop-first but allowed on tablets (per the spec). It is hidden
+  // only on phones — unless desktop mode is forced (which makes effective !mobile).
+  const canEdit = !vp.isMobile;
 
   const [exportOpen, setExportOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);

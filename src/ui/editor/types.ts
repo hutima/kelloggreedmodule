@@ -1,4 +1,10 @@
-import type { KrDocument, SermonAnchor, HighlightCategory } from '@/domain/schema';
+import type {
+  KrDocument,
+  SermonAnchor,
+  HighlightCategory,
+  SyntacticRole,
+  ClauseType,
+} from '@/domain/schema';
 import type { DiagramMode } from '@/domain/layout';
 import type { Selection } from '@/state/types';
 
@@ -17,11 +23,11 @@ import type { Selection } from '@/state/types';
 /** A serializable description of an edit (semantic) or a modal to open. */
 export type EditIntent =
   // --- direct semantic edits (flow to the shared syntax graph) ---
-  | { kind: 'setRole'; nodeId: string; role: import('@/domain/schema').SyntacticRole }
+  | { kind: 'setRole'; nodeId: string; role: SyntacticRole }
   | { kind: 'setImplied'; nodeId: string; implied: boolean }
-  | { kind: 'setClauseType'; nodeId: string; clauseType: import('@/domain/schema').ClauseType }
-  | { kind: 'attachNodeTo'; dependentId: string; headId: string; type: import('@/domain/schema').SyntacticRole }
-  | { kind: 'changeRelationType'; relationId: string; type: import('@/domain/schema').SyntacticRole }
+  | { kind: 'setClauseType'; nodeId: string; clauseType: ClauseType }
+  | { kind: 'attachNodeTo'; dependentId: string; headId: string; type: SyntacticRole }
+  | { kind: 'changeRelationType'; relationId: string; type: SyntacticRole }
   | { kind: 'reverseRelation'; relationId: string }
   | { kind: 'removeRelation'; relationId: string }
   | { kind: 'removeNode'; nodeId: string }

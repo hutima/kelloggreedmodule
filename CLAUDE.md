@@ -246,17 +246,82 @@ accented Greek does not over-measure.
 
 ```
 src/domain/schema/      Zod schemas — single source of truth for data shapes
+                        (token · syntax · layout · sermon · patch)
 src/domain/model/       pure helpers: ids, queries, immutable mutations, tokenize
 src/domain/inference/   provisional inference engine (rules/, apply, engine)
 src/domain/layout/      syntax model → geometry (never reads word order)
 src/domain/render/      geometry → SVG string + shared theme
-src/state/              zustand editor store, undo/redo, autosave
-src/persistence/        IndexedDB (idb) with localStorage fallback
-src/io/                 JSON / SVG / PNG / print import & export
+src/domain/patch/       PatchManager: base + diff ⇄ edited document (pure)
+src/domain/sermon/      pure sermon-prep mutations (notes/highlights/outline)
+src/state/              zustand editor store, undo/redo, autosave, app modes
+src/persistence/        IndexedDB (docs + base assignments) + localStorage
+                        (per-passage patches, sermon prep, notes)
+src/io/                 JSON / SVG / PNG / print + backup/import detection
 src/fixtures/           validated sample documents
-src/ui/                 three-panel React app
+src/ui/responsive/      viewport detection + forced-desktop preference
+src/ui/shell/           ResponsiveShell, Mode/Visualization switchers
+src/ui/editor/          editing core: view adapters, action sheet, modals
+src/ui/sermon/          sermon-prep drawer / mobile sheet / highlight toolbar
+src/ui/                 React app (panels, components, App)
 ```
 
 When extending: add schema values first, then teach the inference rules
 (register in `inference/rules/index.ts`), then the layout engine if a new role
 needs special geometry. Keep the three concerns separate.
+
+---
+
+## 10. App modes, visualizations, and the editing core
+
+The product is split into three **app modes** (`AppMode` in `state/types.ts`):
+**Explore** (default, especially on mobile), **Edit** (desktop/tablet-first), and
+**Sermon Prep**. These are orthogonal to the legacy inference **working mode**
+(`WorkMode` = parsed/assisted/manual), which now only drives the inference engine.
+
+A **visualization** (`DiagramMode`: kellogg-reed · phrase-block · dependency ·
+morphology) is a *lens* over the one shared syntax graph — never a separate model.
+
+Editing is mediated by **view adapters** (`ui/editor/adapters.ts`, implementing
+`EditorViewAdapter`). Given the current selection, an adapter returns the
+contextual `EditorAction[]` that fit *what the user is looking at*; the
+`EditorController` shows them in a `SelectionActionSheet` and routes each
+serializable `EditIntent` either to a store edit (which flows to the shared
+model) or to a guided modal (`RelationBuilder`, `RoleEditor`, `BlockEditor`,
+`MorphologyEditor`, `Note`). Semantic edits change the syntax graph and appear in
+every view; layout-only edits (`resetLayout`) stay view-local. The old dense
+Inspector remains behind `EDITING_ENABLED` (off) as a dev-only fallback.
+
+## 11. Patch / diff persistence (base + patch model)
+
+User edits are NOT stored as duplicated documents. The rendered document is
+
+    base source assignment  +  user patch  +  sermon prep  +  layout prefs
+
+- The **base** (gold-standard) assignment is stored once per passage in the
+  IndexedDB `bases` store; the live (edited) doc is still autosaved separately as
+  the session-restore cache (the tuned iOS-safe path is untouched).
+- `CustomAssignmentPatch` (`schema/patch.ts`) is a compact diff (node/relation/
+  token upsert·update·remove, layout-hint set/null, optional view state). It is
+  derived in the store via `diffDocuments(base, live)` and saved per passage in
+  localStorage. `applyPatch(base, patch)` reconstructs the edited doc and is pure
+  + idempotent. A `baseHash` guards against applying a diff to the wrong base.
+- Manual edits stamp provenance `manual`; base data is never mutated. Reset
+  removes only the patch (and/or sermon/notes), restoring the base.
+
+## 12. Sermon prep
+
+`SermonPrepData` (`schema/sermon.ts`) holds notes, highlights, observations, and
+a sermon outline, kept apart from syntax. Everything anchors to **stable ids**
+(`tokenIds`/`nodeId`/`relationId`/`verseRef`), not character offsets, so notes
+survive edits. Stored per passage in localStorage; mutated through pure helpers
+in `domain/sermon`.
+
+## 13. Migration notes
+
+- The on-disk `KrDocument` shape is unchanged (schemaVersion 1) — existing saved
+  documents load as-is. New data (patches, sermon prep) lives in new keys/stores,
+  so older builds ignore it and this build tolerates its absence.
+- IndexedDB bumped to v2 (adds the `bases` store) via an additive upgrade.
+- `AppMode` was repurposed for Explore/Edit/Sermon; the old value set is now
+  `WorkMode`. `useViewport`'s force-desktop flag lives in the store so the shell
+  and command bar stay in sync.

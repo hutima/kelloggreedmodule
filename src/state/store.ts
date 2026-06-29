@@ -53,6 +53,7 @@ import {
 import { applyPatch, diffDocuments, hashBase } from '@/domain/patch';
 import { isEmptySyntaxPatch } from '@/domain/schema';
 import { DEFAULT_MODE, type DiagramMode } from '@/domain/layout';
+import { loadForceDesktop, saveForceDesktop } from '@/ui/responsive/viewport';
 import { scheduleAutosave } from './autosave';
 import type { AppMode, Corpus, EditorState, Selection, WorkMode } from './types';
 
@@ -125,6 +126,8 @@ export interface EditorActions {
   setMode: (mode: WorkMode) => void;
   /** Switch the user-facing app mode (Explore / Edit / Sermon Prep). */
   setAppMode: (mode: AppMode) => void;
+  /** Force (or unforce) the desktop layout on a small screen; persisted. */
+  setForceDesktop: (value: boolean) => void;
   /** Set the GNT reading context (book's sentences + current index) for nav. */
   setGntContext: (passages: KrDocument[], index: number) => void;
   /** Collapse/expand the left (sources) panel. */
@@ -287,10 +290,15 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     gntPassages: [],
     gntIndex: -1,
     leftCollapsed: false,
+    forceDesktop: loadForceDesktop(),
 
     setGntContext: (passages, index) => set({ gntPassages: passages, gntIndex: index }),
     setLeftCollapsed: (collapsed) => set({ leftCollapsed: collapsed }),
     setAppMode: (appMode) => set({ appMode }),
+    setForceDesktop: (value) => {
+      saveForceDesktop(value);
+      set({ forceDesktop: value });
+    },
 
     stepGnt: (delta) => {
       const { gntPassages, gntIndex } = get();

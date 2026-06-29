@@ -14,16 +14,36 @@ English word-order patterns.
 
 ---
 
+## Three user-facing modes (one shared model)
+
+The app presents three distinct experiences — all lenses over the **same**
+document model (tokens · syntax nodes · relations · layout hints · provenance):
+
+- **Explore** — the default, especially on mobile. Read the original text, tap a
+  word to see its lemma/parsing/gloss/role, and switch visualizations
+  (Kellogg-Reed · Phrase/Block · Dependency · Morphology). Optional English
+  alignment.
+- **Edit** (desktop/tablet-first) — direct, tap-driven editing. Select a word,
+  relation, or block; a contextual action sheet offers exactly the edits that fit
+  the active visualization, opening guided modals (relationship builder, role,
+  block hierarchy, morphology). Every semantic edit flows to the shared graph and
+  shows in all views; layout tweaks stay view-local. Hidden on phones unless you
+  force desktop mode.
+- **Sermon Prep** — notes, highlights, observations, and an outline anchored to
+  stable ids, kept separate from syntax. A persistent drawer on desktop, a light
+  sheet on mobile.
+
+Responsive by design: mobile, tablet, and desktop get tailored layouts. User
+edits are stored as **compact diffs against the gold-standard base** (never
+duplicated documents) and are exportable, importable, and resettable.
+
 ## Features
 
-- **Three working modes**
-  - **Parsed** — paste a complete parse (JSON or the structured Parse editor)
-    and render it.
-  - **Assisted** — supply partial input and let the **inference engine** propose
-    structure. Every inference is provisional, editable, and removable, and
-    carries `source` / `confidence` / `reason` metadata. Accept or reject each
-    one (or all).
-  - **Manual** — build a diagram from scratch, node by node, no parse required.
+- **Legacy inference engine** (behind the rebuilt UI)
+  - **Parsed** — render a complete parse (JSON or the gold-standard passages).
+  - **Assisted** — let the **inference engine** propose structure. Every
+    inference carries `source` / `confidence` / `reason` and is accept/rejectable.
+  - **Manual** — build a diagram from scratch, node by node.
 - **Hybrid Kellogg-Reed renderer (SVG)** — baseline, subject/predicate divider,
   objects & complements, slanted modifiers, prepositional phrases, coordination,
   subordinate & nested clauses, implied elements, and free Greek word order.

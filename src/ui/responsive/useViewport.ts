@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  classifyWidth,
-  loadForceDesktop,
-  saveForceDesktop,
-  type ViewportKind,
-} from './viewport';
+import { useEditorStore } from '@/state';
+import { classifyWidth, type ViewportKind } from './viewport';
 
 export interface Viewport {
   /** Physical device class from the window width. */
@@ -28,12 +24,14 @@ function currentWidth(): number {
 }
 
 /**
- * React hook exposing the live viewport class plus the persisted force-desktop
- * override. Listens to resize/orientation changes.
+ * React hook exposing the live viewport class plus the force-desktop override.
+ * The override lives in the shared store so every consumer (top bar, shell)
+ * re-renders together when it changes; this hook only owns width detection.
  */
 export function useViewport(): Viewport {
   const [width, setWidth] = useState<number>(() => currentWidth());
-  const [forceDesktop, setForce] = useState<boolean>(() => loadForceDesktop());
+  const forceDesktop = useEditorStore((s) => s.forceDesktop);
+  const setStoreForce = useEditorStore((s) => s.setForceDesktop);
 
   useEffect(() => {
     const onResize = () => setWidth(currentWidth());
@@ -45,10 +43,7 @@ export function useViewport(): Viewport {
     };
   }, []);
 
-  const setForceDesktop = useCallback((value: boolean) => {
-    saveForceDesktop(value);
-    setForce(value);
-  }, []);
+  const setForceDesktop = useCallback((value: boolean) => setStoreForce(value), [setStoreForce]);
 
   const device = classifyWidth(width);
   const effective: ViewportKind =
