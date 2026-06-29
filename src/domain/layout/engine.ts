@@ -1239,6 +1239,10 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // is later placed, since the pedestal elements live at negative y.)
   pedestalRels.forEach((rel) => {
     const block = layoutNode(ctx, rel.dependentId, seen);
+    // If the clause was already laid out elsewhere (shared reference → `seen`
+    // dedup returns an empty block), skip it: drawing a pedestal foot + riser for
+    // empty content leaves an orphan "Y" with no baseline on top.
+    if (!block.elements.length) return;
     // Object separator tick, then the pedestal foot a little to its right.
     elements.push(line(eid(), x, 0, x, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id));
     x += 6;
