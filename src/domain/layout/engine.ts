@@ -170,15 +170,19 @@ function drawDiagonalModifier(
   out.push(diagonalText(t, attachX, attachY, endX, endY, relId, node.id, DIAG_TEXT_FRAC));
   let bottom = diagonalDepth(attachX, attachY, endX, endY, t, DIAG_TEXT_FRAC);
   let right = endX + measureText(t) * 0.6;
-  // Sub-modifiers hang from the lower end of this slant, fanning right.
+  // Sub-modifiers hang off the word: a short right-angle jog off the parent slant
+  // and then a parallel slant of the same angle, so each qualifier reads as its
+  // own line ("very" under "friendly") rather than one long collinear streak.
   let cx = endX;
   for (const r of childRelations(ctx.doc.syntax, node.id)) {
     const child = getNode(ctx.doc.syntax, r.dependentId);
     if (!child) continue;
-    const sub = drawDiagonalModifier(ctx, child, cx, endY, r.id, out);
+    const jog = LAYOUT.diagRun * 0.5;
+    out.push(line(eid(), cx, endY, cx + jog, endY, 'solid', 'slant', undefined, r.id));
+    const sub = drawDiagonalModifier(ctx, child, cx + jog, endY, r.id, out);
     bottom = Math.max(bottom, sub.bottom);
     right = Math.max(right, sub.right);
-    cx += LAYOUT.dependentGap;
+    cx = cx + jog + LAYOUT.dependentGap;
   }
   return { bottom, right };
 }
