@@ -31,6 +31,33 @@ import type { AppMode, EditorState, Selection } from './types';
 
 const HISTORY_LIMIT = 100;
 
+/**
+ * Analyst notes persist PER PASSAGE, keyed by the document id (which is
+ * deterministic for a given GNT passage selection), so reopening the same
+ * passage restores its notes. Stored in localStorage; absent/erroring storage
+ * (tests, private mode) degrades to no persistence.
+ */
+const notesKey = (docId: string) => `kr:notes:${docId}`;
+
+function loadPassageNotes(docId: string): string | null {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    return localStorage.getItem(notesKey(docId));
+  } catch {
+    return null;
+  }
+}
+
+function savePassageNotes(docId: string, notes: string): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    if (notes) localStorage.setItem(notesKey(docId), notes);
+    else localStorage.removeItem(notesKey(docId));
+  } catch {
+    /* storage full or disabled — notes simply won't persist */
+  }
+}
+
 export interface EditorActions {
   // lifecycle
   newDocument: (language: Language, title?: string) => void;
@@ -110,8 +137,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       scheduleAutosave(doc, (status) => set({ status }));
     },
 
-    loadDocument: (doc) =>
-      set({ doc, past: [], future: [], inferences: [], selection: {}, linking: null, status: 'saved' }),
+    loadDocument: (doc) => {
+      // Restore any notes saved for this passage (keyed by document id).
+      const saved = loadPassageNotes(doc.id);
+      const next = saved != null ? { ...doc, notes: saved } : doc;
+      set({ doc: next, past: [], future: [], inferences: [], selection: {}, linking: null, status: 'saved' });
+    },
 
     setMode: (mode) => {
       set({ mode });
@@ -119,7 +150,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     setTitle: (title) => commit((d) => ({ ...d, title })),
-    setNotes: (notes) => commit((d) => ({ ...d, notes })),
+    setNotes: (notes) => {
+      savePassageNotes(get().doc.id, notes);
+      commit((d) => ({ ...d, notes }));
+    },
     setText: (text) => commit((d) => ({ ...d, text })),
     setLanguage: (language) => commit((d) => ({ ...d, language })),
 

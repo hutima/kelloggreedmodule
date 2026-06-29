@@ -1,47 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import { useEditorStore, selectCanRedo, selectCanUndo, type AppMode } from '@/state';
-import {
-  downloadDocumentJson,
-  downloadDocumentSvg,
-  downloadDocumentPng,
-  importJson,
-  printDocument,
-} from '@/io';
+import { useEffect, useState } from 'react';
+import { useEditorStore } from '@/state';
+import { ExportModal } from './ExportModal';
 
-const MODES: { id: AppMode; label: string; hint: string }[] = [
-  { id: 'parsed', label: 'Parsed', hint: 'Paste a full parse (JSON / Parse tab).' },
-  { id: 'assisted', label: 'Assisted', hint: 'Infer structure from partial input.' },
-  { id: 'manual', label: 'Manual', hint: 'Build a diagram from scratch.' },
-];
-
-export function TopBar({
-  onToggleLeft,
-  onToggleRight,
-  onOpenUpdates,
-}: {
-  onToggleLeft: () => void;
-  onToggleRight: () => void;
-  onOpenUpdates: () => void;
-}) {
+export function TopBar() {
   const doc = useEditorStore((s) => s.doc);
   const verticalScale = useEditorStore((s) => s.verticalScale);
-  const mode = useEditorStore((s) => s.mode);
   const status = useEditorStore((s) => s.status);
-  const setMode = useEditorStore((s) => s.setMode);
   const setTitle = useEditorStore((s) => s.setTitle);
-  const loadDocument = useEditorStore((s) => s.loadDocument);
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
-  const canUndo = useEditorStore(selectCanUndo);
-  const canRedo = useEditorStore(selectCanRedo);
 
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [importError, setImportError] = useState<string | null>(null);
-  // On phones the command buttons collapse behind a menu toggle so they don't
-  // consume most of the screen; on wider screens the group is always shown.
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
-  // Keyboard shortcuts for undo/redo.
+  // Keyboard shortcuts for undo/redo (the toolbar buttons were retired in favour
+  // of a single Export action; undo/redo stay available from the keyboard).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
@@ -53,17 +25,6 @@ export function TopBar({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [undo, redo]);
-
-  const onImportFile = async (file: File) => {
-    const text = await file.text();
-    const result = importJson(text);
-    if (result.ok && result.document) {
-      loadDocument(result.document);
-      setImportError(null);
-    } else {
-      setImportError(result.error ?? 'Import failed');
-    }
-  };
 
   return (
     <header className="topbar">
@@ -86,97 +47,27 @@ export function TopBar({
         onChange={(e) => setTitle(e.target.value)}
       />
 
-      <div className="modeswitch" role="tablist" title={MODES.find((m) => m.id === mode)?.hint}>
-        {MODES.map((m) => (
-          <button
-            key={m.id}
-            className={mode === m.id ? 'active' : ''}
-            title={m.hint}
-            onClick={() => setMode(m.id)}
-          >
-            {m.label}
-          </button>
-        ))}
-      </div>
-
       <div className="spacer" />
 
-      <button
-        className="btn menu-toggle"
-        aria-expanded={menuOpen}
-        title="Commands"
-        onClick={() => setMenuOpen((v) => !v)}
-      >
-        ☰
-      </button>
-
-      <div className={`btn-group${menuOpen ? ' open' : ''}`}>
-        <button className="btn" onClick={undo} disabled={!canUndo} title="Undo (Ctrl/Cmd+Z)">
-          ↶
-        </button>
-        <button className="btn" onClick={redo} disabled={!canRedo} title="Redo (Shift+Ctrl/Cmd+Z)">
-          ↷
-        </button>
-
-        <button className="btn" onClick={() => fileRef.current?.click()}>
-          Import
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void onImportFile(f);
-            e.currentTarget.value = '';
-          }}
-        />
-
-        <select
-          className="btn"
-          value=""
-          aria-label="Export"
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v === 'json') downloadDocumentJson(doc);
-            else if (v === 'svg') downloadDocumentSvg(doc, { verticalScale });
-            else if (v === 'png') void downloadDocumentPng(doc, 2, { verticalScale });
-            else if (v === 'print') printDocument(doc, { verticalScale });
-            e.currentTarget.value = '';
-          }}
-        >
-          <option value="">Export</option>
-          <option value="json">JSON</option>
-          <option value="svg">SVG</option>
-          <option value="png">PNG</option>
-          <option value="print">Print…</option>
-        </select>
-
-        <button className="btn" onClick={onOpenUpdates} title="App updates & cache">
-          ⟳
-        </button>
-        <button className="btn" onClick={onToggleLeft} title="Toggle left panel">
-          ⟨
-        </button>
-        <button className="btn" onClick={onToggleRight} title="Toggle right panel">
-          ⟩
+      <div className="btn-group">
+        <button className="btn primary" onClick={() => setExportOpen(true)} title="Export diagram">
+          Export
         </button>
       </div>
 
       <div className="status">
-        {importError ? (
-          <span style={{ color: '#ffb4ad' }}>{importError}</span>
-        ) : status === 'saving' ? (
-          'Saving…'
-        ) : status === 'saved' ? (
-          'Saved'
-        ) : status === 'error' ? (
-          'Save error'
-        ) : (
-          ''
-        )}
+        {status === 'saving'
+          ? 'Saving…'
+          : status === 'saved'
+            ? 'Saved'
+            : status === 'error'
+              ? 'Save error'
+              : ''}
       </div>
+
+      {exportOpen && (
+        <ExportModal doc={doc} verticalScale={verticalScale} onClose={() => setExportOpen(false)} />
+      )}
     </header>
   );
 }

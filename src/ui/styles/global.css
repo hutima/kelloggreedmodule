@@ -9,6 +9,10 @@
   --panel: #f8fafc;
   --accent: #2f6f9f;
   --accent-soft: #d7e8f4;
+  /* Word/diagram highlight (hover + selection). Green is far more legible over
+     the dark diagram ink than the blue accent. */
+  --hl: #17935a;
+  --hl-strong: #0e7a47;
   --danger: #b4332a;
   --ok: #2f7d4f;
   --warn: #b9770f;
@@ -132,10 +136,6 @@ button {
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
-}
-/* Native selects in the command bar size to their content, not the row. */
-.btn-group select.btn {
-  max-width: 150px;
 }
 
 /* ---- Three-panel grid ---- */
@@ -340,14 +340,32 @@ textarea.code,
 .tabs .collapse-btn {
   margin-left: auto;
 }
+/* The side panels (and source strip) carry a collapse caret on every width. */
+.panel > .tabs > .collapse-btn {
+  display: inline-flex;
+}
 .panel.collapsed > .panel-body {
   display: none;
 }
-
-/* Command menu toggle: hidden until the topbar is too narrow to fit the row. */
-.menu-toggle {
-  display: none;
+/* A collapsed side panel shrinks its workspace column to a thin caret strip. */
+.workspace:has(> .panel.left.collapsed) {
+  grid-template-columns: 38px 1fr var(--right-w, 340px);
 }
+.workspace:has(> .panel.right.collapsed) {
+  grid-template-columns: var(--left-w, 340px) 1fr 38px;
+}
+.workspace:has(> .panel.left.collapsed):has(> .panel.right.collapsed) {
+  grid-template-columns: 38px 1fr 38px;
+}
+.panel.collapsed > .tabs {
+  padding-left: 0;
+  padding-right: 0;
+  justify-content: center;
+}
+.panel.collapsed > .tabs > .collapse-btn {
+  margin: 0;
+}
+
 /* Tap-a-word popover. Positioned (and clamped into the viewport) from JS, so it
    never clips at an edge. */
 .kr-reveal {
@@ -503,15 +521,76 @@ textarea.code,
 }
 .src-word:hover,
 .src-word.hovered {
-  background: color-mix(in srgb, var(--accent, #2f6f9f) 22%, transparent);
+  background: color-mix(in srgb, var(--hl, #17935a) 30%, transparent);
 }
 .src-word.selected {
-  background: color-mix(in srgb, var(--accent, #2f6f9f) 38%, transparent);
+  background: color-mix(in srgb, var(--hl, #17935a) 45%, transparent);
+}
+.src-punc {
+  color: var(--ink, #1f2933);
 }
 /* A word hovered in the source text lights up in the diagram (and vice-versa). */
 .diagram-paper .kr-text.hovered {
-  fill: var(--accent, #2f6f9f) !important;
+  fill: var(--hl, #17935a) !important;
+  font-weight: 700;
+}
+
+/* Source strip: language picker + English (LTR, sans-serif) rendering. */
+.source-wrap {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  max-height: 30%;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+.source-wrap .source-text {
+  border-bottom: none;
+}
+.source-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 14px;
+  background: var(--panel, #fff);
+}
+.source-bar .collapse-btn {
+  display: inline-flex;
+  margin-left: auto;
+}
+.source-label {
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.source-wrap.collapsed {
+  max-height: none;
+}
+.version-picker {
+  display: flex;
+  gap: 2px;
+  background: var(--panel, #fff);
+}
+.version-picker button {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: var(--bg, #f5f7fa);
+  color: var(--ink-soft, #3e4c59);
+  cursor: pointer;
+  border-radius: 999px;
+}
+.version-picker button.active {
+  background: var(--accent, #2f6f9f);
+  border-color: var(--accent, #2f6f9f);
+  color: #fff;
+}
+.source-text.english {
+  font-family: var(--ui);
+  font-size: 15px;
 }
 .diagram-paper {
   background: var(--paper);
@@ -527,8 +606,8 @@ textarea.code,
   cursor: pointer;
 }
 .diagram-paper .kr-text.selected {
-  fill: var(--accent);
-  font-weight: 600;
+  fill: var(--hl-strong, #0e7a47);
+  font-weight: 700;
 }
 .diagram-paper .kr-line.selected {
   stroke: var(--accent);
@@ -766,6 +845,166 @@ textarea.code,
   color: var(--danger);
 }
 
+/* Topbar button variants. */
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.btn.primary:hover {
+  background: color-mix(in srgb, var(--accent) 85%, #fff);
+}
+.btn.icon {
+  padding: 6px 9px;
+}
+
+/* ---- Export modal ---- */
+.export-modal {
+  width: min(460px, 100%);
+  color: var(--ink);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.modal-head h2 {
+  margin: 0;
+  font-size: 17px;
+}
+.modal-x {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.modal-x:hover {
+  background: var(--bg);
+  color: var(--ink);
+}
+.export-formats {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.export-formats button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.export-formats button small {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--muted);
+}
+.export-formats button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.export-dims {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.export-dims label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.export-dims input {
+  width: 78px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+.export-times {
+  color: var(--muted);
+}
+.export-presets {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.export-presets button {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 5px 9px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.export-presets button:hover {
+  border-color: var(--accent);
+}
+.export-hint {
+  width: 100%;
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.export-modal .modal-actions {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.export-secondary {
+  display: flex;
+  gap: 12px;
+}
+.link-btn {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 2px;
+}
+.link-btn:hover {
+  text-decoration: underline;
+}
+.modal-buttons {
+  display: flex;
+  gap: 8px;
+}
+.export-modal .btn {
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 8px 14px;
+}
+.export-modal .btn:hover {
+  background: var(--line);
+}
+.export-modal .btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.export-modal .btn.primary:hover {
+  background: color-mix(in srgb, var(--accent) 85%, #fff);
+}
+
 /* ---- Responsive (tablet) ---- */
 @media (max-width: 1024px) {
   :root {
@@ -818,16 +1057,9 @@ textarea.code,
     min-width: 0;
     flex: 1 1 120px;
   }
-  .menu-toggle {
-    display: inline-flex;
-  }
+  /* The command group is now just a few compact buttons — keep it on the row. */
   .topbar .btn-group {
-    display: none;
     order: 10;
-    flex-basis: 100%;
-  }
-  .topbar .btn-group.open {
-    display: flex;
   }
   .topbar .status {
     order: 11;

@@ -16,6 +16,15 @@ export function buildSvg(doc: KrDocument, opts: LayoutOptions = {}): string {
   return layoutToSvg(layout, { padding: 16, background: true, standalone: true });
 }
 
+/** The diagram's intrinsic pixel size (including export padding) at scale 1. */
+export function documentNaturalSize(
+  doc: KrDocument,
+  opts: LayoutOptions = {},
+): { width: number; height: number } {
+  const layout = layoutDocument(doc, doc.layoutHints, opts);
+  return { width: Math.ceil(layout.width + 32), height: Math.ceil(layout.height + 32) };
+}
+
 export function downloadDocumentJson(doc: KrDocument): void {
   downloadText(exportJson(doc), `${slugify(doc.title)}.json`, 'application/json');
 }

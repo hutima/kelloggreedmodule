@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { TopBar } from './components/TopBar';
 import { DiagramCanvas } from './components/DiagramCanvas';
 import { LeftPanel } from './panels/LeftPanel';
@@ -7,32 +6,23 @@ import { UpdateModal } from './components/UpdateModal';
 
 /**
  * Application shell: a three-panel workspace (sources · diagram · inspector)
- * beneath a command bar. Panels collapse on narrow/tablet widths.
+ * beneath a command bar. Each side panel (and the source strip) collapses in
+ * place via its own caret, so the top bar stays clean — just the Export action.
  */
 export function App() {
-  const [showLeft, setShowLeft] = useState(true);
-  const [showRight, setShowRight] = useState(true);
-  const [showUpdates, setShowUpdates] = useState(false);
-
   return (
     <div className="app">
-      <TopBar
-        onToggleLeft={() => setShowLeft((v) => !v)}
-        onToggleRight={() => setShowRight((v) => !v)}
-        onOpenUpdates={() => setShowUpdates(true)}
-      />
-      <div
-        className={`workspace${showLeft ? '' : ' hide-left'}${
-          showRight ? '' : ' hide-right'
-        }`}
-      >
-        <LeftPanel hidden={!showLeft} />
+      <TopBar />
+      <div className="workspace">
+        <LeftPanel />
         <main className="panel" style={{ borderRight: 'none', background: 'var(--bg)' }}>
           <DiagramCanvas />
         </main>
-        <RightPanel hidden={!showRight} />
+        <RightPanel />
       </div>
-      <UpdateModal open={showUpdates} onClose={() => setShowUpdates(false)} />
+      {/* Mounted for the mandatory "Update available" overlay; the manual
+          updates/cache utility was retired with the top-bar ⟳ button. */}
+      <UpdateModal open={false} onClose={() => undefined} />
     </div>
   );
 }
