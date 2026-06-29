@@ -714,6 +714,17 @@ textarea.code,
   border-color: var(--accent, #2f6f9f);
   color: #fff;
 }
+/* Working-mode switch above the right-panel tabs. */
+.mode-switch-bar {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+.mode-switch {
+  justify-content: stretch;
+}
+.mode-switch button {
+  flex: 1;
+}
 .source-text.english {
   font-family: var(--ui);
   font-size: 15px;
