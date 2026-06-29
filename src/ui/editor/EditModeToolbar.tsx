@@ -86,6 +86,18 @@ export function EditModeToolbar() {
         </span>
       )}
 
+      {/* Guide sits right after the tools, where the eye lands while editing —
+          a prominent accent button so it's easy to find. */}
+      <button
+        type="button"
+        className="btn edit-guide-btn"
+        title="Read the editing guide"
+        onClick={() => setGuideOpen(true)}
+      >
+        <span aria-hidden="true">📖</span> Guide
+      </button>
+      {guideOpen && <EditGuideModal onClose={() => setGuideOpen(false)} />}
+
       <div className="spacer" />
 
       {diagramMode === 'kellogg-reed' && (
