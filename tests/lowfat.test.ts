@@ -60,7 +60,7 @@ describe('Lowfat → KrDocument converter', () => {
     expect(rootChildren.some((r) => r.type === 'subject')).toBe(true);
     // Exactly one implied "(is)" predicate in the whole sentence (the real one),
     // not two (one of which would be the wrapper's).
-    const impliedIs = v2!.syntax.nodes.filter((n) => n.implied && n.label === '(is)');
+    const impliedIs = v2!.syntax.nodes.filter((n) => n.implied && n.label === '(ἐστίν)');
     expect(impliedIs).toHaveLength(1);
   });
 
@@ -87,5 +87,69 @@ describe('Lowfat → KrDocument converter', () => {
     const layout = layoutDocument(v1!, {});
     expect(layout.elements.length).toBeGreaterThan(10);
     expect(layout.width).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Lowfat wraps clause coordination ("ἐρύσατο … καὶ μετέστησεν") and subordination
+ * ("ὅτι ἐκτίσθη …") in head-marked wrappers with the conjunction as a bare word.
+ * Converting those naively produced empty "(subject)|(verb)" baselines with the
+ * real clauses dangling as `adjunct`s, and the conjunction floating free — the
+ * "empty and broken links" of long passages (Colossians 1:9-16). The converter
+ * must instead recover a coordinate clause / a labelled subordinate connector.
+ */
+describe('Lowfat clause coordination & subordination', () => {
+  const surfaceOf = (doc: ReturnType<typeof lowfatToDocuments>[number], nodeId: string) => {
+    const node = doc.syntax.nodes.find((n) => n.id === nodeId);
+    const tid = node?.tokenIds[0];
+    return doc.tokens.find((t) => t.id === tid)?.surface;
+  };
+
+  it('recovers coordinated clauses as conjuncts + a coordinator (no empty wrapper)', () => {
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl" rule="CLaCL">
+      <wg class="cl"><w class="verb" role="v">ἐρύσατο</w><w class="pron" role="o">ἡμᾶς</w></wg>
+      <w class="conj">καὶ</w>
+      <wg class="cl"><w class="verb" role="v">μετέστησεν</w></wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    const root = doc!.syntax.nodes.find((n) => n.id === doc!.syntax.rootId)!;
+    expect(root.kind).toBe('clause');
+    expect(root.clauseType).toBe('coordinate');
+    const kids = doc!.syntax.relations.filter((r) => r.headId === root.id);
+    // Two coordinated clauses + one coordinator — never a subject/predicate.
+    expect(kids.filter((r) => r.type === 'conjunct')).toHaveLength(2);
+    expect(kids.some((r) => r.type === 'coordinator' && surfaceOf(doc!, r.dependentId) === 'καὶ')).toBe(true);
+    expect(kids.some((r) => r.type === 'subject' || r.type === 'predicate')).toBe(false);
+    // No spurious implied subject/copula anywhere.
+    expect(doc!.syntax.nodes.some((n) => n.implied)).toBe(false);
+  });
+
+  it('writes a subordinator (ὅτι) as the connector label, not a floating adjunct word', () => {
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl" rule="S-V-CL">
+      <w class="pron" role="s">ὅς</w>
+      <w class="verb" role="v">λέγει</w>
+      <wg class="cl" rule="sub"><w class="conj">ὅτι</w>
+        <wg class="cl"><w class="verb" role="v">ἐκτίσθη</w><w class="noun" role="s">πάντα</w></wg>
+      </wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    // ὅτι must NOT survive as its own word-node dependent; it is a connector label.
+    const otiIsNode = doc!.syntax.nodes.some((n) => surfaceOf(doc!, n.id) === 'ὅτι');
+    expect(otiIsNode).toBe(false);
+    const ektisthe = doc!.syntax.nodes.find(
+      (n) => n.kind === 'clause' &&
+        doc!.syntax.relations.some((r) => r.headId === n.id && surfaceOf(doc!, r.dependentId) === 'ἐκτίσθη'),
+    )!;
+    const link = doc!.syntax.relations.find((r) => r.dependentId === ektisthe.id)!;
+    expect(link.label).toBe('ὅτι');
+  });
+
+  it('passes a single-child wrapper straight through (no extra clause node)', () => {
+    const xml = `<book name="Test"><sentence><wg role="cl">
+      <wg class="cl" rule="S-V"><w class="pron" role="s">ἐγώ</w><w class="verb" role="v">τρέχω</w></wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    const clauses = doc!.syntax.nodes.filter((n) => n.kind === 'clause');
+    expect(clauses).toHaveLength(1); // the wrapper collapsed away
   });
 });

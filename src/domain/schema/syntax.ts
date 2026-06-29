@@ -64,6 +64,7 @@ export const ClauseTypeSchema = z.enum([
   'infinitival',
   'participial',
   'coordinate',
+  'discourse', // a container of independent sentences shown stacked (a passage)
   'unknown',
 ]);
 export type ClauseType = z.infer<typeof ClauseTypeSchema>;

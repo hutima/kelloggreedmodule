@@ -36,6 +36,19 @@ export const LAYOUT = {
   coordMemberGap: 28,
   /** Coordination fork: horizontal run of the prongs from the junction. */
   coordProngRun: 30,
+  /**
+   * A clause that fills a CORE slot (direct/indirect object, predicate
+   * nominative, subject) is a noun clause: traditionally it rides a PEDESTAL
+   * standing in that slot above the main line, not a stem below. Only compact
+   * clauses are pedestalled; a very tall embedded clause (height beyond this)
+   * would tower over everything, so it stays below on a dotted stem instead.
+   */
+  pedestalMaxHeight: 170,
+  /** Pedestal foot (the little stand on the baseline): half-width and rise. */
+  pedestalFootHalf: 13,
+  pedestalFootRise: 16,
+  /** Clearance between the pedestal foot and the embedded clause's lowest point. */
+  pedestalGap: 12,
   fontSize: 18,
   smallFontSize: 13,
   /** Vertical offset of word text above its baseline. */

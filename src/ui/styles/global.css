@@ -131,6 +131,11 @@ button {
   display: inline-flex;
   gap: 6px;
   flex-wrap: wrap;
+  align-items: center;
+}
+/* Native selects in the command bar size to their content, not the row. */
+.btn-group select.btn {
+  max-width: 150px;
 }
 
 /* ---- Three-panel grid ---- */
@@ -400,26 +405,83 @@ textarea.code,
 }
 
 /* GNT passage picker */
-.gnt-passages ul {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0;
-  max-height: 320px;
-  overflow: auto;
-}
-.gnt-passages li {
+.gnt-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 4px 2px;
+  position: sticky;
+  top: 0;
+  background: var(--panel, #fff);
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  z-index: 1;
+}
+.gnt-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted, #667);
+  cursor: pointer;
+}
+.gnt-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow: auto;
+}
+.gnt-list li {
   border-bottom: 1px solid var(--border, #e2e8f0);
 }
+.gnt-sentence {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+.gnt-sentence:hover {
+  background: var(--bg, #f5f7fa);
+}
+.gnt-sentence.checked {
+  background: color-mix(in srgb, var(--accent, #2f6f9f) 10%, transparent);
+}
+.gnt-sentence input {
+  align-self: center;
+}
 .gnt-ref {
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent, #2f6f9f);
   white-space: nowrap;
+}
+.gnt-text {
+  font-size: 15px;
+  line-height: 1.35;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Source text reference strip above the diagram */
+.source-text {
+  flex: 0 0 auto;
+  max-height: 22%;
+  overflow: auto;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  background: var(--panel, #fff);
+  color: var(--ink, #1f2933);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.source-text.greek {
+  font-family: var(--greek);
+  font-size: 17px;
 }
 .diagram-paper {
   background: var(--paper);

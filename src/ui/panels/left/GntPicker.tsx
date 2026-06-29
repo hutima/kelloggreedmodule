@@ -1,21 +1,20 @@
 import { useState } from 'react';
 import { useEditorStore } from '@/state';
-import { GNT_BOOKS, BUNDLED_BOOKS, cacheGntBook, loadGntBook, type GntBook } from '@/io';
+import { GNT_BOOKS, BUNDLED_BOOKS, cacheGntBook, loadGntBook, combinePassage, type GntBook } from '@/io';
 import type { KrDocument } from '@/domain/schema';
 
 /**
- * Open a Greek New Testament passage in one of two modes:
- *  - Gold-standard: the published Nestle1904 Lowfat parse, rendered as-is.
- *  - Guided: the same text with only tokens + morphology kept, then the
- *    inference engine proposes a parse (ambiguous links shown in the
- *    ambiguity colour) for you to confirm and relink.
+ * Greek New Testament passage picker. Load a book, tick any number of sentences,
+ * and Open diagrams them all together as one passage (the published gold-standard
+ * parse, ready to edit). The sentence list doubles as the running Greek text with
+ * verse references.
  */
 export function GntPicker() {
   const loadDocument = useEditorStore((s) => s.loadDocument);
   const setMode = useEditorStore((s) => s.setMode);
-  const bootstrapParse = useEditorStore((s) => s.bootstrapParse);
   const [bookNum, setBookNum] = useState(11); // Philippians (bundled)
   const [passages, setPassages] = useState<KrDocument[] | null>(null);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cacheState, setCacheState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -23,10 +22,11 @@ export function GntPicker() {
   const book = GNT_BOOKS.find((b) => b.num === bookNum)!;
   const bundled = BUNDLED_BOOKS.has(book.num);
 
-  const open = async (b: GntBook) => {
+  const loadBook = async (b: GntBook) => {
     setLoading(true);
     setError(null);
     setPassages(null);
+    setChecked(new Set());
     setCacheState('idle');
     try {
       setPassages(await loadGntBook(b));
@@ -42,28 +42,35 @@ export function GntPicker() {
     setCacheState((await cacheGntBook(b)) ? 'saved' : 'error');
   };
 
-  const loadGold = (doc: KrDocument) => {
-    loadDocument(doc);
+  const toggle = (id: string) =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const allChecked = !!passages && passages.length > 0 && checked.size === passages.length;
+  const toggleAll = () =>
+    setChecked(allChecked ? new Set() : new Set((passages ?? []).map((p) => p.id)));
+
+  const openChecked = () => {
+    if (!passages) return;
+    const selected = passages.filter((p) => checked.has(p.id));
+    if (!selected.length) return;
+    loadDocument(combinePassage(selected));
     setMode('parsed');
   };
 
-  const loadGuided = (doc: KrDocument) => {
-    loadDocument(toGuided(doc));
-    setMode('assisted');
-    // Seed a rough parse from the inference engine so the diagram is populated
-    // and editable straight away, instead of an empty baseline.
-    bootstrapParse();
-  };
+  /** "Philippians 1:1" → "1:1" for a compact list. */
+  const verse = (title: string) => title.replace(/^.*?(\d+:\d+(?:[–-]\d+)?)\s*$/, '$1');
 
   return (
     <div className="gnt-picker">
       <p className="hint">
-        Open a Greek New Testament passage. <strong>Gold-standard</strong> shows
-        the published syntax tree; <strong>Guided</strong> seeds a rough,
-        editable parse from the inference engine — tap a tentative (coloured)
-        link to relink it. Only Philippians ships with the app;
-        other books download on first use — tap <strong>Save offline</strong> to
-        keep one for later.
+        Open a Greek New Testament book, tick any sentences, then <strong>Open</strong> to diagram
+        them together — the published gold-standard parse, ready to edit. Only Philippians ships with
+        the app; other books download on first use (<strong>Save offline</strong> keeps one for later).
       </p>
       <div className="row">
         <label className="field" style={{ flex: 1 }}>
@@ -83,47 +90,43 @@ export function GntPicker() {
             ))}
           </select>
         </label>
-        <button className="mini accept" style={{ alignSelf: 'flex-end' }} disabled={loading} onClick={() => void open(book)}>
-          {loading ? 'Loading…' : 'Open'}
+        <button className="mini accept" style={{ alignSelf: 'flex-end' }} disabled={loading} onClick={() => void loadBook(book)}>
+          {loading ? 'Loading…' : 'Load'}
         </button>
-      </div>
-      <div className="row" style={{ marginTop: 2 }}>
         <button
           className="mini"
+          style={{ alignSelf: 'flex-end' }}
           disabled={bundled || cacheState === 'saving' || cacheState === 'saved'}
           title={bundled ? 'Bundled with the app' : 'Download this book for offline use'}
           onClick={() => void saveOffline(book)}
         >
-          {bundled
-            ? 'Bundled ✓'
-            : cacheState === 'saving'
-              ? 'Saving…'
-              : cacheState === 'saved'
-                ? 'Saved offline ✓'
-                : 'Save offline'}
+          {bundled ? 'Bundled ✓' : cacheState === 'saving' ? 'Saving…' : cacheState === 'saved' ? 'Saved ✓' : 'Save offline'}
         </button>
-        {cacheState === 'error' && (
-          <span style={{ color: 'var(--danger)', fontSize: 12, alignSelf: 'center' }}>Couldn’t save</span>
-        )}
       </div>
+      {cacheState === 'error' && <p style={{ color: 'var(--danger)', fontSize: 12 }}>Couldn’t save offline.</p>}
       {error && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{error}</p>}
+
       {passages && (
         <div className="gnt-passages">
-          <p className="hint" style={{ margin: '4px 0' }}>
-            {book.name}: {passages.length} sentences
-          </p>
-          <ul>
+          <div className="gnt-actions">
+            <label className="gnt-all">
+              <input type="checkbox" checked={allChecked} onChange={toggleAll} />
+              <span>
+                {book.name}: {passages.length} sentences
+              </span>
+            </label>
+            <button className="mini accept" disabled={!checked.size} onClick={openChecked}>
+              Open{checked.size ? ` (${checked.size})` : ''}
+            </button>
+          </div>
+          <ul className="gnt-list">
             {passages.map((p) => (
               <li key={p.id}>
-                <span className="greek gnt-ref">{p.title}</span>
-                <span className="row">
-                  <button className="mini" onClick={() => loadGold(p)}>
-                    Gold
-                  </button>
-                  <button className="mini" onClick={() => loadGuided(p)}>
-                    Guided
-                  </button>
-                </span>
+                <label className={`gnt-sentence${checked.has(p.id) ? ' checked' : ''}`}>
+                  <input type="checkbox" checked={checked.has(p.id)} onChange={() => toggle(p.id)} />
+                  <span className="gnt-ref">{verse(p.title)}</span>
+                  <span className="greek gnt-text">{p.text}</span>
+                </label>
               </li>
             ))}
           </ul>
@@ -131,20 +134,4 @@ export function GntPicker() {
       )}
     </div>
   );
-}
-
-/** Strip the analysis, keeping tokens (with morphology), for a guided parse. */
-function toGuided(doc: KrDocument): KrDocument {
-  const rootId = 'n_root';
-  return {
-    ...doc,
-    id: `${doc.id}_guided`,
-    notes: 'Guided parse — review the inference engine’s suggestions and relink as needed.',
-    layoutHints: {},
-    syntax: {
-      rootId,
-      nodes: [{ id: rootId, kind: 'clause', clauseType: 'independent', tokenIds: [] }],
-      relations: [],
-    },
-  };
 }
