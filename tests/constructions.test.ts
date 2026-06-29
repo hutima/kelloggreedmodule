@@ -360,3 +360,47 @@ describe('stacked adverb modifiers ride slants', () => {
     expect(very!.y).toBeGreaterThan(friendly!.y);
   });
 });
+
+describe('compound subject whose head carries a wide modifier', () => {
+  // "God of-the-Lord-Jesus-Christ and Father is …": the head Θεός carries a long
+  // right-cascading genitive, so the head word sits far left of the coordination
+  // fork. Its baseline must still reach the fork (the prior bug left it detached).
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'n_god', kind: 'word', role: 'subject', tokenIds: ['t_god'] },
+      { id: 'n_gen', kind: 'word', role: 'genitive', tokenIds: ['t_gen'] },
+      { id: 'n_and', kind: 'word', tokenIds: ['t_and'] },
+      { id: 'n_father', kind: 'word', role: 'conjunct', tokenIds: ['t_father'] },
+      { id: 'n_is', kind: 'word', role: 'predicate', tokenIds: ['t_is'] },
+    ],
+    [
+      { id: 'r_s', type: 'subject', headId: 'n_root', dependentId: 'n_god' },
+      { id: 'r_p', type: 'predicate', headId: 'n_root', dependentId: 'n_is' },
+      { id: 'r_g', type: 'genitive', headId: 'n_god', dependentId: 'n_gen' },
+      { id: 'r_c', type: 'coordinator', headId: 'n_god', dependentId: 'n_and' },
+      { id: 'r_j', type: 'conjunct', headId: 'n_god', dependentId: 'n_father' },
+    ],
+    [
+      { id: 't_god', index: 0, surface: 'God' },
+      { id: 't_gen', index: 1, surface: 'ofTheLordJesusChristOurSavior' },
+      { id: 't_and', index: 2, surface: 'and' },
+      { id: 't_father', index: 3, surface: 'Father' },
+      { id: 't_is', index: 4, surface: 'is' },
+    ],
+  );
+  const l = layoutDocument(doc, {}, {});
+
+  it('keeps the head connected to the coordination fork by a baseline', () => {
+    const god = textEl(l, 'God')!;
+    const gen = textEl(l, 'ofTheLordJesusChristOurSavior')!;
+    // A horizontal baseline on the head's row that reaches PAST the wide genitive
+    // toward the fork — without it the head word floats detached from the prong.
+    const headBaselines = l.elements.filter(
+      (e): e is typeof e & { x1: number; y1: number; x2: number; y2: number } =>
+        e.kind === 'line' && Math.abs(e.y1 - e.y2) < 2 && Math.abs(e.y1 - god.y) < 30,
+    );
+    const reach = Math.max(0, ...headBaselines.map((e) => Math.max(e.x1, e.x2)));
+    expect(reach).toBeGreaterThan(gen.x);
+  });
+});
