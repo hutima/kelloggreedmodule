@@ -264,8 +264,11 @@ export function DiagramCanvas() {
     const ro = new ResizeObserver(() => fit());
     ro.observe(vp);
     return () => ro.disconnect();
+    // Re-attach when the SVG viewport (un)mounts, for the same reason the wheel
+    // listener does — otherwise it never observes the viewport that mounts when
+    // the user switches from the HTML default to a SVG mode.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [htmlMode, sideBySide, singlePreview]);
 
   // Enforce both zoom locks across layout changes (mode switch, row spacing): if
   // the new minimum rises above the current scale, pull the view up so the SVG is
@@ -307,7 +310,11 @@ export function DiagramCanvas() {
     };
     vp.addEventListener('wheel', onWheel, { passive: false });
     return () => vp.removeEventListener('wheel', onWheel);
-  }, [zoomBy]);
+    // Re-bind when the SVG viewport (un)mounts: it's only rendered for the SVG
+    // modes, so without these deps the listener would never attach after the app
+    // starts on the HTML default (Phrase/Block) and the user switches to a SVG
+    // mode — leaving mouse-wheel zoom dead on desktop.
+  }, [zoomBy, htmlMode, sideBySide, singlePreview]);
 
   // Pointer gestures: one pointer pans, two pinch-zoom. A small move threshold
   // distinguishes a pan from a tap so word selection still works.
