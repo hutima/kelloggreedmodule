@@ -727,9 +727,15 @@ function layoutClauseSpine(
     const blockX = verbAlignX - vxOf(block); // ≥ 0; verbs line up at verbAlignX
     const y = cursorTop + blockAscent(block);
     elements.push(...translate(block, blockX, y));
-    // A subordinator that introduces a conjunct (ἵνα …) sits just before it.
+    // A subordinator that introduces a conjunct (Οὐχ ὅτι … / ἵνα …) sits on its
+    // OWN short horizontal stub above the conjunct, unconnected to the spine —
+    // the Kellogg-Reed home for an introductory "that".
     if (r.label && showLabel(ctx, r.dependentId)) {
-      elements.push(smallText(eid(), blockX - 4, y - 6, r.label!, 'end', r.id));
+      const stubW = measureText(r.label!, SMALL_FONT) + 12;
+      const stubX = blockX;
+      const stubY = y - LAYOUT.fontSize - 14;
+      elements.push(smallText(eid(), stubX + stubW / 2, stubY - 4, r.label!, 'middle', r.id));
+      elements.push(line(eid(), stubX, stubY, stubX + stubW, stubY, 'solid', 'baseline'));
     }
     verbYs.push(y);
     right = Math.max(right, blockX + block.width);
@@ -741,16 +747,17 @@ function layoutClauseSpine(
   const last = verbYs[verbYs.length - 1] ?? 0;
   // The dashed bar runs verb-to-verb, tying the clauses together.
   elements.unshift(line(eid(), verbAlignX, top, verbAlignX, last, 'dashed', 'coordination', clause.id));
-  // The conjunction rides a short solid step set in the CLEAR BAND between the
-  // first two clauses (their baseline gap), so it never lands on a verb.
+  // The conjunction rides the dashed bar itself, rotated upright (90°) and
+  // centred in the CLEAR BAND between the first two clauses — so it reads ALONG
+  // the join, halfway between the clauses, rather than lying horizontally across
+  // the verb.
   if (coordTexts.length && laid.length >= 2) {
     const gapTop = verbYs[0]! + laid[0]!.block.height;
     const gapBot = verbYs[1]! - blockAscent(laid[1]!.block);
     const midY = (gapTop + gapBot) / 2;
-    elements.push(line(eid(), verbAlignX - 14, midY, verbAlignX + 14, midY, 'solid', 'coordination'));
     elements.push({
-      kind: 'text', id: eid(), x: verbAlignX, y: midY - 5, text: coordTexts.join(' '),
-      anchor: 'middle', small: true,
+      kind: 'text', id: eid(), x: verbAlignX, y: midY, text: coordTexts.join(' '),
+      anchor: 'middle', small: true, rotate: -90,
     });
   }
 
