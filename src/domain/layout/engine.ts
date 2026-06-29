@@ -1317,6 +1317,13 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   if (!omitSubject) {
     placeBlock(subjectBlock);
     divX = x;
+    // The subject's baseline must run all the way to the subject|predicate cross.
+    // A subject with diagonal modifiers whose word overhangs its slant (e.g. "οἱ
+    // λίθοι οὗτοι") makes the block wider than its baseline reaches, leaving the
+    // subject floating short of the divider — bridge the gap so the line connects.
+    if (subjectBlock.wordRight < divX - 0.5) {
+      elements.push(line(eid(), subjectBlock.wordRight, 0, divX, 0, 'solid', 'baseline'));
+    }
     elements.push(
       line(eid(), divX, -LAYOUT.dividerUp, divX, LAYOUT.dividerDown, 'solid', 'divider',
         undefined, subjectRel?.id),
