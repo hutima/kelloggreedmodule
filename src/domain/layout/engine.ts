@@ -963,7 +963,11 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // complements where they would float free of their head. Clause-level word
   // adjuncts still cascade to the right of the baseline; clause-valued adjuncts
   // (subordinate/relative clauses) stack vertically on a dotted stem below.
-  const belowTop = LAYOUT.slantDrop * ctx.vScale;
+  // The shared modifiers of a COMPOUND predicate hang below the whole fork: its
+  // lower conjunct dips below the baseline, so a slant starting at the usual drop
+  // would land its object right on top of that conjunct. Clear the fork's depth.
+  const belowTop =
+    (verbIsCoord ? predBlock.height + LAYOUT.slantDrop : LAYOUT.slantDrop) * ctx.vScale;
   let belowMaxBottom = belowTop;
 
   // Draw one hanging modifier whose diagonal/stem meets the baseline at
