@@ -450,3 +450,51 @@ describe('clause coordinated with a bare phrase (Matthew 4:4 shape)', () => {
     expect(by.y).toBeGreaterThan(man.y + 20);
   });
 });
+
+describe('subject baseline reaches the subject|predicate divider', () => {
+  // "the stones these become bread" — the subject "stones" carries two slanted
+  // modifiers (the, these) whose words overhang their slants, making the subject
+  // block wider than its baseline. The baseline must still reach the divider so
+  // the subject doesn't float disconnected from the cross.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'n_stones', kind: 'word', role: 'subject', tokenIds: ['t_stones'] },
+      { id: 'n_the', kind: 'word', role: 'determiner', tokenIds: ['t_the'] },
+      { id: 'n_these', kind: 'word', role: 'adjectival', tokenIds: ['t_these'] },
+      { id: 'n_become', kind: 'word', role: 'predicate', tokenIds: ['t_become'] },
+      { id: 'n_bread', kind: 'word', role: 'predicateNominative', tokenIds: ['t_bread'] },
+    ],
+    [
+      { id: 'r_s', type: 'subject', headId: 'n_root', dependentId: 'n_stones' },
+      { id: 'r_d', type: 'determiner', headId: 'n_stones', dependentId: 'n_the' },
+      { id: 'r_a', type: 'adjectival', headId: 'n_stones', dependentId: 'n_these' },
+      { id: 'r_p', type: 'predicate', headId: 'n_root', dependentId: 'n_become' },
+      { id: 'r_pn', type: 'predicateNominative', headId: 'n_become', dependentId: 'n_bread' },
+    ],
+    [
+      { id: 't_stones', index: 0, surface: 'stones' },
+      { id: 't_the', index: 1, surface: 'theLongArticle' },
+      { id: 't_these', index: 2, surface: 'theseDemonstrative' },
+      { id: 't_become', index: 3, surface: 'become' },
+      { id: 't_bread', index: 4, surface: 'bread' },
+    ],
+  );
+  const l = layoutDocument(doc, {}, {});
+
+  it('a baseline reaches the cross at the subject\'s right edge', () => {
+    const divider = l.elements.find(
+      (e): e is typeof e & { x1: number; y1: number; x2: number; y2: number } =>
+        e.kind === 'line' && (e as { role?: string }).role === 'divider',
+    )!;
+    const dx = divider.x1;
+    const midY = (divider.y1 + divider.y2) / 2;
+    const baselines = l.elements.filter(
+      (e): e is typeof e & { x1: number; y1: number; x2: number; y2: number } =>
+        e.kind === 'line' && (e as { role?: string }).role === 'baseline' &&
+        Math.abs(e.y1 - e.y2) < 2 && Math.abs(e.y1 - midY) < 20,
+    );
+    const reach = Math.max(0, ...baselines.map((e) => Math.max(e.x1, e.x2)));
+    expect(reach).toBeGreaterThanOrEqual(dx - 2);
+  });
+});

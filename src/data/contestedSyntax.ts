@@ -188,6 +188,38 @@ const RAW = {
       bibliography: ['Wallace, Greek Grammar Beyond the Basics, “Granville Sharp Rule”.'],
     },
 
+    // ─────────────── Matthew 4:3 (syntax — commanded ἵνα-clause) ───────────────
+    {
+      id: 'iss_matt_4_3_command',
+      passageId: 'gnt_matthew_48',
+      verseRef: 'Matthew 4:3',
+      kind: 'clauseBoundary',
+      sourceType: 'syntax-only',
+      severity: 'note',
+      label: 'εἰπὲ ἵνα … — coordinate clauses or a commanded content clause',
+      shortLabel: 'εἰπὲ ἵνα',
+      summary:
+        'The base (macula) tree coordinates the tempter’s words as flat sibling clauses joined by καί (“… εἶ … εἰπὲ … γένωνται”), with the demonstrative οὗτοι in apposition to οἱ λίθοι. A common school-grammar analysis instead reads the ἵνα-clause as the CONTENT of the command — the object of εἰπὲ, drawn on a pedestal — and takes οὗτοι as an adjectival demonstrative modifying λίθοι.',
+      pastoralNote:
+        'The sense is the same either way (“tell these stones to become bread”); the difference is only how the command and its content clause are diagrammed.',
+      affectedTokenIds: [
+        't_400040030120010', // εἰπὲ
+        't_400040030150010', // λίθοι
+        't_400040030160010', // οὗτοι
+        't_400040030180010', // γένωνται
+      ],
+      affectedNodeIds: ['cl_400040030140050', 'w_400040030120010', 'w_400040030160010'],
+      affectedRelationIds: ['r_s48_19', 'r_s48_16'],
+      defaultReading: {
+        label: 'Flat coordination; οὗτοι in apposition',
+        description:
+          'The clauses are coordinate siblings under one καί-joined head; the demonstrative οὗτοι stands in apposition to οἱ λίθοι.',
+        parseSummary: 'εἶ ∥ εἰπὲ ∥ γένωνται · λίθοι ←(apposition) οὗτοι',
+      },
+      alternateReadingIds: ['alt_matt_4_3_command'],
+      bibliography: ['Standard school-grammar treatment (e.g. Accordance Syntax).'],
+    },
+
     // ─────────────── Romans 9:5 (cross-boundary — doxology) ───────────────
     // The reading crosses the base SENTENCE boundary: macula sets the doxology
     // (ὁ ὢν ἐπὶ πάντων θεός…, sentence 229) apart from the relative clause that
@@ -432,6 +464,33 @@ const RAW = {
           update: {
             r_s17_38: { headId: 'w_560020130130010' },
             r_s17_35: { headId: 'w_560020130130010' },
+          },
+        },
+      },
+    },
+
+    // Matthew 4:3 — subordinate the ἵνα clause to εἰπὲ (pedestal), and read the
+    // demonstrative οὗτοι as an adjectival modifier of λίθοι rather than apposition.
+    {
+      id: 'alt_matt_4_3_command',
+      issueId: 'iss_matt_4_3_command',
+      passageId: 'gnt_matthew_48',
+      label: 'Commanded content clause (εἰπὲ governs ἵνα); οὗτοι adjectival',
+      shortLabel: 'commanded clause',
+      interpretation:
+        'The ἵνα-clause is the content of the command — the object of εἰπὲ — and οὗτοι modifies λίθοι.',
+      description:
+        'Reads “εἰπὲ ἵνα …” as a command whose content clause is its object (drawn on a pedestal under εἰπὲ), and takes the demonstrative οὗτοι as an adjectival modifier of οἱ λίθοι rather than an apposition.',
+      sourceType: 'syntax-only',
+      confidence: 'medium',
+      syntaxPatch: {
+        relations: {
+          update: {
+            // Re-point the ἵνα-clause from a flat conjunct to the object of εἰπὲ
+            // (the connector keeps its ἵνα label); pedestal it under the verb.
+            r_s48_19: { headId: 'w_400040030120010', type: 'directObject' },
+            // οὗτοι: apposition → adjectival (a slanted demonstrative on λίθοι).
+            r_s48_16: { type: 'adjectival' },
           },
         },
       },
