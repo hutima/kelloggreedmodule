@@ -47,8 +47,26 @@ export function DiagramCanvas() {
   // which version the source strip shows. Only offered for Greek passages.
   const [parallelBook, setParallelBook] = useState<ParallelBook | null>(null);
   const [version, setVersion] = useState<'grc' | 'en'>('grc');
-  // The source/reference strip collapses out of the way to give the diagram room.
+  // The source/reference strip collapses out of the way to give the diagram room,
+  // and its height is draggable to rebalance text vs. diagram.
   const [srcCollapsed, setSrcCollapsed] = useState(false);
+  const [srcHeight, setSrcHeight] = useState(132);
+
+  const onSrcResize = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      const startY = e.clientY;
+      const startH = srcHeight;
+      const move = (ev: PointerEvent) => setSrcHeight(clamp(startH + (ev.clientY - startY), 40, 640));
+      const up = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    },
+    [srcHeight],
+  );
 
   const layout = useMemo(
     () => layoutDocument(doc, doc.layoutHints, { verticalScale }),
@@ -212,6 +230,14 @@ export function DiagramCanvas() {
     return () => window.removeEventListener('keydown', onKey);
   }, [linking, cancelRelink]);
 
+  // Escape closes the tap-a-word detail popover.
+  useEffect(() => {
+    if (linking || !selection.nodeId) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && select({});
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [linking, selection.nodeId, select]);
+
   const onNode = (nodeId?: string) => {
     if (moved.current) return; // a drag, not a tap
     if (!nodeId) return select({});
@@ -225,9 +251,12 @@ export function DiagramCanvas() {
   // ---- reveal popover (clamped into the viewport) ------------------------
   const reveal = useMemo(() => {
     if (linking || !selection.nodeId) return null;
-    const anchor = layout.elements.find(
-      (e) => e.kind === 'text' && e.nodeId === selection.nodeId && !e.rotate,
-    ) as { x: number; y: number } | undefined;
+    // Prefer a horizontal text anchor, but fall back to a rotated one so small
+    // diagonal words (articles, πᾶς, prepositions) still get a detail popover.
+    const texts = layout.elements.filter(
+      (e) => e.kind === 'text' && e.nodeId === selection.nodeId,
+    ) as { x: number; y: number; rotate?: number }[];
+    const anchor = texts.find((e) => !e.rotate) ?? texts[0];
     const summary = describeFunction(doc, selection.nodeId);
     if (!anchor || !summary) return null;
     return { anchor, summary };
@@ -280,7 +309,10 @@ export function DiagramCanvas() {
         </div>
       )}
       {(sourceItems.length > 0 || hasEnglish) && (
-        <div className={`source-wrap${srcCollapsed ? ' collapsed' : ''}`}>
+        <div
+          className={`source-wrap${srcCollapsed ? ' collapsed' : ''}`}
+          style={srcCollapsed ? undefined : { height: srcHeight }}
+        >
           <div className="source-bar">
             {hasEnglish ? (
               <div className="version-picker" role="group" aria-label="Source language">
@@ -373,6 +405,13 @@ export function DiagramCanvas() {
               </div>
             )
           ))}
+          {!srcCollapsed && (
+            <div
+              className="source-resize"
+              title="Drag to resize"
+              onPointerDown={onSrcResize}
+            />
+          )}
         </div>
       )}
       <div
@@ -403,6 +442,11 @@ export function DiagramCanvas() {
             viewBox={`0 0 ${layout.width} ${layout.height}`}
             role="img"
             aria-label={`Kellogg-Reed diagram of: ${doc.text || doc.title}`}
+            onClick={(e) => {
+              // A click on empty diagram space (the svg itself, not a word/line)
+              // dismisses the detail popover.
+              if (e.target === e.currentTarget && !moved.current && !linking) select({});
+            }}
           >
             {layout.elements.map((el) => {
               if (el.kind === 'line') {
@@ -461,6 +505,14 @@ export function DiagramCanvas() {
         </div>
         {reveal && revealPos && (
           <div className="kr-reveal" style={{ left: revealPos.left, top: revealPos.top }} role="status">
+            <button
+              className="kr-reveal-close"
+              title="Close (Esc)"
+              aria-label="Close"
+              onClick={() => select({})}
+            >
+              ✕
+            </button>
             <div className="kr-reveal-word">
               {reveal.summary.word}
               {reveal.summary.gloss && <span className="kr-reveal-gloss"> · {reveal.summary.gloss}</span>}
