@@ -1,4 +1,4 @@
-import type { KrDocument, LayoutHints, SyntacticRole, SyntaxNode } from '@/domain/schema';
+import type { KrDocument, LayoutHints, Relation, SyntacticRole, SyntaxNode } from '@/domain/schema';
 import { childRelations, getNode, nodeText } from '@/domain/model';
 import { LAYOUT } from './constants';
 import { measureText, SMALL_FONT } from './measure';
@@ -718,17 +718,35 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
       ? layoutCoordination(ctx, subjectNode, seen, true)
       : layoutNode(ctx, subjectRel.dependentId, seen);
 
-  // Complements live under the verb node but render on the baseline — unless a
-  // complement is itself a clause (e.g. a noun clause as direct object), which
-  // is too tall for the baseline and instead drops below on a stem.
+  // Complements live under the verb node but render on the baseline. A WORD
+  // complement sits directly on the line; a CLAUSE complement (a noun clause as
+  // direct object / subject / predicate nominative) is written on a PEDESTAL
+  // standing in that slot above the line — the traditional Kellogg-Reed
+  // treatment. A very tall embedded clause would tower over everything, so it
+  // falls back to hanging below on a dotted stem instead.
   const verbRels = predicateRel ? childRelations(model, predicateRel.dependentId) : [];
+  const isCoreSlot = (r: { type: SyntacticRole }) => BASELINE_COMPLEMENTS.includes(r.type);
   const isBaselineComplement = (r: { type: SyntacticRole; dependentId: string }) =>
-    BASELINE_COMPLEMENTS.includes(r.type) && !isClauseChild(ctx, r.dependentId);
+    isCoreSlot(r) && !isClauseChild(ctx, r.dependentId);
   const complementRels = verbRels.filter(isBaselineComplement);
   const complementBlocks = complementRels.map((r) => ({
     rel: r,
     block: layoutNode(ctx, r.dependentId, seen),
   }));
+
+  // Compact clause complements → pedestals; the rest defer to the stem below.
+  // Probe each with a CLONED `seen` so measuring doesn't consume the node (it is
+  // laid out for real at its draw site — the pedestal here, or stackClauses below).
+  const pedestalRels: Relation[] = [];
+  const pedestalled = new Set<string>();
+  for (const r of verbRels) {
+    if (!isCoreSlot(r) || !isClauseChild(ctx, r.dependentId)) continue;
+    const probe = layoutNode(ctx, r.dependentId, new Set(seen));
+    if (probe.height + blockAscent(probe) <= LAYOUT.pedestalMaxHeight) {
+      pedestalRels.push(r);
+      pedestalled.add(r.id);
+    }
+  }
 
   const elements: DiagramElement[] = [];
   let x = 0;
@@ -832,7 +850,10 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   const wordAdjuncts = clauseWordRels.filter((r) => !isClauseChild(ctx, r.dependentId));
   const clauseAdjuncts = [
     ...clauseWordRels.filter((r) => isClauseChild(ctx, r.dependentId)),
-    ...verbRels.filter((r) => !isBaselineComplement(r) && isClauseChild(ctx, r.dependentId)),
+    // Clause complements that were pedestalled are drawn above the line, not here.
+    ...verbRels.filter(
+      (r) => !isBaselineComplement(r) && isClauseChild(ctx, r.dependentId) && !pedestalled.has(r.id),
+    ),
   ];
 
   let maxRight = x;
@@ -853,10 +874,11 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // "connected by vertical position"). When complements follow, they start past
   // the band so a long adverbial PP can't collide with the object's own
   // modifiers; the bridging baseline keeps the object reading as on the line.
+  const hasBaselineSlot = complementBlocks.length > 0 || pedestalRels.length > 0;
   if (vModRight > x) {
-    const newX = complementBlocks.length ? vModRight + LAYOUT.dependentGap : vModRight;
+    const newX = hasBaselineSlot ? vModRight + LAYOUT.dependentGap : vModRight;
     elements.push(line(eid(), x, 0, newX, 0, 'solid', 'baseline'));
-    if (complementBlocks.length) x = newX;
+    if (hasBaselineSlot) x = newX;
   }
 
   // complements on the baseline, each with the appropriate separator
@@ -875,6 +897,34 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     }
     x += 6;
     placeBlock(block);
+  });
+
+  // Noun-clause complements on pedestals, standing in their slot above the line.
+  // (Their above-baseline extent is reserved by blockAscent wherever this clause
+  // is later placed, since the pedestal elements live at negative y.)
+  pedestalRels.forEach((rel) => {
+    const block = layoutNode(ctx, rel.dependentId, seen);
+    // Object separator tick, then the pedestal foot a little to its right.
+    elements.push(line(eid(), x, 0, x, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id));
+    x += 6;
+    const baseStart = x;
+    // Embedded clause sits fully above the line; its baseline is high enough that
+    // its own below-baseline modifiers clear the foot.
+    const baseY = -(block.height + LAYOUT.pedestalFootRise + LAYOUT.pedestalGap);
+    elements.push(...translate(block, baseStart, baseY));
+    // Connect at the centre of the embedded clause's own baseline span.
+    const connectX = baseStart + (block.wordLeft + (block.wordRight || block.width)) / 2;
+    const apexY = -LAYOUT.pedestalFootRise;
+    // The little forked foot standing on the main line.
+    elements.push(line(eid(), connectX - LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
+    elements.push(line(eid(), connectX + LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
+    // The riser up to the embedded clause's baseline.
+    elements.push(line(eid(), connectX, apexY, connectX, baseY, 'solid', 'stem', undefined, rel.id));
+    // The connecting word (that / ὅτι / ἵνα) rides the riser.
+    if (rel.label && showLabel(ctx, rel.dependentId)) {
+      elements.push(smallText(eid(), connectX + 5, (apexY + baseY) / 2, rel.label, 'start', rel.id));
+    }
+    x = baseStart + block.width;
   });
 
   const baselineWidth = x;
