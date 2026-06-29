@@ -1781,6 +1781,8 @@ button.mc-code.glossed:hover {
 .tool-btn:hover:not(:disabled) { border-color: var(--line-strong); }
 .tool-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .tool-btn:disabled { opacity: 0.4; cursor: default; }
+.tool-btn.clean-btn:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.tool-btn.clean-btn:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 10%, var(--paper)); }
 .tool-icon { font-size: 14px; line-height: 1; }
 .btn.how-to-edit { font-size: 13px; }
 

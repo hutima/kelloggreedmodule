@@ -111,4 +111,23 @@ describe('store — semantic editing + app mode + patch persistence', () => {
     expect(store.getState().sermon.highlights).toHaveLength(0);
     expect(loadSermonPrep(id)).toBeNull();
   });
+
+  it('cleanLayout clears all layout hints; no-op when there are none', () => {
+    store.getState().setLayoutHint('n1', { offsetX: 40, offsetY: 12 });
+    store.getState().setLayoutHint('n2', { collapsed: true });
+    expect(Object.keys(store.getState().doc.layoutHints)).toHaveLength(2);
+
+    store.getState().cleanLayout();
+    expect(store.getState().doc.layoutHints).toEqual({});
+    // Undoable — the nudges come back.
+    store.getState().undo();
+    expect(Object.keys(store.getState().doc.layoutHints)).toHaveLength(2);
+
+    // With no hints it does nothing (no extra history entry).
+    store.getState().cleanLayout(); // re-clears (had hints again)
+    const before = store.getState().past.length;
+    store.getState().cleanLayout(); // now empty → no-op
+    expect(store.getState().past.length).toBe(before);
+    expect(store.getState().doc.layoutHints).toEqual({});
+  });
 });
