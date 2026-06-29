@@ -878,10 +878,18 @@ function layoutClauseSpine(
   rels: { id: string; type: SyntacticRole; dependentId: string; label?: string }[],
 ): Block {
   const memberRels = rels.filter((r) => isClauseChild(ctx, r.dependentId));
-  const coordTexts = rels
-    .filter((r) => !isClauseChild(ctx, r.dependentId))
+  const nonClause = rels.filter((r) => !isClauseChild(ctx, r.dependentId));
+  // Only a genuine coordinator (καί / δέ / τε…) rides the dashed bar between the
+  // conjuncts. A word that is NOT a conjunct and NOT the coordinator — a
+  // sentence-initial particle such as γε, or a stray introductory word — would
+  // otherwise be swept onto the bar and written sideways, far from where it
+  // stands (this was the missing initial γε in Phil 3:8). Those lead the spine on
+  // their own stub instead (below), staying visible and selectable.
+  const coordTexts = nonClause
+    .filter((r) => r.type === 'coordinator')
     .map((r) => nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '')
     .filter(Boolean);
+  const leadRels = nonClause.filter((r) => r.type !== 'coordinator');
 
   // Lay every member out, then align their VERBS in one column so the dashed
   // connector runs verb-to-verb (the compound-sentence convention) rather than
@@ -934,6 +942,27 @@ function layoutClauseSpine(
       kind: 'text', id: eid(), x: verbAlignX, y: midY, text: coordTexts[k]!,
       anchor: 'middle', small: true, rotate: -90,
     });
+  }
+
+  // Introductory words (a sentence-initial particle, a stray conjunction) lead
+  // the construction on a short horizontal stub above the top of the spine,
+  // joined to the bar — visible and selectable, the Kellogg-Reed home for a word
+  // that introduces the whole compound rather than joining two of its members.
+  if (leadRels.length) {
+    const GAPW = 10;
+    const blocks = leadRels.map((r) => layoutNode(ctx, r.dependentId, seen));
+    const totalW = blocks.reduce((s, b) => s + b.width, 0) + GAPW * Math.max(0, blocks.length - 1);
+    const leadY = top - LAYOUT.fontSize - 14;
+    let x = Math.max(0, verbAlignX - GAPW - totalW);
+    const leadStart = x;
+    for (const b of blocks) {
+      elements.push(...translate(b, x, leadY));
+      right = Math.max(right, x + b.width);
+      x += b.width + GAPW;
+    }
+    const lineY = leadY + 4;
+    elements.push(line(eid(), leadStart, lineY, verbAlignX, lineY, 'solid', 'baseline'));
+    elements.push(line(eid(), verbAlignX, lineY, verbAlignX, top, 'dashed', 'stem'));
   }
 
   // Expose the TOP of the spine bar as the block's connection point, at

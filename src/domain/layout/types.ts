@@ -43,6 +43,12 @@ export interface LineElement {
   relationId?: string;
   /** A low-confidence (ambiguous) inference — rendered in a distinct colour. */
   tentative?: boolean;
+  /**
+   * Explicit stroke colour (e.g. the Dependency mode's per-relation hue). When
+   * set it overrides the default ink — colour is decided by the layout so the
+   * renderer stays dumb and exports match the canvas exactly.
+   */
+  color?: string;
 }
 
 export interface TextElement {
@@ -73,6 +79,24 @@ export interface TextElement {
   rotate?: number;
   nodeId?: string;
   relationId?: string;
+  /**
+   * Explicit fill colour (e.g. a Dependency-mode relation label matching its
+   * arc). Overrides tone/muted/ink so the layer that knows the meaning picks the
+   * colour and the renderer just draws it.
+   */
+  color?: string;
+  /**
+   * Draw the text inside a small rounded "chip" (white fill, coloured border &
+   * text), the way labelled dependency arcs read in a Universal-Dependencies
+   * graph. The chip is sized to the measured text.
+   */
+  box?: boolean;
+  /**
+   * A glossary key. When present the label is interactive: tapping it opens the
+   * shared detail panel explaining the abbreviation (e.g. `agr` → agreement).
+   * See {@link file://./../model/glossary.ts}.
+   */
+  glossKey?: string;
 }
 
 /**
@@ -98,6 +122,8 @@ export interface CurveElement {
   nodeId?: string;
   relationId?: string;
   tentative?: boolean;
+  /** Explicit stroke colour — see {@link LineElement.color}. */
+  color?: string;
 }
 
 export type DiagramElement = LineElement | TextElement | CurveElement;

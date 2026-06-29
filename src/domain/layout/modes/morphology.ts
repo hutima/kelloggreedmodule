@@ -145,7 +145,12 @@ export function layoutMorphology(doc: KrDocument): DiagramLayout {
     return pred ? firstTok(pred.dependentId) : undefined;
   };
   const linkSet = new Set(['determiner', 'adjectival', 'prepositionObject']);
-  const drawLink = (aId: string | undefined, bId: string | undefined, label: string) => {
+  const drawLink = (
+    aId: string | undefined,
+    bId: string | undefined,
+    label: string,
+    glossKey: string,
+  ) => {
     if (!aId || !bId || aId === bId) return;
     const a = cell.get(aId);
     const b = cell.get(bId);
@@ -154,15 +159,19 @@ export function layoutMorphology(doc: KrDocument): DiagramLayout {
     const dip = Math.min(40, 12 + Math.abs(a.x - b.x) * 0.12);
     const midX = (a.x + b.x) / 2;
     elements.push(curve(a.x, y, midX, y + dip, b.x, y, 'connector', 'dotted'));
-    elements.push(text(midX, y + dip + 2, label, { anchor: 'middle', small: true, italic: true, muted: true }));
+    // The label is interactive: tap it for the term's meaning (e.g. agr → agreement).
+    elements.push(
+      text(midX, y + dip + 2, label, { anchor: 'middle', small: true, italic: true, muted: true, glossKey }),
+    );
   };
 
   for (const r of doc.syntax.relations) {
     if (linkSet.has(r.type)) {
-      drawLink(firstTok(r.dependentId), firstTok(r.headId), r.type === 'prepositionObject' ? 'of' : 'agr');
+      if (r.type === 'prepositionObject') drawLink(firstTok(r.dependentId), firstTok(r.headId), 'of', 'prepositionObject');
+      else drawLink(firstTok(r.dependentId), firstTok(r.headId), 'agr', 'agreement');
     } else if (r.type === 'subject') {
       // subject → the clause's finite verb
-      drawLink(firstTok(r.dependentId), predTok(r.headId), 'subj');
+      drawLink(firstTok(r.dependentId), predTok(r.headId), 'subj', 'subject');
     }
   }
 

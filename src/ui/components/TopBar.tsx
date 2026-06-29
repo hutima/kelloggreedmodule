@@ -7,6 +7,7 @@ import { GuideModal } from './GuideModal';
 export function TopBar() {
   const doc = useEditorStore((s) => s.doc);
   const verticalScale = useEditorStore((s) => s.verticalScale);
+  const diagramMode = useEditorStore((s) => s.diagramMode);
   const status = useEditorStore((s) => s.status);
   const setTitle = useEditorStore((s) => s.setTitle);
   const undo = useEditorStore((s) => s.undo);
@@ -76,7 +77,12 @@ export function TopBar() {
       </div>
 
       {exportOpen && (
-        <ExportModal doc={doc} verticalScale={verticalScale} onClose={() => setExportOpen(false)} />
+        <ExportModal
+          doc={doc}
+          verticalScale={verticalScale}
+          mode={diagramMode}
+          onClose={() => setExportOpen(false)}
+        />
       )}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
       {guideOpen && <GuideModal onClose={() => setGuideOpen(false)} />}

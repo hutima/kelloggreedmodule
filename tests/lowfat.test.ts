@@ -144,6 +144,36 @@ describe('Lowfat clause coordination & subordination', () => {
     expect((kais[0] as { y: number }).y).not.toBeCloseTo((kais[1] as { y: number }).y, 0);
   });
 
+  it('keeps a sentence-initial particle (γε) visible, not exiled to the coordinator bar', () => {
+    // Regression for Philippians 3:8: the emphatic particle γε opened a coordinate
+    // clause and was mis-tagged as the COORDINATOR, then drawn sideways on the
+    // fork bar — effectively missing. It must be a `particle`, and the layout must
+    // draw it upright and selectable above the spine.
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl" rule="ClCl">
+      <w class="ptcl" lemma="γέ" n="010010010010010">γε</w>
+      <wg class="cl"><w class="verb" role="v" n="010010010020010">ἡγοῦμαι</w></wg>
+      <w class="conj" lemma="καί" n="010010010030010">καὶ</w>
+      <wg class="cl"><w class="verb" role="v" n="010010010040010">κερδήσω</w></wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    const geNode = doc!.syntax.nodes.find((n) => surfaceOf(doc!, n.id) === 'γε')!;
+    const geRel = doc!.syntax.relations.find((r) => r.dependentId === geNode.id)!;
+    // γε is a discourse particle, NOT the coordinator; καί is the coordinator.
+    expect(geRel.type).toBe('particle');
+    expect(
+      doc!.syntax.relations.some((r) => r.type === 'coordinator' && surfaceOf(doc!, r.dependentId) === 'καὶ'),
+    ).toBe(true);
+    // The layout draws γε once, upright (not rotated onto the bar) and selectable.
+    const layout = layoutDocument(doc!, {});
+    const ge = layout.elements.filter((e) => e.kind === 'text' && e.text === 'γε') as Array<{
+      rotate?: number;
+      nodeId?: string;
+    }>;
+    expect(ge).toHaveLength(1);
+    expect(ge[0]!.rotate ?? 0).toBe(0);
+    expect(ge[0]!.nodeId).toBe(geNode.id);
+  });
+
   it('writes a subordinator (ὅτι) as the connector label, not a floating adjunct word', () => {
     const xml = `<book name="Test"><sentence><wg role="cl" class="cl" rule="S-V-CL">
       <w class="pron" role="s">ὅς</w>

@@ -1,5 +1,5 @@
 import type { KrDocument } from '@/domain/schema';
-import { layoutDocument, type LayoutOptions } from '@/domain/layout';
+import { layoutForMode, type DiagramMode, type LayoutOptions } from '@/domain/layout';
 import { layoutToSvg, THEME } from '@/domain/render';
 import { downloadBlob, downloadText, slugify } from './download';
 import { exportJson } from './json';
@@ -7,12 +7,18 @@ import { exportJson } from './json';
 /**
  * IMPORT/EXPORT LAYER — JSON, SVG, PNG, and print-friendly rendering. Every
  * export goes through the same layout + render pipeline as the on-screen
- * canvas, so output matches the editor exactly — including the chosen row
- * spacing (`opts.verticalScale`).
+ * canvas, so output matches the editor exactly — including the chosen diagram
+ * MODE (Kellogg-Reed, Dependency, Morphology…) and row spacing
+ * (`opts.verticalScale`). Defaults to Kellogg-Reed so callers that don't care
+ * keep working.
  */
 
-export function buildSvg(doc: KrDocument, opts: LayoutOptions = {}): string {
-  const layout = layoutDocument(doc, doc.layoutHints, opts);
+export function buildSvg(
+  doc: KrDocument,
+  opts: LayoutOptions = {},
+  mode: DiagramMode = 'kellogg-reed',
+): string {
+  const layout = layoutForMode(mode, doc, doc.layoutHints, opts);
   return layoutToSvg(layout, { padding: 16, background: true, standalone: true });
 }
 
@@ -20,8 +26,9 @@ export function buildSvg(doc: KrDocument, opts: LayoutOptions = {}): string {
 export function documentNaturalSize(
   doc: KrDocument,
   opts: LayoutOptions = {},
+  mode: DiagramMode = 'kellogg-reed',
 ): { width: number; height: number } {
-  const layout = layoutDocument(doc, doc.layoutHints, opts);
+  const layout = layoutForMode(mode, doc, doc.layoutHints, opts);
   return { width: Math.ceil(layout.width + 32), height: Math.ceil(layout.height + 32) };
 }
 
@@ -29,17 +36,26 @@ export function downloadDocumentJson(doc: KrDocument): void {
   downloadText(exportJson(doc), `${slugify(doc.title)}.json`, 'application/json');
 }
 
-export function downloadDocumentSvg(doc: KrDocument, opts: LayoutOptions = {}): void {
-  downloadText(buildSvg(doc, opts), `${slugify(doc.title)}.svg`, 'image/svg+xml');
+export function downloadDocumentSvg(
+  doc: KrDocument,
+  opts: LayoutOptions = {},
+  mode: DiagramMode = 'kellogg-reed',
+): void {
+  downloadText(buildSvg(doc, opts, mode), `${slugify(doc.title)}.svg`, 'image/svg+xml');
 }
 
 /**
  * Rasterises the SVG to PNG via an offscreen canvas. Returns a promise so
  * callers can await the encode. `scale` controls output resolution.
  */
-export async function downloadDocumentPng(doc: KrDocument, scale = 2, opts: LayoutOptions = {}): Promise<void> {
-  const svg = buildSvg(doc, opts);
-  const layout = layoutDocument(doc, doc.layoutHints, opts);
+export async function downloadDocumentPng(
+  doc: KrDocument,
+  scale = 2,
+  opts: LayoutOptions = {},
+  mode: DiagramMode = 'kellogg-reed',
+): Promise<void> {
+  const svg = buildSvg(doc, opts, mode);
+  const layout = layoutForMode(mode, doc, doc.layoutHints, opts);
   const width = (layout.width + 32) * scale;
   const height = (layout.height + 32) * scale;
 
@@ -75,8 +91,12 @@ function svgToPngBlob(svg: string, width: number, height: number): Promise<Blob>
 }
 
 /** Opens a print-friendly window containing just the diagram. */
-export function printDocument(doc: KrDocument, opts: LayoutOptions = {}): void {
-  const svg = buildSvg(doc, opts);
+export function printDocument(
+  doc: KrDocument,
+  opts: LayoutOptions = {},
+  mode: DiagramMode = 'kellogg-reed',
+): void {
+  const svg = buildSvg(doc, opts, mode);
   const w = window.open('', '_blank', 'noopener,noreferrer');
   if (!w) return;
   w.document.write(`<!doctype html><html><head><title>${escapeHtml(doc.title)}</title>

@@ -4,3 +4,4 @@ export * from './mutations';
 export * from './document';
 export * from './tokenize';
 export * from './describe';
+export * from './glossary';

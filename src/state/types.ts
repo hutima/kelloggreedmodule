@@ -9,6 +9,8 @@ export interface Selection {
   nodeId?: string;
   relationId?: string;
   tokenId?: string;
+  /** A glossary term to explain (a tapped diagram label, e.g. `agr`). */
+  glossKey?: string;
 }
 
 /**
