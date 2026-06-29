@@ -493,9 +493,11 @@ export function DiagramCanvas() {
   // ---- detail card for the HTML modes (Phrase/Block, Morphology) ----------
   // The geometric reveal popover only exists in the SVG modes; in the HTML modes
   // a tapped word (incl. a highlighted one or one tapped in the source strip)
-  // otherwise shows nothing. Render a fixed detail card for it in Explore.
+  // otherwise shows nothing. Render a fixed detail card for it in Explore AND
+  // Sermon (so selecting a word to highlight still shows its parsing); Edit uses
+  // the contextual action sheet instead.
   const htmlReveal = useMemo(() => {
-    if (!htmlMode || appMode !== 'explore' || linking || !selection.nodeId) return null;
+    if (!htmlMode || appMode === 'edit' || linking || !selection.nodeId) return null;
     return describeFunction(doc, selection.nodeId);
   }, [htmlMode, appMode, linking, selection.nodeId, doc]);
 
