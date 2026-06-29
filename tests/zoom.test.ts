@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { minZoomScale, clamp, MIN_SCALE, MAX_SCALE } from '@/ui/zoom';
+import { minZoomScale, clampPan, clamp, MIN_SCALE, MAX_SCALE } from '@/ui/zoom';
 
 describe('zoom-out lock (minZoomScale)', () => {
   it('locks zoom-out at the fit-to-screen scale for a diagram wider than the viewport', () => {
@@ -38,5 +38,42 @@ describe('zoom-out lock (minZoomScale)', () => {
     for (let i = 0; i < 20; i++) scale = clamp(scale * (1 / 1.2), lo, MAX_SCALE);
     expect(scale).toBe(lo);
     expect(scale).toBeGreaterThanOrEqual(lo);
+  });
+});
+
+describe('pan lock (clampPan)', () => {
+  const VP_W = 800;
+  const VP_H = 600;
+  const LW = 1504;
+  const LH = 276;
+
+  it('keeps a margin of the diagram on screen no matter how far it is flung', () => {
+    const scale = 0.5; // rendered 752 × 138
+    const margin = 80;
+    // Fling far to the right and down — it must stop with a margin still visible.
+    const r = clampPan(99999, 99999, scale, VP_W, VP_H, LW, LH, margin);
+    expect(r.x).toBe(VP_W - margin); // left edge can't pass viewport-right-minus-margin
+    expect(r.y).toBe(VP_H - margin);
+    // Fling far up/left — the trailing edge must still poke in by a margin.
+    const r2 = clampPan(-99999, -99999, scale, VP_W, VP_H, LW, LH, margin);
+    expect(r2.x).toBe(margin - LW * scale); // right edge pinned a margin inside the left
+    expect(r2.y).toBe(margin - LH * scale);
+  });
+
+  it('leaves an in-bounds pan untouched', () => {
+    const r = clampPan(40, 24, 0.5, VP_W, VP_H, LW, LH);
+    expect(r).toEqual({ x: 40, y: 24 });
+  });
+
+  it('never produces a NaN/∞ offset at the minimum zoom (the white-flash case)', () => {
+    const lo = minZoomScale(VP_W, VP_H, LW, LH);
+    const r = clampPan(50000, -50000, lo, VP_W, VP_H, LW, LH);
+    expect(Number.isFinite(r.x)).toBe(true);
+    expect(Number.isFinite(r.y)).toBe(true);
+  });
+
+  it('passes through unchanged for degenerate sizes', () => {
+    expect(clampPan(10, 20, 1, 800, 600, 0, 0)).toEqual({ x: 10, y: 20 });
+    expect(clampPan(10, 20, 0, 800, 600, 100, 100)).toEqual({ x: 10, y: 20 });
   });
 });
