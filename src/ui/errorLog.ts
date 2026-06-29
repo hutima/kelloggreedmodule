@@ -12,10 +12,62 @@
 const KEY = 'kr:errorlog';
 const MAX = 12;
 
+/**
+ * Build marker — bump this string every deploy. Shown in the DiagnosticsBanner so
+ * we can confirm the phone is actually running THIS build and not an old
+ * service-worker-cached one (a `prompt`-type PWA serves stale assets until the
+ * update is accepted, which would make "no banner" meaningless).
+ */
+export const BUILD_ID = 'trace-1';
+
 export interface LoggedError {
   t: string;
   msg: string;
   stack?: string;
+}
+
+/**
+ * Gesture breadcrumb trail. localStorage writes flush synchronously, so a trail
+ * written step-by-step survives even a native WebContent-process crash (which
+ * throws no JS error). After a blank+reload, the LAST breadcrumb is the operation
+ * that killed the process — the one thing four blind fixes lacked.
+ */
+const TRACE_KEY = 'kr:trace';
+const TRACE_MAX = 60;
+
+export interface Crumb {
+  t: number;
+  msg: string;
+}
+
+export function breadcrumb(msg: string): void {
+  try {
+    const list = readTrace();
+    const t = typeof performance !== 'undefined' ? performance.now() : 0;
+    list.push({ t: Math.round(t), msg });
+    while (list.length > TRACE_MAX) list.shift();
+    localStorage.setItem(TRACE_KEY, JSON.stringify(list));
+  } catch {
+    /* best-effort */
+  }
+}
+
+export function readTrace(): Crumb[] {
+  try {
+    const raw = localStorage.getItem(TRACE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as Crumb[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function clearTrace(): void {
+  try {
+    localStorage.removeItem(TRACE_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function logError(msg: string, stack?: string): void {
