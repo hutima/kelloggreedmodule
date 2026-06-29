@@ -5,3 +5,5 @@ export * from './document';
 export * from './tokenize';
 export * from './describe';
 export * from './glossary';
+export * from './forms';
+export * from './outline';

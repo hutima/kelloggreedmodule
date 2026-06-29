@@ -17,6 +17,8 @@ import {
 } from '@/io';
 import type { KrDocument } from '@/domain/schema';
 import { MIN_SCALE, clamp, minZoomScale, maxZoomScale, clampPan } from '@/ui/zoom';
+import { PhraseBlockView } from './diagram/PhraseBlockView';
+import { MorphologyView } from './diagram/MorphologyView';
 
 const TENTATIVE = '#c2410c';
 const INK = '#1f2933';
@@ -89,6 +91,10 @@ export function DiagramCanvas() {
     () => layoutForMode(diagramMode, doc, doc.layoutHints, { verticalScale }),
     [diagramMode, doc, verticalScale],
   );
+
+  // Text-heavy modes render as interactive HTML on screen (collapsible outline /
+  // morphology grid) instead of the pan/zoom SVG; export still uses the geometry.
+  const htmlMode = diagramMode === 'phrase-block' || diagramMode === 'morphology';
 
   // The running source text as interactive words: each maps to the syntax node it
   // belongs to, grouped by verse (a passage stacks several verses).
@@ -422,16 +428,20 @@ export function DiagramCanvas() {
               ))}
             </select>
           </label>
-          <div className="canvas-zoom" title="Row spacing">
-            <button title="Tighter rows" onClick={() => setVerticalScale(Math.round((verticalScale - 0.15) * 100) / 100)}>↕−</button>
-            <button title="Reset rows" onClick={() => setVerticalScale(1)}>{Math.round(verticalScale * 100)}%</button>
-            <button title="Looser rows" onClick={() => setVerticalScale(Math.round((verticalScale + 0.15) * 100) / 100)}>↕+</button>
-          </div>
-          <div className="canvas-zoom">
-            <button title="Zoom out" onClick={() => zoomBy(1 / 1.2)}>−</button>
-            <button title="Fit to view" onClick={fit}>⤢</button>
-            <button title="Zoom in" onClick={() => zoomBy(1.2)}>+</button>
-          </div>
+          {!htmlMode && (
+            <>
+              <div className="canvas-zoom" title="Row spacing">
+                <button title="Tighter rows" onClick={() => setVerticalScale(Math.round((verticalScale - 0.15) * 100) / 100)}>↕−</button>
+                <button title="Reset rows" onClick={() => setVerticalScale(1)}>{Math.round(verticalScale * 100)}%</button>
+                <button title="Looser rows" onClick={() => setVerticalScale(Math.round((verticalScale + 0.15) * 100) / 100)}>↕+</button>
+              </div>
+              <div className="canvas-zoom">
+                <button title="Zoom out" onClick={() => zoomBy(1 / 1.2)}>−</button>
+                <button title="Fit to view" onClick={fit}>⤢</button>
+                <button title="Zoom in" onClick={() => zoomBy(1.2)}>+</button>
+              </div>
+            </>
+          )}
         </div>
         <button
           className="collapse-btn"
@@ -579,6 +589,15 @@ export function DiagramCanvas() {
           )}
         </div>
       )}
+      {htmlMode ? (
+        <div className="canvas-viewport html-mode">
+          {diagramMode === 'phrase-block' ? (
+            <PhraseBlockView hovered={hover.nodes} onHover={hoverDiagram} />
+          ) : (
+            <MorphologyView hovered={hover.nodes} onHover={hoverDiagram} />
+          )}
+        </div>
+      ) : (
       <div
         className={`canvas-viewport${linking ? ' relinking' : ''}`}
         ref={viewportRef}
@@ -787,6 +806,7 @@ export function DiagramCanvas() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
