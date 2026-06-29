@@ -88,6 +88,29 @@ describe('phrase / block mode', () => {
   });
 });
 
+describe('discourse flow mode', () => {
+  // Two coordinated clauses joined by καί.
+  const coordXml = `<book name="Test"><sentence><wg role="cl" class="cl" rule="ClaCl">
+    <wg class="cl"><w class="verb" role="v" n="010010010010010">ἦλθεν</w></wg>
+    <w class="conj" n="010010010020010">καὶ</w>
+    <wg class="cl"><w class="verb" role="v" n="010010010030010">ἔμεινεν</w></wg>
+  </wg></sentence></book>`;
+  const coordDoc = () => lowfatToDocuments(coordXml, { book: 'Test' })[0]!;
+
+  it('renders each clause as a block and threads them with a labelled arrow', () => {
+    const layout = layoutForMode('discourse-flow', coordDoc(), {}, {});
+    const words = layout.elements.filter((e) => e.kind === 'text' && !e.small).map((e) => (e as { text: string }).text);
+    expect(words).toContain('ἦλθεν');
+    expect(words).toContain('ἔμεινεν');
+    // The bare coordinating καί is not its own block.
+    expect(words).not.toContain('καὶ');
+    // A connector arrow carries the honest 'continuation' label.
+    expect(layout.elements.some((e) => e.kind === 'curve' && e.arrow)).toBe(true);
+    const labels = layout.elements.filter((e) => e.kind === 'text' && e.italic).map((e) => (e as { text: string }).text);
+    expect(labels).toContain('continuation');
+  });
+});
+
 describe('morphology clause mode', () => {
   it('shows compact morphology under each Greek word, in surface order', () => {
     const layout = layoutForMode('morphology', doc(), {}, {});

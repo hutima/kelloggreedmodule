@@ -4,6 +4,7 @@ import { layoutDocument, type LayoutOptions } from '../engine';
 import { layoutDependency } from './dependency';
 import { layoutPhraseBlock } from './phrase-block';
 import { layoutMorphology } from './morphology';
+import { layoutDiscourse } from './discourse';
 
 /**
  * Alternate diagram modes. Every mode is a function (doc, hints, options) →
@@ -49,8 +50,8 @@ export function layoutForMode(
       return layoutPhraseBlock(doc);
     case 'morphology':
       return layoutMorphology(doc);
-    // Discourse Flow lands in a following PR; until then it falls back to the
-    // Kellogg-Reed layout so the selector never breaks.
+    case 'discourse-flow':
+      return layoutDiscourse(doc);
     case 'kellogg-reed':
     default:
       return layoutDocument(doc, hints, options);
