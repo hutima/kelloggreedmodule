@@ -64,13 +64,26 @@ describe('store — contested readings', () => {
     expect(store.getState().previewDoc).toBeNull();
   });
 
-  it('opening/closing the panel toggles its visibility and clears preview on close', () => {
+  it('closing the panel hides it but KEEPS an active preview/comparison', () => {
     store.getState().openContestedPanel('iss_1john_1_1_relative_chain');
     expect(store.getState().contested.showAlternateParsePanel).toBe(true);
     store.getState().previewAlternateReading('alt_1john_1_1_chain');
     store.getState().closeContestedPanel();
     const s = store.getState();
     expect(s.contested.showAlternateParsePanel).toBe(false);
-    expect(s.previewDoc).toBeNull();
+    // The preview survives so closing the drawer reveals the full comparison.
+    expect(s.previewDoc).not.toBeNull();
+    // Return-to-base is the explicit way to clear it.
+    store.getState().returnToBaseReading();
+    expect(store.getState().previewDoc).toBeNull();
+  });
+
+  it('restoreBaseParse discards an adopted custom parse', () => {
+    const id = store.getState().baseDoc!.id;
+    store.getState().adoptContestedReading('alt_1john_1_1_chain');
+    expect(store.getState().doc.syntax.relations.find((r) => r.id === 'r2')!.headId).toBe('n_rc1');
+    store.getState().restoreBaseParse();
+    expect(store.getState().doc.syntax.relations.find((r) => r.id === 'r2')!.headId).toBe('n_root');
+    expect(loadPatch(id)).toBeNull();
   });
 });

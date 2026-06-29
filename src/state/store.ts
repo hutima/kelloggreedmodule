@@ -238,8 +238,10 @@ export interface EditorActions {
   // --- contested syntax / alternate readings ---
   /** Open the alternate-readings panel, optionally pre-selecting an issue. */
   openContestedPanel: (issueId?: string) => void;
-  /** Close the panel and clear any preview (returns to the base parse). */
+  /** Hide the panel WITHOUT closing an active preview/comparison. */
   closeContestedPanel: () => void;
+  /** Discard an adopted/custom parse and restore the base 1904/WLC tree. */
+  restoreBaseParse: () => void;
   /** Select an issue in the panel (clears any prior preview). */
   selectContestedIssue: (issueId: string) => void;
   /** Preview an alternate in the diagram (temporary; never saved). Null = base. */
@@ -857,15 +859,22 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       })),
 
     closeContestedPanel: () =>
+      // Only hide the panel; any single-preview or side-by-side comparison stays
+      // up (each has its own Return-to-base control) so closing the drawer to see
+      // the full comparison doesn't dismiss it.
+      set((s) => ({ contested: { ...s.contested, showAlternateParsePanel: false } })),
+
+    restoreBaseParse: () => {
+      get().resetPassage({ syntax: true, layout: true });
       set((s) => ({
         previewDoc: null,
         contested: {
           ...s.contested,
-          showAlternateParsePanel: false,
           previewAlternateReadingId: undefined,
           alternateDisplayMode: 'base-only',
         },
-      })),
+      }));
+    },
 
     selectContestedIssue: (issueId) =>
       set((s) => ({

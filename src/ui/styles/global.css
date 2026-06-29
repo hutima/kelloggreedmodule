@@ -1970,7 +1970,7 @@ button.mc-code.glossed:hover {
 .arp-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .arp-pastoral { font-size: 13px; color: var(--ink-soft); font-style: italic; border-top: 1px solid var(--line); padding-top: 8px; margin: 4px 0 0; }
 
-/* ---- Reading choice (segmented) ---- */
+/* ---- Reading choice (segmented or dropdown) ---- */
 .reading-choice { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
 .reading-choice-opt {
   background: var(--paper); border: none; border-right: 1px solid var(--line);
@@ -1978,9 +1978,25 @@ button.mc-code.glossed:hover {
 }
 .reading-choice-opt:last-child { border-right: none; }
 .reading-choice-opt.active { background: var(--accent); color: #fff; }
+.reading-choice-select { display: flex; flex-direction: column; gap: 4px; }
+.reading-choice-select-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+.reading-choice-select select {
+  width: 100%; border: 1px solid var(--line-strong); border-radius: 8px;
+  padding: 9px 10px; font: inherit; font-size: 14px; color: var(--ink); background: var(--paper); min-height: 40px;
+}
+
+/* ---- Restore the base parse after adopting a custom one ---- */
+.arp-custom {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  background: var(--accent-soft); border-radius: 8px; padding: 8px 10px;
+}
+.arp-custom-note { font-size: 13px; color: var(--ink-soft); }
+.arp-display { display: flex; align-items: center; gap: 8px; }
+.arp-display-label { font-size: 12px; color: var(--muted); }
 
 /* ---- Single-frame preview ---- */
 .single-preview { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.single-preview .vc-frame { flex: 1; min-height: 0; }
 .preview-pill {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   background: color-mix(in srgb, #c2410c 10%, var(--paper));
@@ -1996,6 +2012,8 @@ button.mc-code.glossed:hover {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--panel);
 }
+.vc-compare-title { font-size: 13px; color: var(--ink-soft); }
+.vc-compare-actions { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .variant-compare-frames { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; flex: 1; min-height: 0; background: var(--line); }
 .vc-frame { display: flex; flex-direction: column; min-width: 0; background: var(--paper); }
 .vc-frame-head {
@@ -2003,7 +2021,9 @@ button.mc-code.glossed:hover {
   padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--panel);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.vc-frame-scroll { overflow: auto; flex: 1; min-height: 0; padding: 8px; }
+/* Drag-to-pan (grab the diagram and pull) plus wheel / scrollbar. */
+.vc-frame-scroll { overflow: auto; flex: 1; min-height: 0; padding: 8px; cursor: grab; touch-action: none; }
+.vc-frame-scroll:active { cursor: grabbing; }
 .vc-link-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft); }
 
 /* ---- Difference highlighting (subtle, never loud) ---- */

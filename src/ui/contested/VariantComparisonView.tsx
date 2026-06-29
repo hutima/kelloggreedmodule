@@ -17,6 +17,9 @@ export function VariantComparisonView() {
   const diagramMode = useEditorStore((s) => s.diagramMode);
   const linked = useEditorStore((s) => s.contested.linkedScrolling);
   const setLinked = useEditorStore((s) => s.setLinkedScrolling);
+  const returnToBase = useEditorStore((s) => s.returnToBaseReading);
+  const openPanel = useEditorStore((s) => s.openContestedPanel);
+  const panelOpen = useEditorStore((s) => s.contested.showAlternateParsePanel);
   const readingId = useEditorStore(
     (s) => s.contested.previewAlternateReadingId ?? s.contested.selectedAlternateReadingId,
   );
@@ -34,11 +37,24 @@ export function VariantComparisonView() {
   return (
     <div className="variant-compare">
       <div className="variant-compare-bar">
+        <span className="vc-compare-title">
+          Comparing: <strong>{reading.shortLabel ?? reading.label}</strong>
+        </span>
         <DifferenceLegend />
-        <label className="vc-link-toggle">
-          <input type="checkbox" checked={linked} onChange={(e) => setLinked(e.target.checked)} />
-          Link scrolling
-        </label>
+        <div className="vc-compare-actions">
+          <label className="vc-link-toggle">
+            <input type="checkbox" checked={linked} onChange={(e) => setLinked(e.target.checked)} />
+            Link scrolling
+          </label>
+          {!panelOpen && (
+            <button className="mini" onClick={() => openPanel()} title="Reopen the alternate-readings panel">
+              Readings…
+            </button>
+          )}
+          <button className="mini" onClick={() => returnToBase()}>
+            Close comparison
+          </button>
+        </div>
       </div>
       <div className="variant-compare-frames">
         <StaticDiagramFrame
