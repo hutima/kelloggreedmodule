@@ -2,6 +2,7 @@ import type { KrDocument, LayoutHints } from '@/domain/schema';
 import type { DiagramLayout } from '../types';
 import { layoutDocument, type LayoutOptions } from '../engine';
 import { layoutDependency } from './dependency';
+import { layoutPhraseBlock } from './phrase-block';
 
 /**
  * Alternate diagram modes. Every mode is a function (doc, hints, options) →
@@ -43,8 +44,10 @@ export function layoutForMode(
   switch (mode) {
     case 'dependency':
       return layoutDependency(doc);
-    // Phrase/Block, Discourse Flow and Morphology land in following PRs; until
-    // then they fall back to the Kellogg-Reed layout so the selector never breaks.
+    case 'phrase-block':
+      return layoutPhraseBlock(doc);
+    // Discourse Flow and Morphology land in following PRs; until then they fall
+    // back to the Kellogg-Reed layout so the selector never breaks.
     case 'kellogg-reed':
     default:
       return layoutDocument(doc, hints, options);

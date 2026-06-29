@@ -62,3 +62,28 @@ describe('dependency mode', () => {
     expect(labels).toContain('obj');
   });
 });
+
+describe('phrase / block mode', () => {
+  it('renders an indented outline with function labels and Greek words', () => {
+    const layout = layoutForMode('phrase-block', doc(), {}, {});
+    const labels = layout.elements
+      .filter((e) => e.kind === 'text' && e.small)
+      .map((e) => (e as { text: string }).text);
+    expect(labels).toContain('subject');
+    expect(labels).toContain('verb');
+    expect(labels).toContain('object');
+    // Greek words present as full-size rows.
+    const greek = layout.elements
+      .filter((e) => e.kind === 'text' && !e.small)
+      .map((e) => (e as { text: string }).text);
+    expect(greek).toEqual(expect.arrayContaining(['θεός', 'ἠγάπησεν', 'κόσμον', 'τὸν']));
+  });
+
+  it('indents a dependent deeper than its head (article under its noun)', () => {
+    const layout = layoutForMode('phrase-block', doc(), {}, {});
+    const xOf = (t: string) =>
+      (layout.elements.find((e) => e.kind === 'text' && !e.small && (e as { text: string }).text === t) as { x: number }).x;
+    // The article τὸν nests under the object κόσμον, so it is indented further right.
+    expect(xOf('τὸν')).toBeGreaterThan(xOf('κόσμον'));
+  });
+});
