@@ -327,10 +327,11 @@ class SentenceConverter {
     if (!head) return `w_${this.key(el)}`;
     const repId = this.convert(head);
     const rule = el.getAttribute('rule') ?? '';
+    const coordinated = isCoordinationRule(rule);
     for (const child of constituents(el)) {
       if (child === head) continue;
       const rep = this.convert(child);
-      const role = this.phraseChildRole(child, rule);
+      const role = this.phraseChildRole(child, rule, coordinated);
       // An article/adjective on an articular clause (τοῖς οὖσιν ἐν Φιλίπποις —
       // "the [ones] who are…") modifies the participle that heads it, so it hangs
       // on a diagonal beneath the verb, not floating beside the whole clause.
@@ -350,26 +351,44 @@ class SentenceConverter {
   }
 
   /** Map a non-head phrase child to a Kellogg-Reed relation. */
-  private phraseChildRole(child: Element, rule: string): SyntacticRole {
+  private phraseChildRole(child: Element, rule: string, coordinated: boolean): SyntacticRole {
     const role = child.getAttribute('role');
     if (role === 'adv') return 'adverbial';
     const cls = child.getAttribute('class');
     if (cls === 'det') return 'determiner';
     if (cls === 'conj' || cls === 'ptcl') return 'coordinator';
+    // Coordination is decided FIRST, so a coordinated sibling constituent becomes
+    // a CONJUNCT of the head rather than being mis-read as a modifier of it. This
+    // is what fixes a dropped second PP in "ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς"
+    // (rule "Conj2Pp"): without it, the ἐπὶ phrase becomes a `prepositionalPhrase`
+    // hanging off ἐν, which the layout engine's PP fast-path then silently drops.
+    if (coordinated) return 'conjunct';
     if (cls === 'pp') return 'prepositionalPhrase';
     if (cls === 'adj' || cls === 'adjp') return 'adjectival';
     if (cls === 'cl') return 'adjectival'; // relative/attributive clause
-    // Noun-level: genitive vs apposition vs coordinate, from the parent rule.
+    // Noun-level: genitive vs apposition, from the parent rule.
     if (/appos/i.test(rule)) return 'apposition';
     if (/ofnp|ofgen|gen/i.test(rule)) return 'genitive';
-    // Asyndetic coordination — a bare list of like constituents with no
-    // conjunction (πίστις, ἐλπίς, ἀγάπη; rule "NpNpNp"/"NpNp"/"AdjAdj"…). These
-    // are coordinate (a fork), not appositional renamings.
-    if (/^(np|adj|vp|pp){2,}$/i.test(rule)) return 'conjunct';
-    if (/npanp|aNp|conj/i.test(rule)) return 'conjunct';
     if (this.isAdjective(child)) return 'adjectival';
     return child.getAttribute('case') === 'genitive' ? 'genitive' : 'apposition';
   }
+}
+
+/**
+ * Whether a phrase `rule` marks a COORDINATION of like constituents (a fork)
+ * rather than a head with modifiers. Lowfat encodes coordination three ways:
+ *   • a "Conj…" head — an explicit conjunction joins the conjuncts
+ *     (Conj2Pp, Conj3Np, Conj2VP, Conj-CL…);
+ *   • an "a"(=καί) infix/prefix list — NpaNp, aNpaNp, aPpaPp, 2PpaPp…;
+ *   • an asyndetic run of ONE repeated category — NpNpNp, PpPp, ClClCl,
+ *     AdjAdj… (a bare list with no conjunction; still a fork, not apposition).
+ * A modifier structure (NpPp, AdjpNp, NpAdjp, Np-Appos…) matches none of these,
+ * so its pp/adjp/clause child stays a modifier.
+ */
+function isCoordinationRule(rule: string): boolean {
+  if (/^conj/i.test(rule)) return true;
+  if (/(^|[a-z])a(np|pp|adjp|adj|vp|cl)/i.test(rule)) return true;
+  return /^\d*(np|adjp|adj|vp|pp|cl)(\1)+$/i.test(rule);
 }
 
 export interface LowfatDocOptions {

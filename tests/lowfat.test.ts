@@ -161,6 +161,63 @@ describe('Lowfat clause coordination & subordination', () => {
     expect(doc!.syntax.relations.some((r) => r.type === 'apposition')).toBe(false);
   });
 
+  it('coordinates two prepositional phrases ("ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς")', () => {
+    // Regression for Colossians 1:16: a "Conj2Pp" wrapper joins two PPs. The
+    // second PP (ἐπὶ τῆς γῆς) must become a CONJUNCT of the first (ἐν τοῖς
+    // οὐρανοῖς), with καί the coordinator — not a `prepositionalPhrase` modifier
+    // hanging off ἐν, which the layout engine's PP fast-path then silently drops.
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl">
+      <w class="verb" role="v">ἐκτίσθη</w>
+      <wg role="s" class="np" rule="NpPp">
+        <w class="noun" head="true" case="nominative">πάντα</w>
+        <wg class="pp" rule="Conj2Pp">
+          <wg class="pp" head="true" rule="PrepNp">
+            <w class="prep">ἐν</w>
+            <wg class="np" head="true" rule="DetNP">
+              <w class="det">τοῖς</w>
+              <w class="noun" head="true" case="dative">οὐρανοῖς</w>
+            </wg>
+          </wg>
+          <w class="conj">καὶ</w>
+          <wg class="pp" rule="PrepNp">
+            <w class="prep">ἐπὶ</w>
+            <wg class="np" head="true" rule="DetNP">
+              <w class="det">τῆς</w>
+              <w class="noun" head="true" case="genitive">γῆς</w>
+            </wg>
+          </wg>
+        </wg>
+      </wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    const surf = (id: string) => {
+      const n = doc!.syntax.nodes.find((x) => x.id === id);
+      return doc!.tokens.find((t) => t.id === n?.tokenIds[0])?.surface;
+    };
+    const en = doc!.syntax.nodes.find((n) => surf(n.id) === 'ἐν')!;
+    const enChildren = doc!.syntax.relations.filter((r) => r.headId === en.id);
+    // ἐπὶ is a conjunct of ἐν (NOT a prepositionalPhrase), καί is the coordinator,
+    // and ἐν still governs its own object οὐρανοῖς.
+    expect(enChildren.some((r) => r.type === 'conjunct' && surf(r.dependentId) === 'ἐπὶ')).toBe(true);
+    expect(enChildren.some((r) => r.type === 'prepositionalPhrase')).toBe(false);
+    expect(enChildren.some((r) => r.type === 'coordinator' && surf(r.dependentId) === 'καὶ')).toBe(true);
+    expect(enChildren.some((r) => r.type === 'prepositionObject' && surf(r.dependentId) === 'οὐρανοῖς')).toBe(true);
+    // ἐπὶ governs its own object γῆς.
+    const epi = doc!.syntax.nodes.find((n) => surf(n.id) === 'ἐπὶ')!;
+    expect(
+      doc!.syntax.relations.some(
+        (r) => r.headId === epi.id && r.type === 'prepositionObject' && surf(r.dependentId) === 'γῆς',
+      ),
+    ).toBe(true);
+
+    // And the layout draws BOTH phrases — the dropped-PP bug would omit ἐπὶ/γῆς.
+    const layout = layoutDocument(doc!, {});
+    const texts = layout.elements.flatMap((e) => (e.kind === 'text' ? [e.text] : []));
+    for (const w of ['ἐν', 'οὐρανοῖς', 'καὶ', 'ἐπὶ', 'γῆς']) {
+      expect(texts, `expected "${w}" in the diagram`).toContain(w);
+    }
+  });
+
   it('passes a single-child wrapper straight through (no extra clause node)', () => {
     const xml = `<book name="Test"><sentence><wg role="cl">
       <wg class="cl" rule="S-V"><w class="pron" role="s">ἐγώ</w><w class="verb" role="v">τρέχω</w></wg>
