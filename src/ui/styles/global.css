@@ -661,14 +661,16 @@ textarea.code,
 }
 .source-bar .collapse-btn {
   display: inline-flex;
-  margin-left: 4px;
+  margin-left: auto;
 }
-/* Prev/next sentence nav, pushed to the right end of the source bar. */
+/* Prev/next sentence nav sits right next to the version picker so it stays on
+   the first line (visible) on a phone, instead of being pushed to the far right
+   where it wraps out of sight. The collapse toggle takes the right end instead. */
 .sentence-nav {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  margin-left: auto;
+  margin-left: 4px;
 }
 .sentence-nav button {
   border: 1px solid var(--border, #e2e8f0);
