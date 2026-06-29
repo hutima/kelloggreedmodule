@@ -927,9 +927,29 @@ textarea.code,
 .rel-list li.selected {
   border-color: var(--accent);
 }
+.rel-hl-swatch {
+  flex: none;
+  align-self: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
 .rel-type {
   color: var(--accent);
   font-weight: 600;
+}
+.rel-highlight {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.rel-highlight-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  text-transform: uppercase;
 }
 .hint {
   color: var(--muted);

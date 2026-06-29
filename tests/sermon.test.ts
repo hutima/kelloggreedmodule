@@ -13,6 +13,7 @@ import {
   removeOutlineSection,
 } from '@/domain/sermon';
 import { emptySermonPrep, isEmptySermonPrep } from '@/domain/schema';
+import { relationHighlightColors, nodeHighlightColors, highlightColor } from '@/ui/sermon/highlights';
 
 const NOW = '2024-01-01T00:00:00.000Z';
 const LATER = '2024-01-02T00:00:00.000Z';
@@ -51,6 +52,20 @@ describe('sermon prep mutations', () => {
     s = toggleHighlight(s, { anchor, category: 'mainIdea' }, NOW);
     s = toggleHighlight(s, { anchor, category: 'command' }, NOW);
     expect(s.highlights).toHaveLength(2);
+  });
+
+  it('maps relation highlights to colours (and node colours skip relations)', () => {
+    let s = emptySermonPrep('p1', NOW);
+    s = toggleHighlight(s, { anchor: { type: 'relation', relationId: 'r1' }, category: 'command' }, NOW);
+    s = toggleHighlight(s, { anchor: { type: 'node', nodeId: 'n1' }, category: 'mainIdea' }, NOW);
+
+    const rel = relationHighlightColors(s.highlights);
+    expect(rel.get('r1')).toBe(highlightColor('command'));
+    expect(rel.has('n1')).toBe(false); // node highlight isn't a relation
+
+    const nodes = nodeHighlightColors(s.highlights);
+    expect(nodes.get('n1')).toBe(highlightColor('mainIdea'));
+    expect(nodes.has('r1')).toBe(false); // relation highlight skipped (not word-level)
   });
 
   it('removing a note detaches a highlight that referenced it', () => {
