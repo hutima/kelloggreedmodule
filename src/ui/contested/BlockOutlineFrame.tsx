@@ -55,7 +55,7 @@ export const BlockOutlineFrame = forwardRef<
     const g = ghosts.get(node.id);
     return (
       <li key={node.id}>
-        <div className={`bdf-row ${cls}`} style={{ paddingLeft: 8 + depth * 16 }}>
+        <div className={`bdf-row ${cls}`} style={{ paddingInlineStart: 8 + depth * 16 }}>
           {node.label && <span className="bdf-label">{node.label}</span>}
           <span className={`bdf-text${langClass}`}>
             {node.text || (node.implied ? '(implied)' : '')}
@@ -68,7 +68,7 @@ export const BlockOutlineFrame = forwardRef<
             {node.children.map((c) => renderNode(c, depth + 1))}
             {g?.map((gh) => (
               <li key={`ghost_${gh.id}`}>
-                <div className="bdf-row bdf-ghost" style={{ paddingLeft: 8 + (depth + 1) * 16 }}>
+                <div className="bdf-row bdf-ghost" style={{ paddingInlineStart: 8 + (depth + 1) * 16 }}>
                   <s className={`bdf-text${langClass}`}>{gh.text}</s>
                   <span className="bdf-tag ghost">was here</span>
                 </div>
@@ -85,7 +85,9 @@ export const BlockOutlineFrame = forwardRef<
       {title && <div className="vc-frame-head">{title}</div>}
       <div className="vc-frame-scroll bdf-scroll" ref={ref} onScroll={onScrollSync}>
         {outline ? (
-          <ul className="bdf-tree">{renderNode(outline, 0)}</ul>
+          // Hebrew flows RTL: the tree direction + logical row padding make the
+          // nesting indent (and the before/after ghosts) read correctly in OT.
+          <ul className={`bdf-tree${langClass}`}>{renderNode(outline, 0)}</ul>
         ) : (
           <p className="empty">No structure to outline.</p>
         )}
