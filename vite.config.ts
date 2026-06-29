@@ -27,10 +27,10 @@ export default defineConfig({
       injectRegister: null,
       includeAssets: ['favicon.svg', 'robots.txt'],
       manifest: {
-        name: 'Kellogg-Reed Diagrammer',
-        short_name: 'KR Diagram',
+        name: 'Scripture Diagrammer',
+        short_name: 'Scripture',
         description:
-          'Create, edit, and export hybrid Kellogg-Reed sentence diagrams for English and Koine/Biblical Greek.',
+          'Scripture Diagrammer — create, edit, and export sentence diagrams (Kellogg-Reed, phrase, dependency, morphology) for English, Koine/Biblical Greek, and Biblical Hebrew.',
         theme_color: '#1f2933',
         background_color: '#f5f7fa',
         display: 'standalone',

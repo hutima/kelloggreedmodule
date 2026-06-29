@@ -75,7 +75,7 @@ export function TopBar() {
             <line x1="42" y1="38" x2="50" y2="46" />
           </g>
         </svg>
-        <span className="brand-name">Kellogg-Reed</span>
+        <span className="brand-name">Scripture Diagrammer</span>
       </div>
 
       <ModeSwitcher canEdit={canEdit} />

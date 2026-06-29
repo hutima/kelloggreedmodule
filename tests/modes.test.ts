@@ -20,8 +20,8 @@ const XML = `<book name="Test"><sentence><wg role="cl" class="cl" rule="S-V-O">
 const doc = () => lowfatToDocuments(XML, { book: 'Test' })[0]!;
 
 describe('diagram mode registry', () => {
-  it('lists the modes with Kellogg-Reed default first', () => {
-    expect(DEFAULT_MODE).toBe('kellogg-reed');
+  it('lists the modes (selector order) and defaults to Phrase/Block', () => {
+    expect(DEFAULT_MODE).toBe('phrase-block');
     expect(DIAGRAM_MODES.map((m) => m.id)).toEqual([
       'kellogg-reed',
       'phrase-block',

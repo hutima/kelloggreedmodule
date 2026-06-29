@@ -32,7 +32,12 @@ export const DIAGRAM_MODES: DiagramModeInfo[] = [
   { id: 'morphology', label: 'Morphology Clause', description: 'Greek forms and agreement' },
 ];
 
-export const DEFAULT_MODE: DiagramMode = 'kellogg-reed';
+/**
+ * Default visualization on first load (mobile AND desktop): Phrase/Block — the
+ * most finger-friendly, sermon-useful structural lens. The selector still lists
+ * Kellogg-Reed first; this only sets which mode is shown initially.
+ */
+export const DEFAULT_MODE: DiagramMode = 'phrase-block';
 
 export function layoutForMode(
   mode: DiagramMode,
