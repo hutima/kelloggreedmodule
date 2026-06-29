@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { layoutDocument } from '@/domain/layout';
 import { dashFor } from '@/domain/render';
 import { describeFunction, getNode, childRelations } from '@/domain/model';
+import { loadParallelBook, alignParallel, bookForDoc, type ParallelBook, type ParallelView } from '@/io';
 import type { KrDocument } from '@/domain/schema';
 
 const TENTATIVE = '#c2410c';
@@ -34,9 +35,20 @@ export function DiagramCanvas() {
   const verticalScale = useEditorStore((s) => s.verticalScale);
   const setVerticalScale = useEditorStore((s) => s.setVerticalScale);
   const [collapsed, setCollapsed] = useState(false);
-  // The node currently hovered — in the diagram OR the source text — so the two
-  // stay in sync (hover a word above, its diagram word lights up, and vice versa).
-  const [hoverNode, setHoverNode] = useState<string | undefined>();
+  // What is currently hovered — in the diagram, the Greek strip, or the English
+  // strip — kept as the set of diagram nodes AND English words it touches, so all
+  // three views light up in lock-step (a Greek word ↔ its English translation).
+  const [hover, setHover] = useState<{ nodes: Set<string>; en: Set<string> }>(() => ({
+    nodes: new Set(),
+    en: new Set(),
+  }));
+
+  // Parallel English text (Berean Standard Bible), loaded per book on demand, and
+  // which version the source strip shows. Only offered for Greek passages.
+  const [parallelBook, setParallelBook] = useState<ParallelBook | null>(null);
+  const [version, setVersion] = useState<'grc' | 'en'>('grc');
+  // The source/reference strip collapses out of the way to give the diagram room.
+  const [srcCollapsed, setSrcCollapsed] = useState(false);
 
   const layout = useMemo(
     () => layoutDocument(doc, doc.layoutHints, { verticalScale }),
@@ -46,6 +58,47 @@ export function DiagramCanvas() {
   // The running source text as interactive words: each maps to the syntax node it
   // belongs to, grouped by verse (a passage stacks several verses).
   const sourceItems = useMemo(() => buildSourceItems(doc), [doc]);
+
+  // Fetch the matching parallel book when a Greek passage is opened.
+  useEffect(() => {
+    setParallelBook(null);
+    if (doc.language !== 'grc') return;
+    const book = bookForDoc(doc);
+    if (!book) return;
+    let live = true;
+    loadParallelBook(book).then((b) => live && setParallelBook(b));
+    return () => {
+      live = false;
+    };
+  }, [doc]);
+
+  const parallel: ParallelView | null = useMemo(
+    () => (parallelBook ? alignParallel(doc, parallelBook) : null),
+    [doc, parallelBook],
+  );
+  const hasEnglish = (parallel?.verses.length ?? 0) > 0;
+  // Fall back to Greek if English isn't available for the current passage.
+  const showEnglish = version === 'en' && hasEnglish;
+
+  // Hover helpers keep the diagram, Greek strip, and English strip in sync.
+  const hoverDiagram = useCallback(
+    (nodeId?: string) =>
+      setHover(
+        nodeId
+          ? { nodes: new Set([nodeId]), en: new Set(parallel?.nodeToEn.get(nodeId) ?? []) }
+          : { nodes: new Set(), en: new Set() },
+      ),
+    [parallel],
+  );
+  const hoverEnglish = useCallback(
+    (key?: string) =>
+      setHover(
+        key
+          ? { nodes: new Set(parallel?.enToNodes.get(key) ?? []), en: new Set([key]) }
+          : { nodes: new Set(), en: new Set() },
+      ),
+    [parallel],
+  );
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1 });
@@ -226,27 +279,100 @@ export function DiagramCanvas() {
           <button className="mini" onClick={cancelRelink}>Cancel (Esc)</button>
         </div>
       )}
-      {sourceItems.length > 0 && (
-        <div className={`source-text${doc.language === 'grc' ? ' greek' : ''}`} title="Source text">
-          {sourceItems.map((it, i) =>
-            it.kind === 'verse' ? (
-              <span key={`v${i}`} className="src-verse">
-                {it.label}
-              </span>
+      {(sourceItems.length > 0 || hasEnglish) && (
+        <div className={`source-wrap${srcCollapsed ? ' collapsed' : ''}`}>
+          <div className="source-bar">
+            {hasEnglish ? (
+              <div className="version-picker" role="group" aria-label="Source language">
+                <button
+                  className={!showEnglish ? 'active' : ''}
+                  onClick={() => setVersion('grc')}
+                >
+                  Greek
+                </button>
+                <button
+                  className={showEnglish ? 'active' : ''}
+                  onClick={() => setVersion('en')}
+                >
+                  English
+                </button>
+              </div>
             ) : (
-              <span
-                key={it.tid}
-                className={`src-word${it.nodeId && it.nodeId === selection.nodeId ? ' selected' : ''}${
-                  it.nodeId && it.nodeId === hoverNode ? ' hovered' : ''
-                }`}
-                onMouseEnter={() => it.nodeId && setHoverNode(it.nodeId)}
-                onMouseLeave={() => setHoverNode(undefined)}
-                onClick={() => it.nodeId && !linking && select({ nodeId: it.nodeId })}
+              <span className="source-label">Source text</span>
+            )}
+            <button
+              className="collapse-btn"
+              aria-expanded={!srcCollapsed}
+              title={srcCollapsed ? 'Show source text' : 'Hide source text'}
+              onClick={() => setSrcCollapsed((v) => !v)}
+            >
+              {srcCollapsed ? '▸' : '▾'}
+            </button>
+          </div>
+          {!srcCollapsed &&
+            (showEnglish ? (
+            <div className="source-text english" title="Berean Standard Bible (word-aligned)">
+              {parallel!.verses.map((v) => (
+                <Fragment key={v.key}>
+                  <span className="src-verse">{v.label}</span>
+                  {v.words.map((w) => {
+                    const space = w.joinLeft ? '' : ' ';
+                    if (w.excl)
+                      return (
+                        <span key={w.i} className="src-punc">
+                          {space}
+                          {w.t}
+                        </span>
+                      );
+                    const key = `${v.key}#${w.i}`;
+                    return (
+                      <Fragment key={w.i}>
+                        {space}
+                        <span
+                          className={`src-word${hover.en.has(key) ? ' hovered' : ''}`}
+                          onMouseEnter={() => hoverEnglish(key)}
+                          onMouseLeave={() => hoverEnglish(undefined)}
+                          onClick={() => {
+                            const ns = parallel!.enToNodes.get(key);
+                            if (ns?.[0] && !linking) select({ nodeId: ns[0] });
+                          }}
+                        >
+                          {w.t}
+                        </span>
+                      </Fragment>
+                    );
+                  })}
+                </Fragment>
+              ))}
+            </div>
+          ) : (
+            sourceItems.length > 0 && (
+              <div
+                className={`source-text${doc.language === 'grc' ? ' greek' : ''}`}
+                title="Source text"
               >
-                {it.surface}{' '}
-              </span>
-            ),
-          )}
+                {sourceItems.map((it, i) =>
+                  it.kind === 'verse' ? (
+                    <span key={`v${i}`} className="src-verse">
+                      {it.label}
+                    </span>
+                  ) : (
+                    <span
+                      key={it.tid}
+                      className={`src-word${it.nodeId && it.nodeId === selection.nodeId ? ' selected' : ''}${
+                        it.nodeId && hover.nodes.has(it.nodeId) ? ' hovered' : ''
+                      }`}
+                      onMouseEnter={() => it.nodeId && hoverDiagram(it.nodeId)}
+                      onMouseLeave={() => hoverDiagram(undefined)}
+                      onClick={() => it.nodeId && !linking && select({ nodeId: it.nodeId })}
+                    >
+                      {it.surface}{' '}
+                    </span>
+                  ),
+                )}
+              </div>
+            )
+          ))}
         </div>
       )}
       <div
@@ -265,12 +391,15 @@ export function DiagramCanvas() {
       >
         <div
           className="diagram-pan"
-          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
+          style={{ transform: `translate(${view.x}px, ${view.y}px)` }}
         >
+          {/* Zoom drives the SVG's intrinsic size (viewBox fixed) rather than a
+              CSS scale() — so the vector re-renders crisply instead of the
+              browser stretching a rasterised layer (which looked fuzzy). */}
           <svg
             className="diagram-paper"
-            width={layout.width}
-            height={layout.height}
+            width={layout.width * view.scale}
+            height={layout.height * view.scale}
             viewBox={`0 0 ${layout.width} ${layout.height}`}
             role="img"
             aria-label={`Kellogg-Reed diagram of: ${doc.text || doc.title}`}
@@ -304,7 +433,7 @@ export function DiagramCanvas() {
                 );
               }
               const sel = isSelected(el.nodeId, el.relationId);
-              const hov = el.nodeId && el.nodeId === hoverNode;
+              const hov = el.nodeId && hover.nodes.has(el.nodeId);
               return (
                 <text
                   key={el.id}
@@ -315,8 +444,8 @@ export function DiagramCanvas() {
                   fontStyle={el.italic ? 'italic' : undefined}
                   fill={el.tentative ? TENTATIVE : el.muted ? '#8a97a3' : '#1f2933'}
                   {...(el.rotate ? { transform: `rotate(${el.rotate} ${el.x} ${el.y})` } : {})}
-                  onMouseEnter={() => el.nodeId && setHoverNode(el.nodeId)}
-                  onMouseLeave={() => el.nodeId && setHoverNode(undefined)}
+                  onMouseEnter={() => el.nodeId && hoverDiagram(el.nodeId)}
+                  onMouseLeave={() => el.nodeId && hoverDiagram(undefined)}
                   onClick={() => {
                     if (moved.current) return;
                     if (el.nodeId) onNode(el.nodeId);

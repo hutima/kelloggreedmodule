@@ -79,6 +79,19 @@ function morphOf(w: Element): Morphology | undefined {
       any = true;
     }
   }
+  // Alignment anchors carried in `extra`: the canonical reference (osisId, e.g.
+  // "Phil.1.1!1") and Strong's number. Parallel translations are linked to these
+  // words by LEXEME (Strong's), not position, so the link survives the small
+  // textual differences between Nestle1904 and the alignment's SBLGNT base.
+  const extra: Record<string, string> = {};
+  const ref = w.getAttribute('osisId');
+  const strong = w.getAttribute('strong');
+  if (ref) extra.ref = ref;
+  if (strong) extra.strong = strong;
+  if (Object.keys(extra).length) {
+    m.extra = extra;
+    any = true;
+  }
   return any ? m : undefined;
 }
 
@@ -382,7 +395,7 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
       title: ref ? `${book} ${ref}` : `${book} (${i + 1})`,
       language: 'grc',
       text: conv.tokens.map((t) => t.surface).join(' '),
-      notes: 'Nestle1904 Lowfat syntax tree (biblicalhumanities). Gold-standard parse.',
+      notes: '',
       createdAt: ts,
       updatedAt: ts,
       layoutHints: {},

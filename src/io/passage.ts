@@ -78,7 +78,7 @@ export function combinePassage(docs: KrDocument[]): KrDocument {
     title: book ? `${book} ${range}` : range,
     language: first.language,
     text: valid.map((d) => `[${verseOf(d.title)}] ${d.text}`).join('  '),
-    notes: 'Combined passage (gold-standard). Each sentence is diagrammed independently.',
+    notes: '',
     createdAt: TS,
     updatedAt: TS,
     layoutHints: {},
