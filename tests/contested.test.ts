@@ -14,11 +14,13 @@ import {
   getReadingById,
   getAffectedIds,
   hasContestedData,
+  isMergeIssue,
   applyAlternateReadingPreview,
   canAdoptAlternateReading,
   adoptAlternateReading,
   diffBaseAndAlternate,
 } from '@/domain/contested';
+import { combinePassage } from '@/io';
 import type { KrDocument } from '@/domain/schema';
 
 /**
@@ -69,10 +71,46 @@ describe('contested registry — structural integrity', () => {
   });
 });
 
+describe('contested registry — cross-sentence-boundary (merge) issues', () => {
+  const rom = getIssueById('iss_rom_9_5_doxology')!;
+
+  it('Romans 9:5 spans two base sentences and is a merge issue', () => {
+    expect(rom.mergePassageIds).toEqual(['gnt_romans_228', 'gnt_romans_229']);
+    expect(isMergeIssue(rom)).toBe(true);
+    // A single-sentence issue is not a merge issue.
+    expect(isMergeIssue(getIssueById('iss_1john_1_1_relative_chain')!)).toBe(false);
+  });
+
+  it('the badge/panel attach to EVERY spanned sentence, not just the first', () => {
+    for (const id of rom.mergePassageIds!) {
+      const fakeDoc = { id } as unknown as KrDocument;
+      expect(getIssuesForPassage(fakeDoc).map((i) => i.id)).toContain(rom.id);
+      expect(hasContestedData(fakeDoc)).toBe(true);
+    }
+  });
+
+  it('its overlay is authored against the combined (s0_/s1_/disc_) ids', () => {
+    const reading = getReadingById('alt_rom_9_5_to_christ')!;
+    expect(reading.sourceType).toBe('syntax-only');
+    const update = reading.syntaxPatch?.relations?.update ?? {};
+    expect(Object.keys(update)).toContain('disc_r1');
+    expect(update.disc_r1!.headId).toBe('s0_w_450090050080010');
+    expect(update.disc_r1!.type).toBe('apposition');
+  });
+});
+
 describe('contested registry — ids exist in the real base passages (offline)', () => {
   for (const issue of contestedRegistry.issues) {
     it(`${issue.id} (${issue.verseRef})`, () => {
-      const doc = loadOffline(issue.passageId);
+      let doc: KrDocument | undefined;
+      if (issue.mergePassageIds?.length) {
+        // A cross-boundary issue is authored against the COMBINED document.
+        const parts = issue.mergePassageIds.map(loadOffline);
+        if (parts.some((p) => !p)) return; // some spanned sentence is network-only
+        doc = combinePassage(parts as KrDocument[]);
+      } else {
+        doc = loadOffline(issue.passageId);
+      }
       if (!doc) return; // network passage — skipped offline
       const tokens = new Set(doc.tokens.map((t) => t.id));
       const nodes = new Set(doc.syntax.nodes.map((n) => n.id));

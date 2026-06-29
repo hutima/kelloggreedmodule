@@ -59,7 +59,12 @@ import { scheduleAutosave } from './autosave';
 import {
   applyAlternateReadingPreview,
   getReadingById,
+  getIssueById,
+  getIssuesForPassage,
+  isMergeIssue,
 } from '@/domain/contested';
+import { combinePassage } from '@/io';
+import type { ContestedSyntaxIssue } from '@/domain/schema';
 import type {
   ActiveEditModal,
   AlternateDisplayMode,
@@ -351,6 +356,34 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     saveSermonPrep(next.passageId, next);
   };
 
+  /**
+   * For a CROSS-SENTENCE-BOUNDARY issue (one with `mergePassageIds`), build the
+   * combined base document of the spanned sentences so the alternate can be shown
+   * structurally. Returns null for an ordinary single-sentence issue (consumers
+   * then fall back to `baseDoc`), or when the spanned sentences aren't all loaded
+   * in the current book context (degrades gracefully to the single sentence).
+   */
+  const mergedContestedBase = (issue: ContestedSyntaxIssue | undefined): KrDocument | null => {
+    if (!issue?.mergePassageIds?.length || issue.mergePassageIds.length < 2) return null;
+    const byId = new Map(get().gntPassages.map((d) => [d.id, d] as const));
+    const parts = issue.mergePassageIds
+      .map((id) => byId.get(id))
+      .filter((d): d is KrDocument => Boolean(d));
+    if (parts.length !== issue.mergePassageIds.length) return null;
+    try {
+      return combinePassage(parts);
+    } catch {
+      return null;
+    }
+  };
+
+  /** Resolve the contested base for an issue id (or the passage's first issue). */
+  const contestedBaseFor = (issueId: string | undefined): KrDocument | null => {
+    const base = get().baseDoc ?? get().doc;
+    const issue = (issueId && getIssueById(issueId)) || getIssuesForPassage(base)[0];
+    return mergedContestedBase(issue);
+  };
+
   const init = initialDoc();
 
   return {
@@ -374,6 +407,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       alternateDisplayMode: 'base-only',
       linkedScrolling: true,
     },
+    contestedBaseDoc: null,
     previewDoc: null,
     verticalScale: 1,
     diagramMode: DEFAULT_MODE,
@@ -417,6 +451,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         selection: {},
         linking: null,
         previewDoc: null,
+        contestedBaseDoc: null,
         contested: { ...FRESH_CONTESTED },
         status: 'saved',
       });
@@ -437,6 +472,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         selection: {},
         linking: null,
         previewDoc: null,
+        contestedBaseDoc: null,
         contested: { ...FRESH_CONTESTED },
         status: 'idle',
       });
@@ -461,6 +497,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         selection: {},
         linking: null,
         previewDoc: null,
+        contestedBaseDoc: null,
         contested: { ...FRESH_CONTESTED },
         status: 'saved',
       });
@@ -505,6 +542,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         selection: {},
         linking: null,
         previewDoc: null,
+        contestedBaseDoc: null,
         contested: { ...FRESH_CONTESTED },
         status: 'saved',
       });
@@ -519,7 +557,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const live0 = stored ? applyPatch(baseDoc, stored) : baseDoc;
         const saved = loadPassageNotes(baseDoc.id);
         const live = saved != null ? { ...live0, notes: saved } : live0;
-        set({ doc: live, sermon, past: [], future: [], selection: {}, linking: null, previewDoc: null, contested: { ...FRESH_CONTESTED }, status: 'saved' });
+        set({ doc: live, sermon, past: [], future: [], selection: {}, linking: null, previewDoc: null, contestedBaseDoc: null, contested: { ...FRESH_CONTESTED }, status: 'saved' });
         persistOpened(live);
       } else {
         set({ sermon });
@@ -855,13 +893,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
     // --- contested syntax / alternate readings ------------------------------
     openContestedPanel: (issueId) =>
-      set((s) => ({
-        contested: {
-          ...s.contested,
-          showAlternateParsePanel: true,
-          selectedContestedIssueId: issueId ?? s.contested.selectedContestedIssueId,
-        },
-      })),
+      set((s) => {
+        const selectedId = issueId ?? s.contested.selectedContestedIssueId;
+        return {
+          contestedBaseDoc: contestedBaseFor(selectedId),
+          contested: {
+            ...s.contested,
+            showAlternateParsePanel: true,
+            selectedContestedIssueId: selectedId,
+          },
+        };
+      }),
 
     closeContestedPanel: () =>
       // Only hide the panel; any single-preview or side-by-side comparison stays
@@ -884,6 +926,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     selectContestedIssue: (issueId) =>
       set((s) => ({
         previewDoc: null,
+        contestedBaseDoc: contestedBaseFor(issueId),
         contested: {
           ...s.contested,
           selectedContestedIssueId: issueId,
@@ -895,10 +938,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
     previewAlternateReading: (readingId) => {
       const reading = readingId ? getReadingById(readingId) : undefined;
-      const base = get().baseDoc ?? get().doc;
+      // A cross-boundary reading overlays the COMBINED base of its spanned
+      // sentences; an ordinary reading overlays the single-sentence base.
+      const merged = reading ? mergedContestedBase(getIssueById(reading.issueId)) : null;
+      const base = merged ?? get().baseDoc ?? get().doc;
       const previewDoc = reading ? applyAlternateReadingPreview(base, reading) : null;
       set((s) => ({
         previewDoc,
+        contestedBaseDoc: merged ?? s.contestedBaseDoc,
         contested: {
           ...s.contested,
           previewAlternateReadingId: reading?.id,
@@ -931,7 +978,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const readingId =
         s.contested.previewAlternateReadingId ?? s.contested.selectedAlternateReadingId;
       const reading = readingId ? getReadingById(readingId) : undefined;
-      const base = s.baseDoc ?? s.doc;
+      const merged = reading ? mergedContestedBase(getIssueById(reading.issueId)) : null;
+      const base = merged ?? s.baseDoc ?? s.doc;
       const previewDoc = reading ? applyAlternateReadingPreview(base, reading) : s.previewDoc;
       set((st) => ({
         previewDoc,
@@ -949,6 +997,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     adoptContestedReading: (readingId) => {
       const reading = getReadingById(readingId);
       if (!reading || !reading.syntaxPatch) return; // only structural alternates adopt
+      // A cross-boundary reading rewrites the sentence segmentation itself, which
+      // the single-passage patch model can't persist — it stays preview/compare only.
+      const issue = getIssueById(reading.issueId);
+      if (issue && isMergeIssue(issue)) return;
       // Apply onto the CURRENT doc so adoption merges with any prior edits, then
       // commit so the normal patch/diff persistence stores it as a user edit.
       const next = applyAlternateReadingPreview(get().doc, reading);

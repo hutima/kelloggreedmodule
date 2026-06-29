@@ -14,7 +14,9 @@ import { useLinkedDiagramView } from './useLinkedDiagramView';
  * outlined — never the whole passage.
  */
 export function VariantComparisonView() {
-  const baseDoc = useEditorStore((s) => s.baseDoc ?? s.doc);
+  // Cross-boundary issues compare the COMBINED base (both spanned sentences) on
+  // the left against the merged-and-re-attached overlay on the right.
+  const baseDoc = useEditorStore((s) => s.contestedBaseDoc ?? s.baseDoc ?? s.doc);
   const previewDoc = useEditorStore((s) => s.previewDoc);
   const diagramMode = useEditorStore((s) => s.diagramMode);
   const glossMode = useEditorStore((s) => s.glossMode);

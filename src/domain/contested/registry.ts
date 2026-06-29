@@ -16,7 +16,21 @@ export function allAlternateReadings(): AlternateReading[] {
 }
 
 export function getIssuesForPassage(doc: KrDocument): ContestedSyntaxIssue[] {
-  return contestedRegistry.issues.filter((i) => i.passageId === doc.id);
+  // A cross-sentence-boundary issue (mergePassageIds) attaches to EVERY sentence
+  // it spans, so the badge / panel appear on both sides of the boundary (e.g.
+  // Romans 9:5 shows on the 9:3–5 sentence and on the doxology sentence alike).
+  return contestedRegistry.issues.filter(
+    (i) => i.passageId === doc.id || (i.mergePassageIds?.includes(doc.id) ?? false),
+  );
+}
+
+/**
+ * Whether an issue needs its base SENTENCES merged before it can be shown
+ * structurally (its affected ids/overlay are authored against the combined
+ * document). Cross-boundary readings like Romans 9:5's doxology use this.
+ */
+export function isMergeIssue(issue: ContestedSyntaxIssue): boolean {
+  return (issue.mergePassageIds?.length ?? 0) > 1;
 }
 
 export function getIssueById(id: string): ContestedSyntaxIssue | undefined {

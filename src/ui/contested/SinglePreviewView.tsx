@@ -11,7 +11,10 @@ import { BlockOutlineFrame } from './BlockOutlineFrame';
  * pill and a one-tap return to the base. Difference highlighting is subtle.
  */
 export function SinglePreviewView() {
-  const baseDoc = useEditorStore((s) => s.baseDoc ?? s.doc);
+  // For a cross-boundary issue the base is the COMBINED document (the spanned
+  // sentences merged) so the diff against the overlay lines up; otherwise the
+  // single-sentence base.
+  const baseDoc = useEditorStore((s) => s.contestedBaseDoc ?? s.baseDoc ?? s.doc);
   const previewDoc = useEditorStore((s) => s.previewDoc);
   const diagramMode = useEditorStore((s) => s.diagramMode);
   const glossMode = useEditorStore((s) => s.glossMode);

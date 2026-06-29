@@ -31,6 +31,7 @@ const { sampleDocuments } = await import('../src/fixtures/index.ts');
 const { contestedRegistry } = await import('../src/data/contestedSyntax.ts');
 const { applyAlternateReadingPreview } = await import('../src/domain/contested/apply.ts');
 const { layoutForMode } = await import('../src/domain/layout/index.ts');
+const { combinePassage } = await import('../src/io/passage.ts');
 
 type Doc = (typeof sampleDocuments)[number];
 
@@ -99,10 +100,25 @@ for (const r of contestedRegistry.readings) {
 }
 
 for (const issue of contestedRegistry.issues) {
-  console.log(`\n• ${issue.id} (${issue.verseRef}) → ${issue.passageId}`);
+  const target = issue.mergePassageIds?.length
+    ? `merge[${issue.mergePassageIds.join(' + ')}]`
+    : issue.passageId;
+  console.log(`\n• ${issue.id} (${issue.verseRef}) → ${target}`);
   let doc: Doc | undefined;
   try {
-    doc = await loadPassage(issue.passageId);
+    if (issue.mergePassageIds?.length) {
+      // A cross-boundary issue is authored against the COMBINED document, so load
+      // every spanned sentence and merge them exactly as the app does at runtime.
+      const parts: Doc[] = [];
+      for (const id of issue.mergePassageIds) {
+        const part = await loadPassage(id);
+        if (!part) throw new Error(`merge sentence ${id} did not resolve`);
+        parts.push(part);
+      }
+      doc = combinePassage(parts) as Doc;
+    } else {
+      doc = await loadPassage(issue.passageId);
+    }
   } catch (e) {
     console.warn(`  ⚠ could not load (network?) — skipping id checks: ${(e as Error).message}`);
     skipped++;
