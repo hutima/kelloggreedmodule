@@ -8,11 +8,11 @@ import { layoutForMode, DIAGRAM_MODES, DEFAULT_MODE } from '@/domain/layout';
  * details are verified by rendering.
  */
 const XML = `<book name="Test"><sentence><wg role="cl" class="cl" rule="S-V-O">
-  <w class="noun" role="s" n="010010010010010">θεός</w>
-  <w class="verb" role="v" n="010010010020010">ἠγάπησεν</w>
+  <w class="noun" role="s" n="010010010010010" case="nominative" gender="masculine" number="singular">θεός</w>
+  <w class="verb" role="v" n="010010010020010" tense="aorist" voice="active" mood="indicative" person="third" number="singular">ἠγάπησεν</w>
   <wg role="o" class="np" rule="DetNp">
-    <w class="det" n="010010010030010">τὸν</w>
-    <w class="noun" head="true" n="010010010040010">κόσμον</w>
+    <w class="det" n="010010010030010" case="accusative" gender="masculine" number="singular">τὸν</w>
+    <w class="noun" head="true" n="010010010040010" case="accusative" gender="masculine" number="singular">κόσμον</w>
   </wg>
 </wg></sentence></book>`;
 
@@ -85,5 +85,32 @@ describe('phrase / block mode', () => {
       (layout.elements.find((e) => e.kind === 'text' && !e.small && (e as { text: string }).text === t) as { x: number }).x;
     // The article τὸν nests under the object κόσμον, so it is indented further right.
     expect(xOf('τὸν')).toBeGreaterThan(xOf('κόσμον'));
+  });
+});
+
+describe('morphology clause mode', () => {
+  it('shows compact morphology under each Greek word, in surface order', () => {
+    const layout = layoutForMode('morphology', doc(), {}, {});
+    const small = layout.elements.filter((e) => e.kind === 'text' && e.small).map((e) => (e as { text: string }).text);
+    expect(small).toContain('nom sg m'); // θεός
+    expect(small).toContain('aor act ind 3sg'); // ἠγάπησεν
+    expect(small).toContain('acc sg m'); // κόσμον / τὸν
+  });
+
+  it('tints grammatical categories (verb, nominative, accusative)', () => {
+    const layout = layoutForMode('morphology', doc(), {}, {});
+    const toneOf = (t: string) =>
+      (layout.elements.find((e) => e.kind === 'text' && (e as { text: string }).text === t) as { tone?: string }).tone;
+    expect(toneOf('θεός')).toBe('nominative');
+    expect(toneOf('ἠγάπησεν')).toBe('verb');
+    expect(toneOf('κόσμον')).toBe('accusative');
+  });
+
+  it('draws agreement/government links (article→noun, subject→verb)', () => {
+    const layout = layoutForMode('morphology', doc(), {}, {});
+    const linkLabels = layout.elements.filter((e) => e.kind === 'text' && e.italic).map((e) => (e as { text: string }).text);
+    expect(linkLabels).toContain('subj');
+    expect(linkLabels).toContain('agr');
+    expect(layout.elements.some((e) => e.kind === 'curve')).toBe(true);
   });
 });

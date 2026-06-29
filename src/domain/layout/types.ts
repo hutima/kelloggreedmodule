@@ -9,6 +9,16 @@
 
 export type LineStyle = 'solid' | 'dashed' | 'dotted';
 
+/** Grammatical categories the renderer can tint (Morphology Clause mode). */
+export type GrammarTone =
+  | 'nominative'
+  | 'accusative'
+  | 'genitive'
+  | 'dative'
+  | 'vocative'
+  | 'verb'
+  | 'participle';
+
 /** Semantic tag, so the renderer / CSS can theme line kinds distinctly. */
 export type ElementRole =
   | 'baseline'
@@ -49,6 +59,12 @@ export interface TextElement {
   muted?: boolean; // implied/elided elements
   /** A low-confidence (ambiguous) inference — rendered in a distinct colour. */
   tentative?: boolean;
+  /**
+   * A grammatical category the renderer may tint (case, finite verb, participle…)
+   * — used by the Morphology Clause mode to highlight forms. Always paired with
+   * the on-screen morphology text, so colour is never the only signal.
+   */
+  tone?: GrammarTone;
   /**
    * Clockwise rotation in degrees about (x, y). Used to write a word ALONG a
    * diagonal connector — the traditional Kellogg-Reed treatment of

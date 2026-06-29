@@ -28,3 +28,22 @@ export function dashFor(style: 'solid' | 'dashed' | 'dotted'): string | undefine
   if (style === 'dotted') return '2 4';
   return undefined;
 }
+
+/**
+ * Colours for the Morphology Clause mode's grammatical categories. Chosen to be
+ * reasonably distinguishable (incl. for common colour-vision deficiencies); the
+ * mode always shows the morphology text too, so colour is never the only cue.
+ */
+export const TONE_COLORS: Record<string, string> = {
+  nominative: '#1565c0', // blue — subjects / predicate nominatives
+  accusative: '#c1440e', // rust — objects
+  genitive: '#2e7d32', // green
+  dative: '#6a1b9a', // purple
+  vocative: '#00838f', // teal
+  verb: '#b71c1c', // crimson — finite verbs
+  participle: '#8d6e00', // olive
+};
+
+export function toneColor(tone: string | undefined): string | undefined {
+  return tone ? TONE_COLORS[tone] : undefined;
+}
