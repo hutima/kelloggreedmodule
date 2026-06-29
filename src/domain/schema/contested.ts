@@ -120,6 +120,16 @@ export const ContestedSyntaxIssueSchema = z.object({
   id: z.string(),
   /** The base document id this issue is authored against (e.g. a GNT sentence). */
   passageId: z.string(),
+  /**
+   * When a reading crosses a base SENTENCE boundary (e.g. Romans 9:5's doxology,
+   * which macula splits into its own sentence), the ordered ids of the base
+   * sentences to COMBINE so the alternate can be shown structurally rather than as
+   * a footnote. The issue then applies to ANY of these sentences, and its affected
+   * ids / overlay are authored against the COMBINED document — whose ids are
+   * `combinePassage`-prefixed (`s0_…` for the first sentence, `s1_…` for the
+   * second, plus the `disc_rN` discourse relations).
+   */
+  mergePassageIds: z.array(z.string()).optional(),
   verseRef: z.string(),
   kind: ContestedIssueKindSchema,
   sourceType: AlternateSourceTypeSchema,

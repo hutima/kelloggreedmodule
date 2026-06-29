@@ -142,6 +142,15 @@ export interface EditorState {
   /** Contested-syntax / alternate-readings UI state. */
   contested: ContestedUiState;
   /**
+   * The document the contested-syntax system treats as the BASE for the active
+   * issue. Normally this is just `baseDoc`, but for a cross-sentence-boundary
+   * issue (one with `mergePassageIds`, e.g. Romans 9:5's doxology) it is the
+   * COMBINED document of the spanned sentences, so the alternate can be shown
+   * structurally instead of as a footnote. `null` when no merge is in effect
+   * (consumers fall back to `baseDoc ?? doc`). In-memory only.
+   */
+  contestedBaseDoc: KrDocument | null;
+  /**
    * The document to RENDER for a single-frame alternate preview (the base with
    * the alternate overlay applied). In-memory only — previewing never persists.
    * `null` when showing the base.

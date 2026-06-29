@@ -9,6 +9,7 @@ import {
   getAlternateReadings,
   diffBaseAndAlternate,
   canAdoptAlternateReading,
+  isMergeIssue,
 } from '@/domain/contested';
 import { ReadingChoiceControl } from './ReadingChoiceControl';
 
@@ -32,6 +33,9 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
   const liveDoc = useEditorStore((s) => s.doc);
   const pristine = useEditorStore((s) => s.baseDoc);
   const baseDoc = pristine ?? liveDoc;
+  // For a cross-boundary issue the affected ids / overlay are authored against the
+  // COMBINED document, so resolve affected words and the diff against that.
+  const contestedBase = useEditorStore((s) => s.contestedBaseDoc) ?? baseDoc;
   const previewDoc = useEditorStore((s) => s.previewDoc);
   const selectedIssueId = useEditorStore((s) => s.contested.selectedContestedIssueId);
   const previewReadingId = useEditorStore((s) => s.contested.previewAlternateReadingId);
@@ -64,15 +68,17 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
 
   const affectedWords = useMemo(() => {
     if (!issue) return '';
-    const byId = new Map(baseDoc.tokens.map((t) => [t.id, t.surface]));
+    const byId = new Map(contestedBase.tokens.map((t) => [t.id, t.surface]));
     return issue.affectedTokenIds.map((id) => byId.get(id)).filter(Boolean).join(' ');
-  }, [issue, baseDoc]);
+  }, [issue, contestedBase]);
 
   const previewReading = previewReadingId ? getReadingById(previewReadingId) : undefined;
   const diff = useMemo(
     () =>
-      previewReading && previewDoc ? diffBaseAndAlternate(baseDoc, previewDoc, previewReading) : null,
-    [previewReading, previewDoc, baseDoc],
+      previewReading && previewDoc
+        ? diffBaseAndAlternate(contestedBase, previewDoc, previewReading)
+        : null,
+    [previewReading, previewDoc, contestedBase],
   );
 
   if (!issue) return <p className="empty">No contested readings for this passage.</p>;
@@ -179,7 +185,7 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
                 <button className="btn" onClick={() => returnToBase()}>
                   Return to base
                 </button>
-                {variant === 'desktop' && canAdoptAlternateReading(previewReading) && (
+                {variant === 'desktop' && canAdoptAlternateReading(previewReading) && !isMergeIssue(issue) && (
                   <button
                     className="btn primary"
                     title="Save this parse as your custom reading"

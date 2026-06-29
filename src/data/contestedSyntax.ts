@@ -188,28 +188,42 @@ const RAW = {
       bibliography: ['Wallace, Greek Grammar Beyond the Basics, “Granville Sharp Rule”.'],
     },
 
-    // ─────────────────── Romans 9:5 (punctuation — doxology) ───────────────────
+    // ─────────────── Romans 9:5 (cross-boundary — doxology) ───────────────
+    // The reading crosses the base SENTENCE boundary: macula sets the doxology
+    // (ὁ ὢν ἐπὶ πάντων θεός…, sentence 229) apart from the relative clause that
+    // ends “…ὁ Χριστὸς τὸ κατὰ σάρκα” (sentence 228). So this issue MERGES the two
+    // sentences and authors its ids/overlay against the combined document (whose
+    // ids are `s0_…` for 9:3–5 and `s1_…` for the doxology, joined by `disc_rN`).
     {
       id: 'iss_rom_9_5_doxology',
-      passageId: 'gnt_romans_229',
+      passageId: 'gnt_romans_228',
+      mergePassageIds: ['gnt_romans_228', 'gnt_romans_229'],
       verseRef: 'Romans 9:5',
-      kind: 'punctuation',
-      sourceType: 'punctuation-only',
+      kind: 'clauseBoundary',
+      sourceType: 'syntax-only',
       severity: 'major',
       label: 'ὁ ὢν ἐπὶ πάντων θεός — doxology or description of Christ',
       shortLabel: 'Doxology',
       summary:
-        'The base data sets ὁ ὢν ἐπὶ πάντων θεὸς εὐλογητός as its OWN sentence — a doxology addressed to God. An alternate punctuation reads it in apposition to ὁ Χριστός in the previous clause (“Christ, who is over all, God blessed forever”). Because the two readings differ at the SENTENCE boundary, this is shown as a punctuation note rather than a single-sentence overlay.',
+        'The base data sets ὁ ὢν ἐπὶ πάντων θεὸς εὐλογητός as its OWN sentence — an independent doxology to God. An alternate punctuation reads it in apposition to ὁ Χριστός at the end of the previous clause (“Christ, who is over all, God blessed forever”). Because the two readings differ at the SENTENCE boundary, the two sentences are shown merged so the alternate can attach the doxology to Christ structurally rather than as a footnote.',
+      pastoralNote:
+        'The punctuation choice carries real Christological weight: whether Paul here calls the Messiah “God over all, blessed forever,” or breaks into a separate doxology to the Father.',
       affectedTokenIds: [
-        't_450090050120010',
-        't_450090050130010',
-        't_450090050160010',
-        't_450090050170010',
+        's0_t_450090050080010', // Χριστὸς (end of the 9:3–5 sentence)
+        's1_t_450090050130010', // ὢν
+        's1_t_450090050160010', // Θεὸς
+        's1_t_450090050170010', // εὐλογητὸς
       ],
-      affectedNodeIds: ['w_450090050130010', 'w_450090050160010', 'w_450090050170010'],
+      affectedNodeIds: [
+        's0_w_450090050080010', // Χριστὸς
+        's1_cl_450090050120100', // the doxology clause
+        's1_w_450090050160010', // Θεὸς
+      ],
+      affectedRelationIds: ['disc_r1'],
       defaultReading: {
         label: 'Independent doxology (to God)',
-        description: 'The clause stands alone as a blessing of God “who is over all”.',
+        description:
+          'The doxology stands as its own sentence — a blessing of God “who is over all”, set apart from the description of Christ.',
         parseSummary: 'separate sentence · Θεός = subject of the blessing',
       },
       alternateReadingIds: ['alt_rom_9_5_to_christ'],
@@ -423,18 +437,33 @@ const RAW = {
       },
     },
 
-    // Romans 9:5 — review only, no overlay (cross-sentence)
+    // Romans 9:5 — cross-boundary structural overlay on the MERGED document:
+    // re-attach the doxology clause (sentence 229's root) to ὁ Χριστός at the end
+    // of sentence 228 as an apposition, instead of hanging as its own sentence
+    // under the discourse root. Ids are the `combinePassage`-prefixed ones.
     {
       id: 'alt_rom_9_5_to_christ',
       issueId: 'iss_rom_9_5_doxology',
-      passageId: 'gnt_romans_229',
+      passageId: 'gnt_romans_228',
       label: 'Refers to Christ',
       shortLabel: 'of Christ',
       interpretation: 'The clause describes Christ as “over all, God blessed forever”.',
       description:
-        'Read with the previous clause: ὁ Χριστὸς … ὁ ὢν ἐπὶ πάντων θεός — Christ is the one over all. Because this joins material across the base sentence boundary, it is presented as a punctuation note, not a structural overlay.',
-      sourceType: 'punctuation-only',
+        'Read with the previous clause: ὁ Χριστὸς … ὁ ὢν ἐπὶ πάντων θεός — Christ is the one who is over all, God blessed forever. The doxology attaches in apposition to Χριστός instead of standing as its own sentence.',
+      sourceType: 'syntax-only',
       confidence: 'medium',
+      syntaxPatch: {
+        relations: {
+          update: {
+            disc_r1: {
+              headId: 's0_w_450090050080010',
+              type: 'apposition',
+              label: 'in apposition to Χριστός',
+              provenance: MANUAL_LOW,
+            },
+          },
+        },
+      },
     },
 
     // Genesis 1:1
