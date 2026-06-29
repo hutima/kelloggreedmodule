@@ -5,7 +5,6 @@ import { ModeSwitcher } from '@/ui/shell/ModeSwitcher';
 import { ForcedDesktopModeModal } from '@/ui/shell/ForcedDesktopModeModal';
 import { ExportModal } from './ExportModal';
 import { AboutModal } from './AboutModal';
-import { GuideModal } from './GuideModal';
 import { ImportExportModal } from './ImportExportModal';
 import { ResetPassageModal, ResetAllModal } from './ResetModals';
 
@@ -37,7 +36,6 @@ export function TopBar() {
 
   const [exportOpen, setExportOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [guideOpen, setGuideOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetAllOpen, setResetAllOpen] = useState(false);
@@ -135,9 +133,6 @@ export function TopBar() {
                 <button role="menuitem" onClick={() => { setAboutOpen(true); close(); }}>
                   About
                 </button>
-                <button role="menuitem" onClick={() => { setGuideOpen(true); close(); }}>
-                  Guide
-                </button>
               </div>
             </>
           )}
@@ -161,7 +156,6 @@ export function TopBar() {
         />
       )}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
-      {guideOpen && <GuideModal onClose={() => setGuideOpen(false)} />}
     </header>
   );
 }

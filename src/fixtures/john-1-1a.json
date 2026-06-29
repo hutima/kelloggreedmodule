@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "doc_sample_john_1_1a",
-  "title": "Ἐν ἀρχῇ ἦν ὁ λόγος",
+  "title": "John 1:1",
   "language": "grc",
   "text": "Ἐν ἀρχῇ ἦν ὁ λόγος.",
   "notes": "John 1:1a. Demonstrates Greek word order independent of structure: the prepositional phrase is fronted, the copula precedes the subject, yet the diagram places the subject (ὁ λόγος, nominative) on the baseline and the PP beneath the predicate.",
