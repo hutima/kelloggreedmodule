@@ -361,12 +361,8 @@ textarea.code,
   grid-template-columns: 38px 1fr 38px;
 }
 .panel.collapsed > .tabs {
-  padding-left: 0;
-  padding-right: 0;
-  justify-content: center;
-}
-.panel.collapsed > .tabs > .collapse-btn {
-  margin: 0;
+  /* Keep the caret where it was — right-aligned — instead of jumping to centre. */
+  justify-content: flex-end;
 }
 
 /* Tap-a-word popover. Positioned (and clamped into the viewport) from JS, so it
@@ -604,7 +600,42 @@ textarea.code,
 }
 .source-bar .collapse-btn {
   display: inline-flex;
+  margin-left: 4px;
+}
+/* Prev/next sentence nav, pushed to the right end of the source bar. */
+.sentence-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   margin-left: auto;
+}
+.sentence-nav button {
+  border: 1px solid var(--border, #e2e8f0);
+  background: var(--bg, #f5f7fa);
+  color: var(--ink-soft, #3e4c59);
+  border-radius: 6px;
+  width: 26px;
+  height: 24px;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sentence-nav button:hover:not(:disabled) {
+  border-color: var(--accent, #2f6f9f);
+  color: var(--accent, #2f6f9f);
+}
+.sentence-nav button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.sentence-pos {
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 38px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .source-label {
   font-size: 11px;
@@ -1119,6 +1150,7 @@ textarea.code,
     flex-direction: column;
     grid-template-columns: none;
     overflow: hidden;
+    position: relative;
   }
   .panel,
   .panel.right {
@@ -1127,6 +1159,17 @@ textarea.code,
     flex: 1 1 0;
     min-height: 0;
     max-height: none;
+  }
+  /* The sources selector is FULL-SCREEN while open on a phone, so you can browse
+     and pick without a cramped third-of-the-screen split. Opening a passage
+     auto-collapses it (see GntPicker) to a thin strip, handing the whole screen
+     to the text + diagram; tap the caret to bring it back full-screen. */
+  .panel.left:not(.collapsed) {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    flex: none;
+    background: var(--panel);
   }
   /* The diagram (output) gets the largest share of the stack. */
   main.panel {
@@ -1178,7 +1221,19 @@ textarea.code,
     gap: 4px;
   }
   .canvas-zoom button {
-    width: 28px;
+    min-width: 28px;
     height: 28px;
+    padding: 0 5px;
+  }
+
+  /* Source bar: the version picker + sentence nav wrap to a second line on a
+     phone rather than overflowing past the edge. */
+  .source-bar {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding: 4px 10px;
+  }
+  .version-picker {
+    flex-shrink: 0;
   }
 }

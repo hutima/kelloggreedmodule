@@ -63,6 +63,12 @@ export interface EditorActions {
   newDocument: (language: Language, title?: string) => void;
   loadDocument: (doc: KrDocument) => void;
   setMode: (mode: AppMode) => void;
+  /** Set the GNT reading context (book's sentences + current index) for nav. */
+  setGntContext: (passages: KrDocument[], index: number) => void;
+  /** Collapse/expand the left (sources) panel. */
+  setLeftCollapsed: (collapsed: boolean) => void;
+  /** Load the sentence `delta` away in the current GNT book (prev/next). */
+  stepGnt: (delta: number) => void;
   // document fields
   setTitle: (title: string) => void;
   setNotes: (notes: string) => void;
@@ -130,6 +136,30 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     status: 'idle',
     past: [],
     future: [],
+    gntPassages: [],
+    gntIndex: -1,
+    leftCollapsed: false,
+
+    setGntContext: (passages, index) => set({ gntPassages: passages, gntIndex: index }),
+    setLeftCollapsed: (collapsed) => set({ leftCollapsed: collapsed }),
+
+    stepGnt: (delta) => {
+      const { gntPassages, gntIndex } = get();
+      const next = gntIndex + delta;
+      if (next < 0 || next >= gntPassages.length) return;
+      const doc = gntPassages[next]!;
+      const saved = loadPassageNotes(doc.id);
+      set({
+        doc: saved != null ? { ...doc, notes: saved } : doc,
+        gntIndex: next,
+        past: [],
+        future: [],
+        inferences: [],
+        selection: {},
+        linking: null,
+        status: 'saved',
+      });
+    },
 
     newDocument: (language, title) => {
       const doc = createDocument({ language, title });

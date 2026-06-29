@@ -34,6 +34,9 @@ export function DiagramCanvas() {
   const cancelRelink = useEditorStore((s) => s.cancelRelink);
   const verticalScale = useEditorStore((s) => s.verticalScale);
   const setVerticalScale = useEditorStore((s) => s.setVerticalScale);
+  const gntPassages = useEditorStore((s) => s.gntPassages);
+  const gntIndex = useEditorStore((s) => s.gntIndex);
+  const stepGnt = useEditorStore((s) => s.stepGnt);
   const [collapsed, setCollapsed] = useState(false);
   // What is currently hovered — in the diagram, the Greek strip, or the English
   // strip — kept as the set of diagram nodes AND English words it touches, so all
@@ -150,8 +153,13 @@ export function DiagramCanvas() {
   }, []);
 
   const zoomBy = useCallback((factor: number, cx?: number, cy?: number) => {
+    // A degenerate pinch (two touches coinciding → 0/0) can hand us a NaN/∞
+    // factor; ignore it so `scale` never becomes NaN and the SVG never gets
+    // width="NaN" (which renders as a blank white diagram).
+    if (!Number.isFinite(factor) || factor <= 0) return;
     setView((v) => {
       const scale = clamp(v.scale * factor, MIN_SCALE, MAX_SCALE);
+      if (!Number.isFinite(scale)) return v;
       const k = scale / v.scale;
       const px = cx ?? (viewportRef.current?.clientWidth ?? 0) / 2;
       const py = cy ?? (viewportRef.current?.clientHeight ?? 0) / 2;
@@ -204,7 +212,9 @@ export function DiagramCanvas() {
       const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
       const { cx, cy } = centroid();
       const rect = viewportRef.current!.getBoundingClientRect();
-      if (pinch.current) {
+      // Only zoom once we have a valid previous separation (guards 0/0 → NaN when
+      // two touches momentarily coincide).
+      if (pinch.current && pinch.current.dist > 0 && dist > 0) {
         zoomBy(dist / pinch.current.dist, cx - rect.left, cy - rect.top);
         setView((v) => ({ ...v, x: v.x + (cx - pinch.current!.cx), y: v.y + (cy - pinch.current!.cy) }));
       }
@@ -332,6 +342,29 @@ export function DiagramCanvas() {
             ) : (
               <span className="source-label">Source text</span>
             )}
+            {gntIndex >= 0 && gntPassages.length > 0 && (
+              <div className="sentence-nav" role="group" aria-label="Navigate sentences">
+                <button
+                  title="Previous sentence"
+                  aria-label="Previous sentence"
+                  disabled={gntIndex <= 0}
+                  onClick={() => stepGnt(-1)}
+                >
+                  ◀
+                </button>
+                <span className="sentence-pos">
+                  {gntIndex + 1}/{gntPassages.length}
+                </span>
+                <button
+                  title="Next sentence"
+                  aria-label="Next sentence"
+                  disabled={gntIndex >= gntPassages.length - 1}
+                  onClick={() => stepGnt(1)}
+                >
+                  ▶
+                </button>
+              </div>
+            )}
             <button
               className="collapse-btn"
               aria-expanded={!srcCollapsed}
@@ -437,8 +470,8 @@ export function DiagramCanvas() {
               browser stretching a rasterised layer (which looked fuzzy). */}
           <svg
             className="diagram-paper"
-            width={layout.width * view.scale}
-            height={layout.height * view.scale}
+            width={Number.isFinite(view.scale) ? layout.width * view.scale : layout.width}
+            height={Number.isFinite(view.scale) ? layout.height * view.scale : layout.height}
             viewBox={`0 0 ${layout.width} ${layout.height}`}
             role="img"
             aria-label={`Kellogg-Reed diagram of: ${doc.text || doc.title}`}
