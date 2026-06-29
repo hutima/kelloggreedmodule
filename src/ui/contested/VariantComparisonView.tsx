@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useEditorStore } from '@/state';
 import { getReadingById, diffBaseAndAlternate } from '@/domain/contested';
 import { StaticDiagramFrame } from './StaticDiagramFrame';
+import { BlockOutlineFrame } from './BlockOutlineFrame';
 import { DifferenceLegend } from './DifferenceLegend';
 import { useLinkedDiagramView } from './useLinkedDiagramView';
 
@@ -57,22 +58,47 @@ export function VariantComparisonView() {
         </div>
       </div>
       <div className="variant-compare-frames">
-        <StaticDiagramFrame
-          ref={leftRef}
-          doc={baseDoc}
-          mode={diagramMode}
-          diff={diff}
-          title="Base 1904 parse"
-          onScrollSync={onLeftScroll}
-        />
-        <StaticDiagramFrame
-          ref={rightRef}
-          doc={previewDoc}
-          mode={diagramMode}
-          diff={diff}
-          title={`Alternate: ${reading.shortLabel ?? reading.label}`}
-          onScrollSync={onRightScroll}
-        />
+        {diagramMode === 'phrase-block' ? (
+          <>
+            <BlockOutlineFrame
+              ref={leftRef}
+              baseDoc={baseDoc}
+              variantDoc={previewDoc}
+              role="base"
+              diff={diff}
+              title="Base 1904 parse"
+              onScrollSync={onLeftScroll}
+            />
+            <BlockOutlineFrame
+              ref={rightRef}
+              baseDoc={baseDoc}
+              variantDoc={previewDoc}
+              role="variant"
+              diff={diff}
+              title={`Alternate: ${reading.shortLabel ?? reading.label}`}
+              onScrollSync={onRightScroll}
+            />
+          </>
+        ) : (
+          <>
+            <StaticDiagramFrame
+              ref={leftRef}
+              doc={baseDoc}
+              mode={diagramMode}
+              diff={diff}
+              title="Base 1904 parse"
+              onScrollSync={onLeftScroll}
+            />
+            <StaticDiagramFrame
+              ref={rightRef}
+              doc={previewDoc}
+              mode={diagramMode}
+              diff={diff}
+              title={`Alternate: ${reading.shortLabel ?? reading.label}`}
+              onScrollSync={onRightScroll}
+            />
+          </>
+        )}
       </div>
     </div>
   );
