@@ -112,6 +112,8 @@ export function OtPicker() {
 
   return (
     <div className="gnt-picker">
+      {/* Book + Chapter share the top row (Book wider for the full name); Load /
+          Save offline drop to the row beneath so the names stay readable. */}
       <div className="row">
         <label className="field" style={{ flex: 2 }}>
           <span>Book</span>
@@ -125,7 +127,7 @@ export function OtPicker() {
           >
             {OT_BOOKS.map((b) => (
               <option key={b.num} value={b.num} title={b.name}>
-                {b.num}. {b.name}
+                {b.name}
               </option>
             ))}
           </select>
@@ -146,9 +148,10 @@ export function OtPicker() {
             ))}
           </select>
         </label>
+      </div>
+      <div className="row">
         <button
           className="mini accept"
-          style={{ alignSelf: 'flex-end' }}
           disabled={loading}
           onClick={() => void loadChapter(book, chapter)}
         >
@@ -156,7 +159,6 @@ export function OtPicker() {
         </button>
         <button
           className="mini"
-          style={{ alignSelf: 'flex-end' }}
           disabled={cacheState === 'saving' || cacheState === 'saved'}
           title="Download this chapter for offline use"
           onClick={() => void saveOffline(book, chapter)}

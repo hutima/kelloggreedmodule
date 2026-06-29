@@ -37,19 +37,20 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
       <div className="tabs">
         {!collapsed && (
           <>
-            <button
-              className={source === 'ot' ? '' : 'active'}
-              title="Greek New Testament"
-              onClick={() => setSource('gnt')}
-            >
-              GNT
-            </button>
+            {/* Bible order: Old Testament first, then the Greek New Testament. */}
             <button
               className={source === 'ot' ? 'active' : ''}
               title="Hebrew Bible (Old Testament)"
               onClick={() => setSource('ot')}
             >
               OT
+            </button>
+            <button
+              className={source === 'ot' ? '' : 'active'}
+              title="Greek New Testament"
+              onClick={() => setSource('gnt')}
+            >
+              GNT
             </button>
           </>
         )}

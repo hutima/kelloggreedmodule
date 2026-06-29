@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { SermonAnchor } from '@/domain/schema';
 import { useEditorStore } from '@/state';
-import { HighlightToolbar } from './HighlightToolbar';
 import { describeAnchor } from './highlights';
 
 function selectionAnchor(selection: { nodeId?: string; relationId?: string }): SermonAnchor {
@@ -11,9 +10,10 @@ function selectionAnchor(selection: { nodeId?: string; relationId?: string }): S
 }
 
 /**
- * Light mobile sermon prep: quick highlight + quick note for the current
- * selection, and a short list of recent notes. No persistent dense panel — this
- * is shown only when the user opens Sermon Prep on a phone.
+ * Light mobile sermon prep: a short notes pad for the current selection plus a
+ * few recent notes. Highlighting lives in the tapped word's detail card (see
+ * DiagramCanvas) so this sheet stays small instead of swallowing the screen with
+ * the colour palette. Shown only when Sermon Prep is opened on a phone.
  */
 export function MobileSermonPrepSheet({ onClose }: { onClose: () => void }) {
   const doc = useEditorStore((s) => s.doc);
@@ -50,7 +50,7 @@ export function MobileSermonPrepSheet({ onClose }: { onClose: () => void }) {
             </button>
           )}
         </p>
-        <HighlightToolbar anchor={anchor} />
+        <p className="sermon-hint">Tap a word in the diagram to highlight it.</p>
         <div className="sermon-quicknote">
           <textarea
             placeholder="Quick note…"
