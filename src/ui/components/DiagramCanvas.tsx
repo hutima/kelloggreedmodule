@@ -23,7 +23,7 @@ import { nodeHighlightColors } from '@/ui/sermon/highlights';
 import { EditModeToolbar } from '@/ui/editor/EditModeToolbar';
 import { LinkPreviewOverlay } from '@/ui/editor/LinkPreviewOverlay';
 import { DependencyEditOverlay } from '@/ui/editor/dependency/DependencyEditOverlay';
-import { ContestedBadge, SinglePreviewView, VariantComparisonView } from '@/ui/contested';
+import { ContestedBadge, MobileContestedBar, SinglePreviewView, VariantComparisonView } from '@/ui/contested';
 import { useViewport } from '@/ui/responsive';
 
 const TENTATIVE = '#c2410c';
@@ -393,7 +393,9 @@ export function DiagramCanvas() {
       else completeVisualLink(nodeId);
       return;
     }
-    select({ nodeId });
+    // In Explore / Sermon, tapping the already-selected word deselects it.
+    if (appMode !== 'edit') select(nodeId === selection.nodeId ? {} : { nodeId });
+    else select({ nodeId });
   };
 
   /** Hover a word: light up the views, and preview the link arc when pending. */
@@ -473,6 +475,15 @@ export function DiagramCanvas() {
     };
   }, [reveal, view]);
 
+  // ---- detail card for the HTML modes (Phrase/Block, Morphology) ----------
+  // The geometric reveal popover only exists in the SVG modes; in the HTML modes
+  // a tapped word (incl. a highlighted one or one tapped in the source strip)
+  // otherwise shows nothing. Render a fixed detail card for it in Explore.
+  const htmlReveal = useMemo(() => {
+    if (!htmlMode || appMode !== 'explore' || linking || !selection.nodeId) return null;
+    return describeFunction(doc, selection.nodeId);
+  }, [htmlMode, appMode, linking, selection.nodeId, doc]);
+
   // ---- glossary popover (tap a label, e.g. "agr") ------------------------
   const gloss = useMemo(() => {
     if (linking || !selection.glossKey) return null;
@@ -536,7 +547,7 @@ export function DiagramCanvas() {
             </>
           )}
         </div>
-        <ContestedBadge />
+        {!viewport.isMobile && <ContestedBadge />}
         <button
           className="collapse-btn"
           aria-expanded={!collapsed}
@@ -546,6 +557,7 @@ export function DiagramCanvas() {
           {collapsed ? '▸' : '▾'}
         </button>
       </div>
+      {viewport.isMobile && <MobileContestedBar />}
       {appMode === 'edit' && <EditModeToolbar />}
       {appMode === 'edit' && <DependencyEditOverlay />}
       {linking && (
@@ -641,7 +653,8 @@ export function DiagramCanvas() {
                           onMouseLeave={() => hoverEnglish(undefined)}
                           onClick={() => {
                             const ns = parallel!.enToNodes.get(key);
-                            if (ns?.[0] && !linking) select({ nodeId: ns[0] });
+                            if (ns?.[0] && !linking)
+                              select(ns[0] === selection.nodeId ? {} : { nodeId: ns[0] });
                           }}
                         >
                           {w.t}
@@ -678,7 +691,11 @@ export function DiagramCanvas() {
                       }
                       onMouseEnter={() => it.nodeId && hoverDiagram(it.nodeId)}
                       onMouseLeave={() => hoverDiagram(undefined)}
-                      onClick={() => it.nodeId && !linking && select({ nodeId: it.nodeId })}
+                      onClick={() =>
+                        it.nodeId &&
+                        !linking &&
+                        select(it.nodeId === selection.nodeId ? {} : { nodeId: it.nodeId })
+                      }
                     >
                       {it.surface}{' '}
                     </span>
@@ -710,6 +727,26 @@ export function DiagramCanvas() {
             <PhraseBlockView hovered={hover.nodes} onHover={hoverDiagram} />
           ) : (
             <MorphologyView hovered={hover.nodes} onHover={hoverDiagram} />
+          )}
+          {htmlReveal && (
+            <div className="kr-reveal html-reveal" role="status">
+              <button
+                className="kr-reveal-close"
+                title="Close (Esc)"
+                aria-label="Close"
+                onClick={() => select({})}
+              >
+                ✕
+              </button>
+              <div className="kr-reveal-word">
+                {htmlReveal.word}
+                {htmlReveal.gloss && <span className="kr-reveal-gloss"> · {htmlReveal.gloss}</span>}
+              </div>
+              {htmlReveal.translit && <div className="kr-reveal-translit">{htmlReveal.translit}</div>}
+              <div className="kr-reveal-role">{htmlReveal.role}</div>
+              <div className="kr-reveal-detail">{htmlReveal.detail}</div>
+              {htmlReveal.grammar && <div className="kr-reveal-grammar">{htmlReveal.grammar}</div>}
+            </div>
           )}
         </div>
       ) : (

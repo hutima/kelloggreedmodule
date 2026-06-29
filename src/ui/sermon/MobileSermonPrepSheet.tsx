@@ -18,10 +18,12 @@ function selectionAnchor(selection: { nodeId?: string; relationId?: string }): S
 export function MobileSermonPrepSheet({ onClose }: { onClose: () => void }) {
   const doc = useEditorStore((s) => s.doc);
   const selection = useEditorStore((s) => s.selection);
+  const select = useEditorStore((s) => s.select);
   const sermon = useEditorStore((s) => s.sermon);
   const addSermonNote = useEditorStore((s) => s.addSermonNote);
   const removeSermonNote = useEditorStore((s) => s.removeSermonNote);
   const anchor = selectionAnchor(selection);
+  const hasSelection = Boolean(selection.nodeId || selection.relationId);
   const greek = doc.language === 'grc';
   const [note, setNote] = useState('');
 
@@ -42,6 +44,11 @@ export function MobileSermonPrepSheet({ onClose }: { onClose: () => void }) {
       <div className="mobile-sheet-body">
         <p className="sermon-anchor">
           On <span className={greek ? 'greek' : undefined}>{describeAnchor(doc, anchor)}</span>
+          {hasSelection && (
+            <button className="link-btn sermon-clear" onClick={() => select({})}>
+              Clear selection
+            </button>
+          )}
         </p>
         <HighlightToolbar anchor={anchor} />
         <div className="sermon-quicknote">

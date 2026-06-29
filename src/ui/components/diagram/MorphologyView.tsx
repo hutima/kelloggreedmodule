@@ -208,7 +208,7 @@ export function MorphologyView({
                 key={tok.id}
                 data-tid={tok.id}
                 className={`mc-word${sel ? ' selected' : ''}${hot ? ' hovered' : ''}`}
-                onClick={() => nodeId && select({ nodeId })}
+                onClick={() => nodeId && select(nodeId === selection.nodeId ? {} : { nodeId })}
                 onMouseEnter={() => nodeId && onHover(nodeId)}
                 onMouseLeave={() => onHover(undefined)}
               >

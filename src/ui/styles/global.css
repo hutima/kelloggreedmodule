@@ -1890,6 +1890,14 @@ button.mc-code.glossed:hover {
 .help-dl dt { font-weight: 600; font-size: 13px; color: var(--ink); }
 .help-dl dd { margin: 0; font-size: 13px; color: var(--ink-soft); }
 
+/* ---- Detail card for the HTML diagram modes (Phrase/Block, Morphology) ---- */
+.canvas-viewport.html-mode { position: relative; }
+.html-reveal {
+  left: 50%; transform: translateX(-50%); top: auto; bottom: 14px;
+  z-index: 20; max-width: min(360px, calc(100% - 24px));
+}
+.sermon-clear { margin-left: 8px; }
+
 /* ---- Morphology edit hint ---- */
 .mc-edit-hint {
   font-size: 13px; color: var(--ink-soft);
@@ -1922,6 +1930,24 @@ button.mc-code.glossed:hover {
   background: currentColor; color: var(--paper); border-radius: 999px;
   font-size: 10px; min-width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px;
 }
+
+/* ---- Mobile contested bar (full-width, obvious, inline dropdown) ---- */
+.mcb { border-bottom: 1px solid var(--line); background: color-mix(in srgb, #c2410c 7%, var(--panel)); }
+.mcb-toggle {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  background: transparent; border: none; cursor: pointer; font: inherit;
+  font-size: 14px; font-weight: 600; color: #9a3412; padding: 10px 12px; min-height: 44px;
+}
+.mcb-dot { width: 8px; height: 8px; border-radius: 50%; background: #c2410c; flex: none; }
+.mcb-label { flex: 1; text-align: left; }
+.mcb-chev { color: var(--muted); }
+.mcb-body { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; }
+.mcb-issue, .mcb-body select {
+  width: 100%; border: 1px solid var(--line-strong); border-radius: 8px;
+  padding: 9px 10px; font: inherit; font-size: 14px; background: var(--paper); color: var(--ink); min-height: 42px;
+}
+.mcb-issue-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+.mcb-details { align-self: flex-start; }
 
 /* ---- Desktop drawer ---- */
 .contested-drawer {
