@@ -1083,6 +1083,14 @@ function layoutCoordination(
       const by = baselines[i]! - centerY;
       elements.push(...translate(m, mx, by));
       elements.push(line(eid(), junctionX, 0, mx + m.width, by, 'solid', 'coordination'));
+      // A member is right-aligned by its FULL width, so when it carries
+      // right-cascading modifiers (e.g. "Θεὸς … τοῦ Κυρίου ἡμῶν Ἰησοῦ Χριστοῦ")
+      // the head word sits far left of the block edge where the prong attaches,
+      // leaving the word visually detached from the fork. Extend the member's
+      // baseline along the gap so the head connects to its prong.
+      if (m.wordRight < m.width - 0.5) {
+        elements.push(line(eid(), mx + m.wordRight, by, mx + m.width, by, 'solid', 'baseline'));
+      }
     });
   } else {
     // Junction on the left; conjuncts extend right.
