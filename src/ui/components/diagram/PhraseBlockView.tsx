@@ -82,7 +82,7 @@ export function PhraseBlockView({
           selectedId={selection.nodeId}
           hovered={hovered}
           highlights={hlByNode}
-          onSelect={(id) => select({ nodeId: id })}
+          onSelect={(id) => select(id === selection.nodeId ? {} : { nodeId: id })}
           onHover={onHover}
         />
       </ul>

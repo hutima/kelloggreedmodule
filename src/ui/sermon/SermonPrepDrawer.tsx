@@ -54,6 +54,11 @@ export function SermonPrepDrawer() {
         <h3>This selection</h3>
         <p className="sermon-anchor">
           <span className={greek ? 'greek' : undefined}>{describeAnchor(doc, anchor)}</span>
+          {(selection.nodeId || selection.relationId) && (
+            <button className="link-btn sermon-clear" onClick={() => select({})}>
+              Clear selection
+            </button>
+          )}
         </p>
         <HighlightToolbar anchor={anchor} />
         <div className="sermon-quicknote">

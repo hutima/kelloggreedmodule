@@ -9,13 +9,27 @@ import type { KrDocument } from '@/domain/schema';
  * parse, ready to edit). The sentence list doubles as the running Greek text with
  * verse references.
  */
+/** The GNT book whose name a passage/sentence title begins with, if any. */
+function bookForTitle(title: string): GntBook | undefined {
+  return GNT_BOOKS.find((b) => title.startsWith(b.name));
+}
+
 export function GntPicker() {
   const loadDocument = useEditorStore((s) => s.loadDocument);
   const setMode = useEditorStore((s) => s.setMode);
   const setGntContext = useEditorStore((s) => s.setGntContext);
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
-  const [bookNum, setBookNum] = useState(11); // Philippians (bundled)
-  const [passages, setPassages] = useState<KrDocument[] | null>(null);
+  const doc = useEditorStore((s) => s.doc);
+  const gntPassages = useEditorStore((s) => s.gntPassages);
+  // Seed from the CURRENT passage so reopening Sources (which remounts the panel
+  // on mobile) reflects what you're reading, instead of always resetting to Php.
+  const currentBook = bookForTitle(doc.title);
+  const [bookNum, setBookNum] = useState(currentBook?.num ?? 11);
+  const [passages, setPassages] = useState<KrDocument[] | null>(() =>
+    gntPassages.length && bookForTitle(gntPassages[0]!.title)?.num === currentBook?.num
+      ? gntPassages
+      : null,
+  );
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
