@@ -26,6 +26,9 @@ interface Block {
   /** The head word's baseline span, used to attach the parent connector. */
   wordLeft: number;
   wordRight: number;
+  /** For a clause block: the x of its predicate verb, so coordinated clauses can
+   *  be joined verb-to-verb (the compound-sentence convention). */
+  verbX?: number;
 }
 
 const BASELINE_COMPLEMENTS: SyntacticRole[] = [
@@ -703,55 +706,51 @@ function layoutClauseSpine(
     .map((r) => nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '')
     .filter(Boolean);
 
-  const spineX = 0;
+  // Lay every member out, then align their VERBS in one column so the dashed
+  // connector runs verb-to-verb (the compound-sentence convention) rather than
+  // joining the clauses at their left edge.
+  const laid = memberRels.map((r) => ({ r, block: layoutNode(ctx, r.dependentId, seen) }));
+  const vxOf = (b: Block) => b.verbX ?? b.wordLeft;
+  const verbAlignX = laid.length ? Math.max(...laid.map(({ block }) => vxOf(block))) : 0;
+
   const elements: DiagramElement[] = [];
-  const baselineYs: number[] = [];
+  const verbYs: number[] = [];
   let cursorTop = 0;
-  let right = spineX + LAYOUT.spineIndent;
+  let right = 0;
   let bottom = 0;
 
-  memberRels.forEach((r) => {
-    const block = layoutNode(ctx, r.dependentId, seen);
-    const labelled = r.label && showLabel(ctx, r.dependentId);
-    const indent = labelled
-      ? Math.max(LAYOUT.spineIndent, measureText(r.label!, SMALL_FONT) + 14)
-      : LAYOUT.spineIndent;
-    const blockX = spineX + indent;
+  for (const { r, block } of laid) {
+    const blockX = verbAlignX - vxOf(block); // ≥ 0; verbs line up at verbAlignX
     const y = cursorTop + blockAscent(block);
     elements.push(...translate(block, blockX, y));
-    // A solid connector from the spine to this member's baseline — the join is
-    // drawn explicitly, never left to be inferred from vertical position.
-    elements.push(
-      line(eid(), spineX, y, blockX + block.wordLeft, y, 'solid', 'connector', undefined, r.id),
-    );
-    if (labelled) {
-      elements.push(smallText(eid(), (spineX + blockX) / 2, y - 6, r.label!, 'middle', r.id));
+    // A subordinator that introduces a conjunct (ἵνα …) sits just before it.
+    if (r.label && showLabel(ctx, r.dependentId)) {
+      elements.push(smallText(eid(), blockX - 4, y - 6, r.label!, 'end', r.id));
     }
-    baselineYs.push(y);
+    verbYs.push(y);
     right = Math.max(right, blockX + block.width);
     bottom = Math.max(bottom, y + block.height);
     cursorTop = y + block.height + LAYOUT.clauseStackGap * ctx.vScale;
-  });
+  }
 
-  const top = baselineYs[0] ?? 0;
-  const last = baselineYs[baselineYs.length - 1] ?? 0;
-  // The dashed coordination bar tying the members together.
-  elements.unshift(line(eid(), spineX, top, spineX, last, 'dashed', 'coordination', clause.id));
-  // Coordinator(s) ride the bar, upright, centred between the members.
-  if (coordTexts.length && baselineYs.length >= 2) {
+  const top = verbYs[0] ?? 0;
+  const last = verbYs[verbYs.length - 1] ?? 0;
+  // The dashed bar runs verb-to-verb, tying the clauses together.
+  elements.unshift(line(eid(), verbAlignX, top, verbAlignX, last, 'dashed', 'coordination', clause.id));
+  // The conjunction rides a short solid step set in the CLEAR BAND between the
+  // first two clauses (their baseline gap), so it never lands on a verb.
+  if (coordTexts.length && laid.length >= 2) {
+    const gapTop = verbYs[0]! + laid[0]!.block.height;
+    const gapBot = verbYs[1]! - blockAscent(laid[1]!.block);
+    const midY = (gapTop + gapBot) / 2;
+    elements.push(line(eid(), verbAlignX - 14, midY, verbAlignX + 14, midY, 'solid', 'coordination'));
     elements.push({
-      kind: 'text',
-      id: eid(),
-      x: spineX - 7,
-      y: (top + last) / 2,
-      text: coordTexts.join(' '),
-      anchor: 'middle',
-      small: true,
-      rotate: -90,
+      kind: 'text', id: eid(), x: verbAlignX, y: midY - 5, text: coordTexts.join(' '),
+      anchor: 'middle', small: true,
     });
   }
 
-  return { width: right, height: bottom, elements, wordLeft: spineX, wordRight: spineX };
+  return { width: right, height: bottom, elements, wordLeft: 0, wordRight: right, verbX: verbAlignX };
 }
 
 // --- a coordinated set of words (the two-prong fork) --------------------------
@@ -1254,7 +1253,7 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     }
   }
 
-  return { width, height, elements, wordLeft: 0, wordRight: baselineWidth };
+  return { width, height, elements, wordLeft: 0, wordRight: baselineWidth, verbX: verbMidX };
 }
 
 // --- helpers ------------------------------------------------------------------
