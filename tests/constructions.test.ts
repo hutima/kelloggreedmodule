@@ -9,11 +9,11 @@ import { KrDocumentSchema, type KrDocument } from '@/domain/schema';
  * horizontal). Each builds a minimal document and asserts the distinguishing
  * geometry the renderer must emit.
  */
-function build(nodes: unknown[], relations: unknown[], tokens: unknown[], text = 't'): KrDocument {
+function build(nodes: unknown[], relations: unknown[], tokens: unknown[], text = 't', rootId = 'n_root'): KrDocument {
   return KrDocumentSchema.parse({
     schemaVersion: 1, id: 'doc', title: 't', language: 'en', text,
     createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z',
-    layoutHints: {}, tokens, syntax: { rootId: 'n_root', nodes, relations },
+    layoutHints: {}, tokens, syntax: { rootId, nodes, relations },
   });
 }
 const texts = (l: ReturnType<typeof layoutDocument>) =>
@@ -162,6 +162,85 @@ describe('adverbial PP rides the diagonal (verb-attached)', () => {
     expect(Math.abs(prep!.rotate!)).toBeGreaterThan(15);
     expect(obj?.rotate ?? 0).toBe(0); // object sits flat on its baseline
     expect(obj!.y).toBeGreaterThan(prep!.y); // below the verb line
+  });
+});
+
+describe('compound sentence joins verb-to-verb', () => {
+  // "Boggs hit the ball, but he ran." — two independent clauses.
+  const doc = build(
+    [
+      { id: 'W', kind: 'clause', clauseType: 'coordinate', tokenIds: [] },
+      { id: 'C1', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'S1', kind: 'word', role: 'subject', tokenIds: ['b'] },
+      { id: 'V1', kind: 'word', role: 'predicate', tokenIds: ['hit'] },
+      { id: 'BUT', kind: 'word', role: 'coordinator', tokenIds: ['but'] },
+      { id: 'C2', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'S2', kind: 'word', role: 'subject', tokenIds: ['he'] },
+      { id: 'V2', kind: 'word', role: 'predicate', tokenIds: ['ran'] },
+    ],
+    [
+      { id: 'a', type: 'conjunct', headId: 'W', dependentId: 'C1' },
+      { id: 'b', type: 'coordinator', headId: 'W', dependentId: 'BUT' },
+      { id: 'c', type: 'conjunct', headId: 'W', dependentId: 'C2' },
+      { id: 'd', type: 'subject', headId: 'C1', dependentId: 'S1' },
+      { id: 'e', type: 'predicate', headId: 'C1', dependentId: 'V1' },
+      { id: 'g', type: 'subject', headId: 'C2', dependentId: 'S2' },
+      { id: 'h', type: 'predicate', headId: 'C2', dependentId: 'V2' },
+    ],
+    [
+      { id: 'b', index: 0, surface: 'Boggs', pos: 'propernoun' },
+      { id: 'hit', index: 1, surface: 'hit', pos: 'verb' },
+      { id: 'but', index: 2, surface: 'but', pos: 'conjunction' },
+      { id: 'he', index: 3, surface: 'he', pos: 'pronoun' },
+      { id: 'ran', index: 4, surface: 'ran', pos: 'verb' },
+    ],
+    'Boggs hit but he ran',
+    'W',
+  );
+
+  it('aligns the two verbs in a column joined by a dashed bar', () => {
+    const layout = layoutDocument(doc);
+    const hit = textEl(layout, 'hit');
+    const ran = textEl(layout, 'ran');
+    // Verbs aligned (same x), stacked (different y), conjunction present.
+    expect(Math.abs(hit!.x - ran!.x)).toBeLessThan(2);
+    expect(ran!.y).toBeGreaterThan(hit!.y + 20);
+    expect(texts(layout)).toContain('but');
+  });
+});
+
+describe('comparative joins a than-clause with a dashed connector', () => {
+  // "Joanna is taller than her brother [is]."
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'S', kind: 'word', role: 'subject', tokenIds: ['j'] },
+      { id: 'V', kind: 'word', role: 'copula', tokenIds: ['is'] },
+      { id: 'TA', kind: 'word', role: 'predicateAdjective', tokenIds: ['ta'] },
+      { id: 'CMP', kind: 'clause', clauseType: 'adverbial', tokenIds: [] },
+      { id: 'BR', kind: 'word', role: 'subject', tokenIds: ['br'] },
+    ],
+    [
+      { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+      { id: 'r2', type: 'copula', headId: 'n_root', dependentId: 'V' },
+      { id: 'r3', type: 'predicateAdjective', headId: 'V', dependentId: 'TA' },
+      { id: 'r5', type: 'adjunct', headId: 'TA', dependentId: 'CMP', label: 'than' },
+      { id: 'r6', type: 'subject', headId: 'CMP', dependentId: 'BR' },
+    ],
+    [
+      { id: 'j', index: 0, surface: 'Joanna', pos: 'propernoun' },
+      { id: 'is', index: 1, surface: 'is', pos: 'verb' },
+      { id: 'ta', index: 2, surface: 'taller', pos: 'adjective', morphology: { degree: 'comparative' } },
+      { id: 'br', index: 3, surface: 'brother', pos: 'noun' },
+    ],
+  );
+
+  it('writes "than" on a dashed connector to the comparison clause', () => {
+    const layout = layoutDocument(doc);
+    expect(texts(layout)).toContain('than');
+    expect(texts(layout)).toContain('brother');
+    // Predicate adjective uses the back-slant separator; comparison hangs dashed.
+    expect(layout.elements.some((e) => e.kind === 'line' && (e as { style: string }).style === 'dashed')).toBe(true);
   });
 });
 
