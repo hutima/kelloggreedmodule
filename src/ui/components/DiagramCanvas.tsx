@@ -23,6 +23,7 @@ import {
   clampPan,
   scheduleRepaint,
 } from '@/ui/zoom';
+import { breadcrumb } from '@/ui/errorLog';
 
 const TENTATIVE = '#c2410c';
 const INK = '#1f2933';
@@ -207,7 +208,16 @@ export function DiagramCanvas() {
         ? (cb: () => void) => requestAnimationFrame(cb)
         : (cb: () => void) => setTimeout(cb, 0);
     const root = typeof document !== 'undefined' ? document.getElementById('root') : null;
-    scheduleRepaint(root ?? panRef.current, raf);
+    breadcrumb('repaint:hide');
+    scheduleRepaint(root ?? panRef.current, (cb) =>
+      raf(() => {
+        breadcrumb('repaint:show');
+        cb();
+      }),
+    );
+    // Two frames after release: if THIS crumb is the last one in the trail after a
+    // blank, the page died during the post-gesture paint (not in our JS).
+    raf(() => raf(() => breadcrumb('post-gesture alive')));
   }, []);
 
   /** Fit the whole diagram into the viewport (centred horizontally, top-aligned
@@ -301,6 +311,7 @@ export function DiagramCanvas() {
     moved.current = false;
     pinch.current = null;
     if (pointers.current.size < 2) pinched.current = false;
+    breadcrumb(`down n=${pointers.current.size}`);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const prev = pointers.current.get(e.pointerId);
@@ -320,6 +331,7 @@ export function DiagramCanvas() {
           ...clampView(v.x + (cx - pinch.current!.cx), v.y + (cy - pinch.current!.cy), v.scale),
         }));
       }
+      if (!pinched.current) breadcrumb('pinch-start');
       pinch.current = { dist, cx, cy };
       moved.current = true;
       pinched.current = true;
@@ -333,6 +345,7 @@ export function DiagramCanvas() {
   const onPointerUp = (e: React.PointerEvent) => {
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
+    breadcrumb(`up n=${pointers.current.size} pinched=${pinched.current} scale=${view.scale.toFixed(2)}`);
     // When the last finger of a pinch lifts, evict any layer iOS left blank.
     if (pointers.current.size === 0 && pinched.current) {
       pinched.current = false;
