@@ -16,6 +16,43 @@ export const MAX_SCALE = 4;
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 /**
+ * Safe rasterisation budget for a single composited layer, in **device** pixels.
+ * iOS Safari blanks the *whole page* (it evicts every compositing tile under
+ * memory pressure, leaving only the body background) when an SVG is rasterised
+ * past roughly this much — which is the pinch-zoom-IN white-screen. The on-screen
+ * raster is `layout × scale × devicePixelRatio`, so on a Retina phone (dpr 3) a
+ * tall passage crosses the budget after only a little zoom-in. These are
+ * deliberately conservative so an older device survives; bump them if zoom-in
+ * feels too short on tested hardware.
+ */
+export const MAX_RENDER_AREA = 24_000_000; // device px², total backing-store area
+export const MAX_RENDER_DIM = 8192; // device px, hard limit on either single side
+
+/**
+ * Upper bound for the view scale on *this* diagram: never zoom in so far that the
+ * rendered SVG (`layout size × scale × dpr`) exceeds the {@link MAX_RENDER_AREA}
+ * backing-store budget or the {@link MAX_RENDER_DIM} per-side limit — the sizes
+ * at which iOS Safari flashes the whole page white. Small diagrams are reined in
+ * only by the fixed {@link MAX_SCALE}; large/tall ones get a lower cap. Never
+ * returns below `floor`, so the zoom range can't invert against the zoom-out lock.
+ */
+export function maxZoomScale(
+  layoutW: number,
+  layoutH: number,
+  dpr = 1,
+  floor = MIN_SCALE,
+  area = MAX_RENDER_AREA,
+  dim = MAX_RENDER_DIM,
+): number {
+  if (!(layoutW > 0) || !(layoutH > 0) || !(dpr > 0)) return MAX_SCALE;
+  const byArea = Math.sqrt(area / (layoutW * layoutH * dpr * dpr));
+  const byW = dim / (layoutW * dpr);
+  const byH = dim / (layoutH * dpr);
+  const cap = Math.min(byArea, byW, byH, MAX_SCALE);
+  return Math.max(cap, floor);
+}
+
+/**
  * The lower bound for the view scale — the *zoom-out lock*. Returns the scale at
  * which the whole diagram just fits inside the padded viewport, never above 1 (a
  * diagram smaller than the viewport still rests at 100% rather than being forced
