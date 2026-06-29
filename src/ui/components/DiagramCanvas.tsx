@@ -221,16 +221,12 @@ export function DiagramCanvas() {
     return minZoomScale(vp.clientWidth, vp.clientHeight, w, h, PAD);
   }, []);
 
-  /** The largest scale we allow on THIS diagram: the zoom-IN lock. Zooming in
-   *  rasterises the SVG at `layout × scale × devicePixelRatio`; past iOS Safari's
-   *  layer budget the whole page flashes white. Cap the scale so the rendered
-   *  size stays within {@link maxZoomScale}'s budget. Floored at the zoom-out lock
-   *  so the range can never invert. */
-  const maxScale = useCallback(() => {
-    const { w, h } = dimsRef.current;
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    return maxZoomScale(w, h, dpr, minScale());
-  }, [minScale]);
+  /** The largest scale we allow: a generous fixed ceiling, floored at the
+   *  zoom-out lock so the range can never invert. (Zoom-in is no longer throttled
+   *  by a rasterisation budget — the iOS white-screen it guarded against was
+   *  traced to resizing the SVG at its intrinsic size, since fixed by zooming with
+   *  a CSS transform.) */
+  const maxScale = useCallback(() => maxZoomScale(minScale()), [minScale]);
 
   /** Keep the diagram from being panned (or pinch-flung) entirely off-screen:
    *  always leave a margin of it within the viewport. A fast pinch at minimum
@@ -255,11 +251,13 @@ export function DiagramCanvas() {
     setView({ x, y: PAD, scale });
   }, [layout.width, layout.height, maxScale]);
 
-  // Re-fit when a new document is opened or the viewport first sizes up.
+  // Re-fit when a new document is opened, the diagram mode changes (a different
+  // layout — its zoom/pan should always start fresh), or the viewport first sizes
+  // up.
   useLayoutEffect(() => {
     fit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.id]);
+  }, [doc.id, diagramMode]);
   useEffect(() => {
     const vp = viewportRef.current;
     if (!vp || typeof ResizeObserver === 'undefined') return;
@@ -576,7 +574,7 @@ export function DiagramCanvas() {
               </div>
               <div className="canvas-zoom">
                 <button title="Zoom out" onClick={() => zoomBy(1 / 1.2)}>−</button>
-                <button title="Fit to view" onClick={fit}>⤢</button>
+                <button title="Reset zoom (fit to view)" aria-label="Reset zoom" onClick={fit}>⤢</button>
                 <button title="Zoom in" onClick={() => zoomBy(1.2)}>+</button>
               </div>
             </>
