@@ -45,11 +45,18 @@ const BASELINE_COMPLEMENTS: SyntacticRole[] = [
  * anything that is not a `preposition + prepositionObject` shape.
  */
 function prepObjectId(ctx: Ctx, rel: { type: SyntacticRole; dependentId: string }): string | null {
-  if (rel.type !== 'prepositionalPhrase') return null;
   const objRel = childRelations(ctx.doc.syntax, rel.dependentId).find(
     (r) => r.type === 'prepositionObject',
   );
-  return objRel ? objRel.dependentId : null;
+  if (!objRel) return null;
+  // A preposition governing an object always rides the diagonal — whether it is
+  // tagged `prepositionalPhrase` (a PP modifying a noun) or attached to the verb
+  // as an `adverbial` (an adverbial PP, e.g. ἐν ἀγάπῃ → ἐν on the slant, ἀγάπῃ on
+  // the horizontal below).
+  const node = getNode(ctx.doc.syntax, rel.dependentId);
+  const tok = node?.tokenIds.length ? ctx.doc.tokens.find((t) => t.id === node.tokenIds[0]) : undefined;
+  if (rel.type === 'prepositionalPhrase' || tok?.pos === 'preposition') return objRel.dependentId;
+  return null;
 }
 
 /**
@@ -1136,10 +1143,14 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   );
 
   if (clauseAdjuncts.length) {
-    const spineX = Math.max(0, divX);
+    // A subordinate / adverbial clause modifies the VERB, so its dashed connector
+    // drops from the verb (the subordinator rides it), not from the subject |
+    // predicate divider — the Kellogg-Reed convention and what makes an adverbial
+    // participle clause in Greek read as hanging off its governing verb.
+    const originX = Math.max(0, verbMidX);
     const stackTop = Math.max(baselineHeight, belowMaxBottom) + LAYOUT.adjunctDrop * ctx.vScale;
-    elements.push(line(eid(), divX, LAYOUT.dividerDown, spineX, stackTop, 'dashed', 'stem'));
-    const stack = stackClauses(ctx, clauseAdjuncts, seen, spineX, stackTop);
+    elements.push(line(eid(), originX, 0, originX, stackTop, 'dashed', 'stem'));
+    const stack = stackClauses(ctx, clauseAdjuncts, seen, originX, stackTop);
     elements.push(...stack.elements);
     width = Math.max(width, stack.right);
     height = Math.max(height, stack.bottom);

@@ -129,6 +129,42 @@ describe('infinitive: empty diagonal + horizontal', () => {
   });
 });
 
+describe('adverbial PP rides the diagonal (verb-attached)', () => {
+  // "barks ἐν ἀγάπῃ" — a preposition attached to the verb as an adverbial must
+  // still ride the diagonal, with its object on the horizontal below.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s'] },
+      { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+      { id: 'P', kind: 'word', role: 'adverbial', tokenIds: ['p'] },
+      { id: 'OBJ', kind: 'word', role: 'prepositionObject', tokenIds: ['o'] },
+    ],
+    [
+      { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+      { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+      { id: 'r3', type: 'adverbial', headId: 'V', dependentId: 'P' },
+      { id: 'r4', type: 'prepositionObject', headId: 'P', dependentId: 'OBJ' },
+    ],
+    [
+      { id: 's', index: 0, surface: 'dog', pos: 'noun' },
+      { id: 'v', index: 1, surface: 'barks', pos: 'verb' },
+      { id: 'p', index: 2, surface: 'ἐν', pos: 'preposition' },
+      { id: 'o', index: 3, surface: 'ἀγάπῃ', pos: 'noun' },
+    ],
+  );
+
+  it('writes the preposition rotated on the slant, the object on a horizontal', () => {
+    const layout = layoutDocument(doc);
+    const prep = textEl(layout, 'ἐν');
+    const obj = textEl(layout, 'ἀγάπῃ');
+    expect(prep?.rotate).toBeDefined();
+    expect(Math.abs(prep!.rotate!)).toBeGreaterThan(15);
+    expect(obj?.rotate ?? 0).toBe(0); // object sits flat on its baseline
+    expect(obj!.y).toBeGreaterThan(prep!.y); // below the verb line
+  });
+});
+
 describe('stacked adverb modifiers ride slants', () => {
   // "very friendly" — adverb modifying an adjective.
   const doc = build(
