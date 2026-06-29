@@ -117,4 +117,58 @@ describe('clause stacking keeps the diagram readable', () => {
     // ...it grows downward instead.
     expect(ten.height).toBeGreaterThan(five.height);
   });
+
+  it('renders a headless coordinate clause with no empty "(subject)"/"(verb)" line', () => {
+    // A clause whose only children are conjunct clauses (the compound-sentence
+    // wrapper the Lowfat converter builds) must draw a coordination spine, not an
+    // empty implied baseline.
+    const texts = (l: ReturnType<typeof layoutDocument>) =>
+      l.elements.filter((e) => e.kind === 'text').map((e) => (e as { text: string }).text);
+    const doc = coordinatedClauses(3);
+    // Re-type the root's child links as a clause coordination.
+    const root = doc.syntax.nodes.find((n) => n.id === doc.syntax.rootId)!;
+    (root as { clauseType?: string }).clauseType = 'coordinate';
+    const layout = layoutDocument(doc);
+    expect(texts(layout)).not.toContain('(subject)');
+    expect(texts(layout)).not.toContain('(verb)');
+  });
+});
+
+describe('subjectless clauses', () => {
+  /** A minimal one-predicate clause with no subject relation. */
+  function subjectless(pos: string, surface: string): KrDocument {
+    return KrDocumentSchema.parse({
+      schemaVersion: 1,
+      id: 'doc_ns',
+      title: 't',
+      language: 'grc',
+      text: surface,
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      layoutHints: {},
+      tokens: [{ id: 'tv', index: 0, surface, pos }],
+      syntax: {
+        rootId: 'n_root',
+        nodes: [
+          { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+          { id: 'v', kind: 'word', role: 'predicate', tokenIds: ['tv'] },
+        ],
+        relations: [{ id: 'rv', type: 'predicate', headId: 'n_root', dependentId: 'v' }],
+      },
+    });
+  }
+  const hasSubjectPlaceholder = (doc: KrDocument) =>
+    layoutDocument(doc).elements.some((e) => e.kind === 'text' && (e as { text: string }).text === '(subject)');
+
+  it('omits "(subject)" for a bare participle (adverbial participle)', () => {
+    expect(hasSubjectPlaceholder(subjectless('participle', 'καρποφοροῦντες'))).toBe(false);
+  });
+
+  it('omits "(subject)" for a bare infinitive', () => {
+    expect(hasSubjectPlaceholder(subjectless('infinitive', 'περιπατῆσαι'))).toBe(false);
+  });
+
+  it('keeps "(subject)" for a finite verb (genuine pro-drop)', () => {
+    expect(hasSubjectPlaceholder(subjectless('verb', 'πληρωθῆτε'))).toBe(true);
+  });
 });

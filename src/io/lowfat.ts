@@ -88,6 +88,14 @@ class SentenceConverter {
   readonly nodes: SyntaxNode[] = [];
   readonly relations: Relation[] = [];
   private wordNodeId = new Map<Element, string>();
+  /**
+   * Representative node id → the subordinator (ἵνα, ὅτι, ὡς…) that introduced it.
+   * A Lowfat subordinate clause wraps its real clause behind a bare conjunction
+   * word; we pass the clause through and stash the conjunction here so the
+   * relation that finally links the clause to its head carries it as a connector
+   * label (Kellogg-Reed writes the subordinator on the dotted connecting line).
+   */
+  private subLabel = new Map<string, string>();
   private seq = 0;
 
   constructor(private readonly idPrefix: string) {}
@@ -96,15 +104,45 @@ class SentenceConverter {
     return el.getAttribute('n') || el.getAttribute('osisId') || `${this.idPrefix}${this.seq++}`;
   }
 
-  private rel(type: SyntacticRole, headId: string, dependentId: string): void {
+  private rel(type: SyntacticRole, headId: string, dependentId: string, label?: string): void {
     if (headId === dependentId) return;
     this.relations.push({
       id: `r_${this.idPrefix}${this.seq++}`,
       type,
       headId,
       dependentId,
+      // An explicit label wins; otherwise inherit a stashed subordinator, if any.
+      label: label ?? this.subLabel.get(dependentId),
       provenance: { source: 'given', confidence: 'high' },
     });
+  }
+
+  /** Create a clause node for `el` and return its id. */
+  private makeClause(el: Element, clauseType: SyntaxNode['clauseType']): string {
+    const clauseId = `cl_${this.key(el)}`;
+    this.nodes.push({
+      id: clauseId,
+      kind: 'clause',
+      tokenIds: [],
+      clauseType,
+      provenance: { source: 'given', confidence: 'high' },
+    });
+    return clauseId;
+  }
+
+  /**
+   * Whether converting `el` yields a CLAUSE node (vs. a word/phrase). Used to tell
+   * clause coordination/subordination apart from ordinary phrase structure without
+   * actually converting (which would mint duplicate nodes).
+   */
+  private isClauseLike(el: Element): boolean {
+    if (tag(el) === 'w') return false;
+    const cls = el.getAttribute('class');
+    if (cls === 'cl') return true;
+    if (cls) return false; // np / vp / pp / adjp / advp …
+    // A bare wrapper (no class) is clause-like iff it ultimately wraps a clause.
+    if (el.getAttribute('role') === 'cl') return true;
+    return constituents(el).some((c) => this.isClauseLike(c));
   }
 
   /** Create (once) the token + word node for a `<w>` leaf, return the node id. */
@@ -175,33 +213,44 @@ class SentenceConverter {
 
     // A verbless wrapper with nothing to predicate is not an "(is)" clause —
     // synthesizing an implied copula here invents a spurious empty subject and a
-    // floating predicate. Collapse it into its content instead: pass a lone child
-    // straight through (its real clause becomes the representative), and for a
-    // multi-child wrapper keep a bare container that simply hosts the children.
+    // floating predicate. Recover the real structure instead of leaving an empty
+    // "(subject)|(verb)" baseline with dangling adjuncts:
+    //   • a lone child            → pass straight through
+    //   • ≥2 clause children      → a COORDINATE clause (conjuncts + coordinator)
+    //   • 1 clause + bare conj(s) → pass the clause through, the conjunction
+    //                               becoming the SUBORDINATOR label on its link
+    //   • only words              → a bare container (last resort)
     if (!verbEl && !hasPredArg) {
       if (kids.length === 1) return this.convert(kids[0]!);
-      const k = this.key(el);
-      const clauseId = `cl_${k}`;
-      this.nodes.push({
-        id: clauseId,
-        kind: 'clause',
-        tokenIds: [],
-        clauseType: 'unknown',
-        provenance: { source: 'given', confidence: 'high' },
-      });
+      const clauseKids = kids.filter((c) => this.isClauseLike(c));
+      const wordKids = kids.filter((c) => !this.isClauseLike(c));
+
+      if (clauseKids.length >= 2) {
+        const clauseId = this.makeClause(el, 'coordinate');
+        for (const c of clauseKids) this.rel('conjunct', clauseId, this.convert(c));
+        for (const w of wordKids) {
+          const wc = w.getAttribute('class');
+          this.rel(wc === 'conj' || wc === 'ptcl' ? 'coordinator' : 'adjunct', clauseId, this.convert(w));
+        }
+        return clauseId;
+      }
+
+      if (clauseKids.length === 1) {
+        const rep = this.convert(clauseKids[0]!);
+        const sub = wordKids
+          .map((w) => (w.textContent ?? '').trim())
+          .filter(Boolean)
+          .join(' ');
+        if (sub && !this.subLabel.has(rep)) this.subLabel.set(rep, sub);
+        return rep;
+      }
+
+      const clauseId = this.makeClause(el, 'unknown');
       for (const child of kids) this.rel('adjunct', clauseId, this.convert(child));
       return clauseId;
     }
 
-    const k = this.key(el);
-    const clauseId = `cl_${k}`;
-    this.nodes.push({
-      id: clauseId,
-      kind: 'clause',
-      tokenIds: [],
-      clauseType: 'unknown',
-      provenance: { source: 'given', confidence: 'high' },
-    });
+    const clauseId = this.makeClause(el, 'unknown');
 
     let verbId: string;
     if (verbEl) {
@@ -209,7 +258,7 @@ class SentenceConverter {
     } else {
       // Verbless predication (a greeting: nominative + dative, no verb): supply
       // an implied copula to anchor the subject and complement.
-      verbId = `impl_${k}`;
+      verbId = `impl_${clauseId}`;
       this.nodes.push({
         id: verbId,
         kind: 'word',

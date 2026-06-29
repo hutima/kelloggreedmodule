@@ -314,7 +314,16 @@ function layoutHead(
   // Appositives continue on the head's own baseline; everything else cascades
   // below as a modifier.
   const apposRels = allWordRels.filter((r) => r.type === 'apposition');
-  const wordRels = allWordRels.filter((r) => r.type !== 'apposition');
+  // Light closed-class leaves (article, adjective, possessive) tuck in CLOSEST to
+  // the head; heavy sub-baseline modifiers (a genitive NP, a prepositional
+  // phrase) cascade out to the right after them. Without this an article ends up
+  // stranded far to the right of its noun, past a long genitive chain, looking
+  // detached (e.g. βασιλείαν … τὴν). Stable sort preserves order within a class.
+  const isLeaf = (r: { type: SyntacticRole; dependentId: string }) =>
+    r.type !== 'conjunct' && !prepObjectId(ctx, r) && isDiagonalLeaf(ctx, r.dependentId);
+  const wordRels = allWordRels
+    .filter((r) => r.type !== 'apposition')
+    .sort((a, b) => Number(isLeaf(b)) - Number(isLeaf(a)));
   const clauseRels = depRels.filter((r) => isClauseChild(ctx, r.dependentId));
 
   const elements: DiagramElement[] = [];
@@ -461,6 +470,75 @@ function stackClauses(
   return { elements, right, bottom };
 }
 
+/**
+ * Render a HEADLESS clause — one with no subject/predicate of its own, only
+ * clause-valued members — as a Kellogg-Reed coordination spine: the member
+ * clauses stack vertically, each joined to a shared vertical bar, with the
+ * coordinator (καί / εἴτε / and …) written on the bar between them. This is how a
+ * compound sentence ("ὃς ἐρύσατο … καὶ μετέστησεν") is drawn, and it avoids the
+ * spurious empty "(subject)|(verb)" baseline a normal clause layout would print.
+ *
+ * The block's `wordLeft`/`wordRight` are the spine itself, so a parent connector
+ * lands cleanly on the bar that ties the whole coordination together.
+ */
+function layoutClauseSpine(
+  ctx: Ctx,
+  clause: SyntaxNode,
+  seen: Set<string>,
+  rels: { id: string; type: SyntacticRole; dependentId: string; label?: string }[],
+): Block {
+  const memberRels = rels.filter((r) => isClauseChild(ctx, r.dependentId));
+  const coordTexts = rels
+    .filter((r) => !isClauseChild(ctx, r.dependentId))
+    .map((r) => nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '')
+    .filter(Boolean);
+
+  const spineX = 0;
+  const blockX = spineX + LAYOUT.spineIndent;
+  const elements: DiagramElement[] = [];
+  const baselineYs: number[] = [];
+  let y = 0;
+  let right = blockX;
+  let bottom = 0;
+
+  memberRels.forEach((r, i) => {
+    const block = layoutNode(ctx, r.dependentId, seen);
+    elements.push(...translate(block, blockX, y));
+    // A solid connector from the spine to this member's baseline — the join is
+    // drawn explicitly, never left to be inferred from vertical position.
+    elements.push(
+      line(eid(), spineX, y, blockX + block.wordLeft, y, 'solid', 'connector', undefined, r.id),
+    );
+    if (r.label && showLabel(ctx, r.dependentId)) {
+      elements.push(smallText(eid(), spineX + 6, y - 6, r.label, 'start', r.id));
+    }
+    baselineYs.push(y);
+    right = Math.max(right, blockX + block.width);
+    bottom = Math.max(bottom, y + block.height);
+    if (i < memberRels.length - 1) y += block.height + LAYOUT.clauseStackGap * ctx.vScale;
+  });
+
+  const top = baselineYs[0] ?? 0;
+  const last = baselineYs[baselineYs.length - 1] ?? 0;
+  // The dashed coordination bar tying the members together.
+  elements.unshift(line(eid(), spineX, top, spineX, last, 'dashed', 'coordination', clause.id));
+  // Coordinator(s) ride the bar, upright, centred between the members.
+  if (coordTexts.length && baselineYs.length >= 2) {
+    elements.push({
+      kind: 'text',
+      id: eid(),
+      x: spineX - 7,
+      y: (top + last) / 2,
+      text: coordTexts.join(' '),
+      anchor: 'middle',
+      small: true,
+      rotate: -90,
+    });
+  }
+
+  return { width: right, height: bottom, elements, wordLeft: spineX, wordRight: spineX };
+}
+
 // --- a coordinated set of words (the two-prong fork) --------------------------
 
 /**
@@ -574,6 +652,32 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   const subjectRel = rels.find((r) => r.type === 'subject');
   const predicateRel = rels.find((r) => r.type === 'predicate' || r.type === 'copula');
 
+  // A HEADLESS clause — no subject and no predicate of its own — is a pure
+  // coordination/container of (clause) children: the compound-sentence wrapper
+  // the Lowfat converter produces for "ἐρύσατο … καὶ μετέστησεν". Rendering it as
+  // a baseline would print an empty "(subject)|(verb)" line; instead draw the
+  // members stacked on a shared spine with the coordinator on it. Only do this
+  // when there ARE clause members (else fall through to the implied baseline,
+  // which legitimately shows pro-drop / an elided copula).
+  if (!subjectRel && !predicateRel && rels.some((r) => isClauseChild(ctx, r.dependentId))) {
+    return layoutClauseSpine(ctx, clause, seen, rels);
+  }
+
+  // The verb is rendered as a bare word; the CLAUSE owns the verb's complements
+  // (baseline) and adjuncts (below), so they are not drawn twice.
+  const verbNode = predicateRel ? getNode(model, predicateRel.dependentId) : undefined;
+  const verbBlock = verbNode
+    ? layoutHead(ctx, verbNode, seen, true)
+    : impliedBlock('(verb)');
+
+  // A subjectless NONFINITE clause — a bare participle/infinitive (an adverbial
+  // participle like καρποφοροῦντες, an articular participle, an infinitive) — has
+  // no real or pro-drop subject; printing "(subject)" + a divider just clutters
+  // it. Render the predicate as the head of its own little baseline instead. A
+  // subjectless FINITE clause keeps "(subject)" — that genuinely shows pro-drop.
+  const verbPos = verbNode ? firstTokenPos(ctx, verbNode) : undefined;
+  const omitSubject = !subjectRel && (verbPos === 'participle' || verbPos === 'infinitive');
+
   // A compound subject forks open to the right, so its junction meets the
   // subject|predicate divider; everywhere else a coordination forks to the left.
   const subjectNode = subjectRel ? getNode(model, subjectRel.dependentId) : undefined;
@@ -582,12 +686,6 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     : subjectNode && isWordCoordination(ctx, subjectNode)
       ? layoutCoordination(ctx, subjectNode, seen, true)
       : layoutNode(ctx, subjectRel.dependentId, seen);
-  // The verb is rendered as a bare word; the CLAUSE owns the verb's complements
-  // (baseline) and adjuncts (below), so they are not drawn twice.
-  const verbNode = predicateRel ? getNode(model, predicateRel.dependentId) : undefined;
-  const verbBlock = verbNode
-    ? layoutHead(ctx, verbNode, seen, true)
-    : impliedBlock('(verb)');
 
   // Complements live under the verb node but render on the baseline — unless a
   // complement is itself a clause (e.g. a noun clause as direct object), which
@@ -611,41 +709,22 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     x += b.width;
   };
 
-  // subject
-  placeBlock(subjectBlock);
-  // subject|predicate divider (crosses the baseline)
-  const divX = x;
-  elements.push(
-    line(eid(), divX, -LAYOUT.dividerUp, divX, LAYOUT.dividerDown, 'solid', 'divider',
-      undefined, subjectRel?.id),
-  );
-  x += 2;
+  // subject + subject|predicate divider (crosses the baseline) — unless this is a
+  // bare nonfinite predicate, which stands alone with no subject side.
+  let divX = 0;
+  if (!omitSubject) {
+    placeBlock(subjectBlock);
+    divX = x;
+    elements.push(
+      line(eid(), divX, -LAYOUT.dividerUp, divX, LAYOUT.dividerDown, 'solid', 'divider',
+        undefined, subjectRel?.id),
+    );
+    x += 2;
+  }
   // predicate
   const verbX0 = x;
   placeBlock(verbBlock);
   const verbMidX = verbX0 + (verbBlock.wordRight || verbBlock.width) / 2;
-
-  // complements on the baseline, each with the appropriate separator
-  complementBlocks.forEach(({ rel, block }) => {
-    const sepX = x;
-    if (rel.type === 'predicateNominative' || rel.type === 'predicateAdjective') {
-      // line leaning back toward the verb
-      elements.push(
-        line(eid(), sepX + 10, 0, sepX, -LAYOUT.separatorUp, 'solid', 'separator',
-          undefined, rel.id),
-      );
-    } else {
-      // vertical tick standing on the baseline (object)
-      elements.push(
-        line(eid(), sepX, 0, sepX, -LAYOUT.separatorUp, 'solid', 'separator',
-          undefined, rel.id),
-      );
-    }
-    x += 6;
-    placeBlock(block);
-  });
-
-  const baselineWidth = x;
 
   // Adjuncts hang below the baseline on diagonals/stems. The verb's OWN
   // modifiers — an article substantivizing a participle (τοῖς οὖσιν…), an
@@ -725,13 +804,47 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     ...verbRels.filter((r) => !isBaselineComplement(r) && isClauseChild(ctx, r.dependentId)),
   ];
 
-  let maxRight = baselineWidth;
+  let maxRight = x;
+  // Draw the verb's modifiers FIRST, beneath the verb, and record how far right
+  // their cascade reaches. The complements then start past that band: otherwise a
+  // long adverbial PP hanging under the verb (ὑπὲρ τοῦ σώματος…) overlaps the
+  // direct object's own genitive chain hanging below it on the baseline.
+  let vModRight = x;
   let vCursor = verbMidX;
   verbMods.forEach((r) => {
     const { right, next } = drawHanging(r, vCursor);
     vCursor = next;
-    maxRight = Math.max(maxRight, right);
+    vModRight = Math.max(vModRight, right);
   });
+
+  // Clear the verb-modifier band before the first complement, bridging the gap
+  // with baseline so the object still reads as sitting on the main line.
+  if (complementBlocks.length && vModRight + LAYOUT.dependentGap > x) {
+    const newX = vModRight + LAYOUT.dependentGap;
+    elements.push(line(eid(), x, 0, newX, 0, 'solid', 'baseline'));
+    x = newX;
+  }
+
+  // complements on the baseline, each with the appropriate separator
+  complementBlocks.forEach(({ rel, block }) => {
+    const sepX = x;
+    if (rel.type === 'predicateNominative' || rel.type === 'predicateAdjective') {
+      // line leaning back toward the verb
+      elements.push(
+        line(eid(), sepX + 10, 0, sepX, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id),
+      );
+    } else {
+      // vertical tick standing on the baseline (object)
+      elements.push(
+        line(eid(), sepX, 0, sepX, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id),
+      );
+    }
+    x += 6;
+    placeBlock(block);
+  });
+
+  const baselineWidth = x;
+  maxRight = Math.max(maxRight, baselineWidth, vModRight);
 
   // Clause-level word adjuncts cascade to the right of the whole baseline.
   let bx = baselineWidth + LAYOUT.dependentGap;
@@ -770,6 +883,12 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
 
 function isClauseChild(ctx: Ctx, nodeId: string): boolean {
   return getNode(ctx.doc.syntax, nodeId)?.kind === 'clause';
+}
+
+/** Part of speech of a node's first token, if any (verb / participle / …). */
+function firstTokenPos(ctx: Ctx, node: SyntaxNode): string | undefined {
+  const tid = node.tokenIds[0];
+  return tid ? ctx.doc.tokens.find((t) => t.id === tid)?.pos : undefined;
 }
 
 /**
