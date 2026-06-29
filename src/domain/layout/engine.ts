@@ -88,6 +88,45 @@ function wordPos(ctx: Ctx, nodeId: string): string | undefined {
 }
 
 /**
+ * An infinitive (a bare infinitive word, or a clause whose predicate is one).
+ * Diagrammed like a prepositional phrase: an (empty, in Greek) diagonal leading
+ * down to a horizontal baseline that carries the infinitive and its complements —
+ * the marker "to" rides the diagonal in English; a Greek infinitive is one word
+ * sitting on the horizontal.
+ */
+function isInfinitival(ctx: Ctx, nodeId: string): boolean {
+  const node = getNode(ctx.doc.syntax, nodeId);
+  if (!node) return false;
+  if (node.kind === 'word') return wordPos(ctx, nodeId) === 'infinitive';
+  if (node.kind !== 'clause') return false;
+  const pred = childRelations(ctx.doc.syntax, nodeId).find(
+    (r) => r.type === 'predicate' || r.type === 'copula',
+  );
+  return pred ? wordPos(ctx, pred.dependentId) === 'infinitive' : false;
+}
+
+/**
+ * Draw a dependent INFINITIVE phrase hanging from `attachX`: an empty diagonal
+ * down to the infinitive's own horizontal baseline (the prepositional-phrase
+ * shape, minus the preposition). Returns the rightmost x reached and the bottom.
+ */
+function drawInfinitive(
+  ctx: Ctx,
+  rel: { id: string; dependentId: string },
+  attachX: number,
+  topY: number,
+  seen: Set<string>,
+  out: DiagramElement[],
+): { right: number; bottom: number } {
+  const block = layoutNode(ctx, rel.dependentId, seen);
+  const objX = attachX + LAYOUT.diagRun;
+  const endX = objX + block.wordLeft;
+  out.push(...translate(block, objX, topY));
+  out.push(line(eid(), attachX, 0, endX, topY, 'solid', 'slant', undefined, rel.id));
+  return { right: objX + block.width, bottom: Math.max(topY + block.height, topY) };
+}
+
+/**
  * A closed-class modifier (article, adjective, adverb…) that is drawn ALONG a
  * diagonal — extended from `isDiagonalLeaf` to allow it to carry its OWN diagonal
  * modifiers (an adverb modifying an adjective: "very friendly"; an adverb
@@ -382,7 +421,11 @@ function layoutHead(
   const depRels = (collapsed ? [] : childRelations(ctx.doc.syntax, node.id)).filter(
     (r) => !excludeCoordination || (r.type !== 'conjunct' && r.type !== 'coordinator'),
   );
-  const allWordRels = depRels.filter((r) => !isClauseChild(ctx, r.dependentId));
+  // An infinitive phrase hangs as a modifier (empty diagonal + horizontal), not
+  // as a stacked clause, so it is grouped with the word-level dependents.
+  const allWordRels = depRels.filter(
+    (r) => !isClauseChild(ctx, r.dependentId) || isInfinitival(ctx, r.dependentId),
+  );
   // Appositives continue on the head's own baseline; everything else cascades
   // below as a modifier.
   const apposRels = allWordRels.filter((r) => r.type === 'apposition');
@@ -396,7 +439,9 @@ function layoutHead(
   const wordRels = allWordRels
     .filter((r) => r.type !== 'apposition')
     .sort((a, b) => Number(isLeaf(b)) - Number(isLeaf(a)));
-  const clauseRels = depRels.filter((r) => isClauseChild(ctx, r.dependentId));
+  const clauseRels = depRels.filter(
+    (r) => isClauseChild(ctx, r.dependentId) && !isInfinitival(ctx, r.dependentId),
+  );
 
   const elements: DiagramElement[] = [];
   const depTop = LAYOUT.slantDrop * ctx.vScale;
@@ -430,7 +475,13 @@ function layoutHead(
   wordRels.forEach((rel) => {
     cursor += LAYOUT.dependentGap;
     const objId = prepObjectId(ctx, rel);
-    if (objId) {
+    if (isInfinitival(ctx, rel.dependentId)) {
+      // Infinitive phrase: empty diagonal to its own horizontal baseline.
+      const ext = drawInfinitive(ctx, rel, cursor, depTop, seen, elements);
+      railRight = Math.max(railRight, cursor);
+      belowBottom = Math.max(belowBottom, ext.bottom);
+      cursor = ext.right;
+    } else if (objId) {
       // Preposition written ALONG the diagonal; object on its baseline below.
       const block = layoutNode(ctx, objId, seen);
       const attachX = cursor;
@@ -855,6 +906,7 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   const pedestalled = new Set<string>();
   for (const r of verbRels) {
     if (!isCoreSlot(r) || !isClauseChild(ctx, r.dependentId)) continue;
+    if (isInfinitival(ctx, r.dependentId)) continue; // infinitives hang on a diagonal
     const probe = layoutNode(ctx, r.dependentId, new Set(seen));
     if (probe.height + blockAscent(probe) <= LAYOUT.pedestalMaxHeight) {
       pedestalRels.push(r);
@@ -911,6 +963,12 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     r: { id: string; type: SyntacticRole; dependentId: string; label?: string },
     attachX: number,
   ): { right: number; next: number } => {
+    if (isInfinitival(ctx, r.dependentId)) {
+      // Infinitive phrase: empty diagonal down to its own horizontal baseline.
+      const ext = drawInfinitive(ctx, r, attachX, belowTop, seen, elements);
+      belowMaxBottom = Math.max(belowMaxBottom, ext.bottom);
+      return { right: ext.right, next: ext.right + LAYOUT.dependentGap };
+    }
     const objId = prepObjectId(ctx, r);
     if (objId) {
       const block = layoutNode(ctx, objId, seen);
@@ -953,7 +1011,7 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
         !isBaselineComplement(r) &&
         r.type !== 'conjunct' &&
         r.type !== 'coordinator' &&
-        !isClauseChild(ctx, r.dependentId),
+        (!isClauseChild(ctx, r.dependentId) || isInfinitival(ctx, r.dependentId)),
     )
     .sort((a, b) => Number(!isDiagonalLeaf(ctx, a.dependentId)) - Number(!isDiagonalLeaf(ctx, b.dependentId)));
 
@@ -965,13 +1023,21 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     (r) => (r.type === 'vocative' || r.type === 'interjection') && !isClauseChild(ctx, r.dependentId),
   );
   const wordAdjuncts = clauseWordRels.filter(
-    (r) => !isClauseChild(ctx, r.dependentId) && r.type !== 'vocative' && r.type !== 'interjection',
+    (r) =>
+      (!isClauseChild(ctx, r.dependentId) || isInfinitival(ctx, r.dependentId)) &&
+      r.type !== 'vocative' &&
+      r.type !== 'interjection',
   );
   const clauseAdjuncts = [
-    ...clauseWordRels.filter((r) => isClauseChild(ctx, r.dependentId)),
-    // Clause complements that were pedestalled are drawn above the line, not here.
+    ...clauseWordRels.filter((r) => isClauseChild(ctx, r.dependentId) && !isInfinitival(ctx, r.dependentId)),
+    // Clause complements that were pedestalled are drawn above the line, not here;
+    // infinitives hang on their own diagonal among the verb modifiers.
     ...verbRels.filter(
-      (r) => !isBaselineComplement(r) && isClauseChild(ctx, r.dependentId) && !pedestalled.has(r.id),
+      (r) =>
+        !isBaselineComplement(r) &&
+        isClauseChild(ctx, r.dependentId) &&
+        !pedestalled.has(r.id) &&
+        !isInfinitival(ctx, r.dependentId),
     ),
   ];
 
