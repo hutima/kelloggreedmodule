@@ -19,7 +19,7 @@ import type { KrDocument } from '@/domain/schema';
 import { MIN_SCALE, clamp, minZoomScale, maxZoomScale, clampPan } from '@/ui/zoom';
 import { PhraseBlockView } from './diagram/PhraseBlockView';
 import { MorphologyView } from './diagram/MorphologyView';
-import { nodeHighlightColors } from '@/ui/sermon/highlights';
+import { nodeHighlightColors, relationHighlightColors } from '@/ui/sermon/highlights';
 import { EditModeToolbar } from '@/ui/editor/EditModeToolbar';
 import { LinkPreviewOverlay } from '@/ui/editor/LinkPreviewOverlay';
 import { DependencyEditOverlay } from '@/ui/editor/dependency/DependencyEditOverlay';
@@ -145,6 +145,8 @@ export function DiagramCanvas() {
   // Sermon-prep highlights, as a nodeId → colour lookup, so a tagged word shows
   // its category colour in the diagram AND the running text (not just the panel).
   const hlByNode = useMemo(() => nodeHighlightColors(highlights), [highlights]);
+  // Highlighted relations paint a soft swash along their connector line.
+  const hlByRelation = useMemo(() => relationHighlightColors(highlights), [highlights]);
 
   // Fetch the matching parallel book — Greek (GNT) or Hebrew (OT) — on open.
   useEffect(() => {
@@ -842,8 +844,15 @@ export function DiagramCanvas() {
               if (el.kind === 'line') {
                 const sel = isSelected(el.nodeId, el.relationId);
                 const dash = dashFor(el.style);
+                const relHl = el.relationId ? hlByRelation.get(el.relationId) : undefined;
                 return (
                   <g key={el.id}>
+                    {relHl && (
+                      <line
+                        x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2}
+                        stroke={relHl} strokeWidth={7} strokeLinecap="round" opacity={0.55}
+                      />
+                    )}
                     <line
                       className={`kr-line${sel ? ' selected' : ''}`}
                       x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2}
@@ -877,8 +886,12 @@ export function DiagramCanvas() {
                   ? `M ${el.x2} ${el.y2} L ${el.x2 + s * Math.cos(ang + Math.PI - 0.4)} ${el.y2 + s * Math.sin(ang + Math.PI - 0.4)} L ${el.x2 + s * Math.cos(ang + Math.PI + 0.4)} ${el.y2 + s * Math.sin(ang + Math.PI + 0.4)} Z`
                   : '';
                 const color = el.tentative ? TENTATIVE : el.color ?? INK;
+                const relHl = el.relationId ? hlByRelation.get(el.relationId) : undefined;
                 return (
                   <g key={el.id}>
+                    {relHl && (
+                      <path d={d} fill="none" stroke={relHl} strokeWidth={7} strokeLinecap="round" opacity={0.55} />
+                    )}
                     <path
                       className={`kr-line${sel ? ' selected' : ''}`}
                       d={d} fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round"

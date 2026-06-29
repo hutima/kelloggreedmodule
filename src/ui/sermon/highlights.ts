@@ -37,6 +37,20 @@ export function nodeHighlightColors(highlights: Highlight[]): Map<string, string
   return colors;
 }
 
+/**
+ * Build a `relationId → highlight colour` lookup, so a highlighted relation can
+ * be painted on the diagram (a swash along its connector line) and flagged in the
+ * Relations list. The most recently added highlight wins when a relation carries
+ * several.
+ */
+export function relationHighlightColors(highlights: Highlight[]): Map<string, string> {
+  const colors = new Map<string, string>();
+  for (const h of highlights) {
+    if (h.anchor.relationId) colors.set(h.anchor.relationId, highlightColor(h.category));
+  }
+  return colors;
+}
+
 /** Human label for an anchor (for the sermon lists). */
 export function describeAnchor(doc: KrDocument, anchor: SermonAnchor): string {
   if (anchor.nodeId) {
