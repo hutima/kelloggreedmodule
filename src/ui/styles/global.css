@@ -20,6 +20,11 @@
   --shadow: 0 1px 3px rgba(31, 41, 51, 0.12);
   --greek: 'Gentium Plus', 'Cardo', 'New Athena Unicode', 'GFS Didot',
     'Palatino Linotype', 'Times New Roman', 'DejaVu Serif', serif;
+  /* Pointed Biblical Hebrew: dedicated faces first, then both-scripts fallbacks.
+     The diagram reuses --greek (Hebrew glyphs fall through to Cardo there); this
+     variable is for the right-to-left source strip. */
+  --hebrew: 'SBL Hebrew', 'Ezra SIL', 'Taamey Frank CLM', 'Cardo',
+    'Times New Roman', 'DejaVu Serif', serif;
   --ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
     sans-serif;
   --mono: 'SFMono-Regular', ui-monospace, 'JetBrains Mono', Menlo, Consolas,
@@ -551,6 +556,13 @@ textarea.code,
   font-family: var(--greek);
   font-size: 17px;
 }
+/* Hebrew source text reads right-to-left and wants larger, pointed glyphs. */
+.source-text.hebrew {
+  font-family: var(--hebrew);
+  font-size: 19px;
+  direction: rtl;
+  text-align: right;
+}
 .src-verse {
   font-size: 12px;
   font-weight: 700;
@@ -681,6 +693,11 @@ textarea.code,
   font-family: var(--greek);
   cursor: pointer;
   user-select: none;
+}
+/* Hebrew diagrams prefer the dedicated Hebrew faces (export uses the same set),
+   matching the right-to-left mirrored layout the engine produces for `hbo`. */
+.diagram-paper.hebrew text {
+  font-family: var(--hebrew);
 }
 .diagram-paper line {
   cursor: pointer;

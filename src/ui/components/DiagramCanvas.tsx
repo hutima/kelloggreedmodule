@@ -413,7 +413,9 @@ export function DiagramCanvas() {
           ) : (
             sourceItems.length > 0 && (
               <div
-                className={`source-text${doc.language === 'grc' ? ' greek' : ''}`}
+                className={`source-text${doc.language === 'grc' ? ' greek' : ''}${
+                  doc.language === 'hbo' ? ' hebrew' : ''
+                }`}
                 title="Source text"
               >
                 {sourceItems.map((it, i) =>
@@ -469,7 +471,7 @@ export function DiagramCanvas() {
               CSS scale() — so the vector re-renders crisply instead of the
               browser stretching a rasterised layer (which looked fuzzy). */}
           <svg
-            className="diagram-paper"
+            className={`diagram-paper${doc.language === 'hbo' ? ' hebrew' : ''}`}
             width={Number.isFinite(view.scale) ? layout.width * view.scale : layout.width}
             height={Number.isFinite(view.scale) ? layout.height * view.scale : layout.height}
             viewBox={`0 0 ${layout.width} ${layout.height}`}

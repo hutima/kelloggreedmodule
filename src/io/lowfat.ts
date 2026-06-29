@@ -1,5 +1,6 @@
 import type {
   KrDocument,
+  Language,
   Morphology,
   PartOfSpeech,
   Relation,
@@ -43,7 +44,7 @@ const MORPH_KEYS = ['case', 'gender', 'number', 'person', 'tense', 'voice', 'moo
 /** Lowfat child roles a copula would link: subject, objects, predicate complement. */
 const PRED_ARG_ROLES = new Set(['s', 'o', 'o2', 'io', 'p']);
 
-function parseXml(xml: string): Document {
+export function parseXml(xml: string): Document {
   if (typeof DOMParser === 'undefined') {
     throw new Error('Lowfat conversion requires a DOMParser (browser or happy-dom).');
   }
@@ -95,8 +96,44 @@ function morphOf(w: Element): Morphology | undefined {
   return any ? m : undefined;
 }
 
+/**
+ * Per-language adapter for the Lowfat constituency converter. The tree SHAPE is
+ * shared between macula-greek and macula-hebrew (head-marked `<wg>`/`<w>` with
+ * `role`/`class`/`rule`), so only the leaf reads — how a `<w>`'s id, surface,
+ * part of speech, lemma, gloss, and morphology are spelled — differ. A dialect
+ * supplies those; `SentenceConverter` owns the language-agnostic structure.
+ */
+export interface LowfatDialect {
+  language: Language;
+  /** Stable id from a node's own attributes (null → the converter autogenerates). */
+  idOf(el: Element): string | null;
+  surfaceOf(w: Element): string;
+  posOf(w: Element): PartOfSpeech;
+  lemmaOf(w: Element): string | undefined;
+  glossOf(w: Element): string | undefined;
+  morphOf(w: Element): Morphology | undefined;
+  /**
+   * Pick the head among children when NONE is marked `head="true"`. macula-greek
+   * marks word-level heads, so the first child is right; macula-hebrew marks
+   * heads only on word-GROUPS, so a leaf group (article + noun) needs the content
+   * word chosen instead of the leading function morpheme. Defaults to the first.
+   */
+  headFallback?(kids: Element[]): Element | undefined;
+}
+
+/** macula-greek (Nestle1904 Lowfat): ids on `n`/`osisId`, surface in text. */
+export const greekDialect: LowfatDialect = {
+  language: 'grc',
+  idOf: (el) => el.getAttribute('n') || el.getAttribute('osisId') || null,
+  surfaceOf: (w) => (w.textContent ?? '').trim(),
+  posOf,
+  lemmaOf: (w) => w.getAttribute('lemma') ?? w.getAttribute('normalized') ?? undefined,
+  glossOf: (w) => w.getAttribute('gloss') ?? undefined,
+  morphOf,
+};
+
 /** One conversion pass over a single `<sentence>`. */
-class SentenceConverter {
+export class SentenceConverter {
   readonly tokens: Token[] = [];
   readonly nodes: SyntaxNode[] = [];
   readonly relations: Relation[] = [];
@@ -111,10 +148,13 @@ class SentenceConverter {
   private subLabel = new Map<string, string>();
   private seq = 0;
 
-  constructor(private readonly idPrefix: string) {}
+  constructor(
+    private readonly idPrefix: string,
+    private readonly dialect: LowfatDialect,
+  ) {}
 
   private key(el: Element): string {
-    return el.getAttribute('n') || el.getAttribute('osisId') || `${this.idPrefix}${this.seq++}`;
+    return this.dialect.idOf(el) || `${this.idPrefix}${this.seq++}`;
   }
 
   private rel(type: SyntacticRole, headId: string, dependentId: string, label?: string): void {
@@ -167,12 +207,12 @@ class SentenceConverter {
     this.tokens.push({
       id: tokenId,
       index: this.tokens.length,
-      surface: (w.textContent ?? '').trim(),
-      language: 'grc',
-      pos: posOf(w),
-      lemma: w.getAttribute('lemma') ?? w.getAttribute('normalized') ?? undefined,
-      gloss: w.getAttribute('gloss') ?? undefined,
-      morphology: morphOf(w),
+      surface: this.dialect.surfaceOf(w),
+      language: this.dialect.language,
+      pos: this.dialect.posOf(w),
+      lemma: this.dialect.lemmaOf(w),
+      gloss: this.dialect.glossOf(w),
+      morphology: this.dialect.morphOf(w),
       provenance: { source: 'given', confidence: 'high' },
     });
     const nodeId = `w_${k}`;
@@ -183,7 +223,11 @@ class SentenceConverter {
 
   private headChild(el: Element): Element | undefined {
     const kids = constituents(el);
-    return kids.find((c) => c.getAttribute('head') === 'true') ?? kids[0];
+    return (
+      kids.find((c) => c.getAttribute('head') === 'true') ??
+      this.dialect.headFallback?.(kids) ??
+      kids[0]
+    );
   }
 
   private isAdjective(el: Element): boolean {
@@ -355,8 +399,11 @@ class SentenceConverter {
     const role = child.getAttribute('role');
     if (role === 'adv') return 'adverbial';
     const cls = child.getAttribute('class');
-    if (cls === 'det') return 'determiner';
-    if (cls === 'conj' || cls === 'ptcl') return 'coordinator';
+    // Determiners: Greek `det`, Hebrew article `art`, and the Hebrew direct-object
+    // marker אֵת (`om`), which rides a slant under the noun it marks.
+    if (cls === 'det' || cls === 'art' || cls === 'om') return 'determiner';
+    // Coordinators: Greek `conj`/`ptcl`, Hebrew conjunction `cj`.
+    if (cls === 'conj' || cls === 'ptcl' || cls === 'cj') return 'coordinator';
     // Coordination is decided FIRST, so a coordinated sibling constituent becomes
     // a CONJUNCT of the head rather than being mis-read as a modifier of it. This
     // is what fixes a dropped second PP in "ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς"
@@ -406,7 +453,7 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
   sentences.forEach((sentence, i) => {
     const topWg = sentence.querySelector('wg');
     if (!topWg) return;
-    const conv = new SentenceConverter(`s${i}_`);
+    const conv = new SentenceConverter(`s${i}_`, greekDialect);
     const rootId = conv.convert(topWg);
     if (!conv.tokens.length) return;
 

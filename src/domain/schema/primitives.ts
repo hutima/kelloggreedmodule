@@ -9,7 +9,7 @@ import { z } from 'zod';
  * yet handle. Never assume the set is closed.
  */
 
-export const LanguageSchema = z.enum(['en', 'grc']);
+export const LanguageSchema = z.enum(['en', 'grc', 'hbo']);
 export type Language = z.infer<typeof LanguageSchema>;
 
 /**
@@ -82,7 +82,9 @@ export const GrammaticalCaseSchema = z.enum([
 ]);
 export type GrammaticalCase = z.infer<typeof GrammaticalCaseSchema>;
 
-export const GenderSchema = z.enum(['masculine', 'feminine', 'neuter', 'common']);
+// `common` (Greek epicene) and `both` (Hebrew nouns attested as either gender)
+// are kept distinct; the renderer treats any unknown value gracefully.
+export const GenderSchema = z.enum(['masculine', 'feminine', 'neuter', 'common', 'both']);
 export type Gender = z.infer<typeof GenderSchema>;
 
 export const NumberSchema = z.enum(['singular', 'dual', 'plural']);
