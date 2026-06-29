@@ -124,6 +124,26 @@ describe('Lowfat clause coordination & subordination', () => {
     expect(doc!.syntax.nodes.some((n) => n.implied)).toBe(false);
   });
 
+  it('places one coordinator per clause join, not all stacked in the first gap', () => {
+    // Three clauses joined by "καὶ … καὶ" (John 1:1 shape): the layout must place
+    // a καὶ in EACH gap, not "καὶ καὶ" concatenated between the first two.
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl" rule="ClClCl">
+      <wg class="cl"><w class="verb" role="v" n="010010010010010">ἦν</w><w class="noun" role="s" n="010010010020010">Λόγος</w></wg>
+      <w class="conj" n="010010010030010">καὶ</w>
+      <wg class="cl"><w class="verb" role="v" n="010010010040010">ἦν</w><w class="noun" role="s" n="010010010050010">Θεός</w></wg>
+      <w class="conj" n="010010010060010">καὶ</w>
+      <wg class="cl"><w class="verb" role="v" n="010010010070010">ἦν</w></wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    const layout = layoutDocument(doc!, {});
+    const kais = layout.elements.filter(
+      (e) => e.kind === 'text' && e.text === 'καὶ' && e.rotate,
+    );
+    expect(kais).toHaveLength(2); // one per join, each its own label
+    // The two labels sit at different heights (one per gap), not the same spot.
+    expect((kais[0] as { y: number }).y).not.toBeCloseTo((kais[1] as { y: number }).y, 0);
+  });
+
   it('writes a subordinator (ὅτι) as the connector label, not a floating adjunct word', () => {
     const xml = `<book name="Test"><sentence><wg role="cl" class="cl" rule="S-V-CL">
       <w class="pron" role="s">ὅς</w>
