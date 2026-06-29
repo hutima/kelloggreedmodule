@@ -6,8 +6,6 @@ import {
   clamp,
   MIN_SCALE,
   MAX_SCALE,
-  MAX_RENDER_AREA,
-  MAX_RENDER_DIM,
 } from '@/ui/zoom';
 
 describe('zoom-out lock (minZoomScale)', () => {
@@ -50,47 +48,21 @@ describe('zoom-out lock (minZoomScale)', () => {
   });
 });
 
-describe('zoom-in lock (maxZoomScale)', () => {
-  it('lets a small diagram zoom all the way to MAX_SCALE', () => {
-    // 900×500 at dpr 1: the render budget is nowhere near binding, so the only
-    // ceiling is the fixed MAX_SCALE.
-    expect(maxZoomScale(900, 500, 1)).toBe(MAX_SCALE);
-  });
-
-  it('caps a tall passage so its rasterised height stays within the budget', () => {
-    // 1000×6000 at dpr 3. The per-side device limit binds first:
-    // MAX_RENDER_DIM / (6000 * 3).
-    const cap = maxZoomScale(1000, 6000, 3);
-    expect(cap).toBeCloseTo(MAX_RENDER_DIM / (6000 * 3), 5);
-    // And at that cap the rendered height is exactly the device-pixel limit.
-    expect(6000 * cap * 3).toBeCloseTo(MAX_RENDER_DIM, 3);
-    expect(cap).toBeLessThan(MAX_SCALE);
-  });
-
-  it('honours the total-area budget when neither side is individually huge', () => {
-    // A big square diagram: area binds before either single side does.
-    const cap = maxZoomScale(3000, 3000, 2);
-    expect(cap).toBeCloseTo(Math.sqrt(MAX_RENDER_AREA / (3000 * 3000 * 4)), 5);
-    // Rendered device-pixel area lands on the budget (within rounding).
-    expect(3000 * cap * 2 * (3000 * cap * 2)).toBeCloseTo(MAX_RENDER_AREA, -1);
+describe('zoom-in ceiling (maxZoomScale)', () => {
+  it('is the fixed MAX_SCALE — no rasterisation budget, regardless of size', () => {
+    // The budget cap is gone, so a wide / tall / huge diagram zooms in just as far
+    // as a small one: a long sentence (e.g. Ephesians 1:3–14) can be read up close.
+    expect(maxZoomScale()).toBe(MAX_SCALE);
+    expect(MAX_SCALE).toBeGreaterThan(4); // generous, well above the old mobile cap
   });
 
   it('never returns below the zoom-out floor, so the range cannot invert', () => {
-    // Pathologically large diagram whose budget cap would fall under the floor.
-    const floor = 0.3;
-    expect(maxZoomScale(100000, 100000, 3, floor)).toBe(floor);
-  });
-
-  it('falls back to MAX_SCALE for degenerate sizes (no divide-by-zero)', () => {
-    expect(maxZoomScale(0, 600, 3)).toBe(MAX_SCALE);
-    expect(maxZoomScale(800, 0, 3)).toBe(MAX_SCALE);
-    expect(maxZoomScale(800, 600, 0)).toBe(MAX_SCALE);
-  });
-
-  it('shrinks the cap as device pixel ratio rises (Retina renders larger)', () => {
-    const at1 = maxZoomScale(1500, 3000, 1);
-    const at3 = maxZoomScale(1500, 3000, 3);
-    expect(at3).toBeLessThan(at1);
+    // A pathologically large diagram floors zoom-out above MAX_SCALE; the ceiling
+    // must rise to meet it rather than invert the range.
+    const floor = MAX_SCALE + 6;
+    expect(maxZoomScale(floor)).toBe(floor);
+    // A normal floor leaves the fixed ceiling in place.
+    expect(maxZoomScale(0.5)).toBe(MAX_SCALE);
   });
 });
 
