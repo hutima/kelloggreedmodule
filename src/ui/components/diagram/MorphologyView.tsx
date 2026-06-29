@@ -5,6 +5,7 @@ import { toneColor } from '@/domain/render';
 import type { KrDocument, Token } from '@/domain/schema';
 import { useGloss } from './useGloss';
 import { nodeHighlightColors } from '@/ui/sermon/highlights';
+import { useContestedAffectedNodes } from '@/ui/contested';
 
 /**
  * MORPHOLOGY CLAUSE view (HTML) — Greek/Hebrew in surface order, grouped by
@@ -91,6 +92,7 @@ export function MorphologyView({
   const select = useEditorStore((s) => s.select);
   const highlights = useEditorStore((s) => s.sermon.highlights);
   const hlByNode = useMemo(() => nodeHighlightColors(highlights), [highlights]);
+  const contestedAffected = useContestedAffectedNodes();
   const { openGloss, glossNode } = useGloss();
 
   const greek = doc.language === 'grc';
@@ -207,7 +209,9 @@ export function MorphologyView({
               <div
                 key={tok.id}
                 data-tid={tok.id}
-                className={`mc-word${sel ? ' selected' : ''}${hot ? ' hovered' : ''}`}
+                className={`mc-word${sel ? ' selected' : ''}${hot ? ' hovered' : ''}${
+                  nodeId && contestedAffected.has(nodeId) ? ' contested-affected' : ''
+                }`}
                 onClick={() => nodeId && select(nodeId === selection.nodeId ? {} : { nodeId })}
                 onMouseEnter={() => nodeId && onHover(nodeId)}
                 onMouseLeave={() => onHover(undefined)}
