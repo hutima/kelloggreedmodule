@@ -246,6 +246,11 @@ textarea:focus {
 .grc {
   font-family: var(--greek);
 }
+.hebrew,
+.hbo {
+  font-family: var(--hebrew);
+  direction: rtl;
+}
 textarea.code,
 .code {
   font-family: var(--mono);
