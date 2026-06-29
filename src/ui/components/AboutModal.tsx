@@ -28,9 +28,8 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
           <h3>Contact the author</h3>
           <p>
             This app is maintained by <strong>Timothy Hutama</strong>, an MTS student at Wycliffe
-            College. It was originally prepared for the 2026 Summer Intensive. The author makes no
-            guarantees about the content but has made a best attempt to make sure everything is
-            accurate.
+            College. The author makes no guarantees about the content but has made a best attempt to
+            make sure everything is accurate.
           </p>
           <p>
             Timothy blogs at{' '}

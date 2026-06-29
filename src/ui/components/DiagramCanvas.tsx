@@ -487,7 +487,9 @@ export function DiagramCanvas() {
                   fontSize={el.small ? 13 : 18}
                   fontStyle={el.italic ? 'italic' : undefined}
                   fill={el.tentative ? TENTATIVE : el.muted ? '#8a97a3' : '#1f2933'}
-                  {...(el.rotate ? { transform: `rotate(${el.rotate} ${el.x} ${el.y})` } : {})}
+                  {...(el.rotate
+                    ? { transform: `rotate(${el.rotate} ${el.x} ${el.y})` }
+                    : { stroke: '#fff', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' })}
                   onMouseEnter={() => el.nodeId && hoverDiagram(el.nodeId)}
                   onMouseLeave={() => el.nodeId && hoverDiagram(undefined)}
                   onClick={() => {

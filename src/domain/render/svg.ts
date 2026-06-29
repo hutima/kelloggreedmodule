@@ -32,7 +32,15 @@ function elementToSvg(el: DiagramElement): string {
   const size = el.small ? THEME.smallFontSize : THEME.fontSize;
   const style = el.italic ? ' font-style="italic"' : '';
   const transform = el.rotate ? ` transform="rotate(${r(el.rotate)} ${r(el.x)} ${r(el.y)})"` : '';
-  return `<text x="${r(el.x)}" y="${r(el.y)}" text-anchor="${el.anchor}" font-size="${size}" fill="${fill}"${style}${transform}>${escapeXml(el.text)}</text>`;
+  // A paper-coloured halo painted UNDER the glyphs masks a line crossing behind a
+  // word (e.g. the dashed verb spine through the verbs), so words stay legible
+  // without gapping every line. ONLY for upright words: a diagonal word lies
+  // ALONG its own slant, so a halo there would erase the slant under its tails
+  // (ς, γ). Invisible over the paper-coloured page.
+  const halo = el.rotate
+    ? ''
+    : ` stroke="${THEME.paper}" stroke-width="3" paint-order="stroke" stroke-linejoin="round"`;
+  return `<text x="${r(el.x)}" y="${r(el.y)}" text-anchor="${el.anchor}" font-size="${size}" fill="${fill}"${halo}${style}${transform}>${escapeXml(el.text)}</text>`;
 }
 
 function r(n: number): number {

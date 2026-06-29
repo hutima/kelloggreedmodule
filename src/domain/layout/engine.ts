@@ -745,33 +745,10 @@ function layoutClauseSpine(
 
   const top = verbYs[0] ?? 0;
   const last = verbYs[verbYs.length - 1] ?? 0;
-  // The dashed bar runs verb-to-verb, tying the clauses together — but it BREAKS
-  // over each word sitting on it, so the dashed line never strikes through a
-  // (verb-aligned) word and hurts legibility. Gap over EVERY horizontal word
-  // centred on the bar — this spine's verbs and any nested spine's verbs, all of
-  // which the member layout has already centred at verbAlignX — found from the
-  // laid-out text elements.
-  const gapUp = LAYOUT.fontSize * 0.78;
-  const gapDown = LAYOUT.fontSize * 0.34;
-  const wordYs = elements
-    .filter(
-      (e): e is Extract<DiagramElement, { kind: 'text' }> =>
-        e.kind === 'text' && !e.rotate && Math.abs(e.x - verbAlignX) < 10,
-    )
-    .map((e) => e.y)
-    .filter((vy) => vy >= top - gapUp && vy <= last + gapDown);
-  const bandYs = [...new Set([...verbYs, ...wordYs])].sort((a, b) => a - b);
-  let segStart = top;
-  for (const vy of bandYs) {
-    const bandTop = vy - gapUp;
-    if (bandTop > segStart) {
-      elements.unshift(line(eid(), verbAlignX, segStart, verbAlignX, bandTop, 'dashed', 'coordination', clause.id));
-    }
-    segStart = Math.max(segStart, vy + gapDown);
-  }
-  if (last > segStart) {
-    elements.unshift(line(eid(), verbAlignX, segStart, verbAlignX, last, 'dashed', 'coordination', clause.id));
-  }
+  // The dashed bar runs verb-to-verb, tying the clauses together. It may pass
+  // behind the verb-aligned words, but the paper-coloured halo under each word
+  // (see the renderer) keeps them legible, so the bar stays a single clean line.
+  elements.unshift(line(eid(), verbAlignX, top, verbAlignX, last, 'dashed', 'coordination', clause.id));
   // The conjunction rides the dashed bar itself, rotated upright (90°) and
   // centred in the CLEAR BAND between the first two clauses — so it reads ALONG
   // the join, halfway between the clauses, rather than lying horizontally across
