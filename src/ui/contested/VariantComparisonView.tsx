@@ -61,6 +61,7 @@ export function VariantComparisonView() {
           ref={leftRef}
           doc={baseDoc}
           mode={diagramMode}
+          diff={diff}
           title="Base 1904 parse"
           onScrollSync={onLeftScroll}
         />

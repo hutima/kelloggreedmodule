@@ -21,6 +21,36 @@ export const StaticDiagramFrame = forwardRef<
   const greek = doc.language === 'grc';
   const hebrew = doc.language === 'hbo';
 
+  // Words impacted by the change, resolved AGAINST THIS FRAME'S document so the
+  // base frame marks the OLD attachment and the variant frame marks the NEW one —
+  // making it clear in both which clause attachment is changing. The endpoints of
+  // any changed/added/removed relation present in this doc are highlighted.
+  const impactedNodes = useMemo(() => {
+    const set = new Set<string>();
+    if (!diff) return set;
+    for (const id of [...diff.changedNodeIds, ...diff.addedNodeIds, ...diff.removedNodeIds]) set.add(id);
+    const relIds = new Set([
+      ...diff.changedRelationIds,
+      ...diff.addedRelationIds,
+      ...diff.removedRelationIds,
+    ]);
+    for (const r of doc.syntax.relations) {
+      if (relIds.has(r.id)) {
+        set.add(r.headId);
+        set.add(r.dependentId);
+      }
+    }
+    if (diff.changedTokenIds.length) {
+      const tokenToNode = new Map<string, string>();
+      for (const n of doc.syntax.nodes) for (const t of n.tokenIds) tokenToNode.set(t, n.id);
+      for (const t of diff.changedTokenIds) {
+        const nid = tokenToNode.get(t);
+        if (nid) set.add(nid);
+      }
+    }
+    return set;
+  }, [diff, doc]);
+
   // Drag-to-pan (grab the diagram and pull), in addition to wheel / scrollbar.
   const drag = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -108,11 +138,14 @@ export const StaticDiagramFrame = forwardRef<
             const size = el.small ? 13 : 18;
             const w = measureText(el.text, el.small ? SMALL_FONT : BASE_FONT);
             const bx = el.anchor === 'middle' ? el.x - w / 2 : el.anchor === 'end' ? el.x - w : el.x;
+            // A word is marked if it's directly changed OR it's an endpoint of a
+            // changed/added/removed relation in this frame's tree.
+            const textHi = hi ?? (el.nodeId && impactedNodes.has(el.nodeId) ? 'changed' : null);
             return (
               <g key={el.id}>
-                {hi && !el.rotate && (
+                {textHi && !el.rotate && (
                   <rect
-                    className={`vc-hi-rect vc-hi-${hi}`}
+                    className={`vc-hi-rect vc-hi-${textHi}`}
                     x={bx - 3}
                     y={el.y - size * 0.72 - 2}
                     width={w + 6}
