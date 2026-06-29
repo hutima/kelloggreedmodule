@@ -404,3 +404,49 @@ describe('compound subject whose head carries a wide modifier', () => {
     expect(reach).toBeGreaterThan(gen.x);
   });
 });
+
+describe('clause coordinated with a bare phrase (Matthew 4:4 shape)', () => {
+  // "[lives the man] but by every word" — a headless COORDINATE clause whose
+  // members are a clause AND a prepositional phrase, joined by "but". The phrase
+  // must stack as a spine member BELOW the clause, not be swept into a lead stub
+  // drawn on top of it.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'coordinate', tokenIds: [] },
+      { id: 'n_cl', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'n_lives', kind: 'word', role: 'predicate', tokenIds: ['t_lives'] },
+      { id: 'n_man', kind: 'word', role: 'subject', tokenIds: ['t_man'] },
+      { id: 'n_by', kind: 'word', tokenIds: ['t_by'] },
+      { id: 'n_word', kind: 'word', role: 'prepositionObject', tokenIds: ['t_word'] },
+      { id: 'n_but', kind: 'word', tokenIds: ['t_but'] },
+    ],
+    [
+      { id: 'r_c1', type: 'conjunct', headId: 'n_root', dependentId: 'n_cl' },
+      { id: 'r_c2', type: 'conjunct', headId: 'n_root', dependentId: 'n_by' },
+      { id: 'r_co', type: 'coordinator', headId: 'n_root', dependentId: 'n_but' },
+      { id: 'r_p', type: 'predicate', headId: 'n_cl', dependentId: 'n_lives' },
+      { id: 'r_s', type: 'subject', headId: 'n_cl', dependentId: 'n_man' },
+      { id: 'r_o', type: 'prepositionObject', headId: 'n_by', dependentId: 'n_word' },
+    ],
+    [
+      { id: 't_lives', index: 0, surface: 'lives' },
+      { id: 't_man', index: 1, surface: 'man' },
+      { id: 't_but', index: 2, surface: 'but' },
+      { id: 't_by', index: 3, surface: 'by' },
+      { id: 't_word', index: 4, surface: 'word' },
+    ],
+  );
+  const l = layoutDocument(doc, {}, {});
+
+  it('stacks the phrase conjunct below the clause, not on top of it', () => {
+    const lives = textEl(l, 'lives')!;
+    const by = textEl(l, 'by')!;
+    const man = textEl(l, 'man')!;
+    // The phrase sits on its own member baseline BELOW the clause's verb…
+    expect(by.y).toBeGreaterThan(lives.y + 20);
+    // …and the coordinator "but" is written on the spine between them.
+    expect(textEl(l, 'but')).toBeTruthy();
+    // The phrase doesn't overlap the clause's subject row.
+    expect(by.y).toBeGreaterThan(man.y + 20);
+  });
+});

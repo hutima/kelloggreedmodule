@@ -877,8 +877,13 @@ function layoutClauseSpine(
   seen: Set<string>,
   rels: { id: string; type: SyntacticRole; dependentId: string; label?: string }[],
 ): Block {
-  const memberRels = rels.filter((r) => isClauseChild(ctx, r.dependentId));
-  const nonClause = rels.filter((r) => !isClauseChild(ctx, r.dependentId));
+  // A conjunct is a coordinate MEMBER even when it is a bare word/phrase rather
+  // than a full clause — e.g. "Οὐκ … ζήσεται [clause] ἀλλ' ἐπὶ παντὶ ῥήματι …"
+  // (Matthew 4:4), where a clause is coordinated with a prepositional phrase. Such
+  // a word conjunct stacks on the spine like a clause member; without this it was
+  // swept into the lead stub and drawn on top of the first clause.
+  const memberRels = rels.filter((r) => isClauseChild(ctx, r.dependentId) || r.type === 'conjunct');
+  const nonClause = rels.filter((r) => !isClauseChild(ctx, r.dependentId) && r.type !== 'conjunct');
   // Only a genuine coordinator (καί / δέ / τε…) rides the dashed bar between the
   // conjuncts. A word that is NOT a conjunct and NOT the coordinator — a
   // sentence-initial particle such as γε, or a stray introductory word — would
