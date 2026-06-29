@@ -4,7 +4,6 @@ import { layoutDocument, type LayoutOptions } from '../engine';
 import { layoutDependency } from './dependency';
 import { layoutPhraseBlock } from './phrase-block';
 import { layoutMorphology } from './morphology';
-import { layoutDiscourse } from './discourse';
 
 /**
  * Alternate diagram modes. Every mode is a function (doc, hints, options) →
@@ -15,7 +14,6 @@ import { layoutDiscourse } from './discourse';
 export type DiagramMode =
   | 'kellogg-reed'
   | 'phrase-block'
-  | 'discourse-flow'
   | 'dependency'
   | 'morphology';
 
@@ -30,7 +28,6 @@ export interface DiagramModeInfo {
 export const DIAGRAM_MODES: DiagramModeInfo[] = [
   { id: 'kellogg-reed', label: 'Kellogg-Reed', description: 'Traditional function diagram' },
   { id: 'phrase-block', label: 'Phrase / Block', description: 'Clause hierarchy' },
-  { id: 'discourse-flow', label: 'Discourse Flow', description: 'Argument and logic' },
   { id: 'dependency', label: 'Dependency', description: 'Head-dependent word relationships' },
   { id: 'morphology', label: 'Morphology Clause', description: 'Greek forms and agreement' },
 ];
@@ -50,8 +47,6 @@ export function layoutForMode(
       return layoutPhraseBlock(doc);
     case 'morphology':
       return layoutMorphology(doc);
-    case 'discourse-flow':
-      return layoutDiscourse(doc);
     case 'kellogg-reed':
     default:
       return layoutDocument(doc, hints, options);

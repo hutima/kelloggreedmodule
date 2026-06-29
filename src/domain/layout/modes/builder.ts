@@ -10,7 +10,7 @@ import { BASE_FONT, SMALL_FONT, measureText } from '../measure';
 
 /**
  * Tiny element factories + a finalizer shared by the alternate diagram modes
- * (Dependency, Phrase/Block, Morphology, Discourse Flow). Each mode builds a flat
+ * (Dependency, Phrase/Block, Morphology). Each mode builds a flat
  * list of the SAME primitives the Kellogg-Reed engine emits — so the canvas,
  * SVG/PNG export, pan/zoom, and hover popover all work uniformly — then calls
  * `finalize` to normalize the bounding box into view.

@@ -101,9 +101,9 @@ export interface TextElement {
 
 /**
  * A quadratic Bézier curve (start → control → end). Used by the alternate
- * diagram modes — dependency arcs over the token row, discourse-flow connectors —
- * where a straight `LineElement` would read as crossings. The Kellogg-Reed layout
- * never emits these.
+ * diagram modes — the dependency arcs over the token row and the morphology
+ * agreement links — where a straight `LineElement` would read as crossings. The
+ * Kellogg-Reed layout never emits these.
  */
 export interface CurveElement {
   kind: 'curve';

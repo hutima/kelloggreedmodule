@@ -1,7 +1,7 @@
 /**
  * GLOSSARY — plain-language definitions for the terse labels and morphology
- * codes the diagram modes paint (e.g. the Dependency arc tags `subj`/`obj`, the
- * Morphology agreement link `agr`, the Discourse connectives `ground`/`purpose`).
+ * codes the diagram modes paint (e.g. the Dependency arc tags `subj`/`obj` and
+ * the Morphology agreement link `agr`).
  *
  * A layout element advertises a `glossKey`; tapping the label opens the shared
  * detail panel with the matching entry. Pure data + lookup, so it is testable in
@@ -19,8 +19,8 @@ export interface GlossEntry {
 
 /**
  * Canonical entries keyed by a stable id. Relation labels use their
- * `SyntacticRole` as the key; morphology codes and discourse connectives use
- * their own short keys. Keys are matched case-insensitively (see {@link lookupGloss}).
+ * `SyntacticRole` as the key; morphology codes use their own short keys. Keys
+ * are matched case-insensitively (see {@link lookupGloss}).
  */
 const GLOSSARY: Record<string, GlossEntry> = {
   // ── Clause structure ────────────────────────────────────────────────────
@@ -176,56 +176,6 @@ const GLOSSARY: Record<string, GlossEntry> = {
     term: 'Agreement',
     abbr: 'agr',
     detail: 'These words agree in their grammatical form — case, gender, and number — which is how Greek signals that they belong together regardless of word order (e.g. an article or adjective matching its noun).',
-  },
-
-  // ── Discourse-flow relations ────────────────────────────────────────────
-  ground: {
-    term: 'Ground / reason',
-    detail: 'This clause gives the basis or cause for the one above it (ὅτι, γάρ, διότι … “because/for”).',
-  },
-  purpose: {
-    term: 'Purpose',
-    detail: 'This clause states the goal or intention of the one above it (ἵνα, ὅπως … “in order that”).',
-  },
-  result: {
-    term: 'Result',
-    detail: 'This clause states the outcome that follows from the one above it (ὥστε, διό … “so that, therefore”).',
-  },
-  inference: {
-    term: 'Inference',
-    detail: 'This clause draws a conclusion from what precedes (οὖν, ἄρα … “therefore, then”).',
-  },
-  manner: {
-    term: 'Manner / comparison',
-    detail: 'This clause says how, or compares with, the one above it (καθώς, ὡς, ὥσπερ … “just as”).',
-  },
-  condition: {
-    term: 'Condition',
-    detail: 'This clause sets a condition for the one above it (εἰ, ἐάν … “if”).',
-  },
-  temporal: {
-    term: 'Time',
-    detail: 'This clause locates the other in time (ὅτε, ὅταν, ἕως … “when, until”).',
-  },
-  contrast: {
-    term: 'Contrast',
-    detail: 'This clause stands in opposition to the one above it (ἀλλά, πλήν … “but, nevertheless”).',
-  },
-  development: {
-    term: 'Development',
-    detail: 'This clause carries the discourse a step forward (δέ … “now, and”).',
-  },
-  continuation: {
-    term: 'Continuation',
-    detail: 'This clause simply continues or adds to the one above it (καί, τε … “and”).',
-  },
-  content: {
-    term: 'Content',
-    detail: 'This clause supplies the content of the verb above it — what was said, thought, or known.',
-  },
-  explanation: {
-    term: 'Explanation',
-    detail: 'A relative or descriptive clause that explains or qualifies the one above it.',
   },
 
   // ── Greek/Hebrew morphology codes ───────────────────────────────────────

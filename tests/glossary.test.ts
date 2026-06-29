@@ -20,9 +20,7 @@ describe('glossary', () => {
     expect(lookupGloss('root')?.term).toBe('Root');
   });
 
-  it('explains discourse connectives and morphology codes', () => {
-    expect(lookupGloss('ground')?.term).toMatch(/ground|reason/i);
-    expect(lookupGloss('continuation')).toBeDefined();
+  it('explains morphology codes', () => {
     expect(lookupGloss('nom')?.term).toBe('Nominative');
     expect(lookupGloss('aor')?.term).toBe('Aorist');
     expect(lookupGloss('ptcp')?.term).toBe('Participle');
