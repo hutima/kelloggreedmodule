@@ -144,6 +144,23 @@ describe('Lowfat clause coordination & subordination', () => {
     expect(link.label).toBe('ὅτι');
   });
 
+  it('treats an asyndetic noun list (πίστις, ἐλπίς, ἀγάπη) as conjuncts, not apposition', () => {
+    // Lowfat marks a bare list of like NPs with a repeated rule ("NpNpNp"); with
+    // no conjunction it is still a COORDINATION (a fork), not appositional renaming.
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl">
+      <w class="verb" role="v">μένει</w>
+      <wg role="s" class="np" rule="NpNpNp">
+        <w class="noun" head="true" case="nominative">πίστις</w>
+        <w class="noun" case="nominative">ἐλπίς</w>
+        <w class="noun" case="nominative">ἀγάπη</w>
+      </wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    const conj = doc!.syntax.relations.filter((r) => r.type === 'conjunct');
+    expect(conj).toHaveLength(2); // ἐλπίς and ἀγάπη are conjuncts of πίστις
+    expect(doc!.syntax.relations.some((r) => r.type === 'apposition')).toBe(false);
+  });
+
   it('passes a single-child wrapper straight through (no extra clause node)', () => {
     const xml = `<book name="Test"><sentence><wg role="cl">
       <wg class="cl" rule="S-V"><w class="pron" role="s">ἐγώ</w><w class="verb" role="v">τρέχω</w></wg>

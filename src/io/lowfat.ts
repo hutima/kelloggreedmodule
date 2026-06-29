@@ -362,6 +362,10 @@ class SentenceConverter {
     // Noun-level: genitive vs apposition vs coordinate, from the parent rule.
     if (/appos/i.test(rule)) return 'apposition';
     if (/ofnp|ofgen|gen/i.test(rule)) return 'genitive';
+    // Asyndetic coordination — a bare list of like constituents with no
+    // conjunction (πίστις, ἐλπίς, ἀγάπη; rule "NpNpNp"/"NpNp"/"AdjAdj"…). These
+    // are coordinate (a fork), not appositional renamings.
+    if (/^(np|adj|vp|pp){2,}$/i.test(rule)) return 'conjunct';
     if (/npanp|aNp|conj/i.test(rule)) return 'conjunct';
     if (this.isAdjective(child)) return 'adjectival';
     return child.getAttribute('case') === 'genitive' ? 'genitive' : 'apposition';
