@@ -26,10 +26,36 @@ import {
   runInference,
   type Inference,
 } from '@/domain/inference';
+import { getDocument, saveDocument } from '@/persistence';
 import { scheduleAutosave } from './autosave';
 import type { AppMode, EditorState, Selection } from './types';
 
 const HISTORY_LIMIT = 100;
+
+/**
+ * The id of the last document the user was viewing/editing, so a refresh (or an
+ * iOS Safari pinch-zoom that blanks the page) restores it instead of dropping to
+ * a blank doc. The document itself lives in IndexedDB (autosaved); this is just
+ * the pointer to it.
+ */
+const LAST_DOC_KEY = 'kr:lastDoc';
+
+function rememberLastDoc(id: string): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(LAST_DOC_KEY, id);
+  } catch {
+    /* storage full or disabled — the session simply won't be restorable */
+  }
+}
+
+/** Persist an opened/navigated passage so it survives a reload (best-effort). */
+function persistOpened(doc: KrDocument): void {
+  rememberLastDoc(doc.id);
+  // Opened passages are generated from source XML and aren't in storage yet, so
+  // save the document too; otherwise there is nothing to restore by id.
+  void saveDocument(doc).catch(() => {});
+}
 
 /**
  * Analyst notes persist PER PASSAGE, keyed by the document id (which is
@@ -62,6 +88,8 @@ export interface EditorActions {
   // lifecycle
   newDocument: (language: Language, title?: string) => void;
   loadDocument: (doc: KrDocument) => void;
+  /** Restore the last viewed passage (after a reload), if any. */
+  restoreLastSession: () => Promise<void>;
   setMode: (mode: AppMode) => void;
   /** Set the GNT reading context (book's sentences + current index) for nav. */
   setGntContext: (passages: KrDocument[], index: number) => void;
@@ -124,6 +152,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     const nextPast = [...past, doc].slice(-HISTORY_LIMIT);
     set({ doc: next, past: nextPast, future: [], status: 'saving' });
     scheduleAutosave(next, (status) => set({ status }));
+    rememberLastDoc(next.id); // autosave persists the doc; remember it for restore
   };
 
   return {
@@ -149,8 +178,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       if (next < 0 || next >= gntPassages.length) return;
       const doc = gntPassages[next]!;
       const saved = loadPassageNotes(doc.id);
+      const withNotes = saved != null ? { ...doc, notes: saved } : doc;
       set({
-        doc: saved != null ? { ...doc, notes: saved } : doc,
+        doc: withNotes,
         gntIndex: next,
         past: [],
         future: [],
@@ -159,6 +189,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         linking: null,
         status: 'saved',
       });
+      persistOpened(withNotes);
     },
 
     newDocument: (language, title) => {
@@ -172,6 +203,33 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const saved = loadPassageNotes(doc.id);
       const next = saved != null ? { ...doc, notes: saved } : doc;
       set({ doc: next, past: [], future: [], inferences: [], selection: {}, linking: null, status: 'saved' });
+      persistOpened(next);
+    },
+
+    restoreLastSession: async () => {
+      if (typeof localStorage === 'undefined') return;
+      let id: string | null = null;
+      try {
+        id = localStorage.getItem(LAST_DOC_KEY);
+      } catch {
+        return;
+      }
+      if (!id || id === get().doc.id) return;
+      const doc = await getDocument(id);
+      if (!doc) return;
+      const saved = loadPassageNotes(doc.id);
+      const next = saved != null ? { ...doc, notes: saved } : doc;
+      set({
+        doc: next,
+        // A restored gold-standard passage reads like a reopened one.
+        mode: next.syntax.nodes.length ? 'parsed' : get().mode,
+        past: [],
+        future: [],
+        inferences: [],
+        selection: {},
+        linking: null,
+        status: 'saved',
+      });
     },
 
     setMode: (mode) => {

@@ -23,4 +23,16 @@ export function preventNativeZoom(): void {
   document.addEventListener('gesturestart', cancel, { passive: false });
   document.addEventListener('gesturechange', cancel, { passive: false });
   document.addEventListener('gestureend', cancel, { passive: false });
+  // On some iOS versions gesture events alone don't stop the zoom — the page
+  // still zoomed (and a zoom-out left the standalone PWA blank on release). A
+  // two-finger touchmove IS the pinch, so cancel it directly. This does not
+  // affect single-finger scrolling, nor the diagram's own pinch, which is driven
+  // by Pointer events (a separate stream that preventDefault here doesn't stop).
+  document.addEventListener(
+    'touchmove',
+    (e) => {
+      if (e.touches.length > 1) e.preventDefault();
+    },
+    { passive: false },
+  );
 }

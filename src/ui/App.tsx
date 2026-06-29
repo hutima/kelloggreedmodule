@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useEditorStore } from '@/state';
 import { TopBar } from './components/TopBar';
 import { DiagramCanvas } from './components/DiagramCanvas';
 import { LeftPanel } from './panels/LeftPanel';
@@ -10,6 +12,13 @@ import { UpdateModal } from './components/UpdateModal';
  * place via its own caret, so the top bar stays clean — just the Export action.
  */
 export function App() {
+  // Restore the last viewed passage after a reload (e.g. an iOS pinch-zoom that
+  // blanked the page), so a refresh lands back where the user was.
+  const restoreLastSession = useEditorStore((s) => s.restoreLastSession);
+  useEffect(() => {
+    void restoreLastSession();
+  }, [restoreLastSession]);
+
   return (
     <div className="app">
       <TopBar />
