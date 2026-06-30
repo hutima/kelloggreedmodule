@@ -1,6 +1,19 @@
 import type { KrDocument, SermonPrepData, SermonAnchor } from '@/domain/schema';
 import type { Inference } from '@/domain/inference';
 import type { DiagramMode } from '@/domain/layout';
+import type { SyntaxSourceId } from '@/io/sources';
+
+/**
+ * Desktop side-by-side comparison of TWO syntax SOURCES (e.g. Nestle1904 vs
+ * OpenText) for the current passage. The secondary source's parse is loaded by
+ * the view; the store only holds the toggle + chosen secondary source so the
+ * picker control and the diagram stay in sync.
+ */
+export interface SourceCompareState {
+  on: boolean;
+  /** The secondary source rendered in the right pane. */
+  source: SyntaxSourceId;
+}
 
 /**
  * Legacy inference WORKING mode (how a parse is built). Distinct from the
@@ -160,6 +173,8 @@ export interface EditorState {
   verticalScale: number;
   /** Which diagram renderer is active (Kellogg-Reed by default). */
   diagramMode: DiagramMode;
+  /** Desktop side-by-side comparison of two syntax sources. */
+  sourceCompare: SourceCompareState;
   /**
    * Show English glosses instead of the Greek/Hebrew words in the structural
    * diagrams (Kellogg-Reed / Phrase-Block / Dependency). The PARSE stays the

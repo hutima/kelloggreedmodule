@@ -7,6 +7,13 @@ export { maculaHebrewToDocuments, type MaculaHebrewDocOptions } from './macula-h
 export { openTextToDocuments, type OpenTextDocOptions } from './opentext';
 export { buildSurfaceIndex, alignOpenTextSurface, type AlignResult } from './opentext-align';
 export { loadOpenTextBook, OPENTEXT_BOOKS, type OpenTextBook } from './opentext-source';
+export {
+  loadSourcePassage,
+  sourceOfDoc,
+  sourceLabel,
+  SYNTAX_SOURCES,
+  type SyntaxSourceId,
+} from './sources';
 export { combinePassage } from './passage';
 export {
   loadParallelBook,

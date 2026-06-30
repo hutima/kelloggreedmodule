@@ -31,6 +31,7 @@ import {
   VariantComparisonView,
   useContestedAffectedNodes,
 } from '@/ui/contested';
+import { SourceCompareView } from './SourceCompareView';
 import { useViewport } from '@/ui/responsive';
 
 const TENTATIVE = '#c2410c';
@@ -84,6 +85,10 @@ export function DiagramCanvas() {
   // Mobile NEVER renders two variant frames; side-by-side is desktop/tablet only.
   const sideBySide = alternateDisplayMode === 'side-by-side' && !!previewDoc && !viewport.isMobile;
   const singlePreview = alternateDisplayMode === 'single-preview' && !!previewDoc;
+  // Two-source comparison (desktop only); takes precedence only when no contested
+  // preview comparison is active.
+  const sourceCompareOn = useEditorStore((s) => s.sourceCompare.on);
+  const compareSources = sourceCompareOn && !viewport.isMobile && !sideBySide && !singlePreview;
   const [collapsed, setCollapsed] = useState(false);
   // Which label element anchors the glossary popover (so it opens at the exact
   // tag tapped, even when several arcs share a label/colour).
@@ -798,7 +803,11 @@ export function DiagramCanvas() {
           )}
         </div>
       )}
-      {sideBySide ? (
+      {compareSources ? (
+        <div className="canvas-viewport compare-mode">
+          <SourceCompareView />
+        </div>
+      ) : sideBySide ? (
         <div className="canvas-viewport compare-mode">
           <VariantComparisonView />
         </div>
