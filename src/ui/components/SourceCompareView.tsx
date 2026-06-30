@@ -63,6 +63,15 @@ export function SourceCompareView() {
     [gloss, state.doc],
   );
 
+  // Each pane is labelled with its source AND the verses it actually spans —
+  // the two sources split sentences differently, so the references can differ
+  // (OpenText 1:9–10 vs the Nestle1904 1:7–10 sentence that contains it).
+  const verseOf = (title: string) => title.replace(/^.*?(\d+:\d+(?:[–-]\d+)?)\s*$/, '$1');
+  const leftTitle = `${sourceLabel(primary)} · ${verseOf(doc.title)}`;
+  const rightTitle = state.doc
+    ? `${sourceLabel(secondary)} · ${verseOf(state.doc.title)}`
+    : sourceLabel(secondary);
+
   return (
     <div className="variant-compare">
       <div className="variant-compare-bar">
@@ -95,7 +104,7 @@ export function SourceCompareView() {
           ref={leftRef}
           doc={leftDoc}
           mode={diagramMode}
-          title={sourceLabel(primary)}
+          title={leftTitle}
           onScrollSync={onLeftScroll}
         />
         {rightDoc ? (
@@ -103,7 +112,7 @@ export function SourceCompareView() {
             ref={rightRef}
             doc={rightDoc}
             mode={diagramMode}
-            title={sourceLabel(secondary)}
+            title={rightTitle}
             onScrollSync={onRightScroll}
           />
         ) : (
