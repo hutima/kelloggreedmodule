@@ -1973,8 +1973,17 @@ button.mc-code.glossed:hover {
 }
 /* The always-present drag banner: a subdued idle hint that reserves the slot, so
    starting a drag (which switches it to the accent "Drop …" state) never shifts
-   the rows. Fixed min-height keeps both states the same size. */
-.pbw-banner-dnd { background: var(--bg); color: var(--ink-soft); }
+   the rows. A FIXED height (not just min-height) keeps the idle text state and
+   the taller drag state — which adds a Cancel button — exactly the same size, so
+   the rows never nudge when the drag begins. */
+.pbw-banner-dnd {
+  background: var(--bg); color: var(--ink-soft);
+  height: 42px; min-height: 42px;
+  padding-top: 0; padding-bottom: 0;
+  flex-wrap: nowrap; overflow: hidden;
+}
+/* Compact the Cancel button so it can't grow the fixed-height banner. */
+.pbw-banner-dnd .mini { padding: 3px 10px; }
 .pbw-banner-dnd.dragging { background: var(--accent-soft); color: var(--ink); }
 .pbw-banner-hint { color: var(--muted); }
 .pbw-grip-inline { color: var(--accent); font-weight: 700; }
