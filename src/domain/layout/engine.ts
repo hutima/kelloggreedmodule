@@ -1298,10 +1298,16 @@ function layoutCoordination(
     // a member that carries right-cascading modifiers (e.g. an appositive with a
     // genitive) stays inside the fork instead of overflowing past the junction.
     const maxWidth = Math.max(...members.map((m) => m.width));
-    junctionX = prong + maxWidth;
+    // Members right-align to `maxWidth` (their content edge); the dashed
+    // coordinator bar then sits CLEAR px FURTHER right, so it — and the
+    // conjunction riding it — never land flush on a member's content. Without this
+    // a member whose right edge is a genitive chain's baseline (e.g. Τιμόθεος,
+    // δοῦλος Χριστοῦ Ἰησοῦ in Phil 1:1) collides with the bar at that exact x.
+    const CLEAR = LAYOUT.wordPadX;
+    junctionX = prong + maxWidth + CLEAR;
     width = junctionX;
     members.forEach((m, i) => {
-      const mx = junctionX - prong - m.width;
+      const mx = maxWidth - m.width;
       const by = baselines[i]! - centerY;
       elements.push(...translate(m, mx, by));
       elements.push(line(eid(), junctionX, 0, mx + m.width, by, 'solid', 'coordination'));
