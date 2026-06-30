@@ -78,7 +78,7 @@ export function TopBar() {
     <header className="topbar">
       <div className="brand">
         <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true">
-          <rect width="64" height="64" rx="10" fill="#2f6f9f" />
+          <rect width="64" height="64" rx="10" fill="#b90e31" />
           <g stroke="#fff" strokeWidth="2.6" strokeLinecap="round">
             <line x1="10" y1="36" x2="54" y2="36" />
             <line x1="29" y1="26" x2="29" y2="46" />

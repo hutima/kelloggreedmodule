@@ -585,7 +585,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     diagramMode: DEFAULT_MODE,
     sourceCompare: { on: false, source: 'opentext' },
     glossMode: false,
-    colorMode: false,
+    colorMode: true,
     inferences: [],
     status: 'idle',
     past: [],

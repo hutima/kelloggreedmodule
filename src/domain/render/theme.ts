@@ -5,7 +5,7 @@
 export const THEME = {
   ink: '#1f2933',
   muted: '#8a97a3',
-  accent: '#2f6f9f',
+  accent: '#b90e31',
   /** Low-confidence (ambiguous) inferences — invites the user to relink. */
   tentative: '#c2410c',
   paper: '#ffffff',
