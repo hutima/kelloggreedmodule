@@ -101,6 +101,49 @@ describe('a coordinator attached to a conjunct rides the fork bar (not a slant)'
   });
 });
 
+describe('compound predicate where each verb has its OWN object (open fork)', () => {
+  // "God exalted HIM and gave HIM the name" — one subject, two verbs, DIFFERENT
+  // objects. Each fork arm must carry its own object; nothing is dropped.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s'] },
+      { id: 'V1', kind: 'word', role: 'predicate', tokenIds: ['v1'] },
+      { id: 'C', kind: 'word', role: 'coordinator', tokenIds: ['c'] },
+      { id: 'V2', kind: 'word', role: 'conjunct', tokenIds: ['v2'] },
+      { id: 'O1', kind: 'word', role: 'directObject', tokenIds: ['o1'] },
+      { id: 'O2', kind: 'word', role: 'directObject', tokenIds: ['o2'] },
+    ],
+    [
+      { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+      { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'V1' },
+      { id: 'r3', type: 'conjunct', headId: 'V1', dependentId: 'V2' },
+      { id: 'r4', type: 'coordinator', headId: 'V1', dependentId: 'C' },
+      { id: 'r5', type: 'directObject', headId: 'V1', dependentId: 'O1' },
+      { id: 'r6', type: 'directObject', headId: 'V2', dependentId: 'O2' },
+    ],
+    [
+      { id: 's', index: 0, surface: 'God', pos: 'propernoun' },
+      { id: 'v1', index: 1, surface: 'exalted', pos: 'verb' },
+      { id: 'c', index: 2, surface: 'and', pos: 'conjunction' },
+      { id: 'v2', index: 3, surface: 'gave', pos: 'verb' },
+      { id: 'o1', index: 4, surface: 'him', pos: 'pronoun' },
+      { id: 'o2', index: 5, surface: 'name', pos: 'noun' },
+    ],
+  );
+
+  it('draws both verbs AND both objects exactly once, with one subject', () => {
+    const layout = layoutDocument(doc);
+    const t = texts(layout);
+    for (const w of ['God', 'exalted', 'gave', 'him', 'name', 'and']) {
+      expect(t.filter((x) => x === w)).toHaveLength(1);
+    }
+    // One subject divider; the fork uses coordination lines.
+    expect(layout.elements.filter((e) => e.kind === 'line' && (e as { role: string }).role === 'divider')).toHaveLength(1);
+    expect(layout.elements.some((e) => e.kind === 'line' && (e as { role: string }).role === 'coordination')).toBe(true);
+  });
+});
+
 describe('compound predicate sharing one object', () => {
   // "Samantha proofreads and edits her essays."
   const doc = build(

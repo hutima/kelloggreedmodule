@@ -9,6 +9,7 @@ import type {
   Token,
 } from '@/domain/schema';
 import { SCHEMA_VERSION } from '@/domain/schema';
+import { mergeSharedSubjectPredicate } from '@/domain/model';
 
 /**
  * Convert a Nestle1904 **Lowfat** syntax tree (biblicalhumanities /
@@ -545,19 +546,23 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
 
     const ref = verseRef(sentence);
     const ts = '2024-01-01T00:00:00.000Z';
-    docs.push({
-      schemaVersion: SCHEMA_VERSION,
-      id: `gnt_${slug(book)}_${i}`,
-      title: ref ? `${book} ${ref}` : `${book} (${i + 1})`,
-      language: 'grc',
-      text: conv.tokens.map((t) => t.surface).join(' '),
-      notes: '',
-      createdAt: ts,
-      updatedAt: ts,
-      layoutHints: {},
-      tokens: conv.tokens,
-      syntax: { rootId, nodes: conv.nodes, relations: conv.relations },
-    });
+    // Collapse coordinate clauses that share one subject into a compound
+    // predicate (one subject, forked verbs) — the Reed-Kellogg reading.
+    docs.push(
+      mergeSharedSubjectPredicate({
+        schemaVersion: SCHEMA_VERSION,
+        id: `gnt_${slug(book)}_${i}`,
+        title: ref ? `${book} ${ref}` : `${book} (${i + 1})`,
+        language: 'grc',
+        text: conv.tokens.map((t) => t.surface).join(' '),
+        notes: '',
+        createdAt: ts,
+        updatedAt: ts,
+        layoutHints: {},
+        tokens: conv.tokens,
+        syntax: { rootId, nodes: conv.nodes, relations: conv.relations },
+      }),
+    );
   });
   return docs;
 }

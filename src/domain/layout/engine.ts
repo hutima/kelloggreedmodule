@@ -1363,9 +1363,171 @@ function layoutCoordination(
  * Returned block: baseline at y = 0 entering at the left junction and leaving at
  * the right junction (wordLeft = 0, wordRight = width); members straddle the line.
  */
+/**
+ * Whether a compound predicate's CONJUNCT verbs carry their OWN complements. If
+ * so each arm must be drawn with its own objects (an open fork — "God exalted
+ * HIM and gave HIM the name"), rather than collapsed around one shared object
+ * ("proofreads and edits her essays"). The clause must then NOT also draw the
+ * head verb's complements (they live in the arms) — see `verbSelfContained`.
+ */
+function isPerVerbCompound(ctx: Ctx, verbNode: SyntaxNode): boolean {
+  return wordConjunctRels(ctx, verbNode.id).some((r) =>
+    childRelations(ctx.doc.syntax, r.dependentId).some(
+      (c) => c.type !== 'conjunct' && c.type !== 'coordinator',
+    ),
+  );
+}
+
+/**
+ * One arm of a compound predicate: a verb with its OWN baseline complements
+ * (direct-object tick / predicate-nominative back-slant) and below-hanging
+ * modifiers (indirect object, adverbial, prepositional phrase…), as a block whose
+ * baseline sits at y = 0 — no subject, no divider. Lets each forked verb keep its
+ * own objects. Mirrors the clause's predicate-side drawing for a single verb.
+ */
+function layoutPredicateArm(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): Block {
+  const elements: DiagramElement[] = [];
+  const text = nodeText(ctx.doc, verbNode) || verbNode.label || (verbNode.implied ? ELISION_MARK : '∅');
+  const wordW = measureText(text) + LAYOUT.wordPadX * 2;
+  elements.push(wordText(eid(), wordW / 2, -LAYOUT.textRise, text, 'middle', verbNode));
+
+  const rels = childRelations(ctx.doc.syntax, verbNode.id).filter(
+    (r) => r.type !== 'conjunct' && r.type !== 'coordinator',
+  );
+  const onBaseline = (r: Relation) => BASELINE_COMPLEMENTS.includes(r.type) && !isClauseChild(ctx, r.dependentId);
+  const baselineRels = rels.filter(onBaseline);
+  const belowRels = rels.filter((r) => !onBaseline(r));
+
+  let x = wordW;
+  let right = wordW;
+  let baseHeight = 0;
+  baselineRels.forEach((rel) => {
+    const sepX = x;
+    if (rel.type === 'predicateNominative' || rel.type === 'predicateAdjective') {
+      elements.push(line(eid(), sepX + 10, 0, sepX, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id));
+    } else {
+      elements.push(line(eid(), sepX, 0, sepX, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id));
+    }
+    x += 6;
+    const block = layoutNode(ctx, rel.dependentId, seen);
+    elements.push(...translate(block, x, 0));
+    baseHeight = Math.max(baseHeight, block.height);
+    x += block.width;
+    right = Math.max(right, x);
+  });
+
+  const belowTop = LAYOUT.slantDrop * ctx.vScale;
+  let belowMaxBottom = 0;
+  let cursor = wordW / 2;
+  belowRels.forEach((rel) => {
+    cursor += LAYOUT.dependentGap;
+    const objId = prepObjectId(ctx, rel);
+    const ppConj = objId ? ppConjunctRels(ctx, rel.dependentId) : [];
+    let ext: { right: number; bottom: number };
+    if (isInfinitival(ctx, rel.dependentId)) {
+      ext = drawInfinitive(ctx, rel, cursor, belowTop, seen, elements);
+    } else if (objId && ppConj.length) {
+      ext = drawPpCoordination(ctx, rel, objId, ppConj, cursor, belowTop, seen, elements);
+    } else if (objId) {
+      ext = drawPp(ctx, rel.dependentId, objId, rel.id, cursor, belowTop, seen, elements);
+    } else if (rel.type !== 'conjunct' && isDiagonalCoordination(ctx, rel.dependentId)) {
+      ext = drawDiagonalCoordination(ctx, rel.dependentId, cursor, elements);
+    } else if (isDiagonalModifier(ctx, rel.dependentId)) {
+      const node2 = getNode(ctx.doc.syntax, rel.dependentId)!;
+      ext = drawDiagonalModifier(ctx, node2, cursor, 0, rel.id, elements);
+    } else {
+      const block = layoutNode(ctx, rel.dependentId, seen);
+      const oTop = belowTop + blockAscent(block);
+      const objX = cursor + LAYOUT.diagRun;
+      elements.push(...translate(block, objX, oTop));
+      elements.push(line(eid(), cursor, 0, objX + block.wordLeft, oTop, 'solid', 'stem', undefined, rel.id));
+      ext = { right: objX + block.width, bottom: oTop + block.height };
+    }
+    belowMaxBottom = Math.max(belowMaxBottom, ext.bottom);
+    cursor = ext.right + LAYOUT.dependentGap;
+    right = Math.max(right, ext.right);
+  });
+
+  elements.unshift(line(eid(), 0, 0, right, 0, 'solid', 'baseline'));
+  return {
+    width: right,
+    height: Math.max(baseHeight, belowMaxBottom),
+    elements,
+    wordLeft: 0,
+    wordRight: wordW,
+    verbX: wordW / 2,
+  };
+}
+
+/**
+ * An OPEN compound-predicate fork: each member verb is a full arm (verb + its own
+ * complements), the arms fan out to the right from a single left junction where
+ * the subject|predicate divider meets, joined by the dashed coordinator bar. No
+ * right rejoin — the arms carry their own objects independently.
+ */
+function layoutOpenPredicateFork(
+  ctx: Ctx,
+  verbNode: SyntaxNode,
+  conjunctRels: { dependentId: string }[],
+  coords: { text: string; nodeId: string }[],
+  seen: Set<string>,
+): Block {
+  const memberNodes = [verbNode, ...conjunctRels.map((r) => getNode(ctx.doc.syntax, r.dependentId)!)];
+  const arms = memberNodes.map((n) => layoutPredicateArm(ctx, n, seen));
+  const gap = LAYOUT.coordMemberGap * ctx.vScale + LAYOUT.dividerUp;
+  const baselines: number[] = [];
+  let cursorTop = 0;
+  arms.forEach((m) => {
+    const by = cursorTop + blockAscent(m);
+    baselines.push(by);
+    cursorTop = by + m.height + gap;
+  });
+  const centerY = (baselines[0]! + baselines[baselines.length - 1]!) / 2;
+  const prong = LAYOUT.coordProngRun;
+  const elements: DiagramElement[] = [];
+  let width: number = prong;
+  arms.forEach((m, i) => {
+    const by = baselines[i]! - centerY;
+    elements.push(...translate(m, prong, by));
+    elements.push(line(eid(), 0, 0, prong, by, 'solid', 'coordination')); // left prong: junction → arm
+    width = Math.max(width, prong + m.width);
+  });
+  const topY = baselines[0]! - centerY;
+  const botY = baselines[baselines.length - 1]! - centerY;
+  elements.push(line(eid(), prong, topY, prong, botY, 'dashed', 'coordination', verbNode.id));
+  if (coords.length >= 2) {
+    coords.forEach((c, i) => {
+      const idx = Math.min(i, baselines.length - 1);
+      elements.push({
+        kind: 'text', id: eid(), x: prong - 7, y: baselines[idx]! - centerY,
+        text: c.text, anchor: 'middle', small: true, rotate: -90, nodeId: c.nodeId,
+      });
+    });
+  } else if (coords.length === 1) {
+    elements.push({
+      kind: 'text', id: eid(), x: prong - 7, y: (topY + botY) / 2, text: coords[0]!.text,
+      anchor: 'middle', small: true, rotate: -90, nodeId: coords[0]!.nodeId,
+    });
+  }
+  return {
+    width,
+    height: botY + arms[arms.length - 1]!.height,
+    elements,
+    wordLeft: 0,
+    wordRight: 0,
+    verbX: 0,
+  };
+}
+
 function layoutCompoundPredicate(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): Block {
   const conjunctRels = wordConjunctRels(ctx, verbNode.id);
   const coords = coordinatorTexts(ctx, verbNode.id);
+
+  // When the conjunct verbs carry their own objects, draw an open fork of full
+  // predicate arms instead of the collapsed shared-object fork below.
+  if (isPerVerbCompound(ctx, verbNode)) {
+    return layoutOpenPredicateFork(ctx, verbNode, conjunctRels, coords, seen);
+  }
 
   // Bare verb words (their shared complements are drawn by the clause after the
   // fork; per-verb adverbials are uncommon and omitted from the fork members).
@@ -1510,7 +1672,11 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // standing in that slot above the line — the traditional Kellogg-Reed
   // treatment. A very tall embedded clause would tower over everything, so it
   // falls back to hanging below on a dotted stem instead.
-  const verbRels = predicateRel ? childRelations(model, predicateRel.dependentId) : [];
+  // A per-verb compound predicate draws every complement INSIDE its fork arms, so
+  // the clause must not also draw the head verb's complements after the fork
+  // (that would duplicate them and lose the conjunct verbs' objects).
+  const verbSelfContained = !!verbNode && isWordCoordination(ctx, verbNode) && isPerVerbCompound(ctx, verbNode);
+  const verbRels = predicateRel && !verbSelfContained ? childRelations(model, predicateRel.dependentId) : [];
   const isCoreSlot = (r: { type: SyntacticRole }) => BASELINE_COMPLEMENTS.includes(r.type);
   const isBaselineComplement = (r: { type: SyntacticRole; dependentId: string }) =>
     isCoreSlot(r) && !isClauseChild(ctx, r.dependentId);

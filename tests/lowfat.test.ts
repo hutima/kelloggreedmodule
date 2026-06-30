@@ -240,6 +240,52 @@ describe('Lowfat clause coordination & subordination', () => {
     expect(doc!.syntax.relations.some((r) => r.type === 'apposition')).toBe(false);
   });
 
+  it('merges shared-subject coordinate clauses into a compound predicate', () => {
+    // "θεός ὕψωσεν αὐτόν καὶ ἔδωκεν ὄνομα" — subject stated once, two verbs with
+    // their OWN objects. Should collapse to one clause: subject + a forked verb.
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl" rule="CLaCL">
+      <wg class="cl"><w class="noun" role="s" n="010010010010010">θεός</w><w class="verb" role="v" n="010010010020010">ὕψωσεν</w><w class="pron" role="o" n="010010010030010">αὐτόν</w></wg>
+      <w class="conj" n="010010010040010">καὶ</w>
+      <wg class="cl"><w class="verb" role="v" n="010010010050010">ἔδωκεν</w><w class="noun" role="o" n="010010010060010">ὄνομα</w></wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    const surf = (id: string) => {
+      const n = doc!.syntax.nodes.find((x) => x.id === id);
+      return doc!.tokens.find((t) => t.id === n?.tokenIds[0])?.surface;
+    };
+    const root = doc!.syntax.nodes.find((n) => n.id === doc!.syntax.rootId)!;
+    const rootKids = doc!.syntax.relations.filter((r) => r.headId === root.id);
+    // One clause: subject θεός + predicate ὕψωσεν — NOT two conjunct clauses.
+    expect(rootKids.find((r) => r.type === 'subject' && surf(r.dependentId) === 'θεός')).toBeDefined();
+    const pred = rootKids.find((r) => r.type === 'predicate')!;
+    expect(surf(pred.dependentId)).toBe('ὕψωσεν');
+    expect(rootKids.some((r) => r.type === 'conjunct')).toBe(false);
+    // The second verb is a conjunct of the first (compound predicate), with the
+    // coordinator on the verb; each verb keeps its own object.
+    const v1 = pred.dependentId;
+    const v1kids = doc!.syntax.relations.filter((r) => r.headId === v1);
+    expect(v1kids.some((r) => r.type === 'conjunct' && surf(r.dependentId) === 'ἔδωκεν')).toBe(true);
+    expect(v1kids.some((r) => r.type === 'coordinator' && surf(r.dependentId) === 'καὶ')).toBe(true);
+    expect(v1kids.some((r) => r.type === 'directObject' && surf(r.dependentId) === 'αὐτόν')).toBe(true);
+    const v2 = v1kids.find((r) => r.type === 'conjunct')!.dependentId;
+    expect(doc!.syntax.relations.some((r) => r.headId === v2 && r.type === 'directObject' && surf(r.dependentId) === 'ὄνομα')).toBe(true);
+    // No phantom implied subject, and no leftover member-clause nodes.
+    expect(doc!.syntax.nodes.some((n) => n.implied)).toBe(false);
+    expect(doc!.syntax.nodes.filter((n) => n.kind === 'clause')).toHaveLength(1);
+  });
+
+  it('does NOT merge when the clauses have different subjects', () => {
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl" rule="ClClCl">
+      <wg class="cl"><w class="noun" role="s" n="010010010010010">λόγος</w><w class="verb" role="v" n="010010010020010">ἦν</w></wg>
+      <w class="conj" n="010010010030010">καὶ</w>
+      <wg class="cl"><w class="noun" role="s" n="010010010040010">θεός</w><w class="verb" role="v" n="010010010050010">ἦν</w></wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    // Each clause has its own subject → stays a coordination, not a compound verb.
+    expect(doc!.syntax.relations.filter((r) => r.type === 'conjunct').length).toBeGreaterThanOrEqual(2);
+    expect(doc!.syntax.nodes.filter((n) => n.kind === 'clause').length).toBeGreaterThan(1);
+  });
+
   it('attaches a cardinal numeral to its noun adjectivally, not as apposition', () => {
     // "πέντε ἄρτους" — the numeral πέντε quantifies ἄρτους; as a non-head NP
     // child it must slant under the noun (adjectival), not sit on the baseline.
