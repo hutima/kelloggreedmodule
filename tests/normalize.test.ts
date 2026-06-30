@@ -86,6 +86,48 @@ describe('normalizeSyntax — no word is drawn twice', () => {
     expect(texts).not.toContain('∅');
   });
 
+  it('drops an implied subject once a real subject fills the same slot', () => {
+    const doc = build(
+      [
+        { id: 'c0', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'imp', kind: 'word', role: 'subject', tokenIds: [], implied: true, label: '(implied)' },
+        { id: 'real', kind: 'word', role: 'subject', tokenIds: ['t1'] },
+        { id: 'v', kind: 'word', role: 'predicate', tokenIds: ['t2'] },
+      ],
+      [
+        { id: 'r1', type: 'subject', headId: 'c0', dependentId: 'imp' },
+        { id: 'r2', type: 'subject', headId: 'c0', dependentId: 'real' },
+        { id: 'r3', type: 'predicate', headId: 'c0', dependentId: 'v' },
+      ],
+      [
+        { id: 't1', index: 0, surface: 'people', pos: 'noun' },
+        { id: 't2', index: 1, surface: 'cheered', pos: 'verb' },
+      ],
+    );
+    const n = normalizeSyntax(doc);
+    expect(n.syntax.nodes.some((nd) => nd.id === 'imp')).toBe(false);
+    expect(n.syntax.relations.some((r) => r.dependentId === 'imp')).toBe(false);
+    expect(n.syntax.nodes.some((nd) => nd.id === 'real')).toBe(true);
+    // and the placeholder text is gone from the rendered diagram
+    expect(renderedTexts(n)).not.toContain('(implied)');
+  });
+
+  it('keeps a lone implied subject (genuine pro-drop)', () => {
+    const doc = build(
+      [
+        { id: 'c0', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'imp', kind: 'word', role: 'subject', tokenIds: [], implied: true, label: '(he)' },
+        { id: 'v', kind: 'word', role: 'predicate', tokenIds: ['t1'] },
+      ],
+      [
+        { id: 'r1', type: 'subject', headId: 'c0', dependentId: 'imp' },
+        { id: 'r2', type: 'predicate', headId: 'c0', dependentId: 'v' },
+      ],
+      [{ id: 't1', index: 0, surface: 'ἔρχεται', pos: 'verb' }],
+    );
+    expect(normalizeSyntax(doc).syntax.nodes.some((nd) => nd.id === 'imp')).toBe(true);
+  });
+
   it('keeps an intentional implied (empty) node', () => {
     const doc = build(
       [

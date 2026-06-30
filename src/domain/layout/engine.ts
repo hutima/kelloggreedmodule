@@ -1324,14 +1324,28 @@ function layoutCompoundPredicate(ctx: Ctx, verbNode: SyntaxNode, seen: Set<strin
 
 function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   const model = ctx.doc.syntax;
-  const rels = childRelations(model, clause.id);
+  let rels = childRelations(model, clause.id);
 
   // A passage: independent sentences stacked, each labelled with its verse, not
   // tied together as a coordination.
   if (clause.clauseType === 'discourse') return layoutDiscourse(ctx, clause, seen, rels);
 
-  const subjectRel = rels.find((r) => r.type === 'subject');
-  const predicateRel = rels.find((r) => r.type === 'predicate' || r.type === 'copula');
+  // Prefer a REAL filler over an implied placeholder for the subject / predicate:
+  // once the actual word is defined, the implied "(subject)"/"(verb)" should stop
+  // being drawn (the model normalizer removes it for typed/imported docs; this
+  // keeps a live hand-edit clean too). The superseded implied relations are then
+  // dropped from the clause's drawn relations entirely.
+  const isImpliedDep = (r: Relation) => !!getNode(model, r.dependentId)?.implied;
+  const subjectRels = rels.filter((r) => r.type === 'subject');
+  const predicateRels = rels.filter((r) => r.type === 'predicate' || r.type === 'copula');
+  const subjectRel = subjectRels.find((r) => !isImpliedDep(r)) ?? subjectRels[0];
+  const predicateRel = predicateRels.find((r) => !isImpliedDep(r)) ?? predicateRels[0];
+  // Implied subject/predicate relations that lost to a real sibling — not drawn.
+  const superseded = new Set<Relation>([
+    ...subjectRels.filter((r) => r !== subjectRel && isImpliedDep(r)),
+    ...predicateRels.filter((r) => r !== predicateRel && isImpliedDep(r)),
+  ]);
+  if (superseded.size) rels = rels.filter((r) => !superseded.has(r));
 
   // A HEADLESS clause — no subject and no predicate of its own — is a pure
   // coordination/container of (clause) children: the compound-sentence wrapper

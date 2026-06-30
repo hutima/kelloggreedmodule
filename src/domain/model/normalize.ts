@@ -54,8 +54,37 @@ function kindRank(n: SyntaxNode): number {
   return n.kind === 'word' ? 0 : n.kind === 'phrase' ? 1 : 2;
 }
 
+const SUPERSEDABLE = new Set<string>(['subject', 'predicate', 'copula']);
+
 export function normalizeSyntax(doc: KrDocument): KrDocument {
-  const nodes: SyntaxNode[] = doc.syntax.nodes.map((n) => ({ ...n, tokenIds: [...n.tokenIds] }));
+  // 0. An implied placeholder (an implied subject / predicate / copula) is
+  //    SUPERSEDED once a real sibling fills the same role on the same head — the
+  //    parser, or a sequence of edits, can leave both, drawing a stray "(implied)"
+  //    next to the real word. Once the real element is defined, the placeholder
+  //    should stop existing, so drop it (and its relation).
+  const nodeById0 = new Map(doc.syntax.nodes.map((n) => [n.id, n]));
+  const realFilled = new Set<string>();
+  for (const r of doc.syntax.relations) {
+    if (SUPERSEDABLE.has(r.type) && !nodeById0.get(r.dependentId)?.implied) {
+      realFilled.add(`${r.headId}|${r.type}`);
+    }
+  }
+  const superseded = new Set<string>();
+  for (const r of doc.syntax.relations) {
+    if (
+      SUPERSEDABLE.has(r.type) &&
+      nodeById0.get(r.dependentId)?.implied &&
+      realFilled.has(`${r.headId}|${r.type}`)
+    ) {
+      superseded.add(r.dependentId);
+    }
+  }
+  const srcNodes = doc.syntax.nodes.filter((n) => !superseded.has(n.id));
+  const srcRelations = doc.syntax.relations.filter(
+    (r) => !superseded.has(r.dependentId) && !superseded.has(r.headId),
+  );
+
+  const nodes: SyntaxNode[] = srcNodes.map((n) => ({ ...n, tokenIds: [...n.tokenIds] }));
 
   // 1. One owner per token.
   const owner = new Map<string, SyntaxNode>();
@@ -78,13 +107,13 @@ export function normalizeSyntax(doc: KrDocument): KrDocument {
   //    relation per dependent (highest role priority), then emit relations in
   //    their original order, keeping only winners and only one per triple.
   const winner = new Map<string, Relation>();
-  for (const r of doc.syntax.relations) {
+  for (const r of srcRelations) {
     const cur = winner.get(r.dependentId);
     if (!cur || prio(r.type) > prio(cur.type)) winner.set(r.dependentId, r);
   }
   const winners = new Set<Relation>(winner.values());
   const emitted = new Set<string>();
-  let relations = doc.syntax.relations.filter((r) => {
+  let relations = srcRelations.filter((r) => {
     if (!winners.has(r)) return false;
     const key = `${r.type}|${r.headId}|${r.dependentId}`;
     if (emitted.has(key)) return false;
