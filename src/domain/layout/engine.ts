@@ -1315,21 +1315,23 @@ function layoutCoordination(
     // a member whose right edge is a genitive chain's baseline (e.g. Τιμόθεος,
     // δοῦλος Χριστοῦ Ἰησοῦ in Phil 1:1) collides with the bar at that exact x.
     const CLEAR = LAYOUT.wordPadX;
-    junctionX = prong + maxWidth + CLEAR;
+    // Members right-align to `maxWidth` (their content edge). The fork ARMS and the
+    // dashed coordinator bar both meet at `attachX`, CLEAR px further right, so the
+    // bar never lands flush on a member's content (e.g. the genitive baseline of
+    // "δοῦλος Χριστοῦ Ἰησοῦ" on Τιμόθεος in Phil 1:1) AND the bar exactly spans the
+    // arm ends instead of overshooting them.
+    const attachX = maxWidth + CLEAR;
+    junctionX = attachX + prong;
     width = junctionX;
     members.forEach((m, i) => {
       const mx = maxWidth - m.width;
       const by = baselines[i]! - centerY;
       elements.push(...translate(m, mx, by));
-      elements.push(line(eid(), junctionX, 0, mx + m.width, by, 'solid', 'coordination'));
-      // A member is right-aligned by its FULL width, so when it carries
-      // right-cascading modifiers (e.g. "Θεὸς … τοῦ Κυρίου ἡμῶν Ἰησοῦ Χριστοῦ")
-      // the head word sits far left of the block edge where the prong attaches,
-      // leaving the word visually detached from the fork. Extend the member's
-      // baseline along the gap so the head connects to its prong.
-      if (m.wordRight < m.width - 0.5) {
-        elements.push(line(eid(), mx + m.wordRight, by, mx + m.width, by, 'solid', 'baseline'));
-      }
+      // Arm from the apex down to the bar at attachX (not the content edge).
+      elements.push(line(eid(), junctionX, 0, attachX, by, 'solid', 'coordination'));
+      // Run the member's baseline across to the bar so the conjunct — even a narrow
+      // one right-aligned past its word — connects to its arm.
+      elements.push(line(eid(), mx + m.wordRight, by, attachX, by, 'solid', 'baseline'));
     });
   } else {
     // Junction on the left; conjuncts extend right.
