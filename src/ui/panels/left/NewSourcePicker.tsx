@@ -1,10 +1,20 @@
 import { useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { tokenize } from '@/domain/model';
-import { buildLlmPrompt, importLlmDiagram, copyText, downloadText, slugify } from '@/io';
+import { buildLlmPrompt, importLlmDiagram, importJson, copyText, downloadText, slugify } from '@/io';
 import { useViewport } from '@/ui/responsive';
 import { Modal } from '@/ui/components/common/Modal';
-import type { Language } from '@/domain/schema';
+import type { KrDocument, Language } from '@/domain/schema';
+
+/** Parse pasted/loaded text as either the compact LLM format or a full KrDocument. */
+function parseDiagram(raw: string): { ok: boolean; document?: KrDocument; error?: string } {
+  const llm = importLlmDiagram(raw);
+  if (llm.ok) return llm;
+  const full = importJson(raw);
+  if (full.ok) return full;
+  // Surface the friendlier of the two messages (LLM-format parse first).
+  return { ok: false, error: llm.error ?? full.error ?? 'Could not read that diagram.' };
+}
 
 /**
  * "New" source — a free-text typing window instead of a passage list. Type (or
@@ -26,8 +36,7 @@ export function NewSourcePicker() {
   const [language, setLanguage] = useState<Language>('en');
   const [promptText, setPromptText] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const ready = text.trim().length > 0;
 
@@ -51,15 +60,9 @@ export function NewSourcePicker() {
     setPromptText(buildLlmPrompt(text.trim(), tokens, language));
   };
 
-  const onFile = async (file: File) => {
-    setImportError(null);
-    const raw = await file.text();
-    const res = importLlmDiagram(raw);
-    if (!res.ok || !res.document) {
-      setImportError(res.error ?? 'Could not read that file.');
-      return;
-    }
-    loadDocument(res.document, { corpus: 'custom' });
+  /** Load a parsed diagram document as a new custom document. */
+  const acceptDocument = (document: KrDocument) => {
+    loadDocument(document, { corpus: 'custom' });
     if (vp.isDesktop) setAppMode('edit');
     collapseIfNarrow();
   };
@@ -95,7 +98,7 @@ export function NewSourcePicker() {
         <button className="mini" disabled={!ready} title="Build a prompt for an LLM" onClick={exportForLlm}>
           Export
         </button>
-        <button className="mini" title="Import an LLM-produced diagram file" onClick={() => fileRef.current?.click()}>
+        <button className="mini" title="Paste or load an LLM / exported diagram" onClick={() => setImportOpen(true)}>
           Import
         </button>
         <button
@@ -106,31 +109,101 @@ export function NewSourcePicker() {
         >
           ⓘ
         </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void onFile(f);
-            e.target.value = '';
-          }}
-        />
       </div>
 
-      {importError && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{importError}</p>}
-
       <p style={{ fontSize: 12, color: 'var(--muted, #667)' }}>
-        Create auto-tags a starter diagram you can edit. For a fuller parse, Export → an LLM →
-        Import. The ⓘ explains how.
+        A general diagramming workspace: Create auto-tags a rough starter you edit by hand
+        (auto-tagging is approximate — expect to correct it). For a fuller first pass, Export → an
+        LLM → Import. The ⓘ explains how.
       </p>
 
       {promptText !== null && (
         <LlmExportModal text={promptText} title={text} onClose={() => setPromptText(null)} />
       )}
       {infoOpen && <LlmWorkflowModal onClose={() => setInfoOpen(false)} />}
+      {importOpen && (
+        <ImportDiagramModal
+          onClose={() => setImportOpen(false)}
+          onImport={(doc) => {
+            acceptDocument(doc);
+            setImportOpen(false);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/** Paste JSON (or load a .json file) and confirm to import a diagram. */
+function ImportDiagramModal({
+  onClose,
+  onImport,
+}: {
+  onClose: () => void;
+  onImport: (doc: KrDocument) => void;
+}) {
+  const [raw, setRaw] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const confirm = () => {
+    const res = parseDiagram(raw);
+    if (!res.ok || !res.document) {
+      setError(res.error ?? 'Could not read that diagram.');
+      return;
+    }
+    onImport(res.document);
+  };
+
+  const loadFile = async (file: File) => {
+    setError(null);
+    setRaw(await file.text());
+  };
+
+  return (
+    <Modal
+      title="Import a diagram"
+      onClose={onClose}
+      wide
+      footer={
+        <>
+          <button className="btn" onClick={() => fileRef.current?.click()}>
+            Choose .json file…
+          </button>
+          <button className="btn primary" disabled={!raw.trim()} onClick={confirm}>
+            Import
+          </button>
+        </>
+      }
+    >
+      <p>
+        Paste the JSON an LLM returned (the compact <code>scripture-diagrammer/diagram</code> format)
+        or a full exported diagram — or load it from a file. Then press <strong>Import</strong>.
+      </p>
+      <textarea
+        className="new-text"
+        rows={14}
+        value={raw}
+        placeholder='{ "kind": "scripture-diagrammer/diagram", … }'
+        onChange={(e) => {
+          setRaw(e.target.value);
+          setError(null);
+        }}
+        style={{ width: '100%', fontFamily: 'monospace', fontSize: 12 }}
+      />
+      {error && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{error}</p>}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void loadFile(f);
+          e.target.value = '';
+        }}
+      />
+    </Modal>
   );
 }
 

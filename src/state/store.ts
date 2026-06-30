@@ -18,6 +18,7 @@ import { emptySermonPrep } from '@/domain/schema';
 import {
   createDocument,
   makeId,
+  normalizeSyntax,
   reindex,
   removeNodeSubtree,
   removeRelation,
@@ -189,6 +190,9 @@ export interface EditorActions {
   /** Add a new word (token + word node, attached to the root) for a variant
    *  reading; selects it so it can be re-roled/relinked. */
   addWord: (surface: string) => void;
+  /** Place an existing-but-unassigned token on the diagram: make a word node for
+   *  it, attach it to the root, and select it so it can be re-roled / relinked. */
+  placeToken: (tokenId: string) => void;
   /** Delete a word node, its token(s), and any relations touching it. */
   removeWord: (nodeId: string) => void;
   // syntax
@@ -545,6 +549,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         d = applyInferences(d, inferences);
         if (d.syntax.nodes.length + d.syntax.relations.length === size) break;
       }
+      // The rough auto-parse can double-assign a token or hang it under two heads
+      // (weak English tagging); normalize so no word is drawn twice.
+      d = normalizeSyntax(d);
       set({
         doc: d,
         baseDoc: null,
@@ -703,6 +710,40 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         return {
           ...d,
           tokens: reindex([...d.tokens, token]),
+          syntax: {
+            ...d.syntax,
+            nodes: [...d.syntax.nodes, node],
+            relations: [...d.syntax.relations, relation],
+          },
+        };
+      });
+      set({ selection: { nodeId } });
+    },
+
+    placeToken: (tokenId) => {
+      const { doc } = get();
+      if (!doc.tokens.some((t) => t.id === tokenId)) return;
+      // Already on the diagram? Nothing to do.
+      if (doc.syntax.nodes.some((n) => n.tokenIds.includes(tokenId))) return;
+      const nodeId = makeId('node');
+      commit((d) => {
+        const node: SyntaxNode = {
+          id: nodeId,
+          kind: 'word',
+          tokenIds: [tokenId],
+          provenance: { source: 'manual', confidence: 'high' },
+        };
+        // Attach to the root so it's visible immediately; the user then re-roles /
+        // relinks it to the right head with the normal edit tools.
+        const relation: Relation = {
+          id: makeId('rel'),
+          type: 'adjunct',
+          headId: d.syntax.rootId,
+          dependentId: nodeId,
+          provenance: { source: 'manual', confidence: 'high' },
+        };
+        return {
+          ...d,
           syntax: {
             ...d.syntax,
             nodes: [...d.syntax.nodes, node],
