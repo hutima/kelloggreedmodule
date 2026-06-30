@@ -1082,15 +1082,24 @@ function layoutClauseSpine(
     const blockX = verbAlignX - vxOf(block); // ≥ 0; verbs line up at verbAlignX
     const y = cursorTop + blockAscent(block);
     elements.push(...translate(block, blockX, y));
-    // A subordinator that introduces a conjunct (Οὐχ ὅτι … / ἵνα …) sits on its
-    // OWN short horizontal stub above the conjunct, unconnected to the spine —
-    // the Kellogg-Reed home for an introductory "that".
+    // A connector that introduces a member (ἵνα …, Οὐχ ὅτι …) rides the dashed
+    // coordination bar in the JOIN above this clause — the line that ties the
+    // members together — so it reads as the link between them. (The first member
+    // has nothing above it to join, so its connector keeps a short left stub.)
     if (r.label && showLabel(ctx, r.dependentId)) {
-      const stubW = measureText(r.label!, SMALL_FONT) + 12;
-      const stubX = blockX;
-      const stubY = y - LAYOUT.fontSize - 14;
-      elements.push(smallText(eid(), stubX + stubW / 2, stubY - 4, r.label!, 'middle', r.id, r.labelNodeId));
-      elements.push(line(eid(), stubX, stubY, stubX + stubW, stubY, 'solid', 'baseline'));
+      if (i > 0) {
+        const midY = (verbYs[i - 1]! + y) / 2;
+        elements.push({
+          kind: 'text', id: eid(), x: verbAlignX, y: midY, text: r.label!,
+          anchor: 'middle', small: true, italic: true, rotate: -90,
+          relationId: r.id, nodeId: r.labelNodeId,
+        });
+      } else {
+        const stubW = measureText(r.label!, SMALL_FONT) + 12;
+        const stubY = y - LAYOUT.fontSize - 14;
+        elements.push(smallText(eid(), blockX + stubW / 2, stubY - 4, r.label!, 'middle', r.id, r.labelNodeId));
+        elements.push(line(eid(), blockX, stubY, blockX + stubW, stubY, 'solid', 'baseline'));
+      }
     }
     verbYs.push(y);
     right = Math.max(right, blockX + block.width);
@@ -1144,7 +1153,12 @@ function layoutClauseSpine(
     const GAPW = 10;
     const blocks = leadRels.map((r) => layoutNode(ctx, r.dependentId, seen));
     const totalW = blocks.reduce((s, b) => s + b.width, 0) + GAPW * Math.max(0, blocks.length - 1);
-    const leadY = top - LAYOUT.fontSize - 14;
+    // Sit ABOVE the first member's full height (a tall member — e.g. a compound
+    // predicate whose upper verb rises well above its baseline — would otherwise
+    // put the lead word in the MIDDLE of the fork). The stem then drops from the
+    // lead down to the top of the spine bar.
+    const ascent0 = laid[0] ? blockAscent(laid[0].block) : 0;
+    const leadY = top - ascent0 - LAYOUT.fontSize - 14;
     let x = Math.max(0, verbAlignX - GAPW - totalW);
     const leadStart = x;
     for (const b of blocks) {
@@ -1515,7 +1529,11 @@ function layoutOpenPredicateFork(
     elements,
     wordLeft: 0,
     wordRight: 0,
-    verbX: 0,
+    // The fork's dashed coordinate bar (where the καί rides). When this predicate
+    // is a member of an outer coordination, the outer spine attaches HERE — so the
+    // outer coordination line runs through the predicate fork's own bar rather
+    // than stopping at the divider.
+    verbX: prong,
   };
 }
 
@@ -1766,7 +1784,13 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   const predBlock = verbIsCoord ? layoutCompoundPredicate(ctx, verbNode!, seen) : verbBlock;
   const verbX0 = x;
   placeBlock(predBlock);
-  const verbMidX = verbX0 + (predBlock.wordRight || predBlock.width) / 2;
+  // A self-contained open fork exposes its coordinate BAR as verbX; aim the
+  // clause's verb point there so an OUTER coordination line meets this clause
+  // through the predicate fork rather than at the (left-edge) divider.
+  const verbMidX =
+    verbSelfContained && predBlock.verbX != null
+      ? verbX0 + predBlock.verbX
+      : verbX0 + (predBlock.wordRight || predBlock.width) / 2;
 
   // Adjuncts hang below the baseline on diagonals/stems. The verb's OWN
   // modifiers — an article substantivizing a participle (τοῖς οὖσιν…), an
