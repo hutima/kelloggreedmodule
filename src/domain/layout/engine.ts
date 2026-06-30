@@ -257,14 +257,19 @@ function drawPp(
   out: DiagramElement[],
 ): { right: number; bottom: number; oTop: number } {
   const block = layoutNode(ctx, objId, seen);
-  // Drop the slant deeper by the object's ascent so a COORDINATED object (whose
-  // upper conjunct rises above its baseline) doesn't land back on the head line.
-  const oTop = topY + blockAscent(block);
+  const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, prepNodeId)!) || '';
+  // The preposition rides the slant, so the slant must be long enough to carry it
+  // without the text overhanging the ends onto neighbouring rows — a real problem
+  // for long English glosses ("according to", "the [One who]"). Lengthen the drop
+  // to fit the text when needed; a short Greek preposition keeps the old geometry.
+  // Also drop by the object's ascent so a COORDINATED object (whose upper conjunct
+  // rises above its baseline) doesn't land back on the head line.
+  const textDrop = (measureText(prep) + LAYOUT.fontSize) * Math.sin(SLANT_ANGLE);
+  const oTop = Math.max(topY + blockAscent(block), textDrop);
   const endX = attachX + slantRun(oTop);
   const objX = endX - block.wordLeft;
   out.push(...translate(block, objX, oTop));
   out.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, relId));
-  const prep = nodeText(ctx.doc, getNode(ctx.doc.syntax, prepNodeId)!) || '';
   out.push(diagonalText(prep, attachX, 0, endX, oTop, relId, prepNodeId));
   return {
     right: objX + block.width,
