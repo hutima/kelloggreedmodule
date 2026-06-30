@@ -50,6 +50,38 @@ describe('store — semantic editing + app mode + patch persistence', () => {
     expect(rel.provenance?.source).toBe('manual');
   });
 
+  it('setNodeRole re-homes a verbal complement under the verb, not the clause', () => {
+    // A spare word hanging off the clause as an adjunct.
+    const base = makeBase();
+    const rootId = base.syntax.rootId;
+    base.tokens.push({ id: 't3', index: 2, surface: 'ἀνθρώπους' });
+    base.syntax.nodes.push({ id: 'n3', kind: 'word', role: 'adjunct', tokenIds: ['t3'] });
+    base.syntax.relations.push({ id: 'r3', type: 'adjunct', headId: rootId, dependentId: 'n3' });
+    store.getState().loadDocument(base, { corpus: 'gnt' });
+
+    store.getState().setNodeRole('n3', 'directObject');
+    const { doc } = store.getState();
+    const rel = doc.syntax.relations.find((r) => r.dependentId === 'n3')!;
+    // The object must now hang off the VERB (n2), where the layout draws baseline
+    // complements — not the clause root, where it would be silently dropped.
+    expect(rel.type).toBe('directObject');
+    expect(rel.headId).toBe('n2');
+  });
+
+  it('setNodeRole keeps a clause role (subject) attached to the clause', () => {
+    const base = makeBase();
+    const rootId = base.syntax.rootId;
+    base.tokens.push({ id: 't3', index: 2, surface: 'θεός' });
+    base.syntax.nodes.push({ id: 'n3', kind: 'word', role: 'adjunct', tokenIds: ['t3'] });
+    base.syntax.relations.push({ id: 'r3', type: 'adjunct', headId: 'n2', dependentId: 'n3' });
+    store.getState().loadDocument(base, { corpus: 'gnt' });
+
+    store.getState().setNodeRole('n3', 'subject');
+    const rel = store.getState().doc.syntax.relations.find((r) => r.dependentId === 'n3')!;
+    expect(rel.type).toBe('subject');
+    expect(rel.headId).toBe(rootId);
+  });
+
   it('attachNodeTo re-points the dependent to a new head (single parent)', () => {
     store.getState().attachNodeTo('n1', 'n2', 'genitive');
     const { doc } = store.getState();

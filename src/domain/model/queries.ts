@@ -38,6 +38,75 @@ export function childrenByRole(
     .filter((n): n is SyntaxNode => Boolean(n));
 }
 
+/** Roles that hang directly off the enclosing CLAUSE (the baseline owner). */
+const CLAUSE_HEADED_ROLES: SyntacticRole[] = ['subject', 'predicate', 'copula'];
+/**
+ * Verbal complements — they belong UNDER THE VERB in the diagram (the layout
+ * engine gathers a clause's objects/complements from the verb node's children,
+ * never from the clause directly). A word re-roled to one of these must move to
+ * the verb or it is silently dropped from the baseline.
+ */
+const VERB_HEADED_ROLES: SyntacticRole[] = [
+  'directObject',
+  'indirectObject',
+  'predicateNominative',
+  'predicateAdjective',
+  'objectComplement',
+  'dativeComplement',
+  'genitiveComplement',
+  'agent',
+];
+
+/** The clause node enclosing `nodeId` (walking up parent relations), if any. */
+export function clauseAncestor(model: SyntaxModel, nodeId: string): SyntaxNode | undefined {
+  const seen = new Set<string>();
+  let current: string | undefined = nodeId;
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    const parent: Relation | undefined = parentRelations(model, current)[0];
+    if (!parent) break;
+    const head = getNode(model, parent.headId);
+    if (head?.kind === 'clause') return head;
+    current = parent.headId;
+  }
+  return undefined;
+}
+
+/** The (preferably non-implied) verb/predicate node of a clause, if any. */
+export function clauseVerb(model: SyntaxModel, clauseId: string): SyntaxNode | undefined {
+  const preds = childRelations(model, clauseId).filter(
+    (r) => r.type === 'predicate' || r.type === 'copula',
+  );
+  const chosen = preds.find((r) => !getNode(model, r.dependentId)?.implied) ?? preds[0];
+  return chosen ? getNode(model, chosen.dependentId) : undefined;
+}
+
+/**
+ * Where a node should attach so the diagram actually renders it in `role`'s slot:
+ * clause-level roles (subject/predicate/copula) hang off the enclosing clause;
+ * verbal complements (direct/indirect object, predicate nominative…) hang off
+ * that clause's verb. For any other role (modifiers, etc.) the attachment is not
+ * structurally fixed, so the current head is kept. Returns `undefined` only when
+ * the node has no parent and no clause context to attach to.
+ */
+export function headForRole(
+  model: SyntaxModel,
+  nodeId: string,
+  role: SyntacticRole,
+): string | undefined {
+  const current = parentRelations(model, nodeId)[0]?.headId;
+  if (CLAUSE_HEADED_ROLES.includes(role)) {
+    return clauseAncestor(model, nodeId)?.id ?? current;
+  }
+  if (VERB_HEADED_ROLES.includes(role)) {
+    const clause = clauseAncestor(model, nodeId);
+    if (!clause) return current;
+    const verb = clauseVerb(model, clause.id);
+    return verb && verb.id !== nodeId ? verb.id : clause.id;
+  }
+  return current;
+}
+
 /** The tokens realizing a node, returned in surface order. */
 export function nodeTokens(doc: KrDocument, node: SyntaxNode): Token[] {
   const byId = new Map(doc.tokens.map((t) => [t.id, t]));
