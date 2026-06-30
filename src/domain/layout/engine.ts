@@ -1515,7 +1515,10 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     // following it. Its body sits ABOVE the baseline, so it adds no below-line
     // height (its extent is reserved as ascent wherever this clause is placed).
     const block = layoutNode(ctx, subjectRel!.dependentId, seen);
-    const baseY = -(block.height + LAYOUT.pedestalFootRise + LAYOUT.pedestalGap);
+    const baseY = -(
+      LAYOUT.pedestalFootRise +
+      Math.max(block.height + LAYOUT.pedestalGap, LAYOUT.pedestalMinRiser)
+    );
     elements.push(...translate(block, 0, baseY));
     // Stand the foot under the substantive's HEAD (its participle/verb, exposed as
     // verbX), not the midpoint of its whole span — so the riser rises at the left
@@ -1747,7 +1750,10 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     const baseStart = x;
     // Embedded clause sits fully above the line; its baseline is high enough that
     // its own below-baseline modifiers clear the foot.
-    const baseY = -(block.height + LAYOUT.pedestalFootRise + LAYOUT.pedestalGap);
+    const baseY = -(
+      LAYOUT.pedestalFootRise +
+      Math.max(block.height + LAYOUT.pedestalGap, LAYOUT.pedestalMinRiser)
+    );
     elements.push(...translate(block, baseStart, baseY));
     // Connect at the centre of the embedded clause's own baseline span.
     const connectX = baseStart + (block.wordLeft + (block.wordRight || block.width)) / 2;

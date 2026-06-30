@@ -104,6 +104,15 @@ export const LAYOUT = {
   pedestalFootRise: 16,
   /** Clearance between the pedestal foot and the embedded clause's lowest point. */
   pedestalGap: 12,
+  /**
+   * Minimum riser height from the foot apex up to the pedestal's baseline. A
+   * pedestalled clause with little below-baseline content — e.g. a
+   * predicate-nominative "ΚΥΡΙΟΣ ΙΗΣΟΥΣ ΧΡΙΣΤΟΣ", whose only depth is the
+   * back-slant ABOVE its baseline — would otherwise sit right on top of the main
+   * line, crushing the riser and its ὅτι/ἵνα connector. Keep the platform clearly
+   * elevated regardless.
+   */
+  pedestalMinRiser: 44,
   fontSize: 18,
   smallFontSize: 13,
   /** Vertical offset of word text above its baseline. */
