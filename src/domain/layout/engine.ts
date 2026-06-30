@@ -173,7 +173,10 @@ function drawDiagonalCoordination(
     const ext = drawDiagonalModifier(ctx, m, cx, 0, undefined, out);
     bottom = Math.max(bottom, ext.bottom);
     right = Math.max(right, ext.right);
-    cx += LAYOUT.dependentGap * 1.4;
+    // Start the next parallel slant past THIS member's full extent (its slanted
+    // word plus any sub-modifiers), not a fixed step — otherwise a longer member
+    // (μᾶλλον καὶ μᾶλλον, ἔτι μᾶλλον) overlaps the next slant. Keep a small floor.
+    cx = Math.max(ext.right + 6, cx + LAYOUT.dependentGap * 1.4);
   }
   // The dashed coordinator bar bridges the first two parallel slants midway down,
   // the conjunction (and / καί) riding it between them.

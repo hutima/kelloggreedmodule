@@ -71,16 +71,26 @@ describe('OpenText converter', () => {
 });
 
 describe('OpenText surface alignment', () => {
-  /** A Nestle1904-style token: inflected surface + lemma + osisId in extra.ref. */
-  function nestle(verse: string, idx: number, surface: string, lemma: string): Token {
+  /** A Nestle1904-style token: inflected surface + lemma + gloss + osisId. */
+  function nestle(verse: string, idx: number, surface: string, lemma: string, gloss?: string): Token {
     return {
       id: `n_${verse}_${idx}`,
       index: idx,
       surface,
       lemma,
+      gloss,
       morphology: { extra: { ref: `${verse}!${idx}` } },
     };
   }
+
+  it('copies the English gloss from the aligned Nestle1904 token', () => {
+    const doc = philemonDocs()[1]!;
+    const index = buildSurfaceIndex([nestle('Phlm.1.3', 5, 'Θεοῦ', 'θεός', '[the] God')]);
+    const { doc: aligned } = alignOpenTextSurface(doc, index);
+    const god = aligned.tokens.find((t) => nfc(t.surface) === nfc('Θεοῦ'));
+    // OpenText ships no gloss; alignment supplies one so the English toggle works.
+    expect(god?.gloss).toBe('[the] God');
+  });
 
   it('replaces lemma forms with inflected surfaces by (verse, position), validated by lemma', () => {
     const doc = philemonDocs()[1]!; // χάρις καὶ εἰρήνη ἀπὸ θεός … (lemma forms)
