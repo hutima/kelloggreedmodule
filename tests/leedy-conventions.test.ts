@@ -355,6 +355,50 @@ describe('sentence-initial connective on a coordinate spine leads, not joins', (
   });
 });
 
+describe('a member connector (ἵνα) rides the coordination bar at the join', () => {
+  // A headless coordinate clause: [clause A] [ἵνα clause B]. The ἵνα that
+  // introduces the second member should ride the dashed coordination bar between
+  // the clauses (rotated), not sit on a far-left horizontal stub.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'coordinate', tokenIds: [] },
+      { id: 'CA', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'SA', kind: 'word', role: 'subject', tokenIds: ['sa'] },
+      { id: 'VA', kind: 'word', role: 'predicate', tokenIds: ['va'] },
+      { id: 'CB', kind: 'clause', clauseType: 'coordinate', tokenIds: [] },
+      { id: 'SB', kind: 'word', role: 'subject', tokenIds: ['sb'] },
+      { id: 'VB', kind: 'word', role: 'predicate', tokenIds: ['vb'] },
+    ],
+    [
+      { id: 'r1', type: 'conjunct', headId: 'n_root', dependentId: 'CA' },
+      { id: 'r2', type: 'conjunct', headId: 'n_root', dependentId: 'CB', label: 'ἵνα' },
+      { id: 'r3', type: 'subject', headId: 'CA', dependentId: 'SA' },
+      { id: 'r4', type: 'predicate', headId: 'CA', dependentId: 'VA' },
+      { id: 'r5', type: 'subject', headId: 'CB', dependentId: 'SB' },
+      { id: 'r6', type: 'predicate', headId: 'CB', dependentId: 'VB' },
+    ],
+    [
+      { id: 'sa', index: 0, surface: 'Θεὸς', pos: 'noun' },
+      { id: 'va', index: 1, surface: 'ὑπερύψωσεν', pos: 'verb' },
+      { id: 'sb', index: 2, surface: 'γόνυ', pos: 'noun' },
+      { id: 'vb', index: 3, surface: 'κάμψῃ', pos: 'verb' },
+    ],
+  );
+
+  it('draws the ἵνα rotated on the bar (a connector), not a flat left stub', () => {
+    const layout = layoutDocument(doc);
+    const ina = layout.elements.find(
+      (e) => e.kind === 'text' && (e as { text: string }).text === 'ἵνα',
+    ) as { rotate?: number; x: number; y: number } | undefined;
+    expect(ina).toBeDefined();
+    expect(ina!.rotate).toBe(-90); // rides the vertical coordination bar
+    const verbB = textEl(layout, 'κάμψῃ')!;
+    // It sits on the bar at the join, ABOVE the second clause's verb baseline.
+    expect(ina!.y).toBeLessThan(verbB.y);
+    expect(Math.abs(ina!.x - verbB.x)).toBeLessThan(2); // same column as the bar/verbs
+  });
+});
+
 describe('clause-level conjunction floats as an introductory connective', () => {
   // OpenText's pl.conj becomes a clause-level `conjunction` ("conjunction
   // introducing this clause"). It connects the clause to its context like a
