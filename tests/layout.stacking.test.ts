@@ -69,6 +69,106 @@ describe('traditional Kellogg-Reed diagonals', () => {
 });
 
 describe('coordination renders as a two-prong fork', () => {
+  /**
+   * A coordinated pair of adjectives where a conjunct carries a HEAVY dependent
+   * (a prepositional phrase) — the Ephesians 1:1 "ἁγίοις … καὶ πιστοῖς ἐν Χριστῷ"
+   * shape. Both members are adjectives, so the old `isDiagonalCoordination`
+   * routed them onto parallel slants; `drawDiagonalModifier` then crushed the PP
+   * onto tiny diagonal jogs (the words clashing on a steep slant). It must fall
+   * back to the upright fork instead, laying each member out as a full block.
+   */
+  function coordAdjWithHeavyConjunct(): KrDocument {
+    return KrDocumentSchema.parse({
+      schemaVersion: 1,
+      id: 'doc_coord_heavy',
+      title: 't',
+      language: 'grc',
+      text: 'ἀδελφοῖς ἁγίοις καὶ πιστοῖς ἐν Χριστῷ',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      layoutHints: {},
+      tokens: [
+        { id: 't_n', index: 0, surface: 'ἀδελφοῖς', pos: 'noun' },
+        { id: 't_h', index: 1, surface: 'ἁγίοις', pos: 'adjective' },
+        { id: 't_and', index: 2, surface: 'καὶ', pos: 'conjunction' },
+        { id: 't_f', index: 3, surface: 'πιστοῖς', pos: 'adjective' },
+        { id: 't_in', index: 4, surface: 'ἐν', pos: 'preposition' },
+        { id: 't_c', index: 5, surface: 'Χριστῷ', pos: 'propernoun' },
+      ],
+      syntax: {
+        rootId: 'n_root',
+        nodes: [
+          { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+          // The coordinated adjectives hang as a MODIFIER of the noun head, the
+          // way the real Eph 1:1 datives hang under the verb — this is the path
+          // that routed through `isDiagonalCoordination` (a subject coordination
+          // always forks directly, bypassing it).
+          { id: 'n_n', kind: 'word', role: 'subject', tokenIds: ['t_n'] },
+          { id: 'n_h', kind: 'word', tokenIds: ['t_h'] },
+          { id: 'n_and', kind: 'word', tokenIds: ['t_and'] },
+          { id: 'n_f', kind: 'word', tokenIds: ['t_f'] },
+          { id: 'n_in', kind: 'word', tokenIds: ['t_in'] },
+          { id: 'n_c', kind: 'word', tokenIds: ['t_c'] },
+        ],
+        relations: [
+          { id: 'r_subj', type: 'subject', headId: 'n_root', dependentId: 'n_n' },
+          { id: 'r_adj', type: 'adjectival', headId: 'n_n', dependentId: 'n_h' },
+          { id: 'r_coord', type: 'coordinator', headId: 'n_h', dependentId: 'n_and' },
+          { id: 'r_conj', type: 'conjunct', headId: 'n_h', dependentId: 'n_f' },
+          { id: 'r_pp', type: 'prepositionalPhrase', headId: 'n_f', dependentId: 'n_in' },
+          { id: 'r_po', type: 'prepositionObject', headId: 'n_in', dependentId: 'n_c' },
+        ],
+      },
+    });
+  }
+
+  it('falls back to an upright fork when a conjunct carries a heavy dependent', () => {
+    const layout = layoutDocument(coordAdjWithHeavyConjunct());
+    const find = (t: string) =>
+      layout.elements.find(
+        (e) => e.kind === 'text' && (e as { text: string }).text === t,
+      ) as { y: number; rotate?: number } | undefined;
+    const holy = find('ἁγίοις');
+    const faithful = find('πιστοῖς');
+    const christ = find('Χριστῷ');
+    expect(holy).toBeDefined();
+    expect(faithful).toBeDefined();
+    expect(christ).toBeDefined();
+    // The conjuncts sit upright on horizontal baselines — NOT crammed onto a
+    // steep parallel slant (the clash this guards against rotated them ~57°).
+    expect(Math.abs(holy!.rotate ?? 0)).toBeLessThan(5);
+    expect(Math.abs(faithful!.rotate ?? 0)).toBeLessThan(5);
+    // They occupy separate, vertically-offset baselines (the fork's two prongs).
+    expect(Math.abs(faithful!.y - holy!.y)).toBeGreaterThan(20);
+    // The heavy PP object hangs below its own conjunct rather than being folded
+    // onto the head's slant beside ἁγίοις.
+    expect(christ!.y).toBeGreaterThan(faithful!.y);
+    // Joined by a dashed coordinator bar.
+    const fork = layout.elements.find(
+      (e) =>
+        e.kind === 'line' &&
+        (e as { role: string }).role === 'coordination' &&
+        (e as { style: string }).style === 'dashed',
+    );
+    expect(fork).toBeDefined();
+  });
+
+  it('still uses parallel slants for a LIGHT coordinated modifier', () => {
+    // Same shape, but the conjuncts carry no heavy dependents ("ἁγίοις καὶ
+    // πιστοῖς" modifying a noun). This is a genuine diagonal coordination and
+    // must stay on parallel slants — the fix must not over-correct it into a fork.
+    const doc = coordAdjWithHeavyConjunct();
+    // Drop the prepositional phrase, leaving the conjuncts as bare adjectives.
+    doc.syntax.nodes = doc.syntax.nodes.filter((n) => n.id !== 'n_in' && n.id !== 'n_c');
+    doc.syntax.relations = doc.syntax.relations.filter((r) => r.id !== 'r_pp' && r.id !== 'r_po');
+    const layout = layoutDocument(doc);
+    const faithful = layout.elements.find(
+      (e) => e.kind === 'text' && (e as { text: string }).text === 'πιστοῖς',
+    ) as { rotate?: number } | undefined;
+    expect(faithful).toBeDefined();
+    expect(Math.abs(faithful!.rotate ?? 0)).toBeGreaterThan(15); // genuinely slanted
+  });
+
   it('stacks conjuncts on parallel baselines joined by a coordinator', () => {
     // Philippians 1:1 — "Paul and Timothy" (compound subject).
     const doc = cloneSample('doc_sample_phil_1_1_6')!;
