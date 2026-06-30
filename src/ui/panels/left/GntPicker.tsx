@@ -9,6 +9,7 @@ import {
   loadOpenTextBook,
   OPENTEXT_BOOKS,
   SYNTAX_SOURCES,
+  sourceOfDoc,
   type SyntaxSourceId,
   type GntBook,
 } from '@/io';
@@ -58,7 +59,10 @@ export function GntPicker() {
   // Seed from the CURRENT passage so reopening Sources (which remounts the panel
   // on mobile) reflects what you're reading, instead of always resetting to Php.
   const currentBook = bookForTitle(doc.title);
-  const [source, setSource] = useState<Source>('nestle1904');
+  // Seed the source from the OPEN passage (its document id tells which parse it
+  // came from), so the selector reflects what you're reading and persists across
+  // remounts — exactly like the Book selector.
+  const [source, setSource] = useState<Source>(() => sourceOfDoc(doc));
   const [bookNum, setBookNum] = useState(currentBook?.num ?? 11);
   // Desktop-only two-source side-by-side comparison.
   const vp = useViewport();
@@ -76,24 +80,28 @@ export function GntPicker() {
   const [error, setError] = useState<string | null>(null);
   const [cacheState, setCacheState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  // Keep the Book selector in sync with the OPEN passage's book. The initial
-  // state above captures whatever document was loaded when this panel first
-  // mounted — but on a returning visit the session is restored ASYNCHRONOUSLY,
-  // so the panel can mount on the placeholder doc and miss the swap to (e.g.)
-  // Romans, leaving the selector stuck on the Philippians default. When the open
-  // document changes to a different book, follow it.
+  // Keep the Book AND Syntax-source selectors in sync with the OPEN passage. The
+  // initial state above captures whatever document was loaded when this panel
+  // first mounted — but on a returning visit the session is restored
+  // ASYNCHRONOUSLY, so the panel can mount on the placeholder doc and miss the
+  // swap to (e.g.) Romans or an OpenText parse. When the open document changes to
+  // a different book or source, follow it.
   const lastSyncedDocId = useRef(doc.id);
   useEffect(() => {
     if (doc.id === lastSyncedDocId.current) return;
     lastSyncedDocId.current = doc.id;
-    if (currentBook && currentBook.num !== bookNum) {
-      setBookNum(currentBook.num);
-      // The previously loaded sentence list was for the old book.
+    const docSource = sourceOfDoc(doc);
+    const bookChanged = !!currentBook && currentBook.num !== bookNum;
+    const sourceChanged = docSource !== source;
+    if (sourceChanged) setSource(docSource);
+    if (bookChanged) setBookNum(currentBook!.num);
+    if (bookChanged || sourceChanged) {
+      // The previously loaded sentence list was for the old book/source.
       setPassages(null);
       setChecked(new Set());
       setCacheState('idle');
     }
-  }, [doc.id, currentBook, bookNum]);
+  }, [doc, currentBook, bookNum, source]);
 
   const books = booksFor(source);
   const book = books.find((b) => b.num === bookNum) ?? books[0]!;

@@ -20,9 +20,11 @@ export function sourceLabel(id: SyntaxSourceId): string {
   return SYNTAX_SOURCES.find((s) => s.id === id)?.label ?? id;
 }
 
-/** Which source a loaded passage came from, inferred from its document id. */
+/** Which source a loaded passage came from, inferred from its document id.
+ *  Handles both a single sentence (`opentext_…`) and a combined passage
+ *  (`combinePassage` prefixes the first sentence's id with `passage_`). */
 export function sourceOfDoc(doc: KrDocument): SyntaxSourceId {
-  return doc.id.startsWith('opentext_') ? 'opentext' : 'nestle1904';
+  return doc.id.replace(/^passage_/, '').startsWith('opentext_') ? 'opentext' : 'nestle1904';
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '');
