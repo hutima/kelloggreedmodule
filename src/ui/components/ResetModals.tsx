@@ -51,7 +51,7 @@ export function ResetPassageModal({ onClose }: { onClose: () => void }) {
         </label>
         <label>
           <input type="checkbox" checked={sermon} onChange={(e) => setSermon(e.target.checked)} />
-          Sermon prep (notes, highlights, outline)
+          Study notes (notes, highlights, outline)
         </label>
         <label>
           <input type="checkbox" checked={notes} onChange={(e) => setNotes(e.target.checked)} />
@@ -89,8 +89,8 @@ export function ResetAllModal({ onClose }: { onClose: () => void }) {
       }
     >
       <p>
-        Reset all local data? This will remove all custom assignments, notes, highlights, and sermon
-        prep data stored on this device. This cannot be undone unless you have exported a backup.
+        Reset all local data? This will remove all custom assignments, notes, highlights, and study
+        data stored on this device. This cannot be undone unless you have exported a backup.
       </p>
       <label className="reset-confirm">
         Type <strong>RESET ALL</strong> to confirm:

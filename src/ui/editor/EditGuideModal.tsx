@@ -57,7 +57,7 @@ export function EditGuideModal({ onClose }: { onClose: () => void }) {
 
       <h3 className="help-h">A typical edit</h3>
       <ol className="help-list">
-        <li>Switch to the view that fits the change (Phrase / Block for sermon structure, Dependency for word-to-word links, Morphology for parsing).</li>
+        <li>Switch to the view that fits the change (Phrase / Block for clause structure, Dependency for word-to-word links, Morphology for parsing).</li>
         <li>Make sure you&apos;re on the right tier — Basic for quick changes, Advanced for exact roles.</li>
         <li>Tap a word, line, or row to select it; a contextual toolbar or popover appears.</li>
         <li>Use a chip to relabel, or a tool (Link / Move under) to re-attach it to a new head.</li>
@@ -76,7 +76,7 @@ export function EditGuideModal({ onClose }: { onClose: () => void }) {
         </li>
         <li>
           Layout nudges (where a piece is drawn) are visual only — they never change the
-          grammar. Sermon notes and highlights live alongside the parse and survive edits.
+          grammar. Study notes and highlights live alongside the parse and survive edits.
         </li>
       </ul>
 

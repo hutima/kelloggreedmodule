@@ -13,19 +13,24 @@ import {
  * Export dialog. The diagram is vector, so SVG exports at any size; PNG lets the
  * reader pick exact pixel dimensions (aspect-locked to the diagram). JSON and
  * Print are offered as secondary actions. Export honours the active diagram
- * `mode`, so what you see is what you export.
+ * `mode` AND the on-screen language (the glossed `doc`), so what you see is what
+ * you export. JSON falls back to `sourceDoc` (the un-glossed model) so a data
+ * export still round-trips in the source language.
  */
 export function ExportModal({
   doc,
+  sourceDoc,
   verticalScale,
   mode,
   onClose,
 }: {
   doc: KrDocument;
+  sourceDoc?: KrDocument;
   verticalScale: number;
   mode: DiagramMode;
   onClose: () => void;
 }) {
+  const jsonDoc = sourceDoc ?? doc;
   const natural = useMemo(
     () => documentNaturalSize(doc, { verticalScale }, mode),
     [doc, verticalScale, mode],
@@ -142,7 +147,7 @@ export function ExportModal({
 
         <div className="modal-actions">
           <div className="export-secondary">
-            <button className="link-btn" onClick={() => downloadDocumentJson(doc)}>
+            <button className="link-btn" onClick={() => downloadDocumentJson(jsonDoc)}>
               JSON
             </button>
             <button className="link-btn" onClick={() => printDocument(doc, { verticalScale }, mode)}>

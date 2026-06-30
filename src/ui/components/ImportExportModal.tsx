@@ -86,7 +86,7 @@ export function ImportExportModal({ onClose }: { onClose: () => void }) {
           const s = detected.sermon!;
           saveSermonPrep(s.passageId, s);
           if (s.passageId === doc.id) setSermonPrep(s);
-          setMsg('Imported sermon prep.');
+          setMsg('Imported study notes.');
           break;
         }
         case 'package': {
@@ -131,7 +131,7 @@ export function ImportExportModal({ onClose }: { onClose: () => void }) {
           : `This file contains custom edits for passage ${p.base.passageId}. Apply them?`;
       }
       case 'sermon':
-        return `This file contains sermon prep (${detected.sermon!.notes.length} notes, ${detected.sermon!.highlights.length} highlights). Apply it?`;
+        return `This file contains study notes (${detected.sermon!.notes.length} notes, ${detected.sermon!.highlights.length} highlights). Apply it?`;
       case 'package':
         return `This file is a passage package for “${detected.pkg!.reference}”. Apply its edits and notes?`;
       case 'backup':
@@ -157,7 +157,7 @@ export function ImportExportModal({ onClose }: { onClose: () => void }) {
         <div className="ie-buttons">
           <button className="btn" onClick={exportDiff}>Assignment diff</button>
           <button className="btn" onClick={exportFull}>Full document</button>
-          <button className="btn" onClick={exportSermon}>Sermon prep</button>
+          <button className="btn" onClick={exportSermon}>Study notes</button>
           <button className="btn" onClick={exportNotes}>Notes (text)</button>
           <button className="btn" onClick={() => exportPackage(false)}>Package (diff)</button>
           <button className="btn" onClick={() => exportPackage(true)}>Package (full)</button>
@@ -169,7 +169,7 @@ export function ImportExportModal({ onClose }: { onClose: () => void }) {
         <div className="ie-buttons">
           <button className="btn" onClick={exportBackup}>Backup everything</button>
         </div>
-        <p className="hint">A backup includes every custom edit diff and sermon-prep record on this device.</p>
+        <p className="hint">A backup includes every custom edit diff and study record on this device.</p>
       </section>
 
       <section className="ie-section">

@@ -20,7 +20,7 @@ const HELP: HelpTable = {
         'Tap a word or a line to select it; a compact toolbar appears.',
         'Use the quick chips to relabel a relationship in one tap.',
         'Reattach a relationship by choosing Reattach, then clicking the new word.',
-        'Add sermon notes and highlights right from the toolbar.',
+        'Add study notes and highlights right from the toolbar.',
       ],
       createRelationship:
         'Select a word, choose Reattach (head), then click the word it should attach to, and pick a label.',
@@ -29,7 +29,7 @@ const HELP: HelpTable = {
       changeLabel: 'Select the relationship line and tap one of the quick relationship chips.',
       deleteRelationship: 'Select the line and choose Delete relationship.',
       whenToSwitch:
-        'Layout changes here are visual only. Switch to Advanced for exact roles or parsing; use Phrase/Block to restructure for a sermon.',
+        'Layout changes here are visual only. Switch to Advanced for exact roles or parsing; use Phrase/Block to restructure for study.',
     },
     advanced: {
       title: 'Kellogg-Reed · Advanced Edit',
@@ -52,7 +52,7 @@ const HELP: HelpTable = {
     basic: {
       title: 'Phrase / Block · Basic Edit',
       bestFor:
-        'The recommended sermon-prep editor — phrasing and clause structure, Biblearc-style.',
+        'The recommended study editor — phrasing and clause structure, Biblearc-style.',
       whatItDoes: [
         'Each row is a phrase or clause; indentation shows what depends on what.',
         'Promote / Demote change a row\'s outline level (also Shift+Tab / Tab).',
@@ -80,7 +80,7 @@ const HELP: HelpTable = {
       reparent: 'Use the block editor\'s Move-under list or Promote / Demote buttons.',
       changeLabel: 'Pick a clause type or role from the full list in the block editor.',
       deleteRelationship: 'Detach or delete the block from the block editor.',
-      whenToSwitch: 'Return to Basic for fast, sermon-friendly restructuring.',
+      whenToSwitch: 'Return to Basic for fast, study-friendly restructuring.',
     },
   },
   dependency: {
@@ -99,7 +99,7 @@ const HELP: HelpTable = {
       changeLabel: 'Select the arc and tap a quick relationship chip.',
       deleteRelationship: 'Select the arc and choose Delete arc.',
       whenToSwitch:
-        'Use Advanced for exact labels and manual endpoint selection. Use Phrase/Block for sermon structure.',
+        'Use Advanced for exact labels and manual endpoint selection. Use Phrase/Block for clause structure.',
     },
     advanced: {
       title: 'Dependency · Advanced Edit',
@@ -122,7 +122,7 @@ const HELP: HelpTable = {
       title: 'Morphology / Word Details · Basic Edit',
       bestFor: 'Word-level study — glosses, notes, and quick function marking.',
       whatItDoes: [
-        'Tap a word card to edit its gloss or add a sermon note.',
+        'Tap a word card to edit its gloss or add a study note.',
         'Highlight a word, or mark a simple function (Subject, Verb, Object, Modifier).',
         'No parsing grid here — Basic stays light.',
         'Jump to Dependency or Phrase/Block to edit sentence structure.',
@@ -148,7 +148,7 @@ const HELP: HelpTable = {
       reparent: 'Switch to Phrase/Block or Dependency for structural edits.',
       changeLabel: 'Set the part of speech and morphology precisely in Word Details.',
       deleteRelationship: 'Edit relationships in Dependency or Phrase/Block.',
-      whenToSwitch: 'Return to Basic for quick sermon-relevant notes; use Dependency/Phrase/Block for structure.',
+      whenToSwitch: 'Return to Basic for quick study notes; use Dependency/Phrase/Block for structure.',
     },
   },
 };

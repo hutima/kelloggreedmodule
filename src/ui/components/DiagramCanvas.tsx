@@ -19,7 +19,7 @@ import type { KrDocument } from '@/domain/schema';
 import { MIN_SCALE, clamp, minZoomScale, maxZoomScale, clampPan } from '@/ui/zoom';
 import { PhraseBlockView } from './diagram/PhraseBlockView';
 import { MorphologyView } from './diagram/MorphologyView';
-import { nodeHighlightColors, relationHighlightColors } from '@/ui/sermon/highlights';
+import { nodeHighlightColors, relationHighlightColors, KEY_HIGHLIGHT_CATEGORIES } from '@/ui/sermon/highlights';
 import { HighlightToolbar } from '@/ui/sermon/HighlightToolbar';
 import { EditModeToolbar } from '@/ui/editor/EditModeToolbar';
 import { LinkPreviewOverlay } from '@/ui/editor/LinkPreviewOverlay';
@@ -530,14 +530,18 @@ export function DiagramCanvas() {
     return describeFunction(doc, selection.nodeId);
   }, [htmlMode, appMode, linking, selection.nodeId, doc]);
 
-  // On a phone in Sermon Prep the highlight palette lives here, in the tapped
+  // On a phone in Study mode the highlight palette lives here, in the tapped
   // word's detail card, instead of crowding the bottom sheet — so the sheet can
   // stay a short notes pad. Highlighting always needs a selected word anyway,
-  // and the detail card is exactly what a selected word already pops up.
+  // and the detail card is exactly what a selected word already pops up. The
+  // palette is the short key set, laid out two-wide, to keep the card compact.
   const sermonHighlight =
     viewport.isMobile && appMode === 'sermon' && selection.nodeId ? (
       <div className="kr-reveal-highlight">
-        <HighlightToolbar anchor={{ type: 'node', nodeId: selection.nodeId }} />
+        <HighlightToolbar
+          anchor={{ type: 'node', nodeId: selection.nodeId }}
+          categories={KEY_HIGHLIGHT_CATEGORIES}
+        />
       </div>
     ) : null;
 

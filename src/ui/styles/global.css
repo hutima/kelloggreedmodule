@@ -477,8 +477,16 @@ textarea.code,
   border-top: 1px solid rgba(255, 255, 255, 0.14);
   pointer-events: auto;
 }
-.kr-reveal-highlight .highlight-toolbar { margin: 0; gap: 5px; }
+/* Two-wide grid so the palette is short (condensed) instead of a tall column. */
+.kr-reveal-highlight .highlight-toolbar {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
 .kr-reveal-highlight .hl-chip {
+  width: 100%;
+  justify-content: flex-start;
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.18);
   color: #f5f7fa;
@@ -1766,6 +1774,13 @@ button.mc-code.glossed:hover {
 .sermon-section h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--accent); margin: 12px 0 8px; }
 .sermon-anchor { font-size: 14px; margin: 0 0 6px; color: var(--ink-soft); }
 .sermon-hint { font-size: 13px; margin: 0 0 4px; color: var(--ink-soft); font-style: italic; }
+/* Minimal phone notes: one line each — the text, then an ✕ to delete it. */
+.sermon-notes-min { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; }
+.sermon-notes-min li {
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--line); padding: 6px 2px; font-size: 14px;
+}
+.sermon-notes-min .note-line { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sermon-quicknote { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .sermon-quicknote textarea, .sermon-bigidea, .outline-section textarea {
   width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; min-height: 56px;

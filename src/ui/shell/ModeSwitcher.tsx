@@ -4,7 +4,7 @@ import { useEditorStore } from '@/state';
 const MODES: { id: AppMode; label: string; short: string }[] = [
   { id: 'explore', label: 'Explore', short: 'Explore' },
   { id: 'edit', label: 'Edit', short: 'Edit' },
-  { id: 'sermon', label: 'Sermon Prep', short: 'Sermon' },
+  { id: 'sermon', label: 'Study', short: 'Study' },
 ];
 
 /**
