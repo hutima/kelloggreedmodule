@@ -343,6 +343,45 @@ describe('sentence-initial connective on a coordinate spine leads, not joins', (
   });
 });
 
+describe('clause-level conjunction floats as an introductory connective', () => {
+  // OpenText's pl.conj becomes a clause-level `conjunction` ("conjunction
+  // introducing this clause"). It connects the clause to its context like a
+  // discourse particle, so it floats on the dotted stem — not slanted off the
+  // verb like an adverb.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s'] },
+      { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+      { id: 'C', kind: 'word', role: 'conjunction', tokenIds: ['c'] },
+    ],
+    [
+      { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+      { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+      { id: 'r3', type: 'conjunction', headId: 'n_root', dependentId: 'C' },
+    ],
+    [
+      { id: 's', index: 1, surface: 'γλῶσσα', pos: 'noun' },
+      { id: 'v', index: 2, surface: 'ἐξομολογήσηται', pos: 'verb' },
+      { id: 'c', index: 0, surface: 'διὸ', pos: 'conjunction' },
+    ],
+  );
+
+  it('floats the connective above the baseline on the dotted stem', () => {
+    const layout = layoutDocument(doc);
+    const dio = textEl(layout, 'διὸ');
+    const verb = textEl(layout, 'ἐξομολογήσηται');
+    expect(dio).toBeDefined();
+    // Above the baseline (introductory), not slanted off to the right as a modifier.
+    expect(dio!.y).toBeLessThan(verb!.y);
+    const dottedStem = layout.elements.some(
+      (e) => e.kind === 'line' && (e as { style: string }).style === 'dotted' &&
+        (e as { role: string }).role === 'stem',
+    );
+    expect(dottedStem).toBe(true);
+  });
+});
+
 describe('introductory particle on a dotted stem', () => {
   // "γάρ … ἐστὶν ταῦτα" — γάρ introduces the whole clause.
   const doc = build(

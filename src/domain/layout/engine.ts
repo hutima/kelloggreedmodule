@@ -1656,15 +1656,20 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // Introductory words — a sentence-initial discourse particle (γάρ, οὖν, δέ,
   // μέν) connecting the clause to its context. Leedy floats these above the LEFT
   // end of the baseline on a dotted stem rather than slanting them off the verb.
+  // A clause-level `conjunction` (OpenText's pl.conj — "conjunction introducing
+  // this clause") is a connective, not a modifier: it joins the clause to its
+  // context exactly as a discourse particle does, so it floats on the dotted stem
+  // too rather than slanting off the verb like an adverb.
   const introductoryRels = clauseWordRels.filter(
-    (r) => r.type === 'particle' && !isClauseChild(ctx, r.dependentId),
+    (r) => (r.type === 'particle' || r.type === 'conjunction') && !isClauseChild(ctx, r.dependentId),
   );
   const wordAdjuncts = clauseWordRels.filter(
     (r) =>
       (!isClauseChild(ctx, r.dependentId) || isInfinitival(ctx, r.dependentId)) &&
       r.type !== 'vocative' &&
       r.type !== 'interjection' &&
-      r.type !== 'particle',
+      r.type !== 'particle' &&
+      r.type !== 'conjunction',
   );
   const clauseAdjuncts = [
     ...clauseWordRels.filter((r) => isClauseChild(ctx, r.dependentId) && !isInfinitival(ctx, r.dependentId)),
