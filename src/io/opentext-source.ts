@@ -1,5 +1,5 @@
 import type { KrDocument } from '@/domain/schema';
-import { openTextToDocuments } from './opentext';
+import { parseBase, buildOpenTextDocuments } from './opentext';
 import { buildSurfaceIndex, alignOpenTextSurface } from './opentext-align';
 import { GNT_BOOKS, loadGntBook } from './gnt';
 
@@ -12,10 +12,10 @@ import { GNT_BOOKS, loadGntBook } from './gnt';
  * itself omits. Because every visualization is a lens over the one syntax graph,
  * the returned documents drive all four modes with no extra work.
  *
- * Books are fetched on demand and cached by the service worker; Philemon is
- * bundled for first-run / offline use. (Only single-chapter Philemon is wired so
- * far — multi-chapter books additionally need each chapter's wordgroup/clause
- * file, which this loader is shaped to loop over.)
+ * The full GNT (all 27 books) is selectable. Books are fetched on demand from
+ * the upstream OpenText repo and cached by the service worker; Philemon is also
+ * bundled for first-run / offline use. A book parses its word layer ONCE and
+ * loops its chapters, fetching each chapter's wordgroup + clause file.
  */
 
 export interface OpenTextBook {
@@ -23,17 +23,45 @@ export interface OpenTextBook {
   num: number;
   name: string;
   abbr: string;
-  /** Directory slug under /opentext, e.g. "philemon". */
+  /** Directory slug under /opentext (the OpenText NT folder name), e.g. "philemon". */
   slug: string;
-  /** OpenText book code used in filenames/ids, e.g. "Phlm". */
-  code: string;
   /** Number of chapters (drives how many wordgroup/clause files to fetch). */
   chapters: number;
 }
 
-export const OPENTEXT_BOOKS: OpenTextBook[] = [
-  { num: 18, name: 'Philemon', abbr: 'Phm', slug: 'philemon', code: 'Phlm', chapters: 1 },
-];
+// The full GNT. `num` matches GNT_BOOKS (for Nestle1904 surface alignment); the
+// slug is the OpenText NT directory; `chapters` drives the per-chapter fetch.
+export const OPENTEXT_BOOKS: OpenTextBook[] = (
+  [
+    [1, 'Matthew', 'Mat', 'matthew', 28],
+    [2, 'Mark', 'Mrk', 'mark', 16],
+    [3, 'Luke', 'Luk', 'luke', 24],
+    [4, 'John', 'Jhn', 'john', 21],
+    [5, 'Acts', 'Act', 'acts', 28],
+    [6, 'Romans', 'Rom', 'romans', 16],
+    [7, '1 Corinthians', '1Co', '1corinthians', 16],
+    [8, '2 Corinthians', '2Co', '2corinthians', 13],
+    [9, 'Galatians', 'Gal', 'galatians', 6],
+    [10, 'Ephesians', 'Eph', 'ephesians', 6],
+    [11, 'Philippians', 'Php', 'philippians', 4],
+    [12, 'Colossians', 'Col', 'colossians', 4],
+    [13, '1 Thessalonians', '1Th', '1thessalonians', 5],
+    [14, '2 Thessalonians', '2Th', '2thessalonians', 3],
+    [15, '1 Timothy', '1Ti', '1timothy', 6],
+    [16, '2 Timothy', '2Ti', '2timothy', 4],
+    [17, 'Titus', 'Tit', 'titus', 3],
+    [18, 'Philemon', 'Phm', 'philemon', 1],
+    [19, 'Hebrews', 'Heb', 'hebrews', 13],
+    [20, 'James', 'Jas', 'james', 5],
+    [21, '1 Peter', '1Pe', '1peter', 5],
+    [22, '2 Peter', '2Pe', '2peter', 3],
+    [23, '1 John', '1Jn', '1john', 5],
+    [24, '2 John', '2Jn', '2john', 1],
+    [25, '3 John', '3Jn', '3john', 1],
+    [26, 'Jude', 'Jud', 'jude', 1],
+    [27, 'Revelation', 'Rev', 'revelation', 22],
+  ] as const
+).map(([num, name, abbr, slug, chapters]) => ({ num, name, abbr, slug, chapters }));
 
 const SOURCE_BASE =
   'https://raw.githubusercontent.com/OpenText-org/original_annotation/master/NT/';
@@ -66,14 +94,22 @@ function fetchLayer(book: OpenTextBook, rel: string): Promise<string> {
  * fetched the diagram still loads in lemma forms.
  */
 export async function loadOpenTextBook(book: OpenTextBook): Promise<KrDocument[]> {
-  const baseXml = await fetchLayer(book, `base/${book.slug}.xml`);
+  // Parse the word layer ONCE for the whole book, then reuse it for each chapter.
+  const base = parseBase(await fetchLayer(book, `base/${book.slug}.xml`));
 
   const docs: KrDocument[] = [];
   for (let ch = 1; ch <= book.chapters; ch++) {
-    const wgXml = await fetchLayer(book, `wordgroup/${book.slug}-wg-ch${ch}.xml`);
-    const clXml = await fetchLayer(book, `clause/${book.slug}-cl-ch${ch}.xml`);
-    docs.push(...openTextToDocuments(baseXml, wgXml, clXml, { book: book.name }));
+    let wgXml: string;
+    let clXml: string;
+    try {
+      wgXml = await fetchLayer(book, `wordgroup/${book.slug}-wg-ch${ch}.xml`);
+      clXml = await fetchLayer(book, `clause/${book.slug}-cl-ch${ch}.xml`);
+    } catch {
+      continue; // a chapter missing upstream shouldn't sink the whole book
+    }
+    docs.push(...buildOpenTextDocuments(base, wgXml, clXml, { book: book.name, chapter: ch }));
   }
+  if (!docs.length) throw new Error(`Could not load ${book.name} from OpenText.`);
 
   // Align to the Nestle1904 surface text (best-effort).
   try {

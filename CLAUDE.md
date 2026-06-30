@@ -387,5 +387,7 @@ drives all four modes for free.
   same-verse lemma fallback for NA27↔Nestle1904 textual drift (~94% coverage on
   Philemon; unaligned words keep their lemma form, so the diagram is always whole).
 - `io/opentext-source.ts` (`loadOpenTextBook`, `OPENTEXT_BOOKS`) fetches + aligns a
-  book; Philemon is bundled under `public/opentext/`. Multi-chapter books still
-  need each chapter's wordgroup/clause file (the loader loops over `chapters`).
+  book; the full GNT (all 27 books) is selectable, fetched on demand from the
+  upstream repo, with Philemon bundled under `public/opentext/` for offline use.
+  A book parses its base layer once (`parseBase`) and loops its chapters
+  (`buildOpenTextDocuments` per chapter, ids kept unique by chapter number).
