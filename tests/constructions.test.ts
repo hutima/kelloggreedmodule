@@ -23,6 +23,43 @@ const textEl = (l: ReturnType<typeof layoutDocument>, t: string) =>
     | { x: number; y: number; rotate?: number }
     | undefined;
 
+describe('a preposition slant lengthens to carry a long (gloss) label', () => {
+  // The preposition rides the slant; a long English gloss ("according to") must
+  // get a longer slant so it doesn't overhang onto neighbouring rows. A short
+  // preposition keeps the compact geometry (Greek and English lay out separately).
+  const pp = (prep: string) =>
+    build(
+      [
+        { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s'] },
+        { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+        { id: 'P', kind: 'word', role: 'prepositionalPhrase', tokenIds: ['p'] },
+        { id: 'O', kind: 'word', role: 'prepositionObject', tokenIds: ['o'] },
+      ],
+      [
+        { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+        { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+        { id: 'r3', type: 'prepositionalPhrase', headId: 'V', dependentId: 'P' },
+        { id: 'r4', type: 'prepositionObject', headId: 'P', dependentId: 'O' },
+      ],
+      [
+        { id: 's', index: 0, surface: 'he', pos: 'pronoun' },
+        { id: 'v', index: 1, surface: 'works', pos: 'verb' },
+        { id: 'p', index: 2, surface: prep, pos: 'preposition' },
+        { id: 'o', index: 3, surface: 'pleasure', pos: 'noun' },
+      ],
+    );
+
+  it('drops the object deeper for a long preposition than a short one', () => {
+    const shortObj = textEl(layoutDocument(pp('in')), 'pleasure')!;
+    const longObj = textEl(layoutDocument(pp('according to')), 'pleasure')!;
+    expect(shortObj).toBeDefined();
+    expect(longObj).toBeDefined();
+    // The long-label slant is longer, so its object baseline sits lower.
+    expect(longObj.y).toBeGreaterThan(shortObj.y + 20);
+  });
+});
+
 describe('a coordinator attached to a conjunct rides the fork bar (not a slant)', () => {
   // Some parses hang the ἀλλά of an "οὐ … ἀλλά" pair on the SECOND member rather
   // than the coordination head (e.g. Php 2:27). It must still be drawn as a
