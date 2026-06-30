@@ -20,7 +20,7 @@ import { repTokenId, rootTokens, SHORT_ROLE } from './dependency';
 const VROOT = '__root__';
 const ROOT_COLOR = '#5b6470'; // slate — the clause family
 
-const SLOT_GAP = 22; // horizontal padding added to each leaf's slot
+const SLOT_GAP = 28; // horizontal padding around each node's word (Greek runs wide)
 /** Edge-label position along the edge — near the child so it clears the parent's
  *  gloss line above and reads as labelling the word it points at. */
 const LABEL_FRAC = 0.72;
@@ -81,31 +81,54 @@ export function layoutDependencyTree(doc: KrDocument): DiagramLayout {
   const hasGloss = doc.tokens.some((t) => t.gloss);
   const ROW = Math.round(LAYOUT.fontSize * (hasGloss ? 5 : 3.6));
 
-  const slotWidth = (tok: string) =>
-    Math.max(width(surface.get(tok) ?? ''), gloss.get(tok) ? width(gloss.get(tok)!, true) : 0) + SLOT_GAP;
+  // Each node's OWN horizontal footprint: its word (or gloss, or the [ROOT]
+  // marker), whichever is wider, plus padding.
+  const ownWidth = (tok: string): number => {
+    if (tok === VROOT) return width('[ROOT]', true) + SLOT_GAP;
+    const s = surface.get(tok) ?? '';
+    const g = gloss.get(tok);
+    return Math.max(width(s), g ? width(g, true) : 0) + SLOT_GAP;
+  };
 
-  // Tidy layout: leaves take sequential horizontal slots; a parent is centred
-  // over its children. y is the node's depth.
+  // Tidy layout in two passes. measure(): a subtree reserves at least the width
+  // of its OWN word — not just its leaves — so a wide INTERNAL node (a head sitting
+  // over a narrow child) can't overlap its neighbours. place(): lay each node's
+  // children left-to-right within its reserved band and centre the node over them.
+  const subW = new Map<string, number>();
+  const measure = (tok: string, seen: Set<string>): number => {
+    const kids = (children.get(tok) ?? []).filter((k) => !seen.has(k.tok));
+    let w = ownWidth(tok);
+    if (kids.length) {
+      const next = new Set(seen).add(tok);
+      w = Math.max(w, kids.reduce((a, k) => a + measure(k.tok, next), 0));
+    }
+    subW.set(tok, w);
+    return w;
+  };
+
   const xOf = new Map<string, number>();
   const yOf = new Map<string, number>();
-  let leafCursor = 0;
-  const place = (tok: string, depth: number, seen: Set<string>): number => {
-    if (xOf.has(tok)) return xOf.get(tok)!;
+  const place = (tok: string, left: number, depth: number, seen: Set<string>): void => {
     yOf.set(tok, depth * ROW);
     const kids = (children.get(tok) ?? []).filter((k) => !seen.has(k.tok));
     if (!kids.length) {
-      const x = leafCursor + slotWidth(tok) / 2;
-      leafCursor += slotWidth(tok);
-      xOf.set(tok, x);
-      return x;
+      xOf.set(tok, left + (subW.get(tok) ?? ownWidth(tok)) / 2);
+      return;
     }
     const next = new Set(seen).add(tok);
-    const xs = kids.map((k) => place(k.tok, depth + 1, next));
-    const x = (Math.min(...xs) + Math.max(...xs)) / 2;
-    xOf.set(tok, x);
-    return x;
+    const childTotal = kids.reduce((a, k) => a + (subW.get(k.tok) ?? 0), 0);
+    // Centre the children block within this node's (possibly wider) band.
+    let cx = left + ((subW.get(tok) ?? childTotal) - childTotal) / 2;
+    const childXs: number[] = [];
+    for (const k of kids) {
+      place(k.tok, cx, depth + 1, next);
+      childXs.push(xOf.get(k.tok)!);
+      cx += subW.get(k.tok) ?? 0;
+    }
+    xOf.set(tok, (Math.min(...childXs) + Math.max(...childXs)) / 2);
   };
-  place(VROOT, 0, new Set([VROOT]));
+  measure(VROOT, new Set([VROOT]));
+  place(VROOT, 0, 0, new Set([VROOT]));
 
   // Edges first (so the words/labels draw on top), then nodes.
   for (const [head, kids] of children) {
