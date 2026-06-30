@@ -178,6 +178,11 @@ export function PhraseBlockEditor({
   // as a drag start instead of a close — so the handles only reappear once the
   // menu is closed.
   const dndEnabled = !moving && !grouping && !selectedId;
+  // A row's inline menu is open (selected, outside the move/group tools). The
+  // banner below stays mounted in this state too — only its text swaps — so
+  // opening/closing the first menu doesn't also collapse/restore the banner's
+  // slot on top of the controls appearing/disappearing below the row.
+  const menuOpen = Boolean(selectedId) && !moving && !grouping;
 
   const canDrop = (id: string | null | undefined): boolean =>
     Boolean(id) && id !== dragRef.current.id && !dragRef.current.invalid.has(id!);
@@ -304,10 +309,10 @@ export function PhraseBlockEditor({
         </div>
       )}
       {/* PERMANENT drag banner (when not in the move/group tools): it occupies the
-          same slot whether or not a drag is in progress, so starting a drag never
-          pushes the rows down — which would otherwise leave the grabbed word out
-          from under the cursor and make aligning the drop impossible. */}
-      {dndEnabled && (
+          same slot whether idle, dragging, or a row's menu is open (handles
+          hidden), so neither starting a drag nor opening/closing a menu ever
+          shifts the rows by collapsing this slot — only its text swaps. */}
+      {!moving && !grouping && (
         <div className={`pbw-banner pbw-banner-dnd${dragId ? ' dragging' : ''}`}>
           {dragId ? (
             <>
@@ -316,6 +321,8 @@ export function PhraseBlockEditor({
                 Cancel
               </button>
             </>
+          ) : menuOpen ? (
+            <span className="pbw-banner-hint">Close the menu below to drag-and-drop rows.</span>
           ) : (
             <span className="pbw-banner-hint">
               Drag a row’s <span className="pbw-grip-inline" aria-hidden="true">⠿</span> handle onto
