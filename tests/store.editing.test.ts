@@ -82,6 +82,57 @@ describe('store — semantic editing + app mode + patch persistence', () => {
     expect(rel.headId).toBe(rootId);
   });
 
+  it('addClause wraps a single clause in a coordinate root with a new empty member', () => {
+    const rootBefore = store.getState().doc.syntax.rootId;
+    store.getState().addClause();
+    const { doc } = store.getState();
+    const root = doc.syntax.nodes.find((n) => n.id === doc.syntax.rootId)!;
+    expect(root.clauseType).toBe('coordinate');
+    expect(root.id).not.toBe(rootBefore); // a NEW coordinate root wraps the old clause
+    // Two coordinate members: the original clause and the fresh one.
+    const conjuncts = doc.syntax.relations.filter((r) => r.headId === root.id && r.type === 'conjunct');
+    expect(conjuncts).toHaveLength(2);
+    expect(conjuncts.map((r) => r.dependentId)).toContain(rootBefore);
+    // The new clause has implied subject + predicate slots to fill.
+    const newClauseId = conjuncts.map((r) => r.dependentId).find((id) => id !== rootBefore)!;
+    const slots = doc.syntax.relations.filter((r) => r.headId === newClauseId);
+    expect(slots.map((r) => r.type).sort()).toEqual(['predicate', 'subject']);
+    expect(slots.every((r) => doc.syntax.nodes.find((n) => n.id === r.dependentId)?.implied)).toBe(true);
+  });
+
+  it('setMainPredicate swaps the picked word with the existing main verb', () => {
+    // n1=subject(λόγος), n2=predicate(ἦν). Make the SUBJECT the main verb: the old
+    // verb ἦν should take the subject's vacated role.
+    store.getState().setMainPredicate('n1');
+    const { doc } = store.getState();
+    const rootId = doc.syntax.rootId;
+    const mainVerbRel = doc.syntax.relations.find((r) => r.headId === rootId && r.type === 'predicate')!;
+    expect(mainVerbRel.dependentId).toBe('n1'); // λόγος is now the predicate
+    // The displaced ἦν took λόγος's old role (subject).
+    const displaced = doc.syntax.relations.find((r) => r.dependentId === 'n2')!;
+    expect(displaced.type).toBe('subject');
+    expect(doc.syntax.nodes.find((n) => n.id === 'n2')!.role).toBe('subject');
+  });
+
+  it('setMainPredicate drops an implied (verb) placeholder rather than swapping', () => {
+    // Replace the real verb with an implied placeholder, then add a loose word.
+    const base = makeBase();
+    base.syntax.nodes = base.syntax.nodes.map((n) =>
+      n.id === 'n2' ? { ...n, tokenIds: [], implied: true, label: '(verb)' } : n,
+    );
+    base.tokens.push({ id: 't3', index: 2, surface: 'ἐποίησεν' });
+    base.syntax.nodes.push({ id: 'n3', kind: 'word', role: 'adjunct', tokenIds: ['t3'] });
+    base.syntax.relations.push({ id: 'r3', type: 'adjunct', headId: base.syntax.rootId, dependentId: 'n3' });
+    store.getState().loadDocument(base, { corpus: 'gnt' });
+
+    store.getState().setMainPredicate('n3');
+    const { doc } = store.getState();
+    const pred = doc.syntax.relations.find((r) => r.headId === doc.syntax.rootId && r.type === 'predicate')!;
+    expect(pred.dependentId).toBe('n3');
+    // The implied placeholder's relation is gone (dropped, not swapped).
+    expect(doc.syntax.relations.some((r) => r.dependentId === 'n2')).toBe(false);
+  });
+
   it('attachNodeTo re-points the dependent to a new head (single parent)', () => {
     store.getState().attachNodeTo('n1', 'n2', 'genitive');
     const { doc } = store.getState();

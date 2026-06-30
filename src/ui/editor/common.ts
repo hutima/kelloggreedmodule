@@ -73,6 +73,27 @@ export function describeRelation(doc: KrDocument, id: string): string | null {
   return `${nodeName(doc, r.dependentId)} → ${nodeName(doc, r.headId)} (${ROLE_LABEL[r.type]})`;
 }
 
+/**
+ * "Make main verb" for a WORD node — promote it to the main clause's predicate.
+ * Offered only for a word that is not already that predicate. If a real verb is
+ * there it swaps; an implied placeholder is dropped (see store.setMainPredicate).
+ */
+export function mainVerbAction(doc: KrDocument, nodeId: string): EditorAction[] {
+  const node = getNode(doc.syntax, nodeId);
+  if (!node || node.kind !== 'word' || node.implied) return [];
+  const parent = parentRelations(doc.syntax, nodeId)[0];
+  if (parent && (parent.type === 'predicate' || parent.type === 'copula')) return [];
+  return [
+    {
+      id: 'main-verb',
+      label: 'Make main verb',
+      hint: 'Set as the main clause predicate (swaps any existing main verb)',
+      group: 'syntax',
+      intent: { kind: 'setMainPredicate', nodeId },
+    },
+  ];
+}
+
 /** Sermon-prep actions, shared by every tier (notes + highlight stay separate). */
 export function sermonNodeActions(nodeId: string): EditorAction[] {
   return [

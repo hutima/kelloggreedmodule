@@ -21,6 +21,12 @@ export function dispatchEditIntent(intent: EditIntent): void {
     case 'setRole':
       s.setNodeRole(intent.nodeId, intent.role);
       break;
+    case 'addClause':
+      s.addClause();
+      break;
+    case 'setMainPredicate':
+      s.setMainPredicate(intent.nodeId);
+      break;
     case 'setImplied':
       s.setImplied(intent.nodeId, intent.implied);
       break;

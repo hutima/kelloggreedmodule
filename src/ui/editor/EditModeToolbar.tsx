@@ -29,6 +29,8 @@ export function EditModeToolbar() {
   const setActiveEditTool = useEditorStore((s) => s.setActiveEditTool);
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
+  // Define a brand-new clause (empty subject + verb slots to fill from the bank).
+  const addClause = useEditorStore((s) => s.addClause);
   const canUndo = useEditorStore(selectCanUndo);
   const canRedo = useEditorStore(selectCanRedo);
   // "Clean up" re-flows the Kellogg-Reed diagram from the parse by clearing all
@@ -69,6 +71,20 @@ export function EditModeToolbar() {
       </span>
 
       <EditTierToggle />
+
+      {editTier === 'basic' && diagramMode !== 'morphology' && (
+        <button
+          type="button"
+          className="tool-btn add-clause-btn"
+          title="Add a new clause — an empty subject + verb to fill from the word bank"
+          onClick={addClause}
+        >
+          <span className="tool-icon" aria-hidden="true">
+            ＋
+          </span>
+          <span className="tool-label">Add clause</span>
+        </button>
+      )}
 
       {editTier === 'basic' ? (
         <div className="tool-group" role="group" aria-label="Tool">

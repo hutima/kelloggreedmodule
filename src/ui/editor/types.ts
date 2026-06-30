@@ -33,6 +33,8 @@ export type { EditTier, BasicEditTool } from '@/state/types';
 export type EditIntent =
   // --- direct semantic edits (flow to the shared syntax graph) ---
   | { kind: 'setRole'; nodeId: string; role: SyntacticRole }
+  | { kind: 'addClause' }
+  | { kind: 'setMainPredicate'; nodeId: string }
   | { kind: 'setImplied'; nodeId: string; implied: boolean }
   | { kind: 'setClauseType'; nodeId: string; clauseType: ClauseType }
   | { kind: 'attachNodeTo'; dependentId: string; headId: string; type: SyntacticRole }
