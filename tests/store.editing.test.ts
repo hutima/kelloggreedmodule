@@ -100,6 +100,63 @@ describe('store — semantic editing + app mode + patch persistence', () => {
     expect(slots.every((r) => doc.syntax.nodes.find((n) => n.id === r.dependentId)?.implied)).toBe(true);
   });
 
+  it('setNodeRole(subject) replaces the existing subject (swap), not doubles it', () => {
+    // n1=subject(λόγος), n2=predicate(ἦν). Add a loose word, then make IT the
+    // subject: the slot must hold one subject — the old λόγος is swapped out.
+    const base = makeBase();
+    base.tokens.push({ id: 't3', index: 2, surface: 'θεός' });
+    base.syntax.nodes.push({ id: 'n3', kind: 'word', role: 'adjunct', tokenIds: ['t3'] });
+    base.syntax.relations.push({ id: 'r3', type: 'adjunct', headId: 'n2', dependentId: 'n3' });
+    store.getState().loadDocument(base, { corpus: 'gnt' });
+
+    store.getState().setNodeRole('n3', 'subject');
+    const { doc } = store.getState();
+    const rootId = doc.syntax.rootId;
+    const subjects = doc.syntax.relations.filter((r) => r.headId === rootId && r.type === 'subject');
+    expect(subjects).toHaveLength(1); // exactly one subject — not doubled
+    expect(subjects[0]!.dependentId).toBe('n3');
+    // The displaced λόγος took n3's vacated role/head (adjunct of n2).
+    const displaced = doc.syntax.relations.find((r) => r.dependentId === 'n1')!;
+    expect(displaced.type).toBe('adjunct');
+    expect(displaced.headId).toBe('n2');
+  });
+
+  it('setNodeRole(subject) drops an implied subject placeholder instead of swapping', () => {
+    const base = makeBase();
+    base.syntax.nodes = base.syntax.nodes.map((n) =>
+      n.id === 'n1' ? { ...n, tokenIds: [], implied: true, label: '(subject)' } : n,
+    );
+    base.tokens.push({ id: 't3', index: 2, surface: 'θεός' });
+    base.syntax.nodes.push({ id: 'n3', kind: 'word', role: 'adjunct', tokenIds: ['t3'] });
+    base.syntax.relations.push({ id: 'r3', type: 'adjunct', headId: 'n2', dependentId: 'n3' });
+    store.getState().loadDocument(base, { corpus: 'gnt' });
+
+    store.getState().setNodeRole('n3', 'subject');
+    const { doc } = store.getState();
+    expect(doc.syntax.relations.some((r) => r.dependentId === 'n1')).toBe(false); // placeholder gone
+    const subjects = doc.syntax.relations.filter((r) => r.headId === doc.syntax.rootId && r.type === 'subject');
+    expect(subjects).toHaveLength(1);
+    expect(subjects[0]!.dependentId).toBe('n3');
+  });
+
+  it('attachNodeTo into an occupied subject slot swaps the current subject out', () => {
+    // Two clauses; move clause B's would-be subject into clause A's subject slot.
+    const base = makeBase();
+    const rootId = base.syntax.rootId;
+    base.tokens.push({ id: 't3', index: 2, surface: 'φῶς' });
+    base.syntax.nodes.push({ id: 'n3', kind: 'word', role: 'adjunct', tokenIds: ['t3'] });
+    base.syntax.relations.push({ id: 'r3', type: 'adjunct', headId: 'n2', dependentId: 'n3' });
+    store.getState().loadDocument(base, { corpus: 'gnt' });
+
+    store.getState().attachNodeTo('n3', rootId, 'subject');
+    const { doc } = store.getState();
+    const subjects = doc.syntax.relations.filter((r) => r.headId === rootId && r.type === 'subject');
+    expect(subjects).toHaveLength(1);
+    expect(subjects[0]!.dependentId).toBe('n3');
+    // λόγος displaced to n3's old role/head.
+    expect(doc.syntax.relations.find((r) => r.dependentId === 'n1')!.type).toBe('adjunct');
+  });
+
   it('setMainPredicate swaps the picked word with the existing main verb', () => {
     // n1=subject(λόγος), n2=predicate(ἦν). Make the SUBJECT the main verb: the old
     // verb ἦν should take the subject's vacated role.
