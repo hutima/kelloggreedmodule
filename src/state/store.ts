@@ -17,11 +17,15 @@ import type {
 } from '@/domain/schema';
 import { emptySermonPrep } from '@/domain/schema';
 import {
+  clauseAncestor,
   createDocument,
+  detachNode,
   getNode,
   headForRole,
+  headForRoleInClause,
   makeId,
   normalizeSyntax,
+  parentRelations,
   reindex,
   removeNodeSubtree,
   removeRelation,
@@ -270,10 +274,20 @@ export interface EditorActions {
    *  reading; selects it so it can be re-roled/relinked. */
   addWord: (surface: string) => void;
   /** Place an existing-but-unassigned token on the diagram: make a word node for
-   *  it, attach it to the root, and select it so it can be re-roled / relinked. */
+   *  it, attach it to the currently-selected clause (or the root), and select it
+   *  so it can be re-roled / relinked. */
   placeToken: (tokenId: string) => void;
   /** Delete a word node, its token(s), and any relations touching it. */
   removeWord: (nodeId: string) => void;
+  /**
+   * Step ONE of the two-step delete: take a word OFF the diagram without deleting
+   * its token. The node is removed (children re-homed onto its parent) and the
+   * token becomes UNASSIGNED, so it returns to the word bank to be re-placed or
+   * deleted for good. Better fits the uncertainty of editing than an outright wipe.
+   */
+  detachWord: (nodeId: string) => void;
+  /** Step TWO of the two-step delete: remove an (unassigned) token for good. */
+  removeToken: (tokenId: string) => void;
   // syntax
   upsertNode: (node: SyntaxNode) => void;
   updateNode: (id: string, patch: Partial<SyntaxNode>) => void;
@@ -300,6 +314,14 @@ export interface EditorActions {
   setMainPredicate: (nodeId: string) => void;
   /** Attach `dependentId` under `headId` as `type` (re-pointing its head). */
   attachNodeTo: (dependentId: string, headId: string, type: SyntacticRole) => void;
+  /**
+   * Assign a word to a chosen clause, keeping its current role: subject/verb (and
+   * ordinary members) hang off the clause; verbal complements hang off the
+   * clause's verb. This is the workflow's explicit "relate to a clause" step, so a
+   * freshly-placed word can be homed in the right clause regardless of where it
+   * was first dropped.
+   */
+  assignToClause: (nodeId: string, clauseId: string) => void;
   /** Change an existing relation's type. */
   changeRelationType: (relationId: string, type: SyntacticRole) => void;
   /** Swap a relation's head and dependent. */
@@ -849,10 +871,19 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     placeToken: (tokenId) => {
-      const { doc } = get();
+      const { doc, selection } = get();
       if (!doc.tokens.some((t) => t.id === tokenId)) return;
       // Already on the diagram? Nothing to do.
       if (doc.syntax.nodes.some((n) => n.tokenIds.includes(tokenId))) return;
+      // Drop the word into the clause the user is working in: the selected clause
+      // itself, or the clause enclosing the selected node, else the root. This is
+      // what makes "select a clause → tap a bank word → it lands in that clause"
+      // flow, so the new word's role can be set straight away.
+      const sel = selection.nodeId ? getNode(doc.syntax, selection.nodeId) : undefined;
+      const headId =
+        sel?.kind === 'clause'
+          ? sel.id
+          : (selection.nodeId && clauseAncestor(doc.syntax, selection.nodeId)?.id) || doc.syntax.rootId;
       const nodeId = makeId('node');
       commit((d) => {
         const node: SyntaxNode = {
@@ -861,12 +892,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           tokenIds: [tokenId],
           provenance: { source: 'manual', confidence: 'high' },
         };
-        // Attach to the root so it's visible immediately; the user then re-roles /
-        // relinks it to the right head with the normal edit tools.
+        // Attach where the user is working so it's visible immediately; they then
+        // re-role / relink it to the right head with the normal edit tools.
         const relation: Relation = {
           id: makeId('rel'),
           type: 'adjunct',
-          headId: d.syntax.rootId,
+          headId: d.syntax.nodes.some((n) => n.id === headId) ? headId : d.syntax.rootId,
           dependentId: nodeId,
           provenance: { source: 'manual', confidence: 'high' },
         };
@@ -896,6 +927,40 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             // Drop relations touching the word; its former children simply detach.
             relations: d.syntax.relations.filter(
               (r) => r.headId !== nodeId && r.dependentId !== nodeId,
+            ),
+          },
+        };
+      }),
+
+    detachWord: (nodeId) => {
+      const { doc } = get();
+      if (nodeId === doc.syntax.rootId) return; // never detach the root
+      commit((d) => ({ ...d, syntax: detachNode(d.syntax, nodeId) }));
+      set({ selection: {} });
+    },
+
+    removeToken: (tokenId) =>
+      commit((d) => {
+        // Strip the token from any node that still references it; a word node that
+        // empties out (and wasn't an implied placeholder) is removed with its edges.
+        const nodes = d.syntax.nodes.map((n) =>
+          n.tokenIds.includes(tokenId)
+            ? { ...n, tokenIds: n.tokenIds.filter((t) => t !== tokenId) }
+            : n,
+        );
+        const doomed = new Set(
+          nodes
+            .filter((n) => n.kind === 'word' && n.tokenIds.length === 0 && !n.implied)
+            .map((n) => n.id),
+        );
+        return {
+          ...d,
+          tokens: reindex(d.tokens.filter((t) => t.id !== tokenId)),
+          syntax: {
+            ...d.syntax,
+            nodes: nodes.filter((n) => !doomed.has(n.id)),
+            relations: d.syntax.relations.filter(
+              (r) => !doomed.has(r.headId) && !doomed.has(r.dependentId),
             ),
           },
         };
@@ -1037,6 +1102,20 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         syntax = replaceFiller(syntax, d.syntax, dependentId, type, headId, incoming);
         return { ...d, syntax };
       });
+    },
+
+    assignToClause: (nodeId, clauseId) => {
+      const { doc } = get();
+      const clause = getNode(doc.syntax, clauseId);
+      if (!clause || clause.kind !== 'clause' || nodeId === clauseId) return;
+      const node = getNode(doc.syntax, nodeId);
+      // Keep whatever role the word already has (its incoming relation, else its
+      // node role, else a loose adjunct); the head is resolved within the chosen
+      // clause so verbal complements still land on the verb for the KR baseline.
+      const role: SyntacticRole =
+        parentRelations(doc.syntax, nodeId)[0]?.type ?? node?.role ?? 'adjunct';
+      const head = headForRoleInClause(doc.syntax, clauseId, role);
+      get().attachNodeTo(nodeId, head, role);
     },
 
     changeRelationType: (relationId, type) =>

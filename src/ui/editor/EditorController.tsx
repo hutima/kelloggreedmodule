@@ -1,4 +1,5 @@
 import { useEditorStore } from '@/state';
+import { isEditableMode } from '@/domain/layout';
 import { SelectionActionSheet } from './SelectionActionSheet';
 import { InlineSyntaxPopover } from './InlineSyntaxPopover';
 import { RelationshipQuickPicker } from './RelationshipQuickPicker';
@@ -41,7 +42,9 @@ export function EditorController() {
   const onAction = (a: EditorAction) => dispatchEditIntent(a.intent);
 
   const adapter = adapterFor(diagramMode);
-  const editing = appMode === 'edit';
+  // Editing is offered only in the two editable visualizations (Kellogg-Reed and
+  // Phrase/Block); the others are presentation-only, so no contextual surfaces.
+  const editing = appMode === 'edit' && isEditableMode(diagramMode);
   // Phrase/Block uses its own inline row workbench; don't also float a sheet.
   const inlineWorkbench = diagramMode === 'phrase-block';
   const busy = Boolean(linking || pendingLinkStart || relationshipDraft || editModal);

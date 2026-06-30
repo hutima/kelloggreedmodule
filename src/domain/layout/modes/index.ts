@@ -42,6 +42,24 @@ export const DIAGRAM_MODES: DiagramModeInfo[] = [
  */
 export const DEFAULT_MODE: DiagramMode = 'phrase-block';
 
+/**
+ * The visualizations that support EDITING. Only the two pedagogically familiar,
+ * finger-friendly structural lenses are editable: Kellogg-Reed and Phrase/Block.
+ * Dependency, Dependency Tree and Morphology are presentation-only — their direct
+ * graph manipulation is not user-friendly, so Edit mode falls back to one of these
+ * two. Because every mode is a lens over the ONE shared syntax graph, edits made
+ * here still flow through to Explore/Study in every visualization.
+ */
+export const EDITABLE_MODES: DiagramMode[] = ['kellogg-reed', 'phrase-block'];
+
+/** The editable mode to fall back to when Edit mode opens on a read-only one. */
+export const DEFAULT_EDIT_MODE: DiagramMode = 'phrase-block';
+
+/** Whether a visualization can be edited (the others are presentation-only). */
+export function isEditableMode(mode: DiagramMode): boolean {
+  return EDITABLE_MODES.includes(mode);
+}
+
 export function layoutForMode(
   mode: DiagramMode,
   doc: KrDocument,

@@ -108,6 +108,27 @@ export function headForRole(
 }
 
 /**
+ * Where a node should attach so it joins `clauseId` in `role`'s slot — the
+ * clause-relative counterpart of {@link headForRole} (which infers the clause
+ * from the node's CURRENT position). Used when the user explicitly assigns a word
+ * to a chosen clause: subject/predicate/copula and ordinary members hang off the
+ * clause itself; verbal complements (object, predicate nominative…) hang off that
+ * clause's verb so the Kellogg-Reed baseline draws them, falling back to the
+ * clause when it has no verb yet.
+ */
+export function headForRoleInClause(
+  model: SyntaxModel,
+  clauseId: string,
+  role: SyntacticRole,
+): string {
+  if (VERB_HEADED_ROLES.includes(role)) {
+    const verb = clauseVerb(model, clauseId);
+    if (verb && verb.id !== clauseId) return verb.id;
+  }
+  return clauseId;
+}
+
+/**
  * Pairs of (implied subject node ↔ its clause's verb node). A pro-drop / elided
  * subject is inferred FROM the verb's morphology, so the two come from the same
  * word; the UI greys both together when either is hovered. Returns an undirected

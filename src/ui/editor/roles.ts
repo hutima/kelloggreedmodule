@@ -70,7 +70,9 @@ export function suggestRolesForHead(doc: KrDocument, headId: string): SyntacticR
   const head = getNode(doc.syntax, headId);
   if (!head) return ['adjunct'];
   if (head.kind === 'clause') {
-    return ['subject', 'directObject', 'predicateNominative', 'adverbial', 'indirectObject'];
+    // Verb (predicate) must be reachable as a one-tap chip — a clause's nucleus is
+    // assigned exactly like its subject/object, not buried behind Advanced.
+    return ['subject', 'predicate', 'directObject', 'indirectObject', 'predicateNominative', 'adverbial'];
   }
   const tok = head.tokenIds.length ? doc.tokens.find((t) => t.id === head.tokenIds[0]) : undefined;
   const pos = tok?.pos;
