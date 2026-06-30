@@ -123,6 +123,14 @@ function wordPos(ctx: Ctx, nodeId: string): string | undefined {
  * (adjectives / adverbs): "tall and distinguished", "little and old". Drawn as
  * parallel slants joined by a dashed coordinator bar, rather than the horizontal
  * two-prong fork used for coordinated nouns.
+ *
+ * Every member must be a LIGHT diagonal modifier — i.e. carry only further
+ * diagonal leaves of its own, never a sub-baseline dependent (a prepositional
+ * phrase, an appositive clause, a genitive NP). `drawDiagonalModifier` can only
+ * fold further slants off a member's word, so a member with heavy structure
+ * would have its whole subtree crushed onto tiny diagonal jogs (the Eph 1:1
+ * "τοῖς ἁγίοις … καὶ πιστοῖς ἐν Χριστῷ" clash). Such a coordination falls back to
+ * the two-prong fork, which lays each member out as a full block instead.
  */
 function isDiagonalCoordination(ctx: Ctx, nodeId: string): boolean {
   const node = getNode(ctx.doc.syntax, nodeId);
@@ -131,10 +139,14 @@ function isDiagonalCoordination(ctx: Ctx, nodeId: string): boolean {
   if (!conj.length) return false;
   const pos = wordPos(ctx, nodeId);
   if (!pos || !DIAGONAL_POS.has(pos)) return false;
-  return conj.every((r) => {
-    const cp = wordPos(ctx, r.dependentId);
-    return !!cp && DIAGONAL_POS.has(cp);
-  });
+  // The head's OWN modifiers (its conjunct/coordinator children belong to the
+  // coordination, not to the slant) must all be light diagonal leaves.
+  const headLight = childRelations(ctx.doc.syntax, nodeId).every(
+    (r) => r.type === 'conjunct' || r.type === 'coordinator' || isDiagonalModifier(ctx, r.dependentId),
+  );
+  if (!headLight) return false;
+  // Each conjunct must likewise be a pure diagonal modifier (no heavy children).
+  return conj.every((r) => isDiagonalModifier(ctx, r.dependentId));
 }
 
 /** Draw a coordination of adjective/adverb modifiers as parallel slants. */
