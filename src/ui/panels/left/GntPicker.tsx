@@ -1,17 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
-import { GNT_BOOKS, BUNDLED_BOOKS, cacheGntBook, loadGntBook, combinePassage, type GntBook } from '@/io';
+import {
+  GNT_BOOKS,
+  BUNDLED_BOOKS,
+  cacheGntBook,
+  loadGntBook,
+  combinePassage,
+  loadOpenTextBook,
+  OPENTEXT_BOOKS,
+  type GntBook,
+} from '@/io';
 import type { KrDocument } from '@/domain/schema';
 
 /**
  * Greek New Testament passage picker. Load a book, tick any number of sentences,
- * and Open diagrams them all together as one passage (the published gold-standard
- * parse, ready to edit). The sentence list doubles as the running Greek text with
- * verse references.
+ * and Open diagrams them all together as one passage, ready to edit. The sentence
+ * list doubles as the running Greek text with verse references.
+ *
+ * Two syntax SOURCES are selectable: the default Nestle1904 Lowfat parse and the
+ * OpenText.org analysis (an alternative tree). Both yield ordinary `KrDocument`s,
+ * so whichever is opened drives all four visualizations and becomes the editable
+ * base — switching source just changes which published analysis you start from.
  */
+type Source = 'nestle1904' | 'opentext';
+
 /** The GNT book whose name a passage/sentence title begins with, if any. */
 function bookForTitle(title: string): GntBook | undefined {
   return GNT_BOOKS.find((b) => title.startsWith(b.name));
+}
+
+/** Books offered for a source: the full GNT, or those with an OpenText analysis. */
+function booksFor(source: Source): { num: number; name: string }[] {
+  return source === 'opentext'
+    ? OPENTEXT_BOOKS.map((b) => ({ num: b.num, name: b.name }))
+    : GNT_BOOKS.map((b) => ({ num: b.num, name: b.name }));
+}
+
+/** Load a book's sentence documents from the selected source. */
+function loadBookDocs(source: Source, num: number): Promise<KrDocument[]> {
+  if (source === 'opentext') {
+    const b = OPENTEXT_BOOKS.find((x) => x.num === num)!;
+    return loadOpenTextBook(b);
+  }
+  return loadGntBook(GNT_BOOKS.find((x) => x.num === num)!);
 }
 
 export function GntPicker() {
@@ -24,6 +55,7 @@ export function GntPicker() {
   // Seed from the CURRENT passage so reopening Sources (which remounts the panel
   // on mobile) reflects what you're reading, instead of always resetting to Php.
   const currentBook = bookForTitle(doc.title);
+  const [source, setSource] = useState<Source>('nestle1904');
   const [bookNum, setBookNum] = useState(currentBook?.num ?? 11);
   const [passages, setPassages] = useState<KrDocument[] | null>(() =>
     gntPassages.length && bookForTitle(gntPassages[0]!.title)?.num === currentBook?.num
@@ -54,17 +86,19 @@ export function GntPicker() {
     }
   }, [doc.id, currentBook, bookNum]);
 
-  const book = GNT_BOOKS.find((b) => b.num === bookNum)!;
-  const bundled = BUNDLED_BOOKS.has(book.num);
+  const books = booksFor(source);
+  const book = books.find((b) => b.num === bookNum) ?? books[0]!;
+  // OpenText's bundled Philemon is always offline-ready; the GNT bundles Php only.
+  const bundled = source === 'opentext' || BUNDLED_BOOKS.has(book.num);
 
-  const loadBook = async (b: GntBook) => {
+  const loadBook = async (num: number) => {
     setLoading(true);
     setError(null);
     setPassages(null);
     setChecked(new Set());
     setCacheState('idle');
     try {
-      setPassages(await loadGntBook(b));
+      setPassages(await loadBookDocs(source, num));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -72,7 +106,20 @@ export function GntPicker() {
     }
   };
 
-  const saveOffline = async (b: GntBook) => {
+  // Switching source resets the list and lands on a book that source covers.
+  const changeSource = (next: Source) => {
+    setSource(next);
+    setPassages(null);
+    setChecked(new Set());
+    setError(null);
+    setCacheState('idle');
+    const list = booksFor(next);
+    if (!list.some((b) => b.num === bookNum)) setBookNum(list[0]!.num);
+  };
+
+  const saveOffline = async (num: number) => {
+    const b = GNT_BOOKS.find((x) => x.num === num);
+    if (!b) return;
     setCacheState('saving');
     setCacheState((await cacheGntBook(b)) ? 'saved' : 'error');
   };
@@ -109,6 +156,14 @@ export function GntPicker() {
 
   return (
     <div className="gnt-picker">
+      {/* Syntax source: the published analysis a passage starts from. */}
+      <label className="field">
+        <span>Syntax source</span>
+        <select value={source} onChange={(e) => changeSource(e.target.value as Source)}>
+          <option value="nestle1904">Nestle 1904 (Lowfat)</option>
+          <option value="opentext">OpenText.org</option>
+        </select>
+      </label>
       {/* Book selector spans the full width on its own line so the full book name
           is readable; Load / Save offline sit on the row beneath it. */}
       <label className="field">
@@ -120,27 +175,34 @@ export function GntPicker() {
             setCacheState('idle');
           }}
         >
-          {GNT_BOOKS.map((b) => (
+          {books.map((b) => (
             <option key={b.num} value={b.num} title={b.name}>
               {b.name}
-              {BUNDLED_BOOKS.has(b.num) ? ' ✓' : ''}
+              {source === 'nestle1904' && BUNDLED_BOOKS.has(b.num) ? ' ✓' : ''}
             </option>
           ))}
         </select>
       </label>
       <div className="row">
-        <button className="mini accept" disabled={loading} onClick={() => void loadBook(book)}>
+        <button className="mini accept" disabled={loading} onClick={() => void loadBook(book.num)}>
           {loading ? 'Loading…' : 'Load'}
         </button>
-        <button
-          className="mini"
-          disabled={bundled || cacheState === 'saving' || cacheState === 'saved'}
-          title={bundled ? 'Bundled with the app' : 'Download this book for offline use'}
-          onClick={() => void saveOffline(book)}
-        >
-          {bundled ? 'Bundled ✓' : cacheState === 'saving' ? 'Saving…' : cacheState === 'saved' ? 'Saved ✓' : 'Save offline'}
-        </button>
+        {source === 'nestle1904' && (
+          <button
+            className="mini"
+            disabled={bundled || cacheState === 'saving' || cacheState === 'saved'}
+            title={bundled ? 'Bundled with the app' : 'Download this book for offline use'}
+            onClick={() => void saveOffline(book.num)}
+          >
+            {bundled ? 'Bundled ✓' : cacheState === 'saving' ? 'Saving…' : cacheState === 'saved' ? 'Saved ✓' : 'Save offline'}
+          </button>
+        )}
       </div>
+      {source === 'opentext' && (
+        <p style={{ fontSize: 12, color: 'var(--muted, #667)' }}>
+          OpenText.org analysis (CC BY-SA 4.0), surface text from Nestle 1904.
+        </p>
+      )}
       {cacheState === 'error' && <p style={{ color: 'var(--danger)', fontSize: 12 }}>Couldn’t save offline.</p>}
       {error && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{error}</p>}
 

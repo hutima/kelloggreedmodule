@@ -362,3 +362,30 @@ drawer, single-frame preview, side-by-side `VariantComparisonView` with linked
 scroll + difference highlighting, and a Phrase/Block outline diff that crosses out
 a moved row's old position). Preview NEVER persists; only an explicit adopt writes
 a patch.
+
+## 15. Alternative syntax source (OpenText.org)
+
+The default GNT parse is Nestle1904 Lowfat; the **OpenText.org** analysis
+(`OpenText-org/original_annotation`, CC BY-SA 4.0) is offered as a SECOND,
+theory-independent syntax tree. Selecting it in the `GntPicker` loads an
+OpenText-derived `KrDocument` as the editable base — and because every
+visualization is a lens over the one syntax graph, a single converted document
+drives all four modes for free.
+
+- OpenText is a three-layer STANDOFF annotation keyed by word id: `base/<book>.xml`
+  (word level — POS, morphology, lemma, Louw-Nida domains), `wordgroup/…-wg-chN.xml`
+  (head + typed modifiers: definer/specifier/qualifier/relator/connector), and
+  `clause/…-cl-chN.xml` (S/P/C/A components, `pl.conj` connectors, embedding).
+- `io/opentext.ts` converts the three layers into one document per primary clause:
+  clause components → roles, word-group edges → phrase modifiers, all stamped
+  `given`. `parseXml` expands self-closing tags first (happy-dom would otherwise
+  nest `<w/>` siblings). Edges to clause ids (relative-clause qualifiers) are left
+  to the clause layer.
+- The base layer carries the LEMMA, not the inflected surface (a copyright
+  restriction). `io/opentext-align.ts` fills the surface from the parallel
+  Nestle1904 passage by `(verse, within-verse index)`, lemma-validated, with a
+  same-verse lemma fallback for NA27↔Nestle1904 textual drift (~94% coverage on
+  Philemon; unaligned words keep their lemma form, so the diagram is always whole).
+- `io/opentext-source.ts` (`loadOpenTextBook`, `OPENTEXT_BOOKS`) fetches + aligns a
+  book; Philemon is bundled under `public/opentext/`. Multi-chapter books still
+  need each chapter's wordgroup/clause file (the loader loops over `chapters`).
