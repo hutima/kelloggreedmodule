@@ -23,6 +23,7 @@ import { nodeHighlightColors, relationHighlightColors, KEY_HIGHLIGHT_CATEGORIES 
 import { HighlightToolbar } from '@/ui/sermon/HighlightToolbar';
 import { EditModeToolbar } from '@/ui/editor/EditModeToolbar';
 import { UnassignedWordsBank } from '@/ui/editor/UnassignedWordsBank';
+import { EditCompareView } from '@/ui/editor/EditCompareView';
 import { LinkPreviewOverlay } from '@/ui/editor/LinkPreviewOverlay';
 import { DependencyEditOverlay } from '@/ui/editor/dependency/DependencyEditOverlay';
 import {
@@ -90,6 +91,10 @@ export function DiagramCanvas() {
   // preview comparison is active.
   const sourceCompareOn = useEditorStore((s) => s.sourceCompare.on);
   const compareSources = sourceCompareOn && !viewport.isMobile && !sideBySide && !singlePreview;
+  // Edit-mode before/after: original parse vs the current edits (needs a base).
+  const compareToBase = useEditorStore((s) => s.compareToBase);
+  const hasBase = useEditorStore((s) => s.baseDoc !== null);
+  const editCompare = appMode === 'edit' && compareToBase && hasBase && !viewport.isMobile;
   const [collapsed, setCollapsed] = useState(false);
   // Which label element anchors the glossary popover (so it opens at the exact
   // tag tapped, even when several arcs share a label/colour).
@@ -805,7 +810,11 @@ export function DiagramCanvas() {
           )}
         </div>
       )}
-      {compareSources ? (
+      {editCompare ? (
+        <div className="canvas-viewport compare-mode">
+          <EditCompareView />
+        </div>
+      ) : compareSources ? (
         <div className="canvas-viewport compare-mode">
           <SourceCompareView />
         </div>

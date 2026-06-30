@@ -46,6 +46,9 @@ export function EditModeToolbar() {
   const saveCurrentAsCustom = useEditorStore((s) => s.saveCurrentAsCustom);
   const docId = useEditorStore((s) => s.doc.id);
   const [savedId, setSavedId] = useState<string | null>(null);
+  // Before/after: compare the current edits with the original parse (needs a base).
+  const compareToBase = useEditorStore((s) => s.compareToBase);
+  const toggleCompareToBase = useEditorStore((s) => s.toggleCompareToBase);
   const onReset = () => {
     if (typeof window !== 'undefined' && !window.confirm('Discard your edits and restore the original parse for this passage?')) {
       return;
@@ -138,6 +141,21 @@ export function EditModeToolbar() {
             💾
           </span>
           <span className="tool-label">{savedId === docId ? 'Saved ✓' : 'Save'}</span>
+        </button>
+      )}
+
+      {hasBase && (
+        <button
+          type="button"
+          className={`tool-btn compare-btn${compareToBase ? ' active' : ''}`}
+          aria-pressed={compareToBase}
+          title="Before / after — compare your edits with the original parse"
+          onClick={() => toggleCompareToBase()}
+        >
+          <span className="tool-icon" aria-hidden="true">
+            ⇄
+          </span>
+          <span className="tool-label">Compare</span>
         </button>
       )}
 
