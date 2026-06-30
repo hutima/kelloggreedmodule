@@ -186,7 +186,7 @@ export interface EditorState {
   /**
    * Tint words by grammatical category (case / finite verb / participle) in the
    * Kellogg-Reed and Phrase/Block diagrams, using the SAME palette as the
-   * Morphology Clause mode. Off by default; toggled near the Greek/English toggle.
+   * Morphology Clause mode. On by default; toggled near the Greek/English toggle.
    * Morphology is always coloured (it's a form study), so this flag never affects it.
    */
   colorMode: boolean;

@@ -7,10 +7,10 @@
   --paper: #ffffff;
   --bg: #eef1f5;
   --panel: #f8fafc;
-  --accent: #2f6f9f;
-  --accent-soft: #d7e8f4;
+  --accent: #b90e31;
+  --accent-soft: #f6dbe1;
   /* Word/diagram highlight (hover + selection). Green is far more legible over
-     the dark diagram ink than the blue accent. */
+     the dark diagram ink than the accent. */
   --hl: #17935a;
   --hl-strong: #0e7a47;
   --danger: #b4332a;
