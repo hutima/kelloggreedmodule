@@ -168,7 +168,9 @@ export function GntPicker() {
     if (!passages) return;
     const selected = passages.filter((p) => checked.has(p.id));
     if (!selected.length) return;
-    loadDocument(combinePassage(selected), { corpus: 'gnt' });
+    // OpenText carries an explicit clause-connector layer, so chained sentences
+    // (καί / δέ / διό …) join on one coordinate spine rather than stacking.
+    loadDocument(combinePassage(selected, { coordinate: source === 'opentext' }), { corpus: 'gnt' });
     // Reading context for prev/next nav: the book's sentences + the first opened.
     const firstIdx = passages.findIndex((p) => checked.has(p.id));
     setGntContext(passages, firstIdx);

@@ -27,6 +27,41 @@ function sentence(id: string, title: string, subj: string, verb: string): KrDocu
   });
 }
 
+/** A one-clause sentence that OPENS with a connector (καί / ὅτι …), encoded as
+ *  a root `conjunction` child the way the OpenText converter does. */
+function sentenceWithLead(
+  id: string,
+  title: string,
+  conn: string,
+  connLemma: string,
+  subj: string,
+  verb: string,
+): KrDocument {
+  return KrDocumentSchema.parse({
+    schemaVersion: 1, id, title, language: 'grc', text: `${conn} ${subj} ${verb}`,
+    createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z', layoutHints: {},
+    tokens: [
+      { id: 'k', index: 0, surface: conn, lemma: connLemma, pos: 'conjunction' },
+      { id: 's', index: 1, surface: subj, pos: 'noun' },
+      { id: 'v', index: 2, surface: verb, pos: 'verb' },
+    ],
+    syntax: {
+      rootId: 'c',
+      nodes: [
+        { id: 'c', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'K', kind: 'word', role: 'conjunction', tokenIds: ['k'] },
+        { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s'] },
+        { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+      ],
+      relations: [
+        { id: 'r0', type: 'conjunction', headId: 'c', dependentId: 'K' },
+        { id: 'r1', type: 'subject', headId: 'c', dependentId: 'S' },
+        { id: 'r2', type: 'predicate', headId: 'c', dependentId: 'V' },
+      ],
+    },
+  });
+}
+
 describe('combinePassage', () => {
   const a = sentence('gnt_a', 'Romans 5:1', 'Παῦλος', 'γράφει');
   const b = sentence('gnt_b', 'Romans 5:2', 'Πέτρος', 'λέγει');
@@ -68,5 +103,48 @@ describe('combinePassage', () => {
     expect(yOf('γράφει')).toBeDefined();
     expect(yOf('λέγει')).toBeDefined();
     expect(Math.abs(yOf('λέγει')! - yOf('γράφει')!)).toBeGreaterThan(40);
+  });
+
+  it('coordinate: joins sentences chained by a coordinating conjunction on one spine', () => {
+    const s1 = sentence('ot_a', 'Php 2:9', 'Θεός', 'ὑπερύψωσεν');
+    const s2 = sentenceWithLead('ot_b', 'Php 2:10', 'καὶ', 'καί', 'γλῶσσα', 'ἐξομολογήσηται');
+    const doc = combinePassage([s1, s2], { coordinate: true });
+    expect(() => KrDocumentSchema.parse(doc)).not.toThrow();
+    const root = doc.syntax.nodes.find((n) => n.id === doc.syntax.rootId)!;
+    expect(root.clauseType).toBe('coordinate');
+    // Each sentence's clause is a conjunct of the coordinate root.
+    const conjuncts = doc.syntax.relations.filter((r) => r.headId === root.id && r.type === 'conjunct');
+    expect(conjuncts).toHaveLength(2);
+    // The καί is hoisted onto the root as a coordinator (rides the spine)…
+    const coords = doc.syntax.relations.filter((r) => r.headId === root.id && r.type === 'coordinator');
+    expect(coords).toHaveLength(1);
+    // …and no longer dangles inside its own clause as a conjunction.
+    const kaiNodeId = coords[0]!.dependentId;
+    expect(
+      doc.syntax.relations.some((r) => r.dependentId === kaiNodeId && r.type === 'conjunction'),
+    ).toBe(false);
+    // Tokens are re-indexed into one monotonic surface stream.
+    expect(doc.tokens.map((t) => t.index)).toEqual(doc.tokens.map((_, i) => i));
+  });
+
+  it('coordinate: falls back to stacking when a link is a SUBORDINATOR (ὅτι)', () => {
+    const s1 = sentence('ot_a', 'Php 2:9', 'Θεός', 'ὑπερύψωσεν');
+    const s2 = sentenceWithLead('ot_b', 'Php 2:10', 'ὅτι', 'ὅτι', 'γλῶσσα', 'ἐξομολογήσηται');
+    const doc = combinePassage([s1, s2], { coordinate: true });
+    // ὅτι subordinates rather than coordinates, so the spine is not forced.
+    expect(doc.syntax.nodes.find((n) => n.id === doc.syntax.rootId)!.clauseType).toBe('discourse');
+  });
+
+  it('coordinate: draws a single connected spine, not separate stacked clauses', () => {
+    const s1 = sentence('ot_a', 'Php 2:9', 'Θεός', 'ὑπερύψωσεν');
+    const s2 = sentenceWithLead('ot_b', 'Php 2:10', 'καὶ', 'καί', 'γλῶσσα', 'ἐξομολογήσηται');
+    const layout = layoutDocument(combinePassage([s1, s2], { coordinate: true }));
+    const texts = layout.elements.flatMap((e) => (e.kind === 'text' ? [(e as { text: string }).text] : []));
+    for (const w of ['ὑπερύψωσεν', 'ἐξομολογήσηται', 'καὶ']) expect(texts).toContain(w);
+    // A coordinate spine draws a dashed 'coordination' bar tying the clauses.
+    const spine = layout.elements.some(
+      (e) => e.kind === 'line' && (e as { role?: string }).role === 'coordination',
+    );
+    expect(spine).toBe(true);
   });
 });
