@@ -191,6 +191,8 @@ export interface EditorActions {
   openCustomParse: (id: string) => void;
   /** Delete a saved custom parse. */
   removeCustomParse: (id: string) => void;
+  /** Toggle the edit-mode before/after comparison (original parse vs current edits). */
+  toggleCompareToBase: (value?: boolean) => void;
   // document fields
   setTitle: (title: string) => void;
   setNotes: (notes: string) => void;
@@ -489,6 +491,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     gntIndex: -1,
     leftCollapsed: false,
     customParses: [],
+    compareToBase: false,
     firstRun: isFirstRun(),
     forceDesktop: loadForceDesktop(),
 
@@ -611,6 +614,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         .then(() => get().refreshCustomParses())
         .catch(() => {});
     },
+
+    toggleCompareToBase: (value) =>
+      set((s) => ({ compareToBase: value ?? !s.compareToBase })),
 
     loadDocument: (doc, opts) => {
       // The given doc is the pristine BASE; user edits are reconstructed on top.

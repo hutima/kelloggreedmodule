@@ -17,6 +17,55 @@ function sameEntity(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+/**
+ * A structural diff between two arbitrary versions of the SAME document (same
+ * ids) — used for the edit-mode before/after comparison (original base vs the
+ * user's current edits). Unlike {@link diffBaseAndAlternate} this needs no
+ * contested reading; it just reports which nodes/relations were added, removed,
+ * or changed so the comparison frames can outline them.
+ */
+export function diffDocsForCompare(baseDoc: KrDocument, editedDoc: KrDocument): AlternateDiff {
+  const addedNodeIds: string[] = [];
+  const removedNodeIds: string[] = [];
+  const changedNodeIds: string[] = [];
+  const addedRelationIds: string[] = [];
+  const removedRelationIds: string[] = [];
+  const changedRelationIds: string[] = [];
+
+  const baseNodes = new Map(baseDoc.syntax.nodes.map((n) => [n.id, n] as const));
+  const editNodes = new Map(editedDoc.syntax.nodes.map((n) => [n.id, n] as const));
+  for (const [id, n] of editNodes) {
+    const prev = baseNodes.get(id);
+    if (!prev) addedNodeIds.push(id);
+    else if (!sameEntity(prev, n)) changedNodeIds.push(id);
+  }
+  for (const id of baseNodes.keys()) if (!editNodes.has(id)) removedNodeIds.push(id);
+
+  const baseRels = new Map(baseDoc.syntax.relations.map((r) => [r.id, r] as const));
+  const editRels = new Map(editedDoc.syntax.relations.map((r) => [r.id, r] as const));
+  for (const [id, r] of editRels) {
+    const prev = baseRels.get(id);
+    if (!prev) addedRelationIds.push(id);
+    else if (!sameEntity(prev, r)) changedRelationIds.push(id);
+  }
+  for (const id of baseRels.keys()) if (!editRels.has(id)) removedRelationIds.push(id);
+
+  const n = addedNodeIds.length + removedNodeIds.length + changedNodeIds.length;
+  const r = addedRelationIds.length + removedRelationIds.length + changedRelationIds.length;
+  return {
+    changedTokenIds: [],
+    changedNodeIds,
+    changedRelationIds,
+    addedNodeIds,
+    removedNodeIds,
+    addedRelationIds,
+    removedRelationIds,
+    semanticOnly: false,
+    textualVariant: false,
+    summary: n + r === 0 ? ['No changes yet.'] : [`${n} word/phrase and ${r} relation change(s).`],
+  };
+}
+
 export function diffBaseAndAlternate(
   baseDoc: KrDocument,
   alternateDoc: KrDocument,

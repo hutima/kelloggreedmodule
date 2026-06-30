@@ -197,6 +197,8 @@ export interface EditorState {
   leftCollapsed: boolean;
   /** Saved custom parses ("my sentences"), most-recent first. Drives the New tab. */
   customParses: DocumentSummary[];
+  /** Edit-mode before/after: show the original parse beside the current edits. */
+  compareToBase: boolean;
   /**
    * True on a device's first-ever launch (no prior session to restore). Drives a
    * friendlier cold start: open to a default passage with the passage selector
