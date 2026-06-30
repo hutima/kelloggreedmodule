@@ -99,18 +99,16 @@ export function initPwa(): void {
       .then((reg) => {
         registration = reg;
         trackUpdates(reg);
-        try {
-          void reg.update();
-        } catch {
-          /* offline / not yet available */
-        }
+        // reg.update() rejects ASYNCHRONOUSLY when the worker byte-for-byte
+        // re-check can't load sw.js (a transient 404 mid-deploy, an offline
+        // refocus, a network blip). A synchronous try/catch can't catch a
+        // rejected promise, so those rejections escaped as an unhandledrejection
+        // ("Script …/sw.js load failed"). Handle it on the promise itself — a
+        // failed re-check is expected and harmless; the active worker keeps serving.
+        void reg.update().catch(() => {});
         document.addEventListener('visibilitychange', () => {
           if (document.visibilityState !== 'visible') return;
-          try {
-            void reg.update();
-          } catch {
-            /* ignore */
-          }
+          void reg.update().catch(() => {});
           // INVARIANT 5: re-surface a worker that went waiting while
           // backgrounded — trackUpdates' one-time check only runs at register.
           if (reg.waiting && navigator.serviceWorker.controller) {
