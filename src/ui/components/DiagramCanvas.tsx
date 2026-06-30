@@ -137,14 +137,21 @@ export function DiagramCanvas() {
   // change (Morphology stays in the source language — it's a form study).
   const glossMode = useEditorStore((s) => s.glossMode);
   const setGlossMode = useEditorStore((s) => s.setGlossMode);
+  // Grammar-colour tinting (case / verb / participle), shared with Morphology mode.
+  const colorMode = useEditorStore((s) => s.colorMode);
+  const setColorMode = useEditorStore((s) => s.setColorMode);
   const layoutDoc = useMemo(
     () => (glossMode && diagramMode !== 'morphology' ? glossDoc(doc) : doc),
     [glossMode, diagramMode, doc],
   );
   const layout = useMemo(
-    () => layoutForMode(diagramMode, layoutDoc, doc.layoutHints, { verticalScale }),
-    [diagramMode, layoutDoc, doc.layoutHints, verticalScale],
+    () => layoutForMode(diagramMode, layoutDoc, doc.layoutHints, { verticalScale, colorMode }),
+    [diagramMode, layoutDoc, doc.layoutHints, verticalScale, colorMode],
   );
+  // Which visualizations the grammar-colour toggle applies to: the two structural
+  // diagrams. Morphology is always coloured; Dependency/Constituency use their own
+  // per-relation hues, so the toggle would be a no-op there and is hidden.
+  const colorable = diagramMode === 'kellogg-reed' || diagramMode === 'phrase-block';
 
   // Text-heavy modes render as interactive HTML on screen (collapsible outline /
   // morphology grid) instead of the pan/zoom SVG; export still uses the geometry.
@@ -641,6 +648,27 @@ export function DiagramCanvas() {
               </button>
             </div>
           )}
+          {colorable && (
+            <div className="lang-toggle color-toggle" role="group" aria-label="Grammar colour">
+              <button
+                className={!colorMode ? 'active' : ''}
+                title="Plain ink"
+                aria-pressed={!colorMode}
+                onClick={() => setColorMode(false)}
+              >
+                B/W
+              </button>
+              <button
+                className={colorMode ? 'active' : ''}
+                title="Colour words by grammatical category (case, verb, participle) — same palette as Morphology mode"
+                aria-pressed={colorMode}
+                onClick={() => setColorMode(true)}
+              >
+                <span className="color-swatch" aria-hidden="true" />
+                Colour
+              </button>
+            </div>
+          )}
           {!htmlMode && (
             <>
               <div className="canvas-zoom" title="Row spacing">
@@ -939,7 +967,15 @@ export function DiagramCanvas() {
               if (e.target === e.currentTarget && !moved.current && !linking) select({});
             }}
           >
-            {layout.elements.map((el) => {
+            {/* Draw structural lines/curves first, then every word on top, so a
+                word's white halo masks ANY line crossing it (not only lines emitted
+                before it — e.g. an apposition stem the layout pushes after its
+                word). Stable partition preserves order within each layer, and
+                exports do the same in `layoutToSvg`, so paper still matches canvas. */}
+            {[
+              ...layout.elements.filter((e) => e.kind !== 'text'),
+              ...layout.elements.filter((e) => e.kind === 'text'),
+            ].map((el) => {
               if (el.kind === 'line') {
                 const sel = isSelected(el.nodeId, el.relationId);
                 const dash = dashFor(el.style);

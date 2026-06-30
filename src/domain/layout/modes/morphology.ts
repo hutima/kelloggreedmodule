@@ -1,7 +1,8 @@
 import type { KrDocument, Token } from '@/domain/schema';
 import { childRelations, getNode } from '@/domain/model';
-import type { DiagramElement, DiagramLayout, GrammarTone } from '../types';
+import type { DiagramElement, DiagramLayout } from '../types';
 import { LAYOUT } from '../constants';
+import { tokenTone } from '../tone';
 import { curve, finalize, line, resetIds, text, width } from './builder';
 
 /**
@@ -50,25 +51,6 @@ function morphLine(tok: Token): string {
     return j(m.tense && TENSE_ABBR[m.tense], m.voice && VOICE_ABBR[m.voice], 'inf');
   }
   return j(m.case && CASE_ABBR[m.case], m.number && NUM_ABBR[m.number], m.gender && GEN_ABBR[m.gender]);
-}
-
-function toneOf(tok: Token): GrammarTone | undefined {
-  if (tok.pos === 'verb') return 'verb';
-  if (tok.pos === 'participle') return 'participle';
-  switch (tok.morphology?.case) {
-    case 'nominative':
-      return 'nominative';
-    case 'accusative':
-      return 'accusative';
-    case 'genitive':
-      return 'genitive';
-    case 'dative':
-      return 'dative';
-    case 'vocative':
-      return 'vocative';
-    default:
-      return undefined;
-  }
 }
 
 const COL_GAP = 18;
@@ -129,7 +111,7 @@ export function layoutMorphology(doc: KrDocument): DiagramLayout {
       const w = Math.max(width(tok.surface), width(morph, true), tok.gloss ? width(tok.gloss, true) : 0, 22);
       const centre = cx + w / 2;
       const nodeId = tokenToNode.get(tok.id);
-      elements.push(text(centre, yTop + WORD_Y, tok.surface, { anchor: 'middle', nodeId, tone: toneOf(tok) }));
+      elements.push(text(centre, yTop + WORD_Y, tok.surface, { anchor: 'middle', nodeId, tone: tokenTone(tok) }));
       if (morph) elements.push(text(centre, yTop + MORPH_Y, morph, { anchor: 'middle', small: true, muted: true }));
       if (tok.gloss) elements.push(text(centre, yTop + GLOSS_Y, tok.gloss, { anchor: 'middle', small: true, muted: true }));
       cell.set(tok.id, { x: centre, bottom: yTop + GLOSS_Y + 6 });

@@ -568,6 +568,14 @@ describe('summary apposition under a coordinated subject connects to its baselin
     expect(stem!.x2).toBeGreaterThanOrEqual(lo);
     expect(stem!.x2).toBeLessThanOrEqual(hi);
     expect(stem!.y2).toBeCloseTo(douloiBase!.y1, 5);
+    // …and it must land PAST the word, not through its middle: the δοῦλοι text is
+    // anchored at its centre, so a connector to the word centre (the old bug) would
+    // slant straight across the glyphs. The foot sits to the RIGHT of that centre.
+    const douloiText = layout.elements.find(
+      (e) => e.kind === 'text' && (e as { nodeId?: string }).nodeId === 'A',
+    ) as { x: number } | undefined;
+    expect(douloiText).toBeDefined();
+    expect(stem!.x2).toBeGreaterThan(douloiText!.x);
   });
 
   it('marks the connector with the Reed-Kellogg apposition "=" (two strokes)', () => {

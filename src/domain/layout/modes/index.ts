@@ -78,7 +78,7 @@ export function layoutForMode(
     case 'constituency':
       return layoutConstituency(doc);
     case 'phrase-block':
-      return layoutPhraseBlock(doc);
+      return layoutPhraseBlock(doc, { colorMode: options.colorMode });
     case 'morphology':
       return layoutMorphology(doc);
     case 'kellogg-reed':
