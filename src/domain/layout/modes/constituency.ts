@@ -27,7 +27,8 @@ import { SHORT_ROLE } from './dependency';
  */
 
 const ROOT_COLOR = '#5b6470';
-const SLOT_GAP = 26;
+const SLOT_GAP = 28;
+const CHIP_PAD = 16; // padding added to a role-chip's text width when reserving space
 
 /** Part of speech → terminal (leaf) tag. */
 const POS_TAG: Partial<Record<PartOfSpeech, string>> = {
@@ -169,9 +170,14 @@ export function layoutConstituency(doc: KrDocument): DiagramLayout {
   const WORD_DROP = Math.round(LAYOUT.fontSize * 1.7); // POS tag → its word
   const hasGloss = doc.tokens.some((t) => t.gloss);
 
+  // A node must reserve room for its OWN label AND the role chip that rides the
+  // branch INTO it — otherwise a narrow leaf ("who", "was") lets its chip overlap
+  // a sibling's (the clashing subj/cop/pred-adj seen in relative clauses).
+  const chipW = (role: SyntacticRole | undefined): number =>
+    role && SHORT_ROLE[role] ? width(SHORT_ROLE[role]!, true) + CHIP_PAD : 0;
   const ownWidth = (n: ConsNode): number => {
     const label = n.word ? Math.max(width(n.word), width(n.cat, true), n.gloss ? width(n.gloss, true) : 0) : width(n.cat);
-    return label + SLOT_GAP;
+    return Math.max(label, chipW(n.role)) + SLOT_GAP;
   };
   const subW = new Map<ConsNode, number>();
   const measure = (n: ConsNode): number => {
@@ -202,12 +208,13 @@ export function layoutConstituency(doc: KrDocument): DiagramLayout {
         const p = pts[i]!;
         const color = c.role ? relationColor(c.role) : ROOT_COLOR;
         elements.push(line(x, y + 6, p.x, p.y - LAYOUT.fontSize, 'connector', 'solid', { color }));
-        // The grammatical role rides the branch (the dependency paradigm made
-        // visible) — why this constituent attaches as it does. Skip the head.
+        // The grammatical role labels the branch — placed directly ABOVE the child
+        // (centred in the child's reserved column) rather than at the branch
+        // midpoint, so sibling chips can never pile up where the branches converge.
         const lbl = c.role ? SHORT_ROLE[c.role] : undefined;
         if (lbl) {
           elements.push(
-            text(x + (p.x - x) * 0.5, y + 6 + (p.y - LAYOUT.fontSize - (y + 6)) * 0.5, lbl, {
+            text(p.x, p.y - LAYOUT.fontSize - 7, lbl, {
               anchor: 'middle', small: true, italic: true, box: true, color, glossKey: c.role,
             }),
           );

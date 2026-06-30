@@ -345,16 +345,36 @@ function Row({
         }${isDropTarget ? ' drop-target' : ''}${isDragging ? ' dragging' : ''}`}
         style={{ paddingLeft: 8 + depth * 18 }}
         tabIndex={selected ? 0 : -1}
-        draggable={draggable}
         onClick={() => onRowClick(node.id)}
         onKeyDown={onKeyDown}
         onMouseEnter={() => onHover(node.id)}
         onMouseLeave={() => onHover(undefined)}
-        onDragStart={draggable ? (e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'; dnd.onStart(node.id); } : undefined}
-        onDragEnd={draggable ? dnd.onEnd : undefined}
         onDragOver={dnd.dragId ? (e) => dnd.onOver(node.id, e) : undefined}
         onDrop={dnd.dragId ? (e) => { e.preventDefault(); dnd.onDrop(node.id); } : undefined}
       >
+        {/* iOS-style drag handle: the ONLY drag source, so the rest of the row
+            stays clickable for selecting. Grabbing it collapses the row's edit
+            menu (below) and lets you drop the block under any word or clause. */}
+        {draggable && (
+          <span
+            className="pbw-grip"
+            role="button"
+            aria-label="Drag to move this block under another"
+            title="Drag to move this block under another word or clause"
+            draggable
+            onClick={(e) => e.stopPropagation()}
+            onDragStart={(e) => {
+              e.stopPropagation();
+              e.dataTransfer.effectAllowed = 'move';
+              // Firefox won't start a drag unless data is set on the transfer.
+              e.dataTransfer.setData('text/plain', node.id);
+              dnd.onStart(node.id);
+            }}
+            onDragEnd={dnd.onEnd}
+          >
+            ⠿
+          </span>
+        )}
         <span className="pbw-rail" aria-hidden="true" />
         {node.label && <span className="pbw-label">{node.label}</span>}
         {node.text ? (
@@ -368,7 +388,7 @@ function Row({
           node.implied && <span className="pbw-text implied">(implied)</span>
         )}
       </div>
-      {selected && !moving && !grouping && (
+      {selected && !moving && !grouping && !dnd.dragId && (
         <RowControls nodeId={node.id} editTier={editTier} />
       )}
       {node.children.length > 0 && (

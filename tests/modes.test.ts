@@ -1,8 +1,38 @@
 import { describe, it, expect } from 'vitest';
 import { lowfatToDocuments } from '@/io/lowfat';
 import { layoutForMode, DIAGRAM_MODES, DEFAULT_MODE } from '@/domain/layout';
-import { lookupGloss } from '@/domain/model';
+import { lookupGloss, createDocument } from '@/domain/model';
 import { buildSvg } from '@/io';
+import type { KrDocument } from '@/domain/schema';
+
+/** A relative clause "who was bald" — three short children fanning off one node,
+ *  the shape that used to pile subj/cop/pred-adj chips on one spot. */
+function relClause(): KrDocument {
+  const d = createDocument({ language: 'en', title: 'rel' });
+  const root = d.syntax.rootId;
+  return {
+    ...d,
+    tokens: [
+      { id: 'tw', index: 0, surface: 'who', pos: 'pronoun' },
+      { id: 'ts', index: 1, surface: 'was', pos: 'verb' },
+      { id: 'tb', index: 2, surface: 'bald', pos: 'adjective' },
+    ],
+    syntax: {
+      rootId: root,
+      nodes: [
+        { id: root, kind: 'clause', clauseType: 'relative', tokenIds: [] },
+        { id: 'nw', kind: 'word', role: 'subject', tokenIds: ['tw'] },
+        { id: 'ns', kind: 'word', role: 'copula', tokenIds: ['ts'] },
+        { id: 'nb', kind: 'word', role: 'predicateAdjective', tokenIds: ['tb'] },
+      ],
+      relations: [
+        { id: 'r1', type: 'subject', headId: root, dependentId: 'nw' },
+        { id: 'r2', type: 'copula', headId: root, dependentId: 'ns' },
+        { id: 'r3', type: 'predicateAdjective', headId: root, dependentId: 'nb' },
+      ],
+    },
+  };
+}
 
 /**
  * Alternate diagram modes share the layout→primitive→canvas pipeline. These pin
@@ -173,11 +203,36 @@ describe('constituency (phrase-structure) tree mode', () => {
     expect(lookupGloss(byText('Det').glossKey)?.term).toContain('Determiner');
   });
 
+  it('keeps sibling role chips from overlapping in a shallow fan (clash guard)', () => {
+    const layout = layoutForMode('constituency', relClause(), {}, {});
+    const chips = (layout.elements.filter(
+      (e) => e.kind === 'text' && (e as { box?: boolean }).box,
+    ) as Array<{ text: string; x: number }>)
+      .filter((c) => ['subj', 'cop', 'pred-adj'].includes(c.text))
+      .sort((a, b) => a.x - b.x);
+    expect(chips.map((c) => c.text)).toEqual(['subj', 'cop', 'pred-adj']);
+    // Centres are well separated, so the chip boxes can't pile up on one spot.
+    for (let i = 1; i < chips.length; i++) {
+      expect(chips[i]!.x - chips[i - 1]!.x).toBeGreaterThan(45);
+    }
+  });
+
   it('prefers the gold-standard Lowfat <wg> category over the POS estimate', () => {
     // The converter stamps the source phrase category on the head token; the
     // object NP "τὸν κόσμον" therefore carries an explicit NP from the <wg>.
     const kosmon = doc().tokens.find((t) => t.surface === 'κόσμον')!;
     expect(kosmon.morphology?.extra?.cat).toBe('NP');
+  });
+});
+
+describe('dependency tree clash guard', () => {
+  it('places each edge label above its child so close-fanned labels do not overlap', () => {
+    const layout = layoutForMode('dependency-tree', relClause(), {}, {});
+    const chips = (layout.elements.filter(
+      (e) => e.kind === 'text' && (e as { box?: boolean }).box,
+    ) as Array<{ text: string; x: number }>).filter((c) => c.text === 'subj' || c.text === 'pred-adj');
+    expect(chips.length).toBe(2);
+    expect(Math.abs(chips[0]!.x - chips[1]!.x)).toBeGreaterThan(45);
   });
 });
 

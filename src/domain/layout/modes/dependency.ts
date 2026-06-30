@@ -166,6 +166,20 @@ export function layoutDependency(doc: KrDocument): DiagramLayout {
   const level = assignLevels(arcs);
   let maxLevel = 0;
 
+  // Arc labels are collected, then decluttered (below) so chips on close or
+  // same-level arcs don't pile up — the baseline is one-dimensional, so the only
+  // free room is vertical.
+  interface ArcLabel {
+    x: number;
+    y: number;
+    w: number;
+    text: string;
+    color: string;
+    glossKey: SyntacticRole;
+    relId: string;
+  }
+  const arcLabels: ArcLabel[] = [];
+
   for (const arc of arcs) {
     const lvl = level.get(arc) ?? 0;
     maxLevel = Math.max(maxLevel, lvl);
@@ -189,22 +203,48 @@ export function layoutDependency(doc: KrDocument): DiagramLayout {
     );
     const label = SHORT_ROLE[arc.rel.type] ?? arc.rel.type;
     if (label) {
-      elements.push(
-        text(midX, apexY + 4, label, {
-          anchor: 'middle',
-          small: true,
-          italic: true,
-          box: true,
-          color,
-          glossKey: arc.rel.type,
-          relationId: arc.rel.id,
-        }),
-      );
+      arcLabels.push({
+        x: midX,
+        y: apexY + 4,
+        w: width(label, true) + 14,
+        text: label,
+        color,
+        glossKey: arc.rel.type,
+        relId: arc.rel.id,
+      });
     }
   }
 
-  // A `root` chip pointing down at each sentence's main verb.
-  const rootY = arcBaseY - LEVEL_STEP * (maxLevel + 2);
+  // Declutter the arc labels: a chip is nudged UPWARD until it clears every chip
+  // already placed, so labels on overlapping or same-level arcs separate instead
+  // of stacking on the same spot. Taller arcs (placed higher first) anchor the
+  // free space; nested/lower chips rise as needed.
+  const LABEL_H = LAYOUT.fontSize + 6;
+  const placedLabels: Array<{ x1: number; x2: number; y: number }> = [];
+  for (const L of [...arcLabels].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    let y = L.y;
+    const half = L.w / 2;
+    const hits = () =>
+      placedLabels.some((p) => Math.abs(p.y - y) < LABEL_H && L.x - half < p.x2 && p.x1 < L.x + half);
+    for (let guard = 0; hits() && guard < 16; guard++) y -= LABEL_H * 0.6;
+    placedLabels.push({ x1: L.x - half, x2: L.x + half, y });
+    elements.push(
+      text(L.x, y, L.text, {
+        anchor: 'middle',
+        small: true,
+        italic: true,
+        box: true,
+        color: L.color,
+        glossKey: L.glossKey,
+        relationId: L.relId,
+      }),
+    );
+  }
+
+  // A `root` chip pointing down at each sentence's main verb. Lift it clear of the
+  // tallest arc AND of any label that got nudged up by the declutter pass.
+  const highestLabel = placedLabels.reduce((m, p) => Math.min(m, p.y), Infinity);
+  const rootY = Math.min(arcBaseY - LEVEL_STEP * (maxLevel + 2), highestLabel - LABEL_H);
   for (const tok of rootTokens(doc)) {
     const vx = centerX.get(tok);
     if (vx === undefined) continue;
