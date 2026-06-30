@@ -382,6 +382,44 @@ describe('clause-level conjunction floats as an introductory connective', () => 
   });
 });
 
+describe('pedestalled clause keeps a minimum riser above the main line', () => {
+  // "ἐξομολογήσηται ὅτι [ΚΥΡΙΟΣ ΙΗΣΟΥΣ ΧΡΙΣΤΟΣ (ἐστίν)]" — the ὅτι-clause is the
+  // direct object, pedestalled. Its only depth is the predicate-nominative
+  // back-slant ABOVE its baseline, so block.height ≈ 0; without a minimum riser
+  // the platform crushes onto the main line and the ὅτι is squeezed.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+      { id: 'EC', kind: 'clause', clauseType: 'complement', tokenIds: [] },
+      { id: 'ECS', kind: 'word', role: 'subject', tokenIds: ['ihs'] },
+      { id: 'ECP', kind: 'word', role: 'predicate', tokenIds: [], implied: true, label: '(ἐστίν)' },
+      { id: 'ECN', kind: 'word', role: 'predicateNominative', tokenIds: ['kyr'] },
+    ],
+    [
+      { id: 'r1', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+      { id: 'r2', type: 'directObject', headId: 'V', dependentId: 'EC', label: 'ὅτι' },
+      { id: 'r3', type: 'subject', headId: 'EC', dependentId: 'ECS' },
+      { id: 'r4', type: 'predicate', headId: 'EC', dependentId: 'ECP' },
+      { id: 'r5', type: 'predicateNominative', headId: 'ECP', dependentId: 'ECN' },
+    ],
+    [
+      { id: 'v', index: 0, surface: 'ἐξομολογήσηται', pos: 'verb' },
+      { id: 'ihs', index: 1, surface: 'ΙΗΣΟΥΣ', pos: 'propernoun' },
+      { id: 'kyr', index: 2, surface: 'ΚΥΡΙΟΣ', pos: 'noun' },
+    ],
+  );
+
+  it('lifts the platform a clear distance above the verb baseline', () => {
+    const layout = layoutDocument(doc);
+    const platform = textEl(layout, 'ΙΗΣΟΥΣ'); // the embedded clause's baseline
+    const verb = textEl(layout, 'ἐξομολογήσηται'); // the main line
+    expect(platform).toBeDefined();
+    // Foot rise (16) + minimum riser (44) ⇒ ≥ ~50px of clearance, not the old ~28.
+    expect(verb!.y - platform!.y).toBeGreaterThan(50);
+  });
+});
+
 describe('introductory particle on a dotted stem', () => {
   // "γάρ … ἐστὶν ταῦτα" — γάρ introduces the whole clause.
   const doc = build(
