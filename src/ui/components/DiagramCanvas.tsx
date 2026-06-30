@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditorStore } from '@/state';
 import { layoutForMode, DIAGRAM_MODES, isEditableMode, DEFAULT_EDIT_MODE } from '@/domain/layout';
 import { measureText, SMALL_FONT, BASE_FONT } from '@/domain/layout/measure';
@@ -73,6 +74,13 @@ export function DiagramCanvas() {
   const setVerticalScale = useEditorStore((s) => s.setVerticalScale);
   const diagramMode = useEditorStore((s) => s.diagramMode);
   const setDiagramMode = useEditorStore((s) => s.setDiagramMode);
+  const treeOrientation = useEditorStore((s) => s.treeOrientation);
+  const setTreeOrientation = useEditorStore((s) => s.setTreeOrientation);
+  // Desktop: the verses strip can live in the center (default) or be moved into a
+  // "Verses" tab on the right panel, freeing the diagram the full center height.
+  const versesInPanel = useEditorStore((s) => s.versesInPanel);
+  const setVersesInPanel = useEditorStore((s) => s.setVersesInPanel);
+  const versesHost = useEditorStore((s) => s.versesHost);
   const gntPassages = useEditorStore((s) => s.gntPassages);
   const gntIndex = useEditorStore((s) => s.gntIndex);
   const stepGnt = useEditorStore((s) => s.stepGnt);
@@ -145,9 +153,12 @@ export function DiagramCanvas() {
     [glossMode, diagramMode, doc],
   );
   const layout = useMemo(
-    () => layoutForMode(diagramMode, layoutDoc, doc.layoutHints, { verticalScale, colorMode }),
-    [diagramMode, layoutDoc, doc.layoutHints, verticalScale, colorMode],
+    () => layoutForMode(diagramMode, layoutDoc, doc.layoutHints, { verticalScale, colorMode, treeOrientation }),
+    [diagramMode, layoutDoc, doc.layoutHints, verticalScale, colorMode, treeOrientation],
   );
+  // The two literal "tree" views get an orientation toggle (left-to-right vs the
+  // classic top-down); it's a no-op for the other modes, so the control is hidden.
+  const isTreeMode = diagramMode === 'dependency-tree' || diagramMode === 'constituency';
   // Which visualizations the grammar-colour toggle applies to: the two structural
   // diagrams. Morphology is always coloured; Dependency/Constituency use their own
   // per-relation hues, so the toggle would be a no-op there and is hidden.
@@ -608,6 +619,179 @@ export function DiagramCanvas() {
     };
   }, [gloss, view]);
 
+  // The verses strip docks in the right panel only on a real desktop, and never in
+  // Sermon Prep (where the right column is the study drawer, not the reader panel).
+  const versesInPanelActive = versesInPanel && viewport.isDesktop && appMode !== 'sermon';
+
+  /**
+   * The source-text / verses strip. Rendered in the center (default) or — when the
+   * reader has docked it — portalled into the right panel's "Verses" tab. The same
+   * React subtree drives both, so hover / selection stay in lock-step with the
+   * diagram wherever the strip sits.
+   */
+  const renderSourceStrip = (placement: 'center' | 'panel') => {
+    if (!(sourceItems.length > 0 || hasEnglish)) return null;
+    const inPanel = placement === 'panel';
+    const collapsedNow = !inPanel && srcCollapsed; // the panel strip is always expanded
+    const placeToggle = viewport.isDesktop ? (
+      <button
+        className="verses-place-btn"
+        title={inPanel ? 'Move verses back to the center' : 'Move verses into the side panel'}
+        aria-label={inPanel ? 'Move verses to center' : 'Move verses to side panel'}
+        onClick={() => setVersesInPanel(!inPanel)}
+      >
+        {inPanel ? '◂ Center' : 'Panel ▸'}
+      </button>
+    ) : null;
+    return (
+      <div
+        className={`source-wrap${inPanel ? ' in-panel' : ''}${collapsedNow ? ' collapsed' : ''}`}
+        style={inPanel || collapsedNow ? undefined : { height: srcHeight }}
+      >
+        <div className="source-bar">
+          {/* Collapsed: the language toggle is useless with no text showing, so
+              surface the passage reference instead — the strip stays anchored
+              rather than vanishing to a bare caret. */}
+          {collapsedNow ? (
+            <span className="source-ref">{doc.title}</span>
+          ) : hasEnglish ? (
+            <div className="version-picker" role="group" aria-label="Source language">
+              <button className={!showEnglish ? 'active' : ''} onClick={() => setVersion('grc')}>
+                {doc.language === 'hbo' ? 'Hebrew' : 'Greek'}
+              </button>
+              <button
+                className={showEnglish ? 'active' : ''}
+                onClick={() => setVersion('en')}
+                title="Berean Standard Bible (word-aligned)"
+              >
+                English (BSB)
+              </button>
+            </div>
+          ) : (
+            <span className="source-label">Source text</span>
+          )}
+          {gntIndex >= 0 && gntPassages.length > 0 && (
+            <div className="sentence-nav" role="group" aria-label="Navigate sentences">
+              <button
+                title="Previous sentence"
+                aria-label="Previous sentence"
+                disabled={gntIndex <= 0}
+                onClick={() => stepGnt(-1)}
+              >
+                ◀
+              </button>
+              <span className="sentence-pos">
+                {gntIndex + 1}/{gntPassages.length}
+              </span>
+              <button
+                title="Next sentence"
+                aria-label="Next sentence"
+                disabled={gntIndex >= gntPassages.length - 1}
+                onClick={() => stepGnt(1)}
+              >
+                ▶
+              </button>
+            </div>
+          )}
+          {placeToggle}
+          {!inPanel && (
+            <button
+              className="collapse-btn"
+              aria-expanded={!srcCollapsed}
+              title={srcCollapsed ? 'Show source text' : 'Hide source text'}
+              onClick={() => setSrcCollapsed((v) => !v)}
+            >
+              {srcCollapsed ? '▸' : '▾'}
+            </button>
+          )}
+        </div>
+        {!collapsedNow &&
+          (showEnglish ? (
+            <div className="source-text english" title="Berean Standard Bible (word-aligned)">
+              {parallel!.verses.map((v) => (
+                <Fragment key={v.key}>
+                  <span className="src-verse">{v.label}</span>
+                  {v.words.map((w) => {
+                    const space = w.joinLeft ? '' : ' ';
+                    if (w.excl)
+                      return (
+                        <span key={w.i} className="src-punc">
+                          {space}
+                          {w.t}
+                        </span>
+                      );
+                    const key = `${v.key}#${w.i}`;
+                    const hlNode = (parallel!.enToNodes.get(key) ?? []).find((n) => hlByNode.has(n));
+                    return (
+                      <Fragment key={w.i}>
+                        {space}
+                        <span
+                          className={`src-word${hover.en.has(key) ? ' hovered' : ''}${
+                            hlNode ? ' highlighted' : ''
+                          }`}
+                          style={hlNode ? { background: hlByNode.get(hlNode) } : undefined}
+                          onMouseEnter={() => hoverEnglish(key)}
+                          onMouseLeave={() => hoverEnglish(undefined)}
+                          onClick={() => {
+                            const ns = parallel!.enToNodes.get(key);
+                            if (ns?.[0] && !linking)
+                              select(ns[0] === selection.nodeId ? {} : { nodeId: ns[0] });
+                          }}
+                        >
+                          {w.t}
+                        </span>
+                      </Fragment>
+                    );
+                  })}
+                </Fragment>
+              ))}
+            </div>
+          ) : (
+            sourceItems.length > 0 && (
+              <div
+                className={`source-text${doc.language === 'grc' ? ' greek' : ''}${
+                  doc.language === 'hbo' ? ' hebrew' : ''
+                }`}
+                title="Source text"
+              >
+                {sourceItems.map((it, i) =>
+                  it.kind === 'verse' ? (
+                    <span key={`v${i}`} className="src-verse">
+                      {it.label}
+                    </span>
+                  ) : (
+                    <span
+                      key={it.tid}
+                      className={`src-word${it.nodeId && it.nodeId === selection.nodeId ? ' selected' : ''}${
+                        it.nodeId && hover.nodes.has(it.nodeId) ? ' hovered' : ''
+                      }${it.nodeId && hlByNode.has(it.nodeId) ? ' highlighted' : ''}`}
+                      style={
+                        it.nodeId && hlByNode.has(it.nodeId)
+                          ? { background: hlByNode.get(it.nodeId) }
+                          : undefined
+                      }
+                      onMouseEnter={() => it.nodeId && hoverDiagram(it.nodeId)}
+                      onMouseLeave={() => hoverDiagram(undefined)}
+                      onClick={() =>
+                        it.nodeId &&
+                        !linking &&
+                        select(it.nodeId === selection.nodeId ? {} : { nodeId: it.nodeId })
+                      }
+                    >
+                      {it.surface}{' '}
+                    </span>
+                  ),
+                )}
+              </div>
+            )
+          ))}
+        {!inPanel && !collapsedNow && (
+          <div className="source-resize" title="Drag to resize" onPointerDown={onSrcResize} />
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className={`canvas${collapsed ? ' collapsed' : ''}${appMode === 'edit' ? ' editing' : ''}`}>
       <div className="panel-head">
@@ -645,6 +829,26 @@ export function DiagramCanvas() {
                 onClick={() => setGlossMode(true)}
               >
                 Eng
+              </button>
+            </div>
+          )}
+          {isTreeMode && (
+            <div className="lang-toggle tree-orient-toggle" role="group" aria-label="Tree direction">
+              <button
+                className={treeOrientation === 'horizontal' ? 'active' : ''}
+                title="Grow the tree left-to-right (better for several passages at once)"
+                aria-pressed={treeOrientation === 'horizontal'}
+                onClick={() => setTreeOrientation('horizontal')}
+              >
+                {/* rightward arrow: left-to-right growth */}→
+              </button>
+              <button
+                className={treeOrientation === 'vertical' ? 'active' : ''}
+                title="Grow the tree top-to-bottom (classic tree)"
+                aria-pressed={treeOrientation === 'vertical'}
+                onClick={() => setTreeOrientation('vertical')}
+              >
+                {/* downward arrow: top-to-bottom growth */}↓
               </button>
             </div>
           )}
@@ -720,159 +924,12 @@ export function DiagramCanvas() {
           <button className="mini" onClick={cancelRelink}>Cancel (Esc)</button>
         </div>
       )}
-      {(sourceItems.length > 0 || hasEnglish) && (
-        <div
-          className={`source-wrap${srcCollapsed ? ' collapsed' : ''}`}
-          style={srcCollapsed ? undefined : { height: srcHeight }}
-        >
-          <div className="source-bar">
-            {/* Collapsed: the language toggle is useless with no text showing, so
-                surface the passage reference instead — the strip stays anchored
-                rather than vanishing to a bare caret. */}
-            {srcCollapsed ? (
-              <span className="source-ref">{doc.title}</span>
-            ) : hasEnglish ? (
-              <div className="version-picker" role="group" aria-label="Source language">
-                <button
-                  className={!showEnglish ? 'active' : ''}
-                  onClick={() => setVersion('grc')}
-                >
-                  {doc.language === 'hbo' ? 'Hebrew' : 'Greek'}
-                </button>
-                <button
-                  className={showEnglish ? 'active' : ''}
-                  onClick={() => setVersion('en')}
-                  title="Berean Standard Bible (word-aligned)"
-                >
-                  English (BSB)
-                </button>
-              </div>
-            ) : (
-              <span className="source-label">Source text</span>
-            )}
-            {gntIndex >= 0 && gntPassages.length > 0 && (
-              <div className="sentence-nav" role="group" aria-label="Navigate sentences">
-                <button
-                  title="Previous sentence"
-                  aria-label="Previous sentence"
-                  disabled={gntIndex <= 0}
-                  onClick={() => stepGnt(-1)}
-                >
-                  ◀
-                </button>
-                <span className="sentence-pos">
-                  {gntIndex + 1}/{gntPassages.length}
-                </span>
-                <button
-                  title="Next sentence"
-                  aria-label="Next sentence"
-                  disabled={gntIndex >= gntPassages.length - 1}
-                  onClick={() => stepGnt(1)}
-                >
-                  ▶
-                </button>
-              </div>
-            )}
-            <button
-              className="collapse-btn"
-              aria-expanded={!srcCollapsed}
-              title={srcCollapsed ? 'Show source text' : 'Hide source text'}
-              onClick={() => setSrcCollapsed((v) => !v)}
-            >
-              {srcCollapsed ? '▸' : '▾'}
-            </button>
-          </div>
-          {!srcCollapsed &&
-            (showEnglish ? (
-            <div className="source-text english" title="Berean Standard Bible (word-aligned)">
-              {parallel!.verses.map((v) => (
-                <Fragment key={v.key}>
-                  <span className="src-verse">{v.label}</span>
-                  {v.words.map((w) => {
-                    const space = w.joinLeft ? '' : ' ';
-                    if (w.excl)
-                      return (
-                        <span key={w.i} className="src-punc">
-                          {space}
-                          {w.t}
-                        </span>
-                      );
-                    const key = `${v.key}#${w.i}`;
-                    const hlNode = (parallel!.enToNodes.get(key) ?? []).find((n) =>
-                      hlByNode.has(n),
-                    );
-                    return (
-                      <Fragment key={w.i}>
-                        {space}
-                        <span
-                          className={`src-word${hover.en.has(key) ? ' hovered' : ''}${
-                            hlNode ? ' highlighted' : ''
-                          }`}
-                          style={hlNode ? { background: hlByNode.get(hlNode) } : undefined}
-                          onMouseEnter={() => hoverEnglish(key)}
-                          onMouseLeave={() => hoverEnglish(undefined)}
-                          onClick={() => {
-                            const ns = parallel!.enToNodes.get(key);
-                            if (ns?.[0] && !linking)
-                              select(ns[0] === selection.nodeId ? {} : { nodeId: ns[0] });
-                          }}
-                        >
-                          {w.t}
-                        </span>
-                      </Fragment>
-                    );
-                  })}
-                </Fragment>
-              ))}
-            </div>
-          ) : (
-            sourceItems.length > 0 && (
-              <div
-                className={`source-text${doc.language === 'grc' ? ' greek' : ''}${
-                  doc.language === 'hbo' ? ' hebrew' : ''
-                }`}
-                title="Source text"
-              >
-                {sourceItems.map((it, i) =>
-                  it.kind === 'verse' ? (
-                    <span key={`v${i}`} className="src-verse">
-                      {it.label}
-                    </span>
-                  ) : (
-                    <span
-                      key={it.tid}
-                      className={`src-word${it.nodeId && it.nodeId === selection.nodeId ? ' selected' : ''}${
-                        it.nodeId && hover.nodes.has(it.nodeId) ? ' hovered' : ''
-                      }${it.nodeId && hlByNode.has(it.nodeId) ? ' highlighted' : ''}`}
-                      style={
-                        it.nodeId && hlByNode.has(it.nodeId)
-                          ? { background: hlByNode.get(it.nodeId) }
-                          : undefined
-                      }
-                      onMouseEnter={() => it.nodeId && hoverDiagram(it.nodeId)}
-                      onMouseLeave={() => hoverDiagram(undefined)}
-                      onClick={() =>
-                        it.nodeId &&
-                        !linking &&
-                        select(it.nodeId === selection.nodeId ? {} : { nodeId: it.nodeId })
-                      }
-                    >
-                      {it.surface}{' '}
-                    </span>
-                  ),
-                )}
-              </div>
-            )
-          ))}
-          {!srcCollapsed && (
-            <div
-              className="source-resize"
-              title="Drag to resize"
-              onPointerDown={onSrcResize}
-            />
-          )}
-        </div>
-      )}
+      {/* Verses live in the center by default; on desktop the reader can dock
+          them into the right panel's Verses tab (rendered via a portal so hover
+          and selection stay in lock-step with the diagram). */}
+      {versesInPanelActive
+        ? versesHost && createPortal(renderSourceStrip('panel'), versesHost)
+        : renderSourceStrip('center')}
       {editCompare ? (
         <div className="canvas-viewport compare-mode">
           <EditCompareView />

@@ -65,7 +65,7 @@ import {
 import { applyPatch, diffDocuments, hashBase } from '@/domain/patch';
 import { isEmptySyntaxPatch } from '@/domain/schema';
 import { cloneSample } from '@/fixtures';
-import { DEFAULT_MODE, type DiagramMode } from '@/domain/layout';
+import { DEFAULT_MODE, type DiagramMode, type TreeOrientation } from '@/domain/layout';
 import { loadForceDesktop, saveForceDesktop } from '@/ui/responsive/viewport';
 import { scheduleAutosave } from './autosave';
 import {
@@ -119,6 +119,49 @@ function isFirstRun(): boolean {
     return !localStorage.getItem(LAST_DOC_KEY);
   } catch {
     return false;
+  }
+}
+
+/**
+ * Persisted view preferences (best-effort localStorage; tests / private mode just
+ * fall back to the default). Kept tiny and explicit, mirroring `forceDesktop`.
+ */
+const TREE_ORIENTATION_KEY = 'kr:treeOrientation';
+function loadTreeOrientation(): TreeOrientation {
+  if (typeof localStorage === 'undefined') return 'horizontal';
+  try {
+    return localStorage.getItem(TREE_ORIENTATION_KEY) === 'vertical' ? 'vertical' : 'horizontal';
+  } catch {
+    return 'horizontal';
+  }
+}
+function saveTreeOrientation(value: TreeOrientation): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    // 'horizontal' is the default, so store only the override.
+    if (value === 'vertical') localStorage.setItem(TREE_ORIENTATION_KEY, 'vertical');
+    else localStorage.removeItem(TREE_ORIENTATION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+const VERSES_IN_PANEL_KEY = 'kr:versesInPanel';
+function loadVersesInPanel(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    return localStorage.getItem(VERSES_IN_PANEL_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function saveVersesInPanel(value: boolean): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    if (value) localStorage.setItem(VERSES_IN_PANEL_KEY, '1');
+    else localStorage.removeItem(VERSES_IN_PANEL_KEY);
+  } catch {
+    /* ignore */
   }
 }
 
@@ -348,6 +391,12 @@ export interface EditorActions {
   // view
   setVerticalScale: (scale: number) => void;
   setDiagramMode: (mode: DiagramMode) => void;
+  /** Tree visualizations: switch between left-to-right and top-down growth. */
+  setTreeOrientation: (value: TreeOrientation) => void;
+  /** Desktop: move the verses strip between the center canvas and the right panel. */
+  setVersesInPanel: (value: boolean) => void;
+  /** Register (or clear) the right-panel element that hosts the verses strip. */
+  setVersesHost: (el: HTMLElement | null) => void;
   /** Toggle English-gloss display in the structural diagrams. */
   setGlossMode: (value: boolean) => void;
   /** Toggle grammar-colour tinting in the Kellogg-Reed / Phrase-Block diagrams. */
@@ -583,6 +632,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     previewDoc: null,
     verticalScale: 1,
     diagramMode: DEFAULT_MODE,
+    treeOrientation: loadTreeOrientation(),
+    versesInPanel: loadVersesInPanel(),
+    versesHost: null,
     sourceCompare: { on: false, source: 'opentext' },
     glossMode: false,
     colorMode: true,
@@ -1339,6 +1391,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
     setSelectedRange: (tokenIds) => set({ selectedRange: tokenIds }),
 
+    setTreeOrientation: (value) => {
+      saveTreeOrientation(value);
+      set({ treeOrientation: value });
+    },
+    setVersesInPanel: (value) => {
+      saveVersesInPanel(value);
+      // Drop any stale host when turning the feature off so the strip falls back
+      // to the center canvas immediately.
+      set(value ? { versesInPanel: value } : { versesInPanel: value, versesHost: null });
+    },
+    setVersesHost: (el) => set({ versesHost: el }),
     setGlossMode: (value) => set({ glossMode: value }),
     setColorMode: (value) => set({ colorMode: value }),
 

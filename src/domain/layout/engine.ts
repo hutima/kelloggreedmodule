@@ -4,6 +4,7 @@ import { LAYOUT } from './constants';
 import { measureText, SMALL_FONT } from './measure';
 import { nodeTone } from './tone';
 import type { DiagramElement, DiagramLayout, GrammarTone, LineElement, TextElement } from './types';
+import type { TreeOrientation } from './modes/tree-layout';
 
 /**
  * LAYOUT ENGINE — maps the syntax model to pure geometry.
@@ -595,6 +596,13 @@ export interface LayoutOptions {
    * placement is flipped, so all the layout logic stays direction-agnostic.
    */
   rtl?: boolean;
+  /**
+   * Growth direction of the TREE visualizations (Dependency Tree, Constituency
+   * Tree): `'horizontal'` (default) reads left-to-right so loading several
+   * passages stacks them down the page; `'vertical'` is the classic top-down
+   * shape. Ignored by the non-tree modes.
+   */
+  treeOrientation?: TreeOrientation;
 }
 
 export function layoutDocument(
