@@ -11,6 +11,9 @@ export {
   layoutForMode,
   DIAGRAM_MODES,
   DEFAULT_MODE,
+  EDITABLE_MODES,
+  DEFAULT_EDIT_MODE,
+  isEditableMode,
   type DiagramMode,
   type DiagramModeInfo,
 } from './modes';

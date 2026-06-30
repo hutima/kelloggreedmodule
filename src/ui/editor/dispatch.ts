@@ -36,6 +36,9 @@ export function dispatchEditIntent(intent: EditIntent): void {
     case 'attachNodeTo':
       s.attachNodeTo(intent.dependentId, intent.headId, intent.type);
       break;
+    case 'assignToClause':
+      s.assignToClause(intent.nodeId, intent.clauseId);
+      break;
     case 'changeRelationType':
       s.changeRelationType(intent.relationId, intent.type);
       break;
@@ -49,6 +52,9 @@ export function dispatchEditIntent(intent: EditIntent): void {
     case 'removeNode':
       s.removeNode(intent.nodeId);
       s.select({});
+      break;
+    case 'detachWord':
+      s.detachWord(intent.nodeId);
       break;
     case 'startRelink':
       s.startRelink(intent.relationId, intent.end);

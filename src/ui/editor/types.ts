@@ -38,10 +38,12 @@ export type EditIntent =
   | { kind: 'setImplied'; nodeId: string; implied: boolean }
   | { kind: 'setClauseType'; nodeId: string; clauseType: ClauseType }
   | { kind: 'attachNodeTo'; dependentId: string; headId: string; type: SyntacticRole }
+  | { kind: 'assignToClause'; nodeId: string; clauseId: string }
   | { kind: 'changeRelationType'; relationId: string; type: SyntacticRole }
   | { kind: 'reverseRelation'; relationId: string }
   | { kind: 'removeRelation'; relationId: string }
   | { kind: 'removeNode'; nodeId: string }
+  | { kind: 'detachWord'; nodeId: string }
   | { kind: 'startRelink'; relationId: string; end: 'head' | 'dependent' }
   // --- hierarchy moves (resolved to attachNodeTo by the controller) ---
   | { kind: 'promoteNode'; nodeId: string }

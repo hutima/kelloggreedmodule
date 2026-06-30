@@ -76,6 +76,37 @@ export function removeNodeSubtree(model: SyntaxModel, id: string): SyntaxModel {
   };
 }
 
+/**
+ * Detach a SINGLE node from the tree without destroying its subtree: the node is
+ * removed and its incoming relation dropped, but its children are re-pointed onto
+ * the node's former parent so they stay reachable. Tokens are NOT touched — the
+ * node's words simply become UNASSIGNED (no node realizes them), so they reappear
+ * in the editor's word bank. This is the first half of the two-step delete: a word
+ * removed from the diagram goes back to "unassigned" rather than vanishing; a
+ * second delete from the bank removes the token for good.
+ *
+ * The root cannot be detached (returns the model unchanged). A node with no parent
+ * simply drops its children's incoming edges (they become detached too) — but in
+ * practice every placed word hangs off the root, so a parent always exists.
+ */
+export function detachNode(model: SyntaxModel, id: string): SyntaxModel {
+  if (id === model.rootId) return model;
+  const parentHead = model.relations.find((r) => r.dependentId === id)?.headId;
+  return {
+    ...model,
+    nodes: model.nodes.filter((n) => n.id !== id),
+    relations: model.relations
+      // Drop the node's own incoming relation(s).
+      .filter((r) => r.dependentId !== id)
+      // Re-home its children onto its former parent (keeping the subtree alive).
+      .map((r) => (r.headId === id && parentHead ? { ...r, headId: parentHead } : r))
+      // With no parent to re-home onto, drop the now-dangling child edges.
+      .filter((r) => r.headId !== id)
+      // Never leave a self-loop behind.
+      .filter((r) => r.headId !== r.dependentId),
+  };
+}
+
 // --- token edits --------------------------------------------------------------
 
 export function updateToken(

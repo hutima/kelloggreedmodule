@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
-import { layoutForMode, DIAGRAM_MODES } from '@/domain/layout';
+import { layoutForMode, DIAGRAM_MODES, isEditableMode, DEFAULT_EDIT_MODE } from '@/domain/layout';
 import { measureText, SMALL_FONT, BASE_FONT } from '@/domain/layout/measure';
 import { dashFor, toneColor } from '@/domain/render';
 import { describeFunction, getNode, childRelations, lookupGloss, glossDoc, impliedSubjectVerbPairs } from '@/domain/model';
@@ -431,9 +431,19 @@ export function DiagramCanvas() {
     return () => window.removeEventListener('keydown', onKey);
   }, [linking, selection.nodeId, selection.glossKey, select]);
 
-  const editingBasic = appMode === 'edit' && editTier === 'basic';
+  // Editing is offered only in the two editable visualizations (Kellogg-Reed and
+  // Phrase/Block). The other lenses are presentation-only — even while the app is
+  // in Edit mode, they behave like Explore (reader popover, no edit tools).
+  const editing = appMode === 'edit' && isEditableMode(diagramMode);
+  const editingBasic = editing && editTier === 'basic';
   const linkTool = editingBasic && activeEditTool === 'link';
   const deleteTool = editingBasic && activeEditTool === 'delete';
+
+  // Entering Edit mode on a presentation-only lens (Dependency / Morphology) drops
+  // to the default editable view, so the editor never opens on a non-editable mode.
+  useEffect(() => {
+    if (appMode === 'edit' && !isEditableMode(diagramMode)) setDiagramMode(DEFAULT_EDIT_MODE);
+  }, [appMode, diagramMode, setDiagramMode]);
 
   const onNode = (nodeId?: string) => {
     if (moved.current) return; // a drag, not a tap
@@ -454,8 +464,9 @@ export function DiagramCanvas() {
       else completeVisualLink(nodeId);
       return;
     }
-    // In Explore / Sermon, tapping the already-selected word deselects it.
-    if (appMode !== 'edit') select(nodeId === selection.nodeId ? {} : { nodeId });
+    // In Explore / Sermon (and read-only visualizations), tapping the already-
+    // selected word deselects it. In an editable view, keep it selected for editing.
+    if (!editing) select(nodeId === selection.nodeId ? {} : { nodeId });
     else select({ nodeId });
   };
 
@@ -508,8 +519,9 @@ export function DiagramCanvas() {
 
   // ---- reveal popover (clamped into the viewport) ------------------------
   const reveal = useMemo(() => {
-    // In Edit mode the contextual action sheet stands in for the reader popover.
-    if (linking || appMode === 'edit' || !selection.nodeId) return null;
+    // In an editable view the contextual action sheet stands in for the reader
+    // popover; a read-only view (even in Edit mode) keeps the reader popover.
+    if (linking || editing || !selection.nodeId) return null;
     // Prefer a horizontal text anchor, but fall back to a rotated one so small
     // diagonal words (articles, πᾶς, prepositions) still get a detail popover.
     const texts = layout.elements.filter(
@@ -519,7 +531,7 @@ export function DiagramCanvas() {
     const summary = describeFunction(doc, selection.nodeId);
     if (!anchor || !summary) return null;
     return { anchor, summary };
-  }, [doc, layout, selection.nodeId, linking, appMode]);
+  }, [doc, layout, selection.nodeId, linking, editing]);
 
   const revealPos = useMemo(() => {
     if (!reveal) return null;
@@ -543,9 +555,9 @@ export function DiagramCanvas() {
   // Sermon (so selecting a word to highlight still shows its parsing); Edit uses
   // the contextual action sheet instead.
   const htmlReveal = useMemo(() => {
-    if (!htmlMode || appMode === 'edit' || linking || !selection.nodeId) return null;
+    if (!htmlMode || editing || linking || !selection.nodeId) return null;
     return describeFunction(doc, selection.nodeId);
-  }, [htmlMode, appMode, linking, selection.nodeId, doc]);
+  }, [htmlMode, editing, linking, selection.nodeId, doc]);
 
   // On a phone in Study mode the highlight palette lives here, in the tapped
   // word's detail card, instead of crowding the bottom sheet — so the sheet can
@@ -603,7 +615,9 @@ export function DiagramCanvas() {
               value={diagramMode}
               onChange={(e) => setDiagramMode(e.target.value as typeof diagramMode)}
             >
-              {DIAGRAM_MODES.map((m) => (
+              {/* In Edit mode only the editable lenses are offered; the others are
+                  presentation-only (and the effect below snaps away from them). */}
+              {(appMode === 'edit' ? DIAGRAM_MODES.filter((m) => isEditableMode(m.id)) : DIAGRAM_MODES).map((m) => (
                 <option key={m.id} value={m.id} title={m.description}>
                   {m.label}
                 </option>
@@ -654,9 +668,9 @@ export function DiagramCanvas() {
         </button>
       </div>
       {viewport.isMobile && <MobileContestedBar />}
-      {appMode === 'edit' && <EditModeToolbar />}
-      {appMode === 'edit' && <UnassignedWordsBank />}
-      {appMode === 'edit' && <DependencyEditOverlay />}
+      {editing && <EditModeToolbar />}
+      {editing && <UnassignedWordsBank />}
+      {editing && <DependencyEditOverlay />}
       {linking && (
         <div className="relink-banner">
           Click the word to use as the new <strong>{linking.end}</strong>.

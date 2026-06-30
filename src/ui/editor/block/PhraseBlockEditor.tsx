@@ -1,12 +1,94 @@
 import { useEffect, useMemo } from 'react';
+import type { ClauseType, KrDocument, SyntacticRole, SyntaxNode } from '@/domain/schema';
 import { useEditorStore } from '@/state';
-import { buildOutline, getNode, parentRelations, type OutlineNode } from '@/domain/model';
+import {
+  buildOutline,
+  clauseAncestor,
+  descendantIds,
+  getNode,
+  parentRelations,
+  type OutlineNode,
+} from '@/domain/model';
 import { nodeHighlightColors } from '@/ui/sermon/highlights';
 import { dispatchEditIntent } from '../dispatch';
-import { adapterFor } from '../adapters';
 import { nodeName } from '../common';
 import { ROLE_LABEL } from '../roles';
 import { canDemote, canPromote, moveTargets } from '../hierarchy';
+
+/**
+ * The grammatical FUNCTIONS a word can take, grouped for the Basic-edit dropdown.
+ * "Verb" (predicate) is a first-class clause part here — assigning the verb is as
+ * easy as assigning the subject, which the old chip row couldn't do. Picking a
+ * function re-roles the word AND re-homes it (subject/verb to the clause, objects
+ * to the verb) via the shared `setRole` logic.
+ */
+const FUNCTION_GROUPS: { label: string; roles: SyntacticRole[] }[] = [
+  {
+    label: 'Clause parts',
+    roles: [
+      'subject',
+      'predicate',
+      'copula',
+      'directObject',
+      'indirectObject',
+      'predicateNominative',
+      'predicateAdjective',
+      'objectComplement',
+      'dativeComplement',
+      'genitiveComplement',
+      'agent',
+    ],
+  },
+  {
+    label: 'Modifiers',
+    roles: ['adjectival', 'adverbial', 'determiner', 'genitive', 'apposition', 'prepositionalPhrase', 'prepositionObject'],
+  },
+  { label: 'Connectives', roles: ['coordinator', 'conjunct', 'particle', 'vocative', 'interjection'] },
+  { label: 'Other', roles: ['conjunction', 'adjunct', 'unknown'] },
+];
+
+/** Friendlier, plain-English labels for the function dropdown (overrides ROLE_LABEL). */
+const PART_LABEL: Partial<Record<SyntacticRole, string>> = {
+  subject: 'Subject',
+  predicate: 'Verb',
+  copula: 'Linking verb',
+  directObject: 'Direct object',
+  indirectObject: 'Indirect object',
+  predicateNominative: 'Predicate noun',
+  predicateAdjective: 'Predicate adjective',
+  objectComplement: 'Object complement',
+  dativeComplement: 'Dative complement',
+  genitiveComplement: 'Genitive complement',
+  agent: 'Agent (of passive)',
+  adjectival: 'Adjective / adjectival',
+  adverbial: 'Adverb / adverbial',
+  determiner: 'Article',
+  genitive: 'Genitive',
+  apposition: 'Apposition',
+  prepositionalPhrase: 'Prepositional phrase',
+  prepositionObject: 'Object of preposition',
+  conjunction: 'Conjunction',
+  coordinator: 'Conjunction',
+  conjunct: 'Coordinated element',
+  particle: 'Particle',
+  vocative: 'Direct address',
+  interjection: 'Interjection',
+  adjunct: 'Unspecified',
+  unknown: 'Unknown',
+};
+
+const partLabel = (role: SyntacticRole): string => PART_LABEL[role] ?? ROLE_LABEL[role] ?? role;
+
+/** Clause subtypes offered in the Basic clause-type dropdown. */
+const CLAUSE_TYPE_OPTIONS: { ct: ClauseType; label: string }[] = [
+  { ct: 'independent', label: 'Main clause' },
+  { ct: 'adverbial', label: 'Supporting (adverbial) clause' },
+  { ct: 'relative', label: 'Relative clause' },
+  { ct: 'complement', label: 'Complement clause' },
+  { ct: 'participial', label: 'Participial clause' },
+  { ct: 'infinitival', label: 'Infinitive clause' },
+  { ct: 'coordinate', label: 'Coordinate clauses' },
+];
 
 /**
  * PHRASE / BLOCK WORKBENCH — the interactive sermon-prep editor. Rows are
@@ -171,11 +253,16 @@ function Row({
       e.preventDefault();
       dispatchEditIntent({ kind: e.key === 'ArrowUp' ? 'promoteNode' : 'demoteNode', nodeId: node.id });
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
-      const rel = parentRelations(doc.syntax, node.id)[0];
-      if (rel) {
-        e.preventDefault();
-        dispatchEditIntent({ kind: 'removeRelation', relationId: rel.id });
-      }
+      if (node.id === doc.syntax.rootId) return;
+      e.preventDefault();
+      // Two-step delete: a clause goes away (its words back to the bank); a word
+      // detaches to the bank (a second delete there removes it for good).
+      const n = getNode(doc.syntax, node.id);
+      dispatchEditIntent(
+        n?.kind === 'clause'
+          ? { kind: 'removeNode', nodeId: node.id }
+          : { kind: 'detachWord', nodeId: node.id },
+      );
     }
   };
 
@@ -233,10 +320,15 @@ function Row({
   );
 }
 
-/** The inline control bar under a selected row. */
+/**
+ * The inline control bar under a selected row. Advanced opens the modal editors;
+ * Basic is the guided workflow: a word picks its FUNCTION (a dropdown of clause
+ * parts incl. Verb) and which CLAUSE it belongs to, sets its level by
+ * promote/demote/move-under, and can be removed back to the word bank; a clause
+ * picks its TYPE and relates to other clauses by level.
+ */
 function RowControls({ nodeId, editTier }: { nodeId: string; editTier: 'basic' | 'advanced' }) {
   const doc = useEditorStore((s) => s.doc);
-  const setActiveEditTool = useEditorStore((s) => s.setActiveEditTool);
 
   if (nodeId === doc.syntax.rootId) {
     return (
@@ -246,6 +338,7 @@ function RowControls({ nodeId, editTier }: { nodeId: string; editTier: 'basic' |
     );
   }
 
+  const node = getNode(doc.syntax, nodeId);
   const incoming = parentRelations(doc.syntax, nodeId)[0];
   const headName = incoming ? nodeName(doc, incoming.headId) : null;
   const relLabel = incoming ? ROLE_LABEL[incoming.type] : null;
@@ -258,77 +351,280 @@ function RowControls({ nodeId, editTier }: { nodeId: string; editTier: 'basic' |
             {relLabel} of <strong>{headName}</strong>
           </span>
         )}
-        <button
-          className="chip"
-          onClick={() => dispatchEditIntent({ kind: 'openBlockEditor', nodeId })}
-        >
+        <button className="chip" onClick={() => dispatchEditIntent({ kind: 'openBlockEditor', nodeId })}>
           Block editor…
         </button>
-        <button
-          className="chip"
-          onClick={() => dispatchEditIntent({ kind: 'openAdvancedWordDetails', nodeId })}
-        >
+        <button className="chip" onClick={() => dispatchEditIntent({ kind: 'openAdvancedWordDetails', nodeId })}>
           Word details…
         </button>
       </div>
     );
   }
 
-  const basic = adapterFor('phrase-block').getBasicActions(doc, { nodeId });
-  const chips = basic.filter((a) => a.chip);
-  const rows = basic.filter((a) => !a.chip);
-
   return (
     <div className="pbw-controls">
-      {headName ? (
-        <span className="pbw-parent">
-          {relLabel} of <strong>{headName}</strong>
-        </span>
+      {node?.kind === 'clause' ? (
+        <ClauseControls nodeId={nodeId} node={node} />
       ) : (
-        <span className="pbw-parent">Top level</span>
+        <WordControls nodeId={nodeId} headName={headName} />
       )}
-      <div className="pbw-btns">
-        <button className="chip" disabled={!canPromote(doc, nodeId)} onClick={() => dispatchEditIntent({ kind: 'promoteNode', nodeId })}>
-          ▲ Promote
-        </button>
-        <button className="chip" disabled={!canDemote(doc, nodeId)} onClick={() => dispatchEditIntent({ kind: 'demoteNode', nodeId })}>
-          ▼ Demote
-        </button>
-        <button className="chip" onClick={() => setActiveEditTool('move')}>
-          Move under…
-        </button>
-        {rows
-          .filter((a) => a.id === 'ungroup')
-          .map((a) => (
-            <button key={a.id} className="chip" onClick={() => dispatchEditIntent(a.intent)}>
-              {a.label}
-            </button>
+    </div>
+  );
+}
+
+/** Add note · Highlight · Advanced — shared by the word and clause controls. */
+function NoteHighlightAdvanced({ nodeId }: { nodeId: string }) {
+  return (
+    <>
+      <button
+        className="chip"
+        onClick={() => dispatchEditIntent({ kind: 'openNote', anchor: { type: 'node', nodeId } })}
+      >
+        Add note
+      </button>
+      <button
+        className="chip"
+        onClick={() =>
+          dispatchEditIntent({ kind: 'toggleHighlight', anchor: { type: 'node', nodeId }, category: 'emphasis' })
+        }
+      >
+        Highlight
+      </button>
+      <button className="chip" onClick={() => dispatchEditIntent({ kind: 'openBlockEditor', nodeId })}>
+        Advanced…
+      </button>
+    </>
+  );
+}
+
+/** Basic controls for a WORD: function dropdown, clause membership, level, delete. */
+function WordControls({ nodeId, headName }: { nodeId: string; headName: string | null }) {
+  const doc = useEditorStore((s) => s.doc);
+  const setActiveEditTool = useEditorStore((s) => s.setActiveEditTool);
+
+  const node = getNode(doc.syntax, nodeId);
+  const incoming = parentRelations(doc.syntax, nodeId)[0];
+  const currentRole: SyntacticRole = incoming?.type ?? node?.role ?? 'adjunct';
+  const knownRole = FUNCTION_GROUPS.some((g) => g.roles.includes(currentRole));
+
+  const clauses = useMemo(() => clauseChoices(doc), [doc]);
+  const currentClauseId = clauseAncestor(doc.syntax, nodeId)?.id;
+  const clauseValue = clauses.some((c) => c.id === currentClauseId) ? currentClauseId : '';
+
+  const grouped = (node?.tokenIds.length ?? 0) > 1;
+  // Whether the current function is a modifier — for these "relate to a word"
+  // (Move under…) is the meaningful attachment, so we nudge toward it.
+  const isModifier = !CLAUSE_HEADED.includes(currentRole) && !VERB_HEADED.includes(currentRole);
+
+  return (
+    <>
+      <label className="pbw-field">
+        <span className="pbw-field-label">Function</span>
+        <select
+          className="pbw-select"
+          value={currentRole}
+          onChange={(e) =>
+            dispatchEditIntent({ kind: 'setRole', nodeId, role: e.target.value as SyntacticRole })
+          }
+        >
+          {!knownRole && <option value={currentRole}>{partLabel(currentRole)}</option>}
+          {FUNCTION_GROUPS.map((g) => (
+            <optgroup key={g.label} label={g.label}>
+              {g.roles.map((r) => (
+                <option key={r} value={r}>
+                  {partLabel(r)}
+                </option>
+              ))}
+            </optgroup>
           ))}
-      </div>
-      <div className="pbw-fns">
-        <span className="pbw-fns-label">Function:</span>
-        {chips.map((a) => (
-          <button key={a.id} className="chip" title={a.hint} onClick={() => dispatchEditIntent(a.intent)}>
-            {a.label}
-          </button>
-        ))}
-      </div>
+        </select>
+      </label>
+
+      {clauses.length > 0 && (
+        <label className="pbw-field">
+          <span className="pbw-field-label">In clause</span>
+          <select
+            className="pbw-select"
+            value={clauseValue}
+            onChange={(e) =>
+              e.target.value &&
+              dispatchEditIntent({ kind: 'assignToClause', nodeId, clauseId: e.target.value })
+            }
+          >
+            {clauseValue === '' && <option value="">Choose a clause…</option>}
+            {clauses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <div className="pbw-btns">
-        <button className="chip" onClick={() => dispatchEditIntent({ kind: 'openNote', anchor: { type: 'node', nodeId } })}>
-          Add note
+        <button
+          className="chip"
+          disabled={!canPromote(doc, nodeId)}
+          title="Move one outline level shallower"
+          onClick={() => dispatchEditIntent({ kind: 'promoteNode', nodeId })}
+        >
+          ▲ Promote
         </button>
         <button
           className="chip"
-          onClick={() =>
-            dispatchEditIntent({ kind: 'toggleHighlight', anchor: { type: 'node', nodeId }, category: 'emphasis' })
+          disabled={!canDemote(doc, nodeId)}
+          title="Nest under the previous block"
+          onClick={() => dispatchEditIntent({ kind: 'demoteNode', nodeId })}
+        >
+          ▼ Demote
+        </button>
+        <button
+          className={`chip${isModifier ? ' suggest' : ''}`}
+          title={isModifier ? 'Attach this modifier under the word it modifies' : 'Attach under another word or clause'}
+          onClick={() => setActiveEditTool('move')}
+        >
+          {isModifier && headName ? 'Modifies word…' : 'Move under…'}
+        </button>
+        {grouped && (
+          <button
+            className="chip"
+            title="Split back into separate words"
+            onClick={() => dispatchEditIntent({ kind: 'ungroupNode', nodeId })}
+          >
+            Ungroup
+          </button>
+        )}
+      </div>
+
+      <div className="pbw-btns">
+        <button
+          className="chip danger"
+          title="Take this word off the diagram — it returns to Unassigned (not deleted)"
+          onClick={() => dispatchEditIntent({ kind: 'detachWord', nodeId })}
+        >
+          Remove from diagram
+        </button>
+        <NoteHighlightAdvanced nodeId={nodeId} />
+      </div>
+    </>
+  );
+}
+
+/** Basic controls for a CLAUSE: clause-type dropdown, level, delete. */
+function ClauseControls({ nodeId, node }: { nodeId: string; node: SyntaxNode }) {
+  const doc = useEditorStore((s) => s.doc);
+  const setActiveEditTool = useEditorStore((s) => s.setActiveEditTool);
+  const clauseType = node.clauseType ?? 'independent';
+  const knownType = CLAUSE_TYPE_OPTIONS.some((c) => c.ct === clauseType);
+
+  return (
+    <>
+      <label className="pbw-field">
+        <span className="pbw-field-label">Clause type</span>
+        <select
+          className="pbw-select"
+          value={clauseType}
+          onChange={(e) =>
+            dispatchEditIntent({ kind: 'setClauseType', nodeId, clauseType: e.target.value as ClauseType })
           }
         >
-          Highlight
+          {!knownType && <option value={clauseType}>{clauseType}</option>}
+          {CLAUSE_TYPE_OPTIONS.map((c) => (
+            <option key={c.ct} value={c.ct}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="pbw-btns">
+        <button
+          className="chip"
+          disabled={!canPromote(doc, nodeId)}
+          title="Raise this clause one level"
+          onClick={() => dispatchEditIntent({ kind: 'promoteNode', nodeId })}
+        >
+          ▲ Promote
         </button>
-        <button className="chip" onClick={() => dispatchEditIntent({ kind: 'openBlockEditor', nodeId })}>
-          Advanced…
+        <button
+          className="chip"
+          disabled={!canDemote(doc, nodeId)}
+          title="Nest this clause under the previous one"
+          onClick={() => dispatchEditIntent({ kind: 'demoteNode', nodeId })}
+        >
+          ▼ Demote
+        </button>
+        <button
+          className="chip"
+          title="Attach this clause under another clause"
+          onClick={() => setActiveEditTool('move')}
+        >
+          Move under…
         </button>
       </div>
-    </div>
+
+      <div className="pbw-btns">
+        <button
+          className="chip danger"
+          title="Delete this clause — its words return to Unassigned"
+          onClick={() => dispatchEditIntent({ kind: 'removeNode', nodeId })}
+        >
+          Delete clause
+        </button>
+        <NoteHighlightAdvanced nodeId={nodeId} />
+      </div>
+    </>
   );
+}
+
+/** Roles that hang directly off the clause (mirror of the model's slot rules). */
+const CLAUSE_HEADED: SyntacticRole[] = ['subject', 'predicate', 'copula'];
+const VERB_HEADED: SyntacticRole[] = [
+  'directObject',
+  'indirectObject',
+  'predicateNominative',
+  'predicateAdjective',
+  'objectComplement',
+  'dativeComplement',
+  'genitiveComplement',
+  'agent',
+];
+
+/** Lowest surface index anywhere in a node's subtree (for ordering choices). */
+function subtreeMinIndex(doc: KrDocument, id: string): number {
+  let m = Infinity;
+  for (const k of [id, ...descendantIds(doc.syntax, id)]) {
+    const kn = getNode(doc.syntax, k);
+    if (kn) for (const t of kn.tokenIds) {
+      const tok = doc.tokens.find((x) => x.id === t);
+      if (tok) m = Math.min(m, tok.index);
+    }
+  }
+  return m;
+}
+
+/** A short "Main clause: ὁ λόγος ἦν…" label for the In-clause dropdown. */
+function clauseChoiceLabel(doc: KrDocument, id: string): string {
+  const type = getNode(doc.syntax, id)?.clauseType ?? 'independent';
+  const typeLabel = CLAUSE_TYPE_OPTIONS.find((c) => c.ct === type)?.label ?? 'Clause';
+  const toks: { i: number; s: string }[] = [];
+  for (const k of [id, ...descendantIds(doc.syntax, id)]) {
+    const kn = getNode(doc.syntax, k);
+    if (kn) for (const t of kn.tokenIds) {
+      const tok = doc.tokens.find((x) => x.id === t);
+      if (tok) toks.push({ i: tok.index, s: tok.surface });
+    }
+  }
+  toks.sort((a, b) => a.i - b.i);
+  const preview = toks.slice(0, 4).map((t) => t.s).join(' ');
+  return preview ? `${typeLabel}: ${preview}${toks.length > 4 ? '…' : ''}` : typeLabel;
+}
+
+/** The clauses a word may be assigned to — real clauses, not coordinate/passage containers. */
+function clauseChoices(doc: KrDocument): { id: string; label: string }[] {
+  return doc.syntax.nodes
+    .filter((n) => n.kind === 'clause' && n.clauseType !== 'coordinate' && n.clauseType !== 'discourse')
+    .map((n) => ({ id: n.id, o: subtreeMinIndex(doc, n.id), label: clauseChoiceLabel(doc, n.id) }))
+    .sort((a, b) => a.o - b.o)
+    .map(({ id, label }) => ({ id, label }));
 }

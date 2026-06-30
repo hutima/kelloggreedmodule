@@ -56,18 +56,19 @@ const HELP: HelpTable = {
       bestFor:
         'The recommended study editor — phrasing and clause structure, Biblearc-style.',
       whatItDoes: [
-        'Each row is a phrase or clause; indentation shows what depends on what.',
-        'Promote / Demote change a row\'s outline level (also Shift+Tab / Tab).',
-        'Move under… reparents a row beneath the row you click next.',
-        'Plain function chips (Main clause, Modifier, Object…) relabel a row.',
+        'Workflow: Add clause → place words from the Unassigned bank → set each word\'s Function → pick which clause it\'s In → set its level → relate clauses to each other.',
+        'A word\'s Function dropdown lists every clause part — including Verb — and the In-clause dropdown puts it in the right clause.',
+        'Promote / Demote / Move under… set the level (also Shift+Tab / Tab).',
+        'Remove from diagram sends a word back to the Unassigned bank; its × there deletes it for good.',
       ],
       createRelationship:
-        'To show that a phrase modifies the main verb, select the phrase, choose Move under, then click the verb or clause.',
-      reparent: 'Use Promote / Demote to change the outline level, or Move under to pick a new parent.',
-      changeLabel: 'Select the row and tap a plain function chip.',
-      deleteRelationship: 'Select the row and press Delete to detach it (when it is safe to do so).',
+        'Place the word, choose its Function (Subject, Verb, Object, a modifier…), then pick the clause it belongs to under In clause. For a modifier, use Move under to attach it to the word it modifies.',
+      reparent: 'Use Promote / Demote to change the outline level, In clause to move it to another clause, or Move under to pick any new parent.',
+      changeLabel: 'Select the row and choose from the Function dropdown (words) or Clause type dropdown (clauses).',
+      deleteRelationship:
+        'Two-step delete: Remove from diagram (or Delete key) puts a word back in the Unassigned bank; delete it there with × to remove it completely. Deleting a clause sends its words back to the bank.',
       whenToSwitch:
-        'Use Advanced when you need an exact parsing or a less common relationship. Use Morphology for word details.',
+        'Editing is available here and in Kellogg-Reed; both write to the same structure, so Explore and Study update too. Use Advanced for a less common relationship or exact parsing.',
     },
     advanced: {
       title: 'Phrase / Block · Advanced Edit',
