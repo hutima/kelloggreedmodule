@@ -334,9 +334,11 @@ class OpenTextConverter {
     }
   }
 
-  /** Whether a word heads a prepositional group (carries a `relator`). */
+  /** Whether a word heads a prepositional group (carries a PREPOSITION relator). */
   private isPrepositional(wordId: string): boolean {
-    return (this.wg.edges.get(wordId) ?? []).some((e) => e.role === 'relator');
+    return (this.wg.edges.get(wordId) ?? []).some(
+      (e) => e.role === 'relator' && this.base.get(e.word)?.pos === 'preposition',
+    );
   }
 
   /**
@@ -357,16 +359,26 @@ class OpenTextConverter {
       (e) => e.role === 'relator' || e.role === 'connector' || this.base.has(e.word),
     );
     let rep = nodeId;
-    const relator = edges.find((e) => e.role === 'relator' && this.base.has(e.word));
+    // A relator is only a PREPOSITION governing the head as its object. OpenText
+    // occasionally tags a non-preposition (a noun) as a relator; treating that as
+    // a phantom preposition makes it govern its own head and leaves a dangling
+    // baseline (Col 1:1 "διὰ θελήματος" with διά unaligned). Only a real
+    // preposition gets the prepositionObject treatment.
+    const relator = edges.find(
+      (e) => e.role === 'relator' && this.base.get(e.word)?.pos === 'preposition',
+    );
     if (relator) {
       const prep = this.wordNode(relator.word);
       this.rel('prepositionObject', prep, nodeId);
       rep = prep;
     }
     for (const e of edges) {
-      if (e.role === 'relator' || e.role === 'connector') continue;
+      if (e.role === 'connector' || e === relator || !this.base.has(e.word)) continue;
       const childRep = this.buildPhrase(e.word, seen);
-      this.rel(this.modRole(e), nodeId, childRep);
+      // A leftover (non-preposition) relator edge attaches as an ordinary
+      // qualifier — genitive/adjectival/apposition by the word's own morphology.
+      const role = e.role === 'relator' ? this.modRole({ role: 'qualifier', word: e.word }) : this.modRole(e);
+      this.rel(role, nodeId, childRep);
     }
     return rep;
   }
