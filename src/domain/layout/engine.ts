@@ -1548,9 +1548,14 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   const baselineWidth = x;
   maxRight = Math.max(maxRight, baselineWidth, vModRight);
 
-  // Clause-level word adjuncts cascade to the right of the whole baseline.
-  let bx = baselineWidth + LAYOUT.dependentGap;
-  let railRight = baselineWidth;
+  // Clause-level word adjuncts cascade to the right of the whole baseline AND
+  // clear of the verb's own modifier cascade (which hangs below the verb and can
+  // extend past the short baseline of a verbless/implied-copula clause) — else a
+  // clause-level particle/conjunction slant (μέν, δέ) lands on top of an adverbial
+  // hanging under the verb.
+  const railStart = Math.max(baselineWidth, vModRight);
+  let bx = railStart + LAYOUT.dependentGap;
+  let railRight = railStart;
   wordAdjuncts.forEach((r) => {
     railRight = Math.max(railRight, bx);
     const { right, next } = drawHanging(r, bx);
