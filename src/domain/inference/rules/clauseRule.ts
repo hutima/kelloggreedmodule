@@ -1,4 +1,5 @@
 import type { Token } from '@/domain/schema';
+import { impliedSubjectPronoun } from '@/domain/model';
 import { lexicon } from '../lexicon';
 import type { Inference, InferenceRule, RuleContext } from '../types';
 import { IMPLIED_COPULA_ID, buildWordNode, impliedCopulaNode, wordNodeId } from './helpers';
@@ -146,16 +147,22 @@ export const clauseRule: InferenceRule = {
         ],
       });
     } else if (verb) {
-      // implied subject (pro-drop / elided) — only meaningful with a real verb
+      // implied subject (pro-drop / elided) — only meaningful with a real verb.
+      // A first/second-person verb names its own subject, so impute the pronoun
+      // (σπένδομαι → "(ἐγώ)", an imperative → "(you)"); third person can't be
+      // named from morphology alone, so it stays a generic "(implied)" filler.
       const impliedId = `node_implied_subj_${verb.id}`;
+      const pronoun = impliedSubjectPronoun(verb.morphology, doc.language);
       out.push({
         id: nextId('inf'),
-        title: 'Implied subject',
+        title: pronoun ? `Implied subject (${pronoun})` : 'Implied subject',
         category: 'subject',
         provenance: {
           source: 'inferred',
           confidence: 'high',
-          reason: 'Finite verb without an explicit nominative subject (implied/pro-drop).',
+          reason: pronoun
+            ? `Finite ${verb.morphology?.person}-person verb without an explicit subject — pro-drop "${pronoun}".`
+            : 'Finite verb without an explicit nominative subject (implied/pro-drop).',
         },
         tokenIds: [verb.id],
         ops: [
@@ -167,7 +174,7 @@ export const clauseRule: InferenceRule = {
               role: 'subject',
               tokenIds: [],
               implied: true,
-              label: '(implied)',
+              label: pronoun ? `(${pronoun})` : '(implied)',
               provenance: { source: 'inferred', confidence: 'high' },
             },
           },

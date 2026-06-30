@@ -8,4 +8,5 @@ export * from './merge-predicate';
 export * from './describe';
 export * from './glossary';
 export * from './forms';
+export * from './impute';
 export * from './outline';

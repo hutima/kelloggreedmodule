@@ -236,17 +236,22 @@ describe('clause stacking keeps the diagram readable', () => {
 
 describe('subjectless clauses', () => {
   /** A minimal one-predicate clause with no subject relation. */
-  function subjectless(pos: string, surface: string): KrDocument {
+  function subjectless(
+    pos: string,
+    surface: string,
+    morphology?: Record<string, unknown>,
+    language = 'grc',
+  ): KrDocument {
     return KrDocumentSchema.parse({
       schemaVersion: 1,
       id: 'doc_ns',
       title: 't',
-      language: 'grc',
+      language,
       text: surface,
       createdAt: '2024-01-01T00:00:00.000Z',
       updatedAt: '2024-01-01T00:00:00.000Z',
       layoutHints: {},
-      tokens: [{ id: 'tv', index: 0, surface, pos }],
+      tokens: [{ id: 'tv', index: 0, surface, pos, ...(morphology ? { morphology } : {}) }],
       syntax: {
         rootId: 'n_root',
         nodes: [
@@ -257,8 +262,12 @@ describe('subjectless clauses', () => {
       },
     });
   }
-  const hasSubjectPlaceholder = (doc: KrDocument) =>
-    layoutDocument(doc).elements.some((e) => e.kind === 'text' && (e as { text: string }).text === '(subject)');
+  const subjectFiller = (doc: KrDocument) =>
+    layoutDocument(doc)
+      .elements.filter((e): e is typeof e & { text: string } => e.kind === 'text')
+      .map((e) => e.text)
+      .find((t) => /^\((subject|ἐγώ|σύ|ἡμεῖς|ὑμεῖς|I|we|you)\)$/u.test(t));
+  const hasSubjectPlaceholder = (doc: KrDocument) => subjectFiller(doc) === '(subject)';
 
   it('omits "(subject)" for a bare participle (adverbial participle)', () => {
     expect(hasSubjectPlaceholder(subjectless('participle', 'καρποφοροῦντες'))).toBe(false);
@@ -268,8 +277,33 @@ describe('subjectless clauses', () => {
     expect(hasSubjectPlaceholder(subjectless('infinitive', 'περιπατῆσαι'))).toBe(false);
   });
 
-  it('keeps "(subject)" for a finite verb (genuine pro-drop)', () => {
+  it('keeps "(subject)" for a finite verb with no person parse', () => {
     expect(hasSubjectPlaceholder(subjectless('verb', 'πληρωθῆτε'))).toBe(true);
+  });
+
+  it('imputes ἐγώ for a first-singular Greek verb (Php 2:17 σπένδομαι)', () => {
+    const doc = subjectless('verb', 'σπένδομαι', { person: 'first', number: 'singular' });
+    expect(subjectFiller(doc)).toBe('(ἐγώ)');
+  });
+
+  it('imputes σύ for a second-singular Greek verb', () => {
+    const doc = subjectless('verb', 'γράφεις', { person: 'second', number: 'singular' });
+    expect(subjectFiller(doc)).toBe('(σύ)');
+  });
+
+  it('imputes ἡμεῖς for a first-plural Greek verb', () => {
+    const doc = subjectless('verb', 'ἀκηκόαμεν', { person: 'first', number: 'plural' });
+    expect(subjectFiller(doc)).toBe('(ἡμεῖς)');
+  });
+
+  it('imputes (I) for a first-singular English verb', () => {
+    const doc = subjectless('verb', 'run', { person: 'first', number: 'singular' }, 'en');
+    expect(subjectFiller(doc)).toBe('(I)');
+  });
+
+  it('keeps "(subject)" for a third-person verb (subject not nameable from morphology)', () => {
+    const doc = subjectless('verb', 'λέγει', { person: 'third', number: 'singular' });
+    expect(subjectFiller(doc)).toBe('(subject)');
   });
 });
 

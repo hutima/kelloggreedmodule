@@ -46,6 +46,28 @@ describe('inference engine', () => {
     expect(subjectInfs.some((i) => i.title.toLowerCase().includes('implied'))).toBe(true);
   });
 
+  it('imputes the pro-drop pronoun from the verb’s person/number', () => {
+    // First singular σπένδομαι (Php 2:17) imputes ἐγώ as the implied subject.
+    const doc = docWith('grc', 'σπένδομαι');
+    doc.tokens[0]!.pos = 'verb';
+    doc.tokens[0]!.morphology = { mood: 'indicative', person: 'first', number: 'singular' };
+    const out = applyInferences(doc, runInference(doc).inferences);
+    const subjRel = out.syntax.relations.find((r) => r.type === 'subject');
+    const subjNode = out.syntax.nodes.find((n) => n.id === subjRel?.dependentId);
+    expect(subjNode?.implied).toBe(true);
+    expect(subjNode?.label).toBe('(ἐγώ)');
+  });
+
+  it('leaves a third-person pro-drop subject generic (not nameable from morphology)', () => {
+    const doc = docWith('grc', 'λέγει');
+    doc.tokens[0]!.pos = 'verb';
+    doc.tokens[0]!.morphology = { mood: 'indicative', person: 'third', number: 'singular' };
+    const out = applyInferences(doc, runInference(doc).inferences);
+    const subjRel = out.syntax.relations.find((r) => r.type === 'subject');
+    const subjNode = out.syntax.nodes.find((n) => n.id === subjRel?.dependentId);
+    expect(subjNode?.label).toBe('(implied)');
+  });
+
   it('synthesizes an implied copula for a verbless Greek nominal clause', () => {
     // "χάρις ὑμῖν" — Grace [be] to you. No verb; a nominative subject + dative.
     const doc = docWith('grc', 'χάρις');

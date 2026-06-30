@@ -1,5 +1,5 @@
 import type { KrDocument, LayoutHints, Relation, SyntacticRole, SyntaxNode } from '@/domain/schema';
-import { childRelations, getNode, nodeText } from '@/domain/model';
+import { childRelations, getNode, impliedSubjectPronoun, nodeText } from '@/domain/model';
 import { LAYOUT } from './constants';
 import { measureText, SMALL_FONT } from './measure';
 import type { DiagramElement, DiagramLayout, LineElement, TextElement } from './types';
@@ -1688,7 +1688,7 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
       probe.elements.length > 0 && probe.height + blockAscent(probe) <= LAYOUT.pedestalMaxHeight;
   }
   const subjectBlock = !subjectRel
-    ? impliedBlock('(subject)')
+    ? impliedBlock(subjectFillerLabel(ctx, verbNode))
     : pedestalSubject
       ? emptyBlock() // drawn as a pedestal below, not inline
       : subjectNode && isWordCoordination(ctx, subjectNode)
@@ -2113,6 +2113,30 @@ function isClauseChild(ctx: Ctx, nodeId: string): boolean {
 function firstTokenPos(ctx: Ctx, node: SyntaxNode): string | undefined {
   const tid = node.tokenIds[0];
   return tid ? ctx.doc.tokens.find((t) => t.id === tid)?.pos : undefined;
+}
+
+/**
+ * The filler drawn in a pro-drop clause's empty subject slot. A finite verb names
+ * its own subject by person+number, so a first/second-person verb lets us impute a
+ * pronoun ("(ἐγώ)", "(you)") in place of the bald "(subject)" — read off the verb
+ * node's token, or, for a compound predicate, its first conjunct verb (the fork's
+ * arms agree in person with the one shared subject). Third person stays "(subject)".
+ */
+function subjectFillerLabel(ctx: Ctx, verbNode: SyntaxNode | undefined): string {
+  const verbTokenIds = verbNode
+    ? [
+        ...verbNode.tokenIds,
+        ...wordConjunctRels(ctx, verbNode.id).flatMap(
+          (r) => getNode(ctx.doc.syntax, r.dependentId)?.tokenIds ?? [],
+        ),
+      ]
+    : [];
+  for (const id of verbTokenIds) {
+    const tok = ctx.doc.tokens.find((t) => t.id === id);
+    const pronoun = impliedSubjectPronoun(tok?.morphology, ctx.doc.language);
+    if (pronoun) return `(${pronoun})`;
+  }
+  return '(subject)';
 }
 
 /**
