@@ -4,6 +4,7 @@ import type {
   Language,
   Relation,
   SyntaxNode,
+  SyntaxModel,
   Token,
   NodeLayoutHint,
   SyntacticRole,
@@ -176,6 +177,50 @@ function mainClauseId(syntax: KrDocument['syntax']): string {
     (r) => r.headId === rootId && r.type === 'conjunct' && getNode(syntax, r.dependentId)?.kind === 'clause',
   );
   return member?.dependentId ?? rootId;
+}
+
+/** Clause slots that hold exactly ONE filler — assigning a new one REPLACES it. */
+const SINGLE_FILLER: Partial<Record<SyntacticRole, SyntacticRole[]>> = {
+  subject: ['subject'],
+  predicate: ['predicate', 'copula'],
+  copula: ['predicate', 'copula'],
+};
+
+/**
+ * When `nodeId` takes a single-occupancy clause slot (subject / predicate) on
+ * `headId`, evict the current filler so the slot isn't doubled: the displaced
+ * filler takes the incoming node's vacated role + head (a SWAP, when the incoming
+ * node had a prior relation `incoming`), or — if it was only an implied
+ * placeholder — is removed. This is what makes "replace the subject/verb in a
+ * clause" and "swap words between clauses" one tap.
+ */
+function replaceFiller(
+  syntax: SyntaxModel,
+  base: SyntaxModel,
+  nodeId: string,
+  role: SyntacticRole,
+  headId: string,
+  incoming: Relation | undefined,
+): SyntaxModel {
+  const slot = SINGLE_FILLER[role];
+  if (!slot) return syntax;
+  const existing = base.relations.find(
+    (r) => r.headId === headId && slot.includes(r.type) && r.dependentId !== nodeId,
+  );
+  if (!existing) return syntax;
+  const existingImplied = base.nodes.find((n) => n.id === existing.dependentId)?.implied;
+  if (existingImplied) return removeRelation(syntax, existing.id);
+  if (incoming && incoming.headId !== headId) {
+    const swapped = mUpdateRelation(syntax, existing.id, {
+      type: incoming.type,
+      headId: incoming.headId,
+      provenance: MANUAL,
+    });
+    return mUpdateNode(swapped, existing.dependentId, { role: incoming.type, provenance: MANUAL });
+  }
+  // Incoming had no prior slot (or came from the same head): the old filler can't
+  // simply trade places, so demote it to a loose adjunct the user can re-place.
+  return mUpdateRelation(syntax, existing.id, { type: 'adjunct', provenance: MANUAL });
 }
 
 export interface EditorActions {
@@ -895,6 +940,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             provenance: MANUAL,
           });
         }
+        // Replacing a clause's subject/verb: evict (swap) the current filler so
+        // the slot isn't doubled.
+        if (targetHead) syntax = replaceFiller(syntax, d.syntax, nodeId, role, targetHead, parent);
         return { ...d, syntax };
       }),
 
@@ -969,6 +1017,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       if (dependentId === headId) return;
       commit((d) => {
         const parents = d.syntax.relations.filter((r) => r.dependentId === dependentId);
+        const incoming = parents[0];
         let syntax = d.syntax;
         if (parents.length) {
           const [first, ...rest] = parents;
@@ -983,6 +1032,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             provenance: MANUAL,
           });
         }
+        // Attaching into an occupied subject/predicate slot (e.g. moving a word
+        // into another clause as its subject) swaps out the current filler.
+        syntax = replaceFiller(syntax, d.syntax, dependentId, type, headId, incoming);
         return { ...d, syntax };
       });
     },
