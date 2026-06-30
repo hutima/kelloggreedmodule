@@ -474,7 +474,10 @@ export class SentenceConverter {
     // hanging off ἐν, which the layout engine's PP fast-path then silently drops.
     if (coordinated) return 'conjunct';
     if (cls === 'pp') return 'prepositionalPhrase';
-    if (cls === 'adj' || cls === 'adjp') return 'adjectival';
+    // A cardinal numeral quantifying a noun ("πέντε ἄρτους", "τὰ τρία ταῦτα")
+    // is adjectival — it slants under the noun like any quantifier, not onto the
+    // baseline as an apposition (the final fall-through default).
+    if (cls === 'adj' || cls === 'adjp' || cls === 'num') return 'adjectival';
     if (cls === 'cl') return 'adjectival'; // relative/attributive clause
     // Noun-level: genitive vs apposition, from the parent rule.
     if (/appos/i.test(rule)) return 'apposition';
