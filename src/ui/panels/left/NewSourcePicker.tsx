@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { tokenize } from '@/domain/model';
 import { buildLlmPrompt, importLlmDiagram, importJson, copyText, downloadText, slugify } from '@/io';
@@ -30,7 +30,20 @@ export function NewSourcePicker() {
   const loadDocument = useEditorStore((s) => s.loadDocument);
   const setAppMode = useEditorStore((s) => s.setAppMode);
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
+  const customParses = useEditorStore((s) => s.customParses);
+  const saveCurrentAsCustom = useEditorStore((s) => s.saveCurrentAsCustom);
+  const openCustomParse = useEditorStore((s) => s.openCustomParse);
+  const removeCustomParse = useEditorStore((s) => s.removeCustomParse);
+  const isCustomDoc = useEditorStore((s) => s.corpus === 'custom' && s.baseDoc === null);
+  const docId = useEditorStore((s) => s.doc.id);
   const vp = useViewport();
+
+  const [saved, setSaved] = useState(false);
+  useEffect(() => setSaved(false), [docId]); // a different doc hasn't been saved yet
+  const saveCurrent = () => {
+    saveCurrentAsCustom();
+    setSaved(true);
+  };
 
   const [text, setText] = useState('');
   const [language, setLanguage] = useState<Language>('en');
@@ -92,6 +105,11 @@ export function NewSourcePicker() {
         <button className="mini accept" disabled={!ready} onClick={create}>
           Create diagram
         </button>
+        {isCustomDoc && (
+          <button className="mini" title="Save this diagram to your sentences" onClick={saveCurrent}>
+            {saved ? 'Saved ✓' : 'Save'}
+          </button>
+        )}
       </div>
 
       <div className="row new-actions">
@@ -116,6 +134,48 @@ export function NewSourcePicker() {
         (auto-tagging is approximate — expect to correct it). For a fuller first pass, Export → an
         LLM → Import. The ⓘ explains how.
       </p>
+
+      {customParses.length > 0 && (
+        <div className="gnt-passages">
+          <div className="gnt-actions">
+            <span className="gnt-all">
+              <span>My sentences: {customParses.length}</span>
+            </span>
+          </div>
+          <ul className="gnt-list">
+            {customParses.map((c) => (
+              <li key={c.id}>
+                <label className={`gnt-sentence${c.id === docId ? ' checked' : ''}`}>
+                  <button
+                    type="button"
+                    className="link-btn custom-open"
+                    title="Open this saved sentence"
+                    onClick={() => openCustomParse(c.id)}
+                  >
+                    {c.title || c.preview || 'Untitled'}
+                  </button>
+                  <button
+                    type="button"
+                    className="mini reject custom-del"
+                    title="Delete this saved sentence"
+                    aria-label={`Delete ${c.title}`}
+                    onClick={() => {
+                      if (
+                        typeof window === 'undefined' ||
+                        window.confirm('Delete this saved sentence?')
+                      ) {
+                        removeCustomParse(c.id);
+                      }
+                    }}
+                  >
+                    ✕
+                  </button>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {promptText !== null && (
         <LlmExportModal text={promptText} title={text} onClose={() => setPromptText(null)} />

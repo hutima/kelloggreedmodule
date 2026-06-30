@@ -50,6 +50,10 @@ import {
   saveSermonPrep,
   loadSermonPrep,
   deleteSermonPrep,
+  saveCustomParse,
+  listCustomParses,
+  getCustomParse,
+  deleteCustomParse,
 } from '@/persistence';
 import { applyPatch, diffDocuments, hashBase } from '@/domain/patch';
 import { isEmptySyntaxPatch } from '@/domain/schema';
@@ -178,6 +182,15 @@ export interface EditorActions {
   setLeftCollapsed: (collapsed: boolean) => void;
   /** Load the sentence `delta` away in the current GNT book (prev/next). */
   stepGnt: (delta: number) => void;
+  // saved custom parses ("my sentences")
+  /** Save the current document to the custom-parse list (keeps it across sessions). */
+  saveCurrentAsCustom: () => void;
+  /** Re-read the saved custom-parse list from storage into state. */
+  refreshCustomParses: () => void;
+  /** Open a saved custom parse as the active document. */
+  openCustomParse: (id: string) => void;
+  /** Delete a saved custom parse. */
+  removeCustomParse: (id: string) => void;
   // document fields
   setTitle: (title: string) => void;
   setNotes: (notes: string) => void;
@@ -475,6 +488,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     gntPassages: [],
     gntIndex: -1,
     leftCollapsed: false,
+    customParses: [],
     firstRun: isFirstRun(),
     forceDesktop: loadForceDesktop(),
 
@@ -570,6 +584,34 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       scheduleAutosave(d, (status) => set({ status }));
     },
 
+    saveCurrentAsCustom: () => {
+      const doc = touch(get().doc);
+      set({ doc });
+      void saveCustomParse(doc)
+        .then(() => get().refreshCustomParses())
+        .catch(() => {});
+    },
+
+    refreshCustomParses: () => {
+      void listCustomParses()
+        .then((customParses) => set({ customParses }))
+        .catch(() => {});
+    },
+
+    openCustomParse: (id) => {
+      void getCustomParse(id)
+        .then((doc) => {
+          if (doc) get().loadDocument(doc, { corpus: 'custom' });
+        })
+        .catch(() => {});
+    },
+
+    removeCustomParse: (id) => {
+      void deleteCustomParse(id)
+        .then(() => get().refreshCustomParses())
+        .catch(() => {});
+    },
+
     loadDocument: (doc, opts) => {
       // The given doc is the pristine BASE; user edits are reconstructed on top.
       const base = doc;
@@ -597,6 +639,8 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     restoreLastSession: async () => {
+      // Load the saved custom-parse list (drives the New tab's availability).
+      get().refreshCustomParses();
       if (typeof localStorage === 'undefined') return;
       let id: string | null = null;
       try {

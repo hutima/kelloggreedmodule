@@ -2,6 +2,7 @@ import type { KrDocument, SermonPrepData, SermonAnchor } from '@/domain/schema';
 import type { Inference } from '@/domain/inference';
 import type { DiagramMode } from '@/domain/layout';
 import type { SyntaxSourceId } from '@/io/sources';
+import type { DocumentSummary } from '@/persistence';
 
 /**
  * Desktop side-by-side comparison of TWO syntax SOURCES (e.g. Nestle1904 vs
@@ -194,6 +195,8 @@ export interface EditorState {
   gntIndex: number;
   /** Whether the left (sources) panel is collapsed to a thin strip. */
   leftCollapsed: boolean;
+  /** Saved custom parses ("my sentences"), most-recent first. Drives the New tab. */
+  customParses: DocumentSummary[];
   /**
    * True on a device's first-ever launch (no prior session to restore). Drives a
    * friendlier cold start: open to a default passage with the passage selector
