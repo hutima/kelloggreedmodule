@@ -26,6 +26,7 @@ describe('diagram mode registry', () => {
       'kellogg-reed',
       'phrase-block',
       'dependency',
+      'dependency-tree',
       'morphology',
     ]);
     expect(DIAGRAM_MODES.every((m) => m.label && m.description)).toBe(true);
