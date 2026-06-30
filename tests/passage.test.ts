@@ -127,12 +127,32 @@ describe('combinePassage', () => {
     expect(doc.tokens.map((t) => t.index)).toEqual(doc.tokens.map((_, i) => i));
   });
 
-  it('coordinate: falls back to stacking when a link is a SUBORDINATOR (ὅτι)', () => {
+  it('coordinate: also joins on an explicit connector that is a subordinator (ἵνα)', () => {
     const s1 = sentence('ot_a', 'Php 2:9', 'Θεός', 'ὑπερύψωσεν');
-    const s2 = sentenceWithLead('ot_b', 'Php 2:10', 'ὅτι', 'ὅτι', 'γλῶσσα', 'ἐξομολογήσηται');
+    const s2 = sentenceWithLead('ot_b', 'Php 2:10', 'ἵνα', 'ἵνα', 'γόνυ', 'κάμψῃ');
     const doc = combinePassage([s1, s2], { coordinate: true });
-    // ὅτι subordinates rather than coordinates, so the spine is not forced.
+    // Any explicit connector joins the clauses so the relation is shown.
+    expect(doc.syntax.nodes.find((n) => n.id === doc.syntax.rootId)!.clauseType).toBe('coordinate');
+    expect(doc.syntax.relations.filter((r) => r.headId === doc.syntax.rootId && r.type === 'coordinator')).toHaveLength(1);
+  });
+
+  it('coordinate: falls back to stacking when a join is asyndetic (no connector)', () => {
+    const s1 = sentence('ot_a', 'Php 2:9', 'Θεός', 'ὑπερύψωσεν');
+    const s2 = sentence('ot_b', 'Php 2:10', 'γλῶσσα', 'ἐξομολογήσηται'); // no leading connector
+    const doc = combinePassage([s1, s2], { coordinate: true });
     expect(doc.syntax.nodes.find((n) => n.id === doc.syntax.rootId)!.clauseType).toBe('discourse');
+  });
+
+  it('coordinate: a 3-clause chain gets one coordinator per join, not a correlative', () => {
+    const s1 = sentence('ot_a', 'Php 2:9', 'Θεός', 'ὑπερύψωσεν');
+    const s2 = sentenceWithLead('ot_b', 'Php 2:10', 'ἵνα', 'ἵνα', 'γόνυ', 'κάμψῃ');
+    const s3 = sentenceWithLead('ot_c', 'Php 2:11', 'καὶ', 'καί', 'γλῶσσα', 'ἐξομολογήσηται');
+    const doc = combinePassage([s1, s2, s3], { coordinate: true });
+    const root = doc.syntax.nodes.find((n) => n.id === doc.syntax.rootId)!;
+    expect(root.clauseType).toBe('coordinate');
+    // Three members, two joins → two coordinators (ἵνα, καί), not three.
+    expect(doc.syntax.relations.filter((r) => r.headId === root.id && r.type === 'conjunct')).toHaveLength(3);
+    expect(doc.syntax.relations.filter((r) => r.headId === root.id && r.type === 'coordinator')).toHaveLength(2);
   });
 
   it('coordinate: draws a single connected spine, not separate stacked clauses', () => {

@@ -319,14 +319,21 @@ class OpenTextConverter {
     const w = this.base.get(edge.word);
     const pos = w?.pos;
     const gen = w?.morph?.case === 'genitive';
+    // An article is a determiner whatever modifier slot it sits in — it must never
+    // fall through to apposition (drawn on the baseline) in a role that doesn't
+    // special-case it.
+    if (pos === 'article') return 'determiner';
+    // A quantifier/numeral (πᾶσα "every", δύο "two") modifies its noun
+    // adjectivally — it slants under the head, not onto the baseline as an
+    // apposition (the old fall-through default).
+    if (pos === 'adjective' || pos === 'numeral') return 'adjectival';
     switch (edge.role) {
       case 'definer':
-        return pos === 'article' ? 'determiner' : gen ? 'genitive' : 'apposition';
+        return gen ? 'genitive' : 'apposition';
       case 'specifier':
-        return pos === 'article' ? 'determiner' : pos === 'numeral' ? 'determiner' : 'adjectival';
+        return 'adjectival';
       case 'qualifier':
         if (this.isPrepositional(edge.word)) return 'prepositionalPhrase';
-        if (pos === 'adjective') return 'adjectival';
         if (gen) return 'genitive';
         return 'apposition';
       default:
