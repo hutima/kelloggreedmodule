@@ -958,6 +958,28 @@ function stackClauses(
  * The block's `wordLeft`/`wordRight` are the spine itself, so a parent connector
  * lands cleanly on the bar that ties the whole coordination together.
  */
+/**
+ * The smallest surface token index anywhere in a node's subtree — where the
+ * construction it heads first appears in the sentence. Used to tell a
+ * sentence-INITIAL connective (διό, οὖν …) from one that joins two members.
+ */
+function subtreeMinIndex(ctx: Ctx, nodeId: string, seen = new Set<string>()): number {
+  if (seen.has(nodeId)) return Infinity;
+  seen.add(nodeId);
+  let min = Infinity;
+  const node = getNode(ctx.doc.syntax, nodeId);
+  if (node) {
+    for (const tid of node.tokenIds) {
+      const tok = ctx.doc.tokens.find((t) => t.id === tid);
+      if (tok) min = Math.min(min, tok.index);
+    }
+  }
+  for (const r of childRelations(ctx.doc.syntax, nodeId)) {
+    min = Math.min(min, subtreeMinIndex(ctx, r.dependentId, seen));
+  }
+  return min;
+}
+
 function layoutClauseSpine(
   ctx: Ctx,
   clause: SyntaxNode,
@@ -977,11 +999,33 @@ function layoutClauseSpine(
   // otherwise be swept onto the bar and written sideways, far from where it
   // stands (this was the missing initial γε in Phil 3:8). Those lead the spine on
   // their own stub instead (below), staying visible and selectable.
-  const coordTexts = nonClause
-    .filter((r) => r.type === 'coordinator')
+  // Where the first coordinate member begins in the sentence. A coordinator that
+  // stands BEFORE it is an introductory connective for the WHOLE construction
+  // (διὸ "therefore", οὖν, ἄρα …) — a "conjunction introducing", in the source's
+  // own words — not a conjunction joining two members. It leads on a stub at the
+  // top-left like an introductory particle, and stays a real, selectable word;
+  // only a coordinator sitting BETWEEN members rides the spine bar.
+  const firstMemberIndex = Math.min(
+    Infinity,
+    ...memberRels.map((r) => subtreeMinIndex(ctx, r.dependentId)),
+  );
+  const allCoordRels = nonClause.filter((r) => r.type === 'coordinator');
+  // A correlative set (εἴτε…εἴτε, μέν…δέ) has one coordinator PER member and its
+  // first member is also sentence-initial — those must stay on the spine, paired
+  // with their members, so never pull them out as introductory.
+  const isCorrelative = allCoordRels.length === memberRels.length && memberRels.length >= 2;
+  const introCoordRels = isCorrelative
+    ? []
+    : allCoordRels.filter((r) => subtreeMinIndex(ctx, r.dependentId) < firstMemberIndex);
+  const spineCoordRels = allCoordRels.filter((r) => !introCoordRels.includes(r));
+  const coordTexts = spineCoordRels
     .map((r) => nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '')
     .filter(Boolean);
-  const leadRels = nonClause.filter((r) => r.type !== 'coordinator');
+  // Lead words (introductory particles + introductory coordinators), in surface
+  // order so they read left-to-right as written.
+  const leadRels = [...nonClause.filter((r) => r.type !== 'coordinator'), ...introCoordRels].sort(
+    (a, b) => subtreeMinIndex(ctx, a.dependentId) - subtreeMinIndex(ctx, b.dependentId),
+  );
 
   // Lay every member out, then align their VERBS in one column so the dashed
   // connector runs verb-to-verb (the compound-sentence convention) rather than

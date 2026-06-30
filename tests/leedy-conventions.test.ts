@@ -276,6 +276,73 @@ describe('coordinate clause spine gives a pedestalled clause extra clearance', (
   });
 });
 
+describe('sentence-initial connective on a coordinate spine leads, not joins', () => {
+  // "διὸ [clause A] [clause B]" — διό introduces the WHOLE compound; it is not a
+  // conjunction joining A and B. It must lead at the top-left as a real word, not
+  // ride rotated on the spine bar between the clauses.
+  function spine(coords: { surface: string; index: number }[]): KrDocument {
+    const nodes: unknown[] = [
+      { id: 'n_root', kind: 'clause', clauseType: 'coordinate', tokenIds: [] },
+      { id: 'CA', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'SA', kind: 'word', role: 'subject', tokenIds: ['sa'] },
+      { id: 'VA', kind: 'word', role: 'predicate', tokenIds: ['va'] },
+      { id: 'CB', kind: 'clause', clauseType: 'coordinate', tokenIds: [] },
+      { id: 'SB', kind: 'word', role: 'subject', tokenIds: ['sb'] },
+      { id: 'VB', kind: 'word', role: 'predicate', tokenIds: ['vb'] },
+    ];
+    const relations: unknown[] = [
+      { id: 'r1', type: 'conjunct', headId: 'n_root', dependentId: 'CA' },
+      { id: 'r2', type: 'conjunct', headId: 'n_root', dependentId: 'CB' },
+      { id: 'r3', type: 'subject', headId: 'CA', dependentId: 'SA' },
+      { id: 'r4', type: 'predicate', headId: 'CA', dependentId: 'VA' },
+      { id: 'r5', type: 'subject', headId: 'CB', dependentId: 'SB' },
+      { id: 'r6', type: 'predicate', headId: 'CB', dependentId: 'VB' },
+    ];
+    const tokens: unknown[] = [
+      { id: 'sa', index: 2, surface: 'Θεὸς', pos: 'noun' },
+      { id: 'va', index: 3, surface: 'ὑπερύψωσεν', pos: 'verb' },
+      { id: 'sb', index: 5, surface: 'γλῶσσα', pos: 'noun' },
+      { id: 'vb', index: 6, surface: 'κάμψῃ', pos: 'verb' },
+    ];
+    coords.forEach((c, i) => {
+      nodes.push({ id: `CO${i}`, kind: 'word', role: 'coordinator', tokenIds: [`co${i}`] });
+      relations.push({ id: `rc${i}`, type: 'coordinator', headId: 'n_root', dependentId: `CO${i}` });
+      tokens.push({ id: `co${i}`, index: c.index, surface: c.surface, pos: 'conjunction' });
+    });
+    return build(nodes, relations, tokens, 'spine', 'n_root');
+  }
+
+  it('floats a lone initial connective (διό) above the first clause', () => {
+    const layout = layoutDocument(spine([{ surface: 'διὸ', index: 0 }]));
+    const dio = textEl(layout, 'διὸ');
+    const verbA = textEl(layout, 'ὑπερύψωσεν');
+    expect(dio).toBeDefined();
+    // It leads ABOVE the top clause's verb baseline, not between the two clauses.
+    expect(dio!.y).toBeLessThan(verbA!.y);
+    // Drawn upright as a real word (not rotated onto the spine bar).
+    const dioEl = layout.elements.find(
+      (e) => e.kind === 'text' && (e as { text: string }).text === 'διὸ',
+    ) as { rotate?: number } | undefined;
+    expect(dioEl?.rotate ?? 0).toBe(0);
+  });
+
+  it('keeps a correlative pair (εἴτε…εἴτε) on the spine, not led out', () => {
+    const layout = layoutDocument(
+      spine([
+        { surface: 'εἴτε', index: 0 },
+        { surface: 'εἴτε', index: 4 },
+      ]),
+    );
+    // Both correlatives render rotated on the spine bar (the existing convention),
+    // each at its own clause baseline — neither pulled up to lead at the top.
+    const rotated = layout.elements.filter(
+      (e) => e.kind === 'text' && (e as { text: string }).text === 'εἴτε' &&
+        ((e as { rotate?: number }).rotate ?? 0) !== 0,
+    );
+    expect(rotated).toHaveLength(2);
+  });
+});
+
 describe('introductory particle on a dotted stem', () => {
   // "γάρ … ἐστὶν ταῦτα" — γάρ introduces the whole clause.
   const doc = build(
