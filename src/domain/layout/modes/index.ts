@@ -3,6 +3,7 @@ import type { DiagramLayout } from '../types';
 import { layoutDocument, type LayoutOptions } from '../engine';
 import { layoutDependency } from './dependency';
 import { layoutDependencyTree } from './dependency-tree';
+import { layoutConstituency } from './constituency';
 import { layoutPhraseBlock } from './phrase-block';
 import { layoutMorphology } from './morphology';
 
@@ -17,6 +18,7 @@ export type DiagramMode =
   | 'phrase-block'
   | 'dependency'
   | 'dependency-tree'
+  | 'constituency'
   | 'morphology';
 
 export interface DiagramModeInfo {
@@ -32,6 +34,7 @@ export const DIAGRAM_MODES: DiagramModeInfo[] = [
   { id: 'phrase-block', label: 'Phrase / Block', description: 'Clause hierarchy' },
   { id: 'dependency', label: 'Dependency', description: 'Head-dependent word relationships' },
   { id: 'dependency-tree', label: 'Dependency Tree', description: 'Top-down head-dependent tree (Perseus style)' },
+  { id: 'constituency', label: 'Constituency Tree', description: 'Phrase-structure tree (S → NP VP), categories on the branches' },
   { id: 'morphology', label: 'Morphology Clause', description: 'Greek forms and agreement' },
 ];
 
@@ -71,6 +74,8 @@ export function layoutForMode(
       return layoutDependency(doc);
     case 'dependency-tree':
       return layoutDependencyTree(doc);
+    case 'constituency':
+      return layoutConstituency(doc);
     case 'phrase-block':
       return layoutPhraseBlock(doc);
     case 'morphology':

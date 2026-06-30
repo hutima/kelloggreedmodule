@@ -27,6 +27,7 @@ describe('diagram mode registry', () => {
       'phrase-block',
       'dependency',
       'dependency-tree',
+      'constituency',
       'morphology',
     ]);
     expect(DIAGRAM_MODES.every((m) => m.label && m.description)).toBe(true);
@@ -133,6 +134,36 @@ describe('phrase / block mode', () => {
       (layout.elements.find((e) => e.kind === 'text' && !e.small && (e as { text: string }).text === t) as { x: number }).x;
     // The article τὸν nests under the object κόσμον, so it is indented further right.
     expect(xOf('τὸν')).toBeGreaterThan(xOf('κόσμον'));
+  });
+});
+
+describe('constituency (phrase-structure) tree mode', () => {
+  it('builds an S → NP/VP tree with category nodes and POS-tagged leaves', () => {
+    const layout = layoutForMode('constituency', doc(), {}, {});
+    const texts = layout.elements.filter((e) => e.kind === 'text') as Array<{
+      text: string;
+      small?: boolean;
+      box?: boolean;
+      nodeId?: string;
+    }>;
+    const all = texts.map((t) => t.text);
+    // Category (internal) nodes.
+    expect(all).toEqual(expect.arrayContaining(['S', 'VP', 'NP']));
+    // The actual words sit at the leaves.
+    expect(all).toEqual(expect.arrayContaining(['θεός', 'ἠγάπησεν', 'κόσμον', 'τὸν']));
+    // POS tags label the leaves (small, not a role chip).
+    const posTags = texts.filter((t) => t.small && !t.box).map((t) => t.text);
+    expect(posTags).toEqual(expect.arrayContaining(['N', 'V', 'Det']));
+    // The grammatical role rides each branch as a tappable chip.
+    const chips = texts.filter((t) => t.box).map((t) => t.text);
+    expect(chips).toEqual(expect.arrayContaining(['subj', 'obj']));
+  });
+
+  it('prefers the gold-standard Lowfat <wg> category over the POS estimate', () => {
+    // The converter stamps the source phrase category on the head token; the
+    // object NP "τὸν κόσμον" therefore carries an explicit NP from the <wg>.
+    const kosmon = doc().tokens.find((t) => t.surface === 'κόσμον')!;
+    expect(kosmon.morphology?.extra?.cat).toBe('NP');
   });
 });
 
