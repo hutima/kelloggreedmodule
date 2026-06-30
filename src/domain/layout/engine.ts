@@ -831,11 +831,11 @@ function layoutHead(
     railRight = Math.max(railRight, cursor);
   });
 
-  // A modifier hangs BELOW the head word, so its diagonal can start from the
-  // middle of the word rather than after it — they share the baseline, so the
-  // connection is unambiguous and the diagram stays narrower. (With appositives
-  // present the baseline already extends right, so we start after them.)
-  if (!apposRels.length) cursor = wordW / 2 - LAYOUT.dependentGap;
+  // A modifier hangs BELOW the head word, attaching from the middle of the word
+  // — ALWAYS, even when the word also carries an appositive. The appositive sits
+  // to the right (or on a pedestal); the word's own modifiers (its article,
+  // adjectives) belong directly under it, not pushed out past the appositive.
+  cursor = wordW / 2 - LAYOUT.dependentGap;
 
   wordRels.forEach((rel) => {
     cursor += LAYOUT.dependentGap;
@@ -905,7 +905,12 @@ function layoutHead(
 
   // Clause dependents stack vertically on a stem dropping from the head word.
   let bottom = rowHeight;
-  let right = Math.max(cursor, wordW);
+  // Include `railRight` (the rightmost extent of appositives + modifiers), not
+  // just the modifier `cursor`: the cursor is reset back under the word for the
+  // modifiers, so on its own it would drop an appositive drawn to the right —
+  // making the block too narrow and letting the appositive overlap whatever
+  // follows (the predicate). railRight tracks the true right edge.
+  let right = Math.max(cursor, railRight, wordW);
   if (clauseRels.length) {
     const spineX = wordW / 2;
     const topY = (rowHeight > 0 ? rowHeight : 0) + LAYOUT.adjunctDrop * ctx.vScale;
