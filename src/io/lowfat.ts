@@ -235,6 +235,29 @@ export class SentenceConverter {
     return nodeId;
   }
 
+  /**
+   * Create just the TOKEN for a `<w>` leaf (no syntax node), once. Used for a
+   * subordinator/connector word that is shown as a relation LABEL rather than as
+   * its own node — so it still appears in the source text and token stream
+   * (complete + selectable) without being drawn twice on the diagram.
+   */
+  private wordToken(w: Element): void {
+    if (this.wordNodeId.has(w)) return; // already realized by a node + token
+    const tokenId = `t_${this.key(w)}`;
+    if (this.tokens.some((t) => t.id === tokenId)) return;
+    this.tokens.push({
+      id: tokenId,
+      index: this.tokens.length,
+      surface: this.dialect.surfaceOf(w),
+      language: this.dialect.language,
+      pos: this.dialect.posOf(w),
+      lemma: this.dialect.lemmaOf(w),
+      gloss: this.dialect.glossOf(w),
+      morphology: this.dialect.morphOf(w),
+      provenance: { source: 'given', confidence: 'high' },
+    });
+  }
+
   private headChild(el: Element): Element | undefined {
     const kids = constituents(el);
     return (
@@ -314,11 +337,20 @@ export class SentenceConverter {
       }
 
       if (clauseKids.length === 1) {
+        // The bare word(s) are the subordinator (ὅτι, ἵνα, ὡς …) introducing the
+        // clause. Keep them as TOKENS (in surface order, before the clause's own
+        // tokens) so the source text is complete and they're selectable — but with
+        // no node, since they ride the connecting line as the clause's label, not
+        // as a separate word on the diagram.
+        const subParts: string[] = [];
+        for (const kid of kids) {
+          if (this.isClauseLike(kid)) continue;
+          this.wordToken(kid);
+          const s = (kid.textContent ?? '').trim();
+          if (s) subParts.push(s);
+        }
         const rep = this.convert(clauseKids[0]!);
-        const sub = wordKids
-          .map((w) => (w.textContent ?? '').trim())
-          .filter(Boolean)
-          .join(' ');
+        const sub = subParts.join(' ');
         if (sub && !this.subLabel.has(rep)) this.subLabel.set(rep, sub);
         return rep;
       }
