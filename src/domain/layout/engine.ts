@@ -1275,12 +1275,23 @@ function layoutCoordination(
     ...conjunctRels.map((r) => layoutNode(ctx, r.dependentId, seen)),
   ];
 
-  // Stack the members top-to-bottom, leaving room for each one's own depth.
+  // Stack the members top-to-bottom, leaving room for each one's own depth AND
+  // for the NEXT member's pedestal: a member that raises a tall platform above its
+  // baseline (an appositive on a pedestal — e.g. "δοῦλος Χριστοῦ Ἰησοῦ" on
+  // Τιμόθεος in Phil 1:1) must drop far enough that its platform/genitives clear
+  // the member stacked above it, instead of riding up into it. (Same clearance the
+  // stacked-clause spine already applies via `pedestalRoom`.)
   const baselines: number[] = [];
   let y = 0;
   members.forEach((m, i) => {
     baselines.push(y);
-    if (i < members.length - 1) y += m.height + LAYOUT.coordMemberGap * ctx.vScale + LAYOUT.dividerUp;
+    if (i < members.length - 1) {
+      y +=
+        m.height +
+        LAYOUT.coordMemberGap * ctx.vScale +
+        LAYOUT.dividerUp +
+        pedestalRoom(members[i + 1]!);
+    }
   });
   const lastBaseline = baselines[baselines.length - 1]!;
   const centerY = lastBaseline / 2; // junction sits at the vertical middle
