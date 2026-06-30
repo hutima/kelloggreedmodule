@@ -21,7 +21,7 @@ export function EditTierToggle() {
   );
   return (
     <div className="tier-toggle" role="group" aria-label="Edit tier">
-      {opt('basic', 'Basic', 'Visual, sermon-prep-first editing')}
+      {opt('basic', 'Basic', 'Visual, study-first editing')}
       {opt('advanced', 'Advanced', 'Technical parsing and manual relations')}
     </div>
   );

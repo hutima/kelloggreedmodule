@@ -17,6 +17,16 @@ export const HIGHLIGHT_CATEGORIES: { id: HighlightCategory; label: string; color
   { id: 'emphasis', label: 'Emphasis', color: '#fef08a' },
 ];
 
+/**
+ * The most useful categories for quick study, surfaced on a phone so the palette
+ * stays short in the condensed detail card. Desktop keeps the full list.
+ */
+export const KEY_HIGHLIGHT_CATEGORIES = HIGHLIGHT_CATEGORIES.filter((c) =>
+  ['mainIdea', 'repeatedWord', 'command', 'promise', 'theologicalClaim', 'application'].includes(
+    c.id,
+  ),
+);
+
 export function highlightColor(category: HighlightCategory): string {
   return HIGHLIGHT_CATEGORIES.find((c) => c.id === category)?.color ?? '#fde047';
 }

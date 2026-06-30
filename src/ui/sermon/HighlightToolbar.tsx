@@ -2,12 +2,21 @@ import type { SermonAnchor } from '@/domain/schema';
 import { useEditorStore } from '@/state';
 import { HIGHLIGHT_CATEGORIES } from './highlights';
 
+type Category = (typeof HIGHLIGHT_CATEGORIES)[number];
+
 /**
  * A compact palette of highlight categories for the current selection. Tapping a
  * category toggles a highlight on the selected node/relation (or passage). Used
- * in the sermon drawer and the mobile sermon sheet.
+ * in the study drawer and the tapped-word detail card. `categories` defaults to
+ * the full set; callers (e.g. the phone detail card) can pass a shorter list.
  */
-export function HighlightToolbar({ anchor }: { anchor: SermonAnchor }) {
+export function HighlightToolbar({
+  anchor,
+  categories = HIGHLIGHT_CATEGORIES,
+}: {
+  anchor: SermonAnchor;
+  categories?: Category[];
+}) {
   const highlights = useEditorStore((s) => s.sermon.highlights);
   const toggleHighlight = useEditorStore((s) => s.toggleHighlight);
 
@@ -22,7 +31,7 @@ export function HighlightToolbar({ anchor }: { anchor: SermonAnchor }) {
 
   return (
     <div className="highlight-toolbar" role="group" aria-label="Highlight">
-      {HIGHLIGHT_CATEGORIES.map((c) => (
+      {categories.map((c) => (
         <button
           key={c.id}
           className={`hl-chip${activeFor(c.id) ? ' active' : ''}`}

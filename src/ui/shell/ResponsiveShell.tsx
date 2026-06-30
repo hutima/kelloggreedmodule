@@ -78,7 +78,7 @@ export function ResponsiveShell() {
         {appMode === 'sermon' ? (
           <aside className="panel right sermon-aside">
             <div className="panel-head">
-              <span className="panel-head-title">Sermon Prep</span>
+              <span className="panel-head-title">Study</span>
             </div>
             <div className="panel-body">
               <SermonPrepDrawer />

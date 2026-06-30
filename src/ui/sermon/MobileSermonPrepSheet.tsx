@@ -34,9 +34,9 @@ export function MobileSermonPrepSheet({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="mobile-sheet sermon" role="dialog" aria-label="Sermon prep">
+    <div className="mobile-sheet sermon" role="dialog" aria-label="Study">
       <div className="mobile-sheet-head">
-        <span>Sermon prep</span>
+        <span>Study</span>
         <button className="modal-x" onClick={onClose} aria-label="Close">
           ✕
         </button>
@@ -62,16 +62,17 @@ export function MobileSermonPrepSheet({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         {sermon.notes.length > 0 && (
-          <ul className="sermon-list notes">
+          <ul className="sermon-notes-min">
             {sermon.notes.slice(-6).reverse().map((n) => (
               <li key={n.id}>
-                <div className="note-meta">
-                  <span className="note-cat">{n.category}</span>
-                  <button className="link-btn danger" onClick={() => removeSermonNote(n.id)}>
-                    ✕
-                  </button>
-                </div>
-                {n.body && <p className="note-body">{n.body}</p>}
+                <span className="note-line">{n.body || n.category}</span>
+                <button
+                  className="link-btn danger"
+                  aria-label="Delete note"
+                  onClick={() => removeSermonNote(n.id)}
+                >
+                  ✕
+                </button>
               </li>
             ))}
           </ul>

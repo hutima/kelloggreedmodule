@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '@/state';
+import { glossDoc } from '@/domain/model';
 import { useViewport } from '@/ui/responsive';
 import { ModeSwitcher } from '@/ui/shell/ModeSwitcher';
 import { ForcedDesktopModeModal } from '@/ui/shell/ForcedDesktopModeModal';
@@ -19,7 +20,16 @@ export function TopBar() {
   const doc = useEditorStore((s) => s.doc);
   const verticalScale = useEditorStore((s) => s.verticalScale);
   const diagramMode = useEditorStore((s) => s.diagramMode);
+  const glossMode = useEditorStore((s) => s.glossMode);
   const status = useEditorStore((s) => s.status);
+
+  // Export what's actually on screen: when the English-gloss toggle is on, the
+  // diagram shows glosses (via glossDoc), so the export must too. Morphology stays
+  // in the source language, mirroring the canvas.
+  const exportDoc = useMemo(
+    () => (glossMode && diagramMode !== 'morphology' ? glossDoc(doc) : doc),
+    [glossMode, diagramMode, doc],
+  );
   const appMode = useEditorStore((s) => s.appMode);
   const setAppMode = useEditorStore((s) => s.setAppMode);
   const setTitle = useEditorStore((s) => s.setTitle);
@@ -149,7 +159,7 @@ export function TopBar() {
       </div>
 
       {exportOpen && (
-        <ExportModal doc={doc} verticalScale={verticalScale} mode={diagramMode} onClose={() => setExportOpen(false)} />
+        <ExportModal doc={exportDoc} sourceDoc={doc} verticalScale={verticalScale} mode={diagramMode} onClose={() => setExportOpen(false)} />
       )}
       {dataOpen && <ImportExportModal onClose={() => setDataOpen(false)} />}
       {resetOpen && <ResetPassageModal onClose={() => setResetOpen(false)} />}
