@@ -40,6 +40,12 @@ export function EditModeToolbar() {
   // document has no original to revert to.
   const resetPassage = useEditorStore((s) => s.resetPassage);
   const hasBase = useEditorStore((s) => s.baseDoc !== null);
+  // A typed/imported custom diagram (no gold-standard base) can be saved to the
+  // user's "my sentences" list so it persists and reopens like a passage.
+  const isCustomDoc = useEditorStore((s) => s.corpus === 'custom' && s.baseDoc === null);
+  const saveCurrentAsCustom = useEditorStore((s) => s.saveCurrentAsCustom);
+  const docId = useEditorStore((s) => s.doc.id);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const onReset = () => {
     if (typeof window !== 'undefined' && !window.confirm('Discard your edits and restore the original parse for this passage?')) {
       return;
@@ -115,6 +121,23 @@ export function EditModeToolbar() {
             ✦
           </span>
           <span className="tool-label">Clean up</span>
+        </button>
+      )}
+
+      {isCustomDoc && (
+        <button
+          type="button"
+          className="tool-btn save-btn"
+          title="Save this sentence to your list"
+          onClick={() => {
+            saveCurrentAsCustom();
+            setSavedId(docId);
+          }}
+        >
+          <span className="tool-icon" aria-hidden="true">
+            💾
+          </span>
+          <span className="tool-label">{savedId === docId ? 'Saved ✓' : 'Save'}</span>
         </button>
       )}
 

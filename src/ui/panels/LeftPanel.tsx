@@ -17,11 +17,14 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
   const setCollapsed = useEditorStore((s) => s.setLeftCollapsed);
   const docId = useEditorStore((s) => s.doc.id);
   const docLang = useEditorStore((s) => s.doc.language);
-  // The "New" (type-your-own) source is an editing tool, so it only appears in
-  // Edit mode — which is itself desktop-only. Leaving Edit mode drops the tab and
-  // falls back to GNT, so the panel never strands the user on a hidden tab.
+  // The "New" (type-your-own) source is an editing tool, so it appears in Edit
+  // mode (desktop-only) — and stays available in ANY mode once the user has saved
+  // at least one custom parse, so saved sentences remain reachable like passages.
+  // Leaving Edit with nothing saved drops the tab and falls back to GNT, so the
+  // panel never strands the user on a hidden tab.
   const appMode = useEditorStore((s) => s.appMode);
-  const showNew = appMode === 'edit';
+  const hasSavedCustom = useEditorStore((s) => s.customParses.length > 0);
+  const showNew = appMode === 'edit' || hasSavedCustom;
   const [source, setSource] = useState<'gnt' | 'ot' | 'new'>(docLang === 'hbo' ? 'ot' : 'gnt');
   useEffect(() => {
     if (!showNew && source === 'new') setSource('gnt');

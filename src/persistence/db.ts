@@ -9,8 +9,15 @@ import { KrDocumentSchema, type KrDocument } from '@/domain/schema';
  */
 
 const DB_NAME = 'kellogg-reed';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE = 'documents';
+/**
+ * Explicitly SAVED custom parses (typed/imported sentences the user chose to
+ * keep), kept apart from the `documents` session cache — which autosaves every
+ * doc that is merely viewed. This store is the curated "my sentences" list shown
+ * in the New source tab.
+ */
+const CUSTOM_STORE = 'customParses';
 /**
  * Pristine base (gold-standard) assignments, keyed by passage id, so user edits
  * can be diffed against them and reset back to source after a reload. Kept in a
@@ -26,6 +33,10 @@ interface KrDB extends DBSchema {
     indexes: { 'by-updated': string };
   };
   bases: {
+    key: string;
+    value: KrDocument;
+  };
+  customParses: {
     key: string;
     value: KrDocument;
   };
@@ -47,6 +58,9 @@ function getDb(): Promise<IDBPDatabase<KrDB>> {
         }
         if (oldVersion < 2) {
           db.createObjectStore(BASE_STORE, { keyPath: 'id' });
+        }
+        if (oldVersion < 3) {
+          db.createObjectStore(CUSTOM_STORE, { keyPath: 'id' });
         }
       },
     });
@@ -161,4 +175,67 @@ export async function getBase(id: string): Promise<KrDocument | undefined> {
   if (!raw) return undefined;
   const parsed = KrDocumentSchema.safeParse(JSON.parse(raw));
   return parsed.success ? parsed.data : undefined;
+}
+
+// --- saved custom parses ------------------------------------------------------
+
+const LS_CUSTOM_PREFIX = 'kr-custom:';
+
+/** Save (or update) an explicitly-kept custom parse. */
+export async function saveCustomParse(doc: KrDocument): Promise<void> {
+  const valid = KrDocumentSchema.parse(doc);
+  if (hasIndexedDb()) {
+    await (await getDb()).put(CUSTOM_STORE, valid);
+  } else {
+    try {
+      localStorage.setItem(LS_CUSTOM_PREFIX + valid.id, JSON.stringify(valid));
+    } catch {
+      /* storage full — the custom parse simply won't persist */
+    }
+  }
+}
+
+/** The saved custom parses, most-recently-updated first. */
+export async function listCustomParses(): Promise<DocumentSummary[]> {
+  let docs: KrDocument[];
+  if (hasIndexedDb()) {
+    docs = await (await getDb()).getAll(CUSTOM_STORE);
+  } else {
+    docs = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(LS_CUSTOM_PREFIX)) continue;
+      const parsed = KrDocumentSchema.safeParse(JSON.parse(localStorage.getItem(key)!));
+      if (parsed.success) docs.push(parsed.data);
+    }
+  }
+  return docs
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+    .map((d) => ({
+      id: d.id,
+      title: d.title,
+      language: d.language,
+      updatedAt: d.updatedAt,
+      preview: d.text.slice(0, 80),
+    }));
+}
+
+export async function getCustomParse(id: string): Promise<KrDocument | undefined> {
+  if (hasIndexedDb()) {
+    const raw = await (await getDb()).get(CUSTOM_STORE, id);
+    const parsed = raw ? KrDocumentSchema.safeParse(raw) : undefined;
+    return parsed?.success ? parsed.data : undefined;
+  }
+  const raw = localStorage.getItem(LS_CUSTOM_PREFIX + id);
+  if (!raw) return undefined;
+  const parsed = KrDocumentSchema.safeParse(JSON.parse(raw));
+  return parsed.success ? parsed.data : undefined;
+}
+
+export async function deleteCustomParse(id: string): Promise<void> {
+  if (hasIndexedDb()) {
+    await (await getDb()).delete(CUSTOM_STORE, id);
+  } else {
+    localStorage.removeItem(LS_CUSTOM_PREFIX + id);
+  }
 }
