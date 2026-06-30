@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { layoutDocument } from '@/domain/layout';
+import { impliedSubjectVerbPairs } from '@/domain/model';
 import { KrDocumentSchema, type KrDocument } from '@/domain/schema';
 
 /**
@@ -573,5 +574,54 @@ describe('subject baseline reaches the subject|predicate divider', () => {
     );
     const reach = Math.max(0, ...baselines.map((e) => Math.max(e.x1, e.x2)));
     expect(reach).toBeGreaterThanOrEqual(dx - 2);
+  });
+});
+
+describe('implied subject ↔ verb pairing (grey auto-implied co-highlight)', () => {
+  // A finite verb with a pro-drop implied subject: the implied "(he)" node and
+  // the verb are paired so hovering either greys both.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'S', kind: 'word', role: 'subject', tokenIds: [], implied: true, label: '(he)' },
+      { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+      { id: 'O', kind: 'word', role: 'directObject', tokenIds: ['o'] },
+    ],
+    [
+      { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+      { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+      { id: 'r3', type: 'directObject', headId: 'V', dependentId: 'O' },
+    ],
+    [
+      { id: 'v', index: 0, surface: 'ἔγραψεν', pos: 'verb' },
+      { id: 'o', index: 1, surface: 'ταῦτα', pos: 'pronoun' },
+    ],
+  );
+
+  it('pairs the implied subject with its clause verb, both ways', () => {
+    const pairs = impliedSubjectVerbPairs(doc.syntax);
+    expect(pairs.get('S')?.has('V')).toBe(true);
+    expect(pairs.get('V')?.has('S')).toBe(true);
+    // A non-implied node (the object) is not paired.
+    expect(pairs.has('O')).toBe(false);
+  });
+
+  it('does not pair when the subject is explicit (not implied)', () => {
+    const explicit = build(
+      [
+        { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s'] },
+        { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+      ],
+      [
+        { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+        { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+      ],
+      [
+        { id: 's', index: 0, surface: 'Παῦλος', pos: 'noun' },
+        { id: 'v', index: 1, surface: 'ἔγραψεν', pos: 'verb' },
+      ],
+    );
+    expect(impliedSubjectVerbPairs(explicit.syntax).size).toBe(0);
   });
 });

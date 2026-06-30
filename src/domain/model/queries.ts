@@ -107,6 +107,28 @@ export function headForRole(
   return current;
 }
 
+/**
+ * Pairs of (implied subject node ↔ its clause's verb node). A pro-drop / elided
+ * subject is inferred FROM the verb's morphology, so the two come from the same
+ * word; the UI greys both together when either is hovered. Returns an undirected
+ * adjacency map (each id maps to the set of its partners).
+ */
+export function impliedSubjectVerbPairs(model: SyntaxModel): Map<string, Set<string>> {
+  const pairs = new Map<string, Set<string>>();
+  const link = (a: string, b: string) => {
+    (pairs.get(a) ?? pairs.set(a, new Set()).get(a)!).add(b);
+    (pairs.get(b) ?? pairs.set(b, new Set()).get(b)!).add(a);
+  };
+  for (const r of model.relations) {
+    if (r.type !== 'subject' || !getNode(model, r.dependentId)?.implied) continue;
+    const verbRel = model.relations.find(
+      (x) => x.headId === r.headId && (x.type === 'predicate' || x.type === 'copula'),
+    );
+    if (verbRel) link(r.dependentId, verbRel.dependentId);
+  }
+  return pairs;
+}
+
 /** The tokens realizing a node, returned in surface order. */
 export function nodeTokens(doc: KrDocument, node: SyntaxNode): Token[] {
   const byId = new Map(doc.tokens.map((t) => [t.id, t]));
