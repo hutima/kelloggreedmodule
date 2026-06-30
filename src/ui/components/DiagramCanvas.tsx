@@ -22,6 +22,7 @@ import { MorphologyView } from './diagram/MorphologyView';
 import { nodeHighlightColors, relationHighlightColors, KEY_HIGHLIGHT_CATEGORIES } from '@/ui/sermon/highlights';
 import { HighlightToolbar } from '@/ui/sermon/HighlightToolbar';
 import { EditModeToolbar } from '@/ui/editor/EditModeToolbar';
+import { UnassignedWordsBank } from '@/ui/editor/UnassignedWordsBank';
 import { LinkPreviewOverlay } from '@/ui/editor/LinkPreviewOverlay';
 import { DependencyEditOverlay } from '@/ui/editor/dependency/DependencyEditOverlay';
 import {
@@ -643,6 +644,7 @@ export function DiagramCanvas() {
       </div>
       {viewport.isMobile && <MobileContestedBar />}
       {appMode === 'edit' && <EditModeToolbar />}
+      {appMode === 'edit' && <UnassignedWordsBank />}
       {appMode === 'edit' && <DependencyEditOverlay />}
       {linking && (
         <div className="relink-banner">

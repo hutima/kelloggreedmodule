@@ -17,7 +17,15 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
   const setCollapsed = useEditorStore((s) => s.setLeftCollapsed);
   const docId = useEditorStore((s) => s.doc.id);
   const docLang = useEditorStore((s) => s.doc.language);
+  // The "New" (type-your-own) source is an editing tool, so it only appears in
+  // Edit mode — which is itself desktop-only. Leaving Edit mode drops the tab and
+  // falls back to GNT, so the panel never strands the user on a hidden tab.
+  const appMode = useEditorStore((s) => s.appMode);
+  const showNew = appMode === 'edit';
   const [source, setSource] = useState<'gnt' | 'ot' | 'new'>(docLang === 'hbo' ? 'ot' : 'gnt');
+  useEffect(() => {
+    if (!showNew && source === 'new') setSource('gnt');
+  }, [showNew, source]);
 
   // Follow the OPEN document's corpus so a reload (which restores the passage
   // asynchronously, after this panel has mounted on the placeholder doc) lands on
@@ -53,13 +61,15 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
             >
               GNT
             </button>
-            <button
-              className={source === 'new' ? 'active' : ''}
-              title="New — type your own sentence to diagram"
-              onClick={() => setSource('new')}
-            >
-              New
-            </button>
+            {showNew && (
+              <button
+                className={source === 'new' ? 'active' : ''}
+                title="New — type your own sentence to diagram (Edit mode)"
+                onClick={() => setSource('new')}
+              >
+                New
+              </button>
+            )}
           </>
         )}
         <button
@@ -72,7 +82,7 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
         </button>
       </div>
       <div className="panel-body">
-        {source === 'ot' ? <OtPicker /> : source === 'new' ? <NewSourcePicker /> : <GntPicker />}
+        {source === 'ot' ? <OtPicker /> : source === 'new' && showNew ? <NewSourcePicker /> : <GntPicker />}
       </div>
     </aside>
   );

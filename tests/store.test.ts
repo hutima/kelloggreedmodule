@@ -119,4 +119,19 @@ describe('editor store', () => {
     expect(baseDoc).toBeNull();
     expect(corpus).toBe('custom');
   });
+
+  it('places an unassigned token onto the diagram and selects it', () => {
+    store.getState().createFromText('My name is Timothy.', 'en');
+    const before = store.getState().doc;
+    const unplaced = before.tokens.find(
+      (t) => !before.syntax.nodes.some((n) => n.tokenIds.includes(t.id)),
+    )!;
+    expect(unplaced).toBeDefined();
+    store.getState().placeToken(unplaced.id);
+    const after = store.getState().doc;
+    // a node now realizes that token, and it is the current selection
+    const node = after.syntax.nodes.find((n) => n.tokenIds.includes(unplaced.id));
+    expect(node).toBeDefined();
+    expect(store.getState().selection.nodeId).toBe(node!.id);
+  });
 });

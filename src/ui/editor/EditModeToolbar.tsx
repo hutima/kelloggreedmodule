@@ -35,6 +35,17 @@ export function EditModeToolbar() {
   // manual placement hints — the main lever for clearing clashes after edits.
   const cleanLayout = useEditorStore((s) => s.cleanLayout);
   const hasLayoutHints = useEditorStore((s) => Object.keys(s.doc.layoutHints).length > 0);
+  // Reset throws away the edits on this passage and restores the original parse.
+  // Only meaningful for a gold-standard passage (one with a base); a typed/custom
+  // document has no original to revert to.
+  const resetPassage = useEditorStore((s) => s.resetPassage);
+  const hasBase = useEditorStore((s) => s.baseDoc !== null);
+  const onReset = () => {
+    if (typeof window !== 'undefined' && !window.confirm('Discard your edits and restore the original parse for this passage?')) {
+      return;
+    }
+    resetPassage({ syntax: true, layout: true });
+  };
 
   const adapter = adapterFor(diagramMode);
   const modeLabel = DIAGRAM_MODES.find((m) => m.id === diagramMode)?.label ?? adapter.label;
@@ -106,6 +117,23 @@ export function EditModeToolbar() {
           <span className="tool-label">Clean up</span>
         </button>
       )}
+
+      <button
+        type="button"
+        className="tool-btn reset-btn"
+        disabled={!hasBase}
+        title={
+          hasBase
+            ? 'Reset: discard edits and restore the original parse'
+            : 'Nothing to reset — this is a typed/custom diagram with no original parse'
+        }
+        onClick={onReset}
+      >
+        <span className="tool-icon" aria-hidden="true">
+          ⟲
+        </span>
+        <span className="tool-label">Reset</span>
+      </button>
 
       <div className="tool-group" role="group" aria-label="History">
         <button type="button" className="tool-btn" disabled={!canUndo} title="Undo" onClick={undo}>

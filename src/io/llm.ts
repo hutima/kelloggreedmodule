@@ -14,7 +14,7 @@ import {
   type SyntaxNode,
   type Token,
 } from '@/domain/schema';
-import { createDocument, makeId } from '@/domain/model';
+import { createDocument, makeId, normalizeSyntax } from '@/domain/model';
 import type { ImportResult } from './json';
 
 /**
@@ -232,7 +232,10 @@ export function importLlmDiagram(text: string, opts: { title?: string } = {}): I
 
   const title = opts.title ?? d.title ?? titleFromText(d.text ?? tokens.map((t) => t.surface).join(' '));
   const base = createDocument({ language, title, text: d.text ?? tokens.map((t) => t.surface).join(' ') });
-  const doc: KrDocument = { ...base, tokens, syntax: { rootId, nodes, relations } };
+  // Normalize so an over-specified reply (a phrase node plus its child words both
+  // carrying the same tokens, or a node hung under two heads) never draws a word
+  // twice.
+  const doc = normalizeSyntax({ ...base, tokens, syntax: { rootId, nodes, relations } } as KrDocument);
 
   const result = KrDocumentSchema.safeParse(doc);
   if (!result.success) {
