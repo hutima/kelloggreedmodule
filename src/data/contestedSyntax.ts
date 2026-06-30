@@ -466,6 +466,58 @@ const RAW = {
       },
       alternateReadingIds: ['alt_acts_2_38_purpose', 'alt_acts_2_38_basis'],
     },
+
+    // ───────────── 2 Corinthians 5:4 (syntax — Reed-Kellogg / Leedy) ─────────────
+    {
+      id: 'iss_2cor_5_4_leedy',
+      passageId: 'gnt_2-corinthians_67',
+      verseRef: '2 Corinthians 5:4',
+      kind: 'clauseBoundary',
+      sourceType: 'syntax-only',
+      severity: 'review',
+      label: 'Structure of the ἵνα clause and the οὐ … ἀλλά infinitives',
+      shortLabel: 'ἵνα / οὐ…ἀλλά',
+      summary:
+        'The base (Nestle1904 LowFat) tree joins the ἵνα clause (καταποθῇ τὸ θνητόν …) to στενάζομεν under a top-level coordinate clause with γάρ as its coordinator, and treats ἐπενδύσασθαι as the head of the infinitive complex with ἐκδύσασθαι and οὐ in apposition. A Reed-Kellogg / Leedy diagram instead subordinates the ἵνα clause as a purpose clause under ἐπενδύσασθαι, reads οὐ … ἀλλά as coordinating two parallel infinitive objects of θέλομεν, takes γάρ as an introductory connective, and supplies the elided subject of θέλομεν as (X).',
+      pastoralNote:
+        'A useful place to show how an inferential γάρ, a purpose ἵνα, and a correlative οὐ … ἀλλά shape the flow: we groan not to be unclothed but further clothed, so that mortality is swallowed up by life.',
+      affectedTokenIds: [
+        't_470050040020010', // γάρ
+        't_470050040120010', // οὐ
+        't_470050040140010', // ἐκδύσασθαι
+        't_470050040150010', // ἀλλ'
+        't_470050040160010', // ἐπενδύσασθαι
+        't_470050040180010', // καταποθῇ
+      ],
+      affectedNodeIds: [
+        'cl_470050040020230', // top-level coordinate clause
+        'cl_470050040180060', // ἵνα clause
+        'w_470050040160010', // ἐπενδύσασθαι
+        'w_470050040140010', // ἐκδύσασθαι
+        'w_470050040120010', // οὐ
+        'w_470050040150010', // ἀλλ'
+        'w_470050040020010', // γάρ
+      ],
+      affectedRelationIds: [
+        'r_s67_11',
+        'r_s67_12',
+        'r_s67_13',
+        'r_s67_14',
+        'r_s67_18',
+        'r_s67_25',
+        'r_s67_26',
+      ],
+      defaultReading: {
+        label: 'ἵνα clause coordinate at the top level; ἐπενδύσασθαι as head',
+        description:
+          'The base tree joins the ἵνα clause to στενάζομεν under a top-level coordinate clause (coordinator γάρ); within θέλομεν, ἐπενδύσασθαι heads the infinitives with ἐκδύσασθαι and οὐ in apposition.',
+        parseSummary: 'top: στενάζομεν ∥ καταποθῇ (γάρ) · θέλομεν → ἐπενδύσασθαι (≈ ἐκδύσασθαι, οὐ)',
+      },
+      alternateReadingIds: ['alt_2cor_5_4_leedy'],
+      bibliography: [
+        'Randy Leedy, “New Testament Greek Sentence Diagramming,” Biblical Viewpoint 39/1 (2005).',
+      ],
+    },
   ],
 
   readings: [
@@ -960,6 +1012,68 @@ const RAW = {
         relationId: 'r_s46_19',
         semanticLabel: 'reference / basis',
         explanation: 'Takes εἰς as causal/referential rather than telic.',
+      },
+    },
+
+    // 2 Corinthians 5:4 — Reed-Kellogg / Leedy construal
+    {
+      id: 'alt_2cor_5_4_leedy',
+      issueId: 'iss_2cor_5_4_leedy',
+      passageId: 'gnt_2-corinthians_67',
+      label: 'Reed-Kellogg / Leedy construal',
+      shortLabel: 'Leedy',
+      interpretation:
+        'ἵνα is a purpose clause under ἐπενδύσασθαι; οὐ … ἀλλά coordinate two infinitive objects of θέλομεν; γάρ introduces the main clause.',
+      description:
+        'Subordinates ἵνα καταποθῇ τὸ θνητόν … as a purpose clause hanging off ἐπενδύσασθαι; reads ἐκδύσασθαι and ἐπενδύσασθαι as the two coordinated direct objects of θέλομεν joined by the correlative οὐ … ἀλλά; takes γάρ as an introductory connective of the main clause (στενάζομεν); and supplies the elided subject of θέλομεν as (X).',
+      sourceType: 'syntax-only',
+      confidence: 'medium',
+      syntaxPatch: {
+        nodes: {
+          upsert: [
+            {
+              id: 'n_2cor54_subj_x',
+              kind: 'word',
+              role: 'subject',
+              tokenIds: [],
+              implied: true,
+              provenance: MANUAL_LOW,
+            },
+          ],
+          remove: ['cl_470050040020230'], // the top-level coordinate wrapper
+        },
+        relations: {
+          upsert: [
+            {
+              id: 'r_2cor54_subj_x',
+              type: 'subject',
+              headId: 'cl_470050040110060', // θέλομεν clause
+              dependentId: 'n_2cor54_subj_x',
+              provenance: MANUAL_LOW,
+            },
+          ],
+          update: {
+            // γάρ: top-level coordinator → introductory particle of the main clause.
+            r_s67_26: { headId: 'cl_470050040010150', type: 'particle' },
+            // ἵνα purpose clause → under the infinitive complex; "we wish … to be
+            // further clothed, so that mortality be swallowed up by life".
+            r_s67_25: { headId: 'cl_470050040120042', type: 'adverbial', label: 'ἵνα' },
+            // οὐ ἐκδύσασθαι ἀλλ' ἐπενδύσασθαι: ἐκδύσασθαι heads the coordinated
+            // infinitive-object pair (top, paired with οὐ) and ἐπενδύσασθαι is its
+            // conjunct (bottom, paired with ἀλλ'), so the correlative reads
+            // οὐ … ἀλλά top-to-bottom and οὐ negates ἐκδύσασθαι.
+            r_s67_14: { dependentId: 'w_470050040140010' },
+            r_s67_12: {
+              headId: 'w_470050040140010',
+              dependentId: 'w_470050040160010',
+              type: 'conjunct',
+            },
+            r_s67_11: { headId: 'w_470050040140010', type: 'coordinator' },
+            r_s67_13: { headId: 'w_470050040140010' },
+          },
+          remove: ['r_s67_18'], // dangling conjunct from the removed wrapper
+        },
+        rootId: 'cl_470050040010150', // re-root to the στενάζομεν clause
       },
     },
   ],
