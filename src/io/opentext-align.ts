@@ -82,7 +82,10 @@ export function alignOpenTextSurface(doc: KrDocument, index: SurfaceIndex): Alig
     if (!match) return t;
     used.add(match);
     aligned++;
-    return { ...t, surface: match.surface };
+    // Take the inflected surface AND the English gloss from Nestle1904 — OpenText
+    // ships no English gloss (only lemma + Louw-Nida), so without this the
+    // English-gloss toggle has nothing to show and leaves the Greek in place.
+    return { ...t, surface: match.surface, gloss: match.gloss ?? t.gloss };
   });
 
   const text = [...tokens].sort((a, b) => a.index - b.index).map((t) => t.surface).join(' ');
