@@ -1088,7 +1088,13 @@ function layoutClauseSpine(
     // has nothing above it to join, so its connector keeps a short left stub.)
     if (r.label && showLabel(ctx, r.dependentId)) {
       if (i > 0) {
-        const midY = (verbYs[i - 1]! + y) / 2;
+        // Centre the connector in the GAP between the previous clause's lowest
+        // point and this clause's highest — so with a tall upper member (a
+        // compound-predicate fork) it sits halfway between the clauses rather than
+        // riding the bottom arm of the fork above it.
+        const prevBottom = verbYs[i - 1]! + (laid[i - 1]?.block.height ?? 0);
+        const thisTop = y - blockAscent(block);
+        const midY = (prevBottom + thisTop) / 2;
         elements.push({
           kind: 'text', id: eid(), x: verbAlignX, y: midY, text: r.label!,
           anchor: 'middle', small: true, italic: true, rotate: -90,

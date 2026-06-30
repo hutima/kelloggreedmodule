@@ -112,7 +112,7 @@ export const LAYOUT = {
    * line, crushing the riser and its ὅτι/ἵνα connector. Keep the platform clearly
    * elevated regardless.
    */
-  pedestalMinRiser: 44,
+  pedestalMinRiser: 64,
   fontSize: 18,
   smallFontSize: 13,
   /** Vertical offset of word text above its baseline. */
