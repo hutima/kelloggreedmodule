@@ -2287,3 +2287,18 @@ label.field.inline > span { margin-bottom: 0; }
   color: var(--ink-soft, #667);
   font-size: 13px;
 }
+
+/* "New" source: free-text typing window + LLM export/import controls. */
+.new-picker .new-text {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+.new-actions {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.new-actions .info-btn {
+  margin-left: auto;
+  font-weight: 600;
+}

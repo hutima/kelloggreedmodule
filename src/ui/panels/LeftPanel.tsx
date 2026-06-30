@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { GntPicker } from './left/GntPicker';
 import { OtPicker } from './left/OtPicker';
+import { NewSourcePicker } from './left/NewSourcePicker';
 
 /**
  * Left panel: the passage pickers for the two gold-standard corpora — the Greek
@@ -16,7 +17,7 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
   const setCollapsed = useEditorStore((s) => s.setLeftCollapsed);
   const docId = useEditorStore((s) => s.doc.id);
   const docLang = useEditorStore((s) => s.doc.language);
-  const [source, setSource] = useState<'gnt' | 'ot'>(docLang === 'hbo' ? 'ot' : 'gnt');
+  const [source, setSource] = useState<'gnt' | 'ot' | 'new'>(docLang === 'hbo' ? 'ot' : 'gnt');
 
   // Follow the OPEN document's corpus so a reload (which restores the passage
   // asynchronously, after this panel has mounted on the placeholder doc) lands on
@@ -46,11 +47,18 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
               OT
             </button>
             <button
-              className={source === 'ot' ? '' : 'active'}
+              className={source === 'gnt' ? 'active' : ''}
               title="Greek New Testament"
               onClick={() => setSource('gnt')}
             >
               GNT
+            </button>
+            <button
+              className={source === 'new' ? 'active' : ''}
+              title="New — type your own sentence to diagram"
+              onClick={() => setSource('new')}
+            >
+              New
             </button>
           </>
         )}
@@ -63,7 +71,9 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
           {collapsed ? '▸' : '▾'}
         </button>
       </div>
-      <div className="panel-body">{source === 'ot' ? <OtPicker /> : <GntPicker />}</div>
+      <div className="panel-body">
+        {source === 'ot' ? <OtPicker /> : source === 'new' ? <NewSourcePicker /> : <GntPicker />}
+      </div>
     </aside>
   );
 }

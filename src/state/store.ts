@@ -157,6 +157,9 @@ function savePassageNotes(docId: string, notes: string): void {
 export interface EditorActions {
   // lifecycle
   newDocument: (language: Language, title?: string) => void;
+  /** Create a fresh custom document from typed text, auto-tagged (tokenized +
+   *  inference-seeded) so the diagram is populated and ready to edit. */
+  createFromText: (text: string, language: Language) => void;
   loadDocument: (doc: KrDocument, opts?: { corpus?: Corpus }) => void;
   /** Restore the last viewed passage (after a reload), if any. */
   restoreLastSession: () => Promise<void>;
@@ -526,6 +529,38 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         status: 'idle',
       });
       scheduleAutosave(doc, (status) => set({ status }));
+    },
+
+    createFromText: (text, language) => {
+      // A new custom document seeded from typed text: tokenize, then run the
+      // inference engine to a fixed point (idempotent upserts) so the diagram is
+      // populated with a rough, fully-editable parse rather than an empty line.
+      const title = text.trim().split(/\s+/).slice(0, 6).join(' ').slice(0, 50) || 'New diagram';
+      const baseDoc0 = createDocument({ language, text, title });
+      let d: KrDocument = { ...baseDoc0, tokens: tokenize(text, language) };
+      for (let pass = 0; pass < 4; pass++) {
+        const { inferences } = runInference(d);
+        if (!inferences.length) break;
+        const size = d.syntax.nodes.length + d.syntax.relations.length;
+        d = applyInferences(d, inferences);
+        if (d.syntax.nodes.length + d.syntax.relations.length === size) break;
+      }
+      set({
+        doc: d,
+        baseDoc: null,
+        corpus: 'custom',
+        sermon: emptySermonPrep(d.id, d.createdAt),
+        past: [],
+        future: [],
+        inferences: [],
+        selection: {},
+        linking: null,
+        previewDoc: null,
+        contestedBaseDoc: null,
+        contested: { ...FRESH_CONTESTED },
+        status: 'idle',
+      });
+      scheduleAutosave(d, (status) => set({ status }));
     },
 
     loadDocument: (doc, opts) => {
