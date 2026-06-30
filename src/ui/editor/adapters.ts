@@ -9,6 +9,7 @@ import {
   basicRelationActions,
   describeNode,
   describeRelation,
+  mainVerbAction,
   quickRoleChips,
   resolveTarget,
   sermonNodeActions,
@@ -72,6 +73,7 @@ export const kelloggReedAdapter: EditorViewAdapter = {
     if (t.id === doc.syntax.rootId) return sermonNodeActions(t.id);
     return [
       ...quickRoleChips(doc, t.id),
+      ...mainVerbAction(doc, t.id),
       ...reattachNodeAction(doc, t.id),
       ...sermonNodeActions(t.id),
     ];
@@ -238,6 +240,7 @@ export const dependencyAdapter: EditorViewAdapter = {
         intent: { kind: 'startVisualLink', dependentId: t.id },
       },
       ...quickRoleChips(doc, t.id),
+      ...mainVerbAction(doc, t.id),
       ...reattachNodeAction(doc, t.id),
       ...sermonNodeActions(t.id),
     ];

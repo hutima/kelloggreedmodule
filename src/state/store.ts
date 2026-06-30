@@ -17,6 +17,7 @@ import type {
 import { emptySermonPrep } from '@/domain/schema';
 import {
   createDocument,
+  getNode,
   headForRole,
   makeId,
   normalizeSyntax,
@@ -160,6 +161,23 @@ function savePassageNotes(docId: string, notes: string): void {
   }
 }
 
+/**
+ * The MAIN clause whose predicate a "make main verb" edit targets: the root if
+ * it is itself a subject/predicate clause, else (a headless coordinate/discourse
+ * root) the first clause member. Falls back to the root id.
+ */
+function mainClauseId(syntax: KrDocument['syntax']): string {
+  const rootId = syntax.rootId;
+  const rootHasCore = syntax.relations.some(
+    (r) => r.headId === rootId && (r.type === 'subject' || r.type === 'predicate' || r.type === 'copula'),
+  );
+  if (rootHasCore || getNode(syntax, rootId)?.kind !== 'clause') return rootId;
+  const member = syntax.relations.find(
+    (r) => r.headId === rootId && r.type === 'conjunct' && getNode(syntax, r.dependentId)?.kind === 'clause',
+  );
+  return member?.dependentId ?? rootId;
+}
+
 export interface EditorActions {
   // lifecycle
   newDocument: (language: Language, title?: string) => void;
@@ -221,6 +239,20 @@ export interface EditorActions {
   // --- semantic editing (used by the visualization edit adapters) ---
   /** Set a node's grammatical role and align its incoming relation type. */
   setNodeRole: (nodeId: string, role: SyntacticRole) => void;
+  /**
+   * Add a fresh independent clause with empty (implied) subject + verb slots,
+   * selecting it so the user can fill the slots from the word bank. Attaches it
+   * as a coordinate member: to a headless coordinate/discourse root directly, or
+   * by wrapping a single existing clause in a new coordinate root.
+   */
+  addClause: () => void;
+  /**
+   * Make `nodeId` the MAIN clause's predicate (verb). If a real verb already
+   * fills that slot the two SWAP — the old verb takes the picked word's former
+   * role/head — so a misparsed main verb can be corrected without losing it. An
+   * implied placeholder is simply dropped.
+   */
+  setMainPredicate: (nodeId: string) => void;
   /** Attach `dependentId` under `headId` as `type` (re-pointing its head). */
   attachNodeTo: (dependentId: string, headId: string, type: SyntacticRole) => void;
   /** Change an existing relation's type. */
@@ -862,6 +894,73 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             dependentId: nodeId,
             provenance: MANUAL,
           });
+        }
+        return { ...d, syntax };
+      }),
+
+    addClause: () => {
+      const newClauseId = makeId('node');
+      commit((d) => {
+        const subjId = makeId('node');
+        const verbId = makeId('node');
+        const nodes: SyntaxNode[] = [
+          ...d.syntax.nodes,
+          { id: newClauseId, kind: 'clause', clauseType: 'independent', tokenIds: [], provenance: MANUAL },
+          { id: subjId, kind: 'word', role: 'subject', tokenIds: [], implied: true, label: '(subject)', provenance: MANUAL },
+          { id: verbId, kind: 'word', role: 'predicate', tokenIds: [], implied: true, label: '(verb)', provenance: MANUAL },
+        ];
+        const relations: Relation[] = [
+          ...d.syntax.relations,
+          { id: makeId('rel'), type: 'subject', headId: newClauseId, dependentId: subjId, provenance: MANUAL },
+          { id: makeId('rel'), type: 'predicate', headId: newClauseId, dependentId: verbId, provenance: MANUAL },
+        ];
+        const rootId = d.syntax.rootId;
+        const rootHasCore = d.syntax.relations.some(
+          (r) => r.headId === rootId && (r.type === 'subject' || r.type === 'predicate' || r.type === 'copula'),
+        );
+        if (!rootHasCore && getNode(d.syntax, rootId)?.kind === 'clause') {
+          // Headless coordinate/discourse root: the new clause is another member.
+          relations.push({ id: makeId('rel'), type: 'conjunct', headId: rootId, dependentId: newClauseId, provenance: MANUAL });
+          return { ...d, syntax: { ...d.syntax, nodes, relations } };
+        }
+        // A single existing clause: wrap both in a new coordinate root.
+        const wrapId = makeId('node');
+        nodes.push({ id: wrapId, kind: 'clause', clauseType: 'coordinate', tokenIds: [], provenance: MANUAL });
+        relations.push(
+          { id: makeId('rel'), type: 'conjunct', headId: wrapId, dependentId: rootId, provenance: MANUAL },
+          { id: makeId('rel'), type: 'conjunct', headId: wrapId, dependentId: newClauseId, provenance: MANUAL },
+        );
+        return { ...d, syntax: { ...d.syntax, rootId: wrapId, nodes, relations } };
+      });
+      get().select({ nodeId: newClauseId });
+    },
+
+    setMainPredicate: (nodeId) =>
+      commit((d) => {
+        const mainId = mainClauseId(d.syntax);
+        const targetRel = d.syntax.relations.find((r) => r.dependentId === nodeId);
+        const existingRel = d.syntax.relations.find(
+          (r) => r.headId === mainId && (r.type === 'predicate' || r.type === 'copula') && r.dependentId !== nodeId,
+        );
+        let syntax = mUpdateNode(d.syntax, nodeId, { role: 'predicate', provenance: MANUAL });
+        if (targetRel) {
+          syntax = mUpdateRelation(syntax, targetRel.id, { type: 'predicate', headId: mainId, provenance: MANUAL });
+        } else {
+          syntax = upsertRelation(syntax, { id: makeId('rel'), type: 'predicate', headId: mainId, dependentId: nodeId, provenance: MANUAL });
+        }
+        if (existingRel) {
+          const existing = getNode(d.syntax, existingRel.dependentId);
+          if (existing?.implied) {
+            // A placeholder "(verb)" just makes way for the real one.
+            syntax = removeRelation(syntax, existingRel.id);
+          } else if (targetRel) {
+            // Swap: the displaced verb takes the picked word's former role + head.
+            syntax = mUpdateRelation(syntax, existingRel.id, { type: targetRel.type, headId: targetRel.headId, provenance: MANUAL });
+            syntax = mUpdateNode(syntax, existingRel.dependentId, { role: targetRel.type, provenance: MANUAL });
+          } else {
+            // Picked word was unattached: keep the old verb, demoted to an adjunct.
+            syntax = mUpdateRelation(syntax, existingRel.id, { type: 'adjunct', provenance: MANUAL });
+          }
         }
         return { ...d, syntax };
       }),
