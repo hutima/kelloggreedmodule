@@ -106,4 +106,17 @@ describe('editor store', () => {
     expect(store.getState().doc.syntax.rootId).toBe(rootId);
     expect(store.getState().doc.syntax.nodes.some((n) => n.id === rootId)).toBe(true);
   });
+
+  it('creates an auto-tagged custom document from typed text', () => {
+    store.getState().createFromText('The Word became flesh.', 'en');
+    const { doc, baseDoc, corpus } = store.getState();
+    // tokenized
+    expect(doc.tokens.map((t) => t.surface)).toEqual(['The', 'Word', 'became', 'flesh.']);
+    // auto-tagged: the inference engine populated a syntax tree (subject/predicate)
+    expect(doc.syntax.relations.length).toBeGreaterThan(0);
+    expect(doc.syntax.relations.some((r) => r.type === 'subject')).toBe(true);
+    // it is a fresh custom document (no gold-standard base)
+    expect(baseDoc).toBeNull();
+    expect(corpus).toBe('custom');
+  });
 });

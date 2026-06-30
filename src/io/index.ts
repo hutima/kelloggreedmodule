@@ -38,3 +38,11 @@ export {
   type ImportKind,
   type ImportDetect,
 } from './backup';
+export {
+  buildLlmPrompt,
+  importLlmDiagram,
+  titleFromText,
+  LLM_DIAGRAM_KIND,
+  LlmDiagramSchema,
+  type LlmDiagram,
+} from './llm';
