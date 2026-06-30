@@ -77,6 +77,20 @@ export function OtPicker() {
     }
   };
 
+  // Auto-load the sentence list whenever the book or chapter changes — mirrors
+  // GntPicker, where the manual Load button is redundant. A list seeded from the
+  // open passage skips the first fetch (the ref starts matched), and the loader/
+  // service worker cache the rest.
+  const lastLoaded = useRef<string>(passages ? `${bookNum}:${chapter}` : '');
+  useEffect(() => {
+    const key = `${bookNum}:${chapter}`;
+    if (lastLoaded.current === key) return;
+    lastLoaded.current = key;
+    void loadChapter(book, chapter);
+    // loadChapter closes over the current book; re-run only on book/chapter change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookNum, chapter]);
+
   const saveOffline = async (b: OtBook, ch: number) => {
     setCacheState('saving');
     setCacheState((await cacheOtChapter(b, ch)) ? 'saved' : 'error');
@@ -150,13 +164,7 @@ export function OtPicker() {
         </label>
       </div>
       <div className="row">
-        <button
-          className="mini accept"
-          disabled={loading}
-          onClick={() => void loadChapter(book, chapter)}
-        >
-          {loading ? 'Loading…' : 'Load'}
-        </button>
+        {loading && <span style={{ fontSize: 12, color: 'var(--ink-soft, #667)' }}>Loading…</span>}
         <button
           className="mini"
           disabled={cacheState === 'saving' || cacheState === 'saved'}
