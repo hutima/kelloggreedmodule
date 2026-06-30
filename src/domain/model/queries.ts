@@ -100,6 +100,18 @@ export function glossDoc(doc: KrDocument): KrDocument {
 }
 
 /** All descendant node ids of a node (depth-first), excluding the node itself. */
+/**
+ * Tokens that no syntax node realizes — words the parser (or an import) left
+ * unplaced. The editor surfaces these in an "unassigned words" bank so a word the
+ * auto-tagger missed (a small function word, an unknown form) can still be put on
+ * the diagram by hand. Returned in surface order.
+ */
+export function unassignedTokens(doc: KrDocument): Token[] {
+  const placed = new Set<string>();
+  for (const n of doc.syntax.nodes) for (const id of n.tokenIds) placed.add(id);
+  return doc.tokens.filter((t) => !placed.has(t.id)).sort((a, b) => a.index - b.index);
+}
+
 export function descendantIds(model: SyntaxModel, nodeId: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>([nodeId]);

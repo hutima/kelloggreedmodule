@@ -3,6 +3,7 @@ export * from './queries';
 export * from './mutations';
 export * from './document';
 export * from './tokenize';
+export * from './normalize';
 export * from './describe';
 export * from './glossary';
 export * from './forms';
