@@ -23,6 +23,46 @@ const textEl = (l: ReturnType<typeof layoutDocument>, t: string) =>
     | { x: number; y: number; rotate?: number }
     | undefined;
 
+describe('a coordinator attached to a conjunct rides the fork bar (not a slant)', () => {
+  // Some parses hang the ἀλλά of an "οὐ … ἀλλά" pair on the SECOND member rather
+  // than the coordination head (e.g. Php 2:27). It must still be drawn as a
+  // coordinator on the fork bar — rotated — never leak out as a modifier slant.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s'] },
+      { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+      { id: 'A', kind: 'word', role: 'directObject', tokenIds: ['a'] },
+      { id: 'B', kind: 'word', role: 'conjunct', tokenIds: ['b'] },
+      { id: 'C', kind: 'word', role: 'coordinator', tokenIds: ['c'] },
+    ],
+    [
+      { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+      { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+      { id: 'r3', type: 'directObject', headId: 'V', dependentId: 'A' },
+      { id: 'r4', type: 'conjunct', headId: 'A', dependentId: 'B' },
+      // coordinator hangs off the CONJUNCT B, not the head A
+      { id: 'r5', type: 'coordinator', headId: 'B', dependentId: 'C' },
+    ],
+    [
+      { id: 's', index: 0, surface: 'they', pos: 'pronoun' },
+      { id: 'v', index: 1, surface: 'chose', pos: 'verb' },
+      { id: 'a', index: 2, surface: 'him', pos: 'pronoun' },
+      { id: 'c', index: 3, surface: 'but', pos: 'conjunction' },
+      { id: 'b', index: 4, surface: 'me', pos: 'pronoun' },
+    ],
+  );
+
+  it('draws the conjunct coordinator once, rotated on the bar', () => {
+    const layout = layoutDocument(doc);
+    const but = layout.elements.filter(
+      (e) => e.kind === 'text' && (e as { text: string }).text === 'but',
+    ) as { rotate?: number }[];
+    expect(but).toHaveLength(1); // not dropped, not duplicated
+    expect(but[0]!.rotate).toBe(-90); // on the coordination bar, not a ~57° slant
+  });
+});
+
 describe('compound predicate sharing one object', () => {
   // "Samantha proofreads and edits her essays."
   const doc = build(

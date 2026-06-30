@@ -722,7 +722,12 @@ function layoutHead(
   // this word heads a coordination, its conjunct/coordinator children are drawn
   // by the fork (layoutCoordination), so they are excluded here.
   const depRels = (collapsed ? [] : childRelations(ctx.doc.syntax, node.id)).filter(
-    (r) => !excludeCoordination || (r.type !== 'conjunct' && r.type !== 'coordinator'),
+    // A coordinator word is NEVER a modifier — it is drawn by the coordination
+    // fork/spine (and a coordinator sitting on a CONJUNCT, e.g. the ἀλλά of an
+    // "οὐ … ἀλλά" pair, is hoisted onto the fork bar by layoutCoordination). So it
+    // is always excluded here; otherwise it would be drawn as a stray slant.
+    // Conjuncts are excluded only when this node is itself drawn as a coordination.
+    (r) => r.type !== 'coordinator' && (!excludeCoordination || r.type !== 'conjunct'),
   );
   // An infinitive phrase hangs as a modifier (empty diagonal + horizontal), not
   // as a stacked clause, so it is grouped with the word-level dependents.
@@ -1113,7 +1118,15 @@ function layoutCoordination(
   openLeft: boolean,
 ): Block {
   const conjunctRels = wordConjunctRels(ctx, node.id);
-  const coords = coordinatorTexts(ctx, node.id);
+  // Coordinators of the HEAD, plus any sitting on a CONJUNCT (a parse may attach
+  // the ἀλλά of an "οὐ … ἀλλά" pair to the second member rather than the head);
+  // gathering both keeps every conjunction on the fork bar instead of leaking one
+  // out as a stray modifier slant. Order: head first, then per conjunct — so a
+  // correlative pair lines up top-with-top with the members.
+  const coords = [
+    ...coordinatorTexts(ctx, node.id),
+    ...conjunctRels.flatMap((r) => coordinatorTexts(ctx, r.dependentId)),
+  ];
 
   // An apposition to the WHOLE group ("τὰ τρία ταῦτα" summarising πίστις, ἐλπίς,
   // ἀγάπη) is hoisted onto a platform off the fork's bar, so it is excluded from
