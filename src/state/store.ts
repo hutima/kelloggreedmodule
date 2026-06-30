@@ -17,6 +17,7 @@ import type {
 import { emptySermonPrep } from '@/domain/schema';
 import {
   createDocument,
+  headForRole,
   makeId,
   normalizeSyntax,
   reindex,
@@ -841,7 +842,27 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       commit((d) => {
         let syntax = mUpdateNode(d.syntax, nodeId, { role, provenance: MANUAL });
         const parent = d.syntax.relations.find((r) => r.dependentId === nodeId);
-        if (parent) syntax = mUpdateRelation(syntax, parent.id, { type: role, provenance: MANUAL });
+        // Re-home the node so the diagram actually renders it in the new slot: a
+        // verbal complement (direct object, predicate nominative…) must hang off
+        // the VERB, not the clause, or the layout never draws it on the baseline
+        // — the "set X as direct object did nothing" bug. Clause roles
+        // (subject/predicate) hang off the clause. Modifiers keep their head.
+        const targetHead = headForRole(d.syntax, nodeId, role);
+        if (parent) {
+          syntax = mUpdateRelation(syntax, parent.id, {
+            type: role,
+            ...(targetHead && targetHead !== parent.headId ? { headId: targetHead } : {}),
+            provenance: MANUAL,
+          });
+        } else if (targetHead) {
+          syntax = upsertRelation(syntax, {
+            id: makeId('rel'),
+            type: role,
+            headId: targetHead,
+            dependentId: nodeId,
+            provenance: MANUAL,
+          });
+        }
         return { ...d, syntax };
       }),
 
