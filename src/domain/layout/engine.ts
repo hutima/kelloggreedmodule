@@ -1383,8 +1383,35 @@ function layoutCoordination(
     const span = ab.wordLeft + (ab.wordRight || ab.width);
     const baseStart = Math.max(0, Math.min(dashX - span / 2, width - ab.width));
     elements.push(...translate(ab, baseStart, platY));
-    // Stem from the joining bar down to the platform baseline.
-    elements.push(line(eid(), dashX, botY, dashX, platY, 'solid', 'stem', undefined, ar.id));
+    // Stem from the joining bar down to the appositive's baseline. The block is
+    // centred under `dashX` when it fits, but a wide appositive (one trailing its
+    // own genitive — "δοῦλοι Χριστοῦ Ἰησοῦ" in Phil 1:1) gets clamped left by the
+    // `width - ab.width` bound, so a stem fixed at `dashX` would float clear of it.
+    // Land the stem on the word's actual centre (`baseStart + span / 2`): a plain
+    // vertical drop when unclamped, a short branch to the word when clamped.
+    const connectX = baseStart + span / 2;
+    elements.push(line(eid(), dashX, botY, connectX, platY, 'solid', 'stem', undefined, ar.id));
+    // Mark the connector with the Reed-Kellogg apposition "=" (two short strokes
+    // ACROSS the stem) so the renaming reads as APPOSITION, not a generic modifier
+    // — the same "=" the inline path draws on the baseline (see `drawEquals`).
+    const sdx = connectX - dashX;
+    const sdy = platY - botY;
+    const slen = Math.hypot(sdx, sdy) || 1;
+    const perpX = -sdy / slen; // unit normal to the stem
+    const perpY = sdx / slen;
+    const alongX = sdx / slen; // unit along the stem
+    const alongY = sdy / slen;
+    const midX = (dashX + connectX) / 2;
+    const midY = (botY + platY) / 2;
+    const EQ_HALF = 6; // stroke half-length (matches the inline "=" width)
+    const EQ_GAP = 4; // spacing between the two strokes, along the stem
+    for (const off of [-EQ_GAP, EQ_GAP]) {
+      const cx = midX + alongX * off;
+      const cy = midY + alongY * off;
+      elements.push(
+        line(eid(), cx - perpX * EQ_HALF, cy - perpY * EQ_HALF, cx + perpX * EQ_HALF, cy + perpY * EQ_HALF, 'solid', 'separator', undefined, ar.id),
+      );
+    }
     bottom = platY + ab.height;
   }
 

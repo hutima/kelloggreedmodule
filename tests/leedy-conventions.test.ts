@@ -512,3 +512,74 @@ describe('introductory particle on a dotted stem', () => {
     expect(dottedStem).toBe(true);
   });
 });
+
+describe('summary apposition under a coordinated subject connects to its baseline', () => {
+  // "Παῦλος καὶ Τιμόθεος δοῦλοι Χριστοῦ" (Phil 1:1): δοῦλοι renames the whole
+  // "Paul and Timothy" group, so it hangs on a platform off the coordination fork.
+  // Because it trails its own genitive (Χριστοῦ), the appositive block is wide and
+  // gets shifted left under the fork — the connecting stem must still LAND on the
+  // appositive's baseline, not float clear of it in empty space.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s1'] },
+      { id: 'S2', kind: 'word', tokenIds: ['s2'] },
+      { id: 'C', kind: 'word', role: 'coordinator', tokenIds: ['c'] },
+      { id: 'V', kind: 'word', role: 'predicate', tokenIds: [], implied: true, label: '(ἐστίν)' },
+      { id: 'A', kind: 'word', role: 'apposition', tokenIds: ['a'] },
+      { id: 'G', kind: 'word', role: 'genitive', tokenIds: ['g'] },
+    ],
+    [
+      { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+      { id: 'r2', type: 'coordinator', headId: 'S', dependentId: 'C' },
+      { id: 'r3', type: 'conjunct', headId: 'S', dependentId: 'S2' },
+      { id: 'r4', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+      { id: 'r5', type: 'apposition', headId: 'S', dependentId: 'A' },
+      { id: 'r6', type: 'genitive', headId: 'A', dependentId: 'G' },
+    ],
+    [
+      { id: 's1', index: 0, surface: 'Παῦλος', pos: 'propernoun' },
+      { id: 'c', index: 1, surface: 'καὶ', pos: 'conjunction' },
+      { id: 's2', index: 2, surface: 'Τιμόθεος', pos: 'propernoun' },
+      { id: 'a', index: 3, surface: 'δοῦλοι', pos: 'noun' },
+      { id: 'g', index: 4, surface: 'Χριστοῦ', pos: 'propernoun' },
+    ],
+  );
+
+  it('lands the apposition stem on the appositive word baseline', () => {
+    const layout = layoutDocument(doc);
+    // The appositive's own baseline (the line carrying δοῦλοι).
+    const douloiBase = layout.elements.find(
+      (e) => e.kind === 'line' && (e as { nodeId?: string }).nodeId === 'A',
+    ) as { x1: number; x2: number; y1: number } | undefined;
+    expect(douloiBase).toBeDefined();
+    // The stem joining the fork's bar down to the apposition platform.
+    const stem = layout.elements.find(
+      (e) =>
+        e.kind === 'line' &&
+        (e as { role: string }).role === 'stem' &&
+        (e as { relationId?: string }).relationId === 'r5',
+    ) as { x2: number; y2: number } | undefined;
+    expect(stem).toBeDefined();
+    // The stem's foot must sit ON the appositive baseline (same height, x within
+    // the line's span) — a regression guard against the stem floating clear of it.
+    const lo = Math.min(douloiBase!.x1, douloiBase!.x2);
+    const hi = Math.max(douloiBase!.x1, douloiBase!.x2);
+    expect(stem!.x2).toBeGreaterThanOrEqual(lo);
+    expect(stem!.x2).toBeLessThanOrEqual(hi);
+    expect(stem!.y2).toBeCloseTo(douloiBase!.y1, 5);
+  });
+
+  it('marks the connector with the Reed-Kellogg apposition "=" (two strokes)', () => {
+    const layout = layoutDocument(doc);
+    // The apposition relation carries the connector stem plus two short separator
+    // strokes — the "=" mark that says the head is RENAMED, not merely modified.
+    const eqStrokes = layout.elements.filter(
+      (e) =>
+        e.kind === 'line' &&
+        (e as { role: string }).role === 'separator' &&
+        (e as { relationId?: string }).relationId === 'r5',
+    );
+    expect(eqStrokes).toHaveLength(2);
+  });
+});
