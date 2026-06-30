@@ -1019,8 +1019,11 @@ function layoutClauseSpine(
     : allCoordRels.filter((r) => subtreeMinIndex(ctx, r.dependentId) < firstMemberIndex);
   const spineCoordRels = allCoordRels.filter((r) => !introCoordRels.includes(r));
   const coordTexts = spineCoordRels
-    .map((r) => nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '')
-    .filter(Boolean);
+    .map((r) => ({
+      text: nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '',
+      nodeId: r.dependentId,
+    }))
+    .filter((c) => c.text);
   // Lead words (introductory particles + introductory coordinators), in surface
   // order so they read left-to-right as written.
   const leadRels = [...nonClause.filter((r) => r.type !== 'coordinator'), ...introCoordRels].sort(
@@ -1084,16 +1087,16 @@ function layoutClauseSpine(
     // the bar at its OWN clause's baseline, top-with-top, rather than one per gap.
     for (let i = 0; i < laid.length; i++) {
       elements.push({
-        kind: 'text', id: eid(), x: verbAlignX, y: verbYs[i]!, text: coordTexts[i]!,
-        anchor: 'middle', small: true, rotate: -90,
+        kind: 'text', id: eid(), x: verbAlignX, y: verbYs[i]!, text: coordTexts[i]!.text,
+        anchor: 'middle', small: true, rotate: -90, nodeId: coordTexts[i]!.nodeId,
       });
     }
   } else {
     for (let k = 0; k < laid.length - 1 && k < coordTexts.length; k++) {
       const midY = (verbYs[k]! + verbYs[k + 1]!) / 2;
       elements.push({
-        kind: 'text', id: eid(), x: verbAlignX, y: midY, text: coordTexts[k]!,
-        anchor: 'middle', small: true, rotate: -90,
+        kind: 'text', id: eid(), x: verbAlignX, y: midY, text: coordTexts[k]!.text,
+        anchor: 'middle', small: true, rotate: -90, nodeId: coordTexts[k]!.nodeId,
       });
     }
   }
