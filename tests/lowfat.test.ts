@@ -211,6 +211,31 @@ describe('Lowfat clause coordination & subordination', () => {
     expect(doc!.syntax.relations.some((r) => r.type === 'apposition')).toBe(false);
   });
 
+  it('attaches a focusing adverb in an NP adverbially, not as apposition', () => {
+    // "καὶ ὁ Θεός" (Phil 2:9, rule AdvpNp): the focusing adverb καί ("also")
+    // is a non-head sibling of the NP head Θεός. As an adverb it must slant under
+    // its head (adverbial), not sit on the baseline as an apposition.
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl">
+      <w class="verb" role="v">ὑπερύψωσεν</w>
+      <wg role="s" class="np" rule="AdvpNp">
+        <w class="adv" lemma="καί">καὶ</w>
+        <wg class="np" head="true" rule="DetNP">
+          <w class="det">ὁ</w>
+          <w class="noun" head="true" case="nominative">Θεὸς</w>
+        </wg>
+      </wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    const surf = (id: string) => {
+      const n = doc!.syntax.nodes.find((x) => x.id === id);
+      return doc!.tokens.find((t) => t.id === n?.tokenIds[0])?.surface;
+    };
+    const kaiRel = doc!.syntax.relations.find((r) => surf(r.dependentId) === 'καὶ')!;
+    expect(kaiRel.type).toBe('adverbial');
+    expect(surf(kaiRel.headId)).toBe('Θεὸς');
+    expect(doc!.syntax.relations.some((r) => r.type === 'apposition')).toBe(false);
+  });
+
   it('coordinates two prepositional phrases ("ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς")', () => {
     // Regression for Colossians 1:16: a "Conj2Pp" wrapper joins two PPs. The
     // second PP (ἐπὶ τῆς γῆς) must become a CONJUNCT of the first (ἐν τοῖς

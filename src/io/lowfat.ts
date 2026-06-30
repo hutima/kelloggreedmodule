@@ -455,6 +455,10 @@ export class SentenceConverter {
     const role = child.getAttribute('role');
     if (role === 'adv') return 'adverbial';
     const cls = child.getAttribute('class');
+    // An adverb (or adverb phrase) modifying a noun phrase — e.g. the focusing
+    // καί "also" in "καὶ ὁ Θεός" (rule AdvpNp) — is adverbial: it slants under its
+    // head, not onto the baseline as an apposition. (`class="adv"`, no `role`.)
+    if (cls === 'adv' || cls === 'advp') return 'adverbial';
     // Determiners: Greek `det`, Hebrew article `art`, and the Hebrew direct-object
     // marker אֵת (`om`), which rides a slant under the noun it marks.
     if (cls === 'det' || cls === 'art' || cls === 'om') return 'determiner';
