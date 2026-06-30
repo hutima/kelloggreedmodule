@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useEditorStore } from '@/state';
 import { buildOutline, glossDoc, type OutlineNode } from '@/domain/model';
+import { toneByNode } from '@/domain/layout';
+import { toneColor } from '@/domain/render';
 import { nodeHighlightColors } from '@/ui/sermon/highlights';
 import { useContestedAffectedNodes } from '@/ui/contested';
 import { PhraseBlockEditor } from '@/ui/editor/block/PhraseBlockEditor';
@@ -28,8 +30,21 @@ export function PhraseBlockView({
   const select = useEditorStore((s) => s.select);
   const highlights = useEditorStore((s) => s.sermon.highlights);
   const glossMode = useEditorStore((s) => s.glossMode);
+  const colorMode = useEditorStore((s) => s.colorMode);
   const hlByNode = useMemo(() => nodeHighlightColors(highlights), [highlights]);
   const contestedAffected = useContestedAffectedNodes();
+  // nodeId → grammar-tone colour (case / verb / participle), matching every other
+  // view's palette. Empty when the colour toggle is off, so words stay plain ink.
+  const tintByNode = useMemo(() => {
+    const tints = new Map<string, string>();
+    if (colorMode) {
+      for (const [id, tone] of toneByNode(doc)) {
+        const c = toneColor(tone);
+        if (c) tints.set(id, c);
+      }
+    }
+    return tints;
+  }, [colorMode, doc]);
 
   // English-gloss display swaps the shown words; structure (ids) is unchanged.
   const englishGloss = glossMode && appMode !== 'edit';
@@ -90,6 +105,7 @@ export function PhraseBlockView({
           selectedId={selection.nodeId}
           hovered={hovered}
           highlights={hlByNode}
+          tints={tintByNode}
           affected={contestedAffected}
           onSelect={(id) => select(id === selection.nodeId ? {} : { nodeId: id })}
           onHover={onHover}
@@ -107,6 +123,7 @@ function OutlineRow({
   selectedId,
   hovered,
   highlights,
+  tints,
   affected,
   onSelect,
   onHover,
@@ -118,6 +135,7 @@ function OutlineRow({
   selectedId: string | undefined;
   hovered: Set<string>;
   highlights: Map<string, string>;
+  tints: Map<string, string>;
   affected: Set<string>;
   onSelect: (id: string) => void;
   onHover: (id?: string) => void;
@@ -127,6 +145,7 @@ function OutlineRow({
   const selected = node.id === selectedId;
   const hot = hovered.has(node.id);
   const hl = highlights.get(node.id);
+  const tint = tints.get(node.id);
   const contested = affected.has(node.id);
   return (
     <li role="treeitem" aria-expanded={hasKids ? !isCollapsed : undefined}>
@@ -161,7 +180,9 @@ function OutlineRow({
         {node.text ? (
           <span
             className={`ob-text${node.implied ? ' implied' : ''}${hl ? ' highlighted' : ''}`}
-            style={hl ? { background: hl } : undefined}
+            // Grammar tint colours the WORDS only; a sermon highlight (background)
+            // and the tint can apply together. Implied rows have no tint (no token).
+            style={{ ...(hl ? { background: hl } : null), ...(tint ? { color: tint } : null) }}
           >
             {node.text}
           </span>
@@ -183,6 +204,7 @@ function OutlineRow({
               selectedId={selectedId}
               hovered={hovered}
               highlights={highlights}
+              tints={tints}
               affected={affected}
               onSelect={onSelect}
               onHover={onHover}

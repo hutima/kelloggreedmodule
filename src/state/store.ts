@@ -350,6 +350,8 @@ export interface EditorActions {
   setDiagramMode: (mode: DiagramMode) => void;
   /** Toggle English-gloss display in the structural diagrams. */
   setGlossMode: (value: boolean) => void;
+  /** Toggle grammar-colour tinting in the Kellogg-Reed / Phrase-Block diagrams. */
+  setColorMode: (value: boolean) => void;
   /** Desktop: turn the two-source side-by-side comparison on/off. */
   toggleSourceCompare: (on?: boolean) => void;
   /** Desktop: choose the secondary source shown in the comparison's right pane. */
@@ -583,6 +585,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     diagramMode: DEFAULT_MODE,
     sourceCompare: { on: false, source: 'opentext' },
     glossMode: false,
+    colorMode: false,
     inferences: [],
     status: 'idle',
     past: [],
@@ -1337,6 +1340,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setSelectedRange: (tokenIds) => set({ selectedRange: tokenIds }),
 
     setGlossMode: (value) => set({ glossMode: value }),
+    setColorMode: (value) => set({ colorMode: value }),
 
     openEditModal: (modal) => set({ editModal: modal }),
     closeEditModal: () => set({ editModal: null }),

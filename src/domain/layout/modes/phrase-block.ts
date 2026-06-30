@@ -2,6 +2,7 @@ import type { KrDocument, SyntacticRole, SyntaxNode } from '@/domain/schema';
 import { childRelations, getNode, nodeText } from '@/domain/model';
 import type { DiagramElement, DiagramLayout } from '../types';
 import { LAYOUT } from '../constants';
+import { nodeTone } from '../tone';
 import { finalize, line, resetIds, text, width } from './builder';
 
 /**
@@ -81,7 +82,10 @@ function labelFor(node: SyntaxNode, relType: SyntacticRole | undefined): string 
   return relType ? ROLE_LABEL[relType] ?? relType : '';
 }
 
-export function layoutPhraseBlock(doc: KrDocument): DiagramLayout {
+export function layoutPhraseBlock(
+  doc: KrDocument,
+  opts: { colorMode?: boolean } = {},
+): DiagramLayout {
   resetIds();
   const elements: DiagramElement[] = [];
   const root = getNode(doc.syntax, doc.syntax.rootId);
@@ -116,7 +120,8 @@ export function layoutPhraseBlock(doc: KrDocument): DiagramLayout {
       cx += width(label, true) + 10;
     }
     if (greek) {
-      elements.push(text(cx, y, greek, { anchor: 'start', nodeId, muted: node.implied }));
+      const tone = opts.colorMode ? nodeTone(doc, node) : undefined;
+      elements.push(text(cx, y, greek, { anchor: 'start', nodeId, muted: node.implied, tone }));
     }
     rowY += ROW_H;
 

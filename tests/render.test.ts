@@ -28,6 +28,19 @@ describe('SVG renderer', () => {
     expect(svg).toContain('λόγος');
   });
 
+  it('draws every word AFTER all lines so its halo masks any crossing line', () => {
+    // Words carry a paper-coloured halo (paint-order: stroke) that only masks
+    // lines drawn BEFORE them. The serializer reorders so all <text> follow all
+    // <line>/<path>, keeping a word legible even where a line crosses it.
+    const doc = cloneSample('doc_sample_phil_1_1_2_grc')!;
+    const svg = layoutToSvg(layoutDocument(doc, doc.layoutHints));
+    const firstText = svg.indexOf('<text');
+    const lastLine = svg.lastIndexOf('<line');
+    const lastPath = svg.lastIndexOf('<path');
+    expect(firstText).toBeGreaterThan(-1);
+    expect(firstText).toBeGreaterThan(Math.max(lastLine, lastPath));
+  });
+
   it('marks low-confidence relations as tentative for ambiguity colouring', () => {
     const doc = cloneSample('doc_sample_fox')!;
     const rel = doc.syntax.relations[0]!;

@@ -183,6 +183,13 @@ export interface EditorState {
    * the structure. Morphology stays in the source language (it's a form study).
    */
   glossMode: boolean;
+  /**
+   * Tint words by grammatical category (case / finite verb / participle) in the
+   * Kellogg-Reed and Phrase/Block diagrams, using the SAME palette as the
+   * Morphology Clause mode. Off by default; toggled near the Greek/English toggle.
+   * Morphology is always coloured (it's a form study), so this flag never affects it.
+   */
+  colorMode: boolean;
   /** Current provisional inferences awaiting accept/reject. */
   inferences: Inference[];
   status: SaveStatus;

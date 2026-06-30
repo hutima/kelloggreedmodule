@@ -89,7 +89,15 @@ export function layoutToSvg(layout: DiagramLayout, opts: SvgOptions = {}): strin
     ? `<rect width="${r(width)}" height="${r(height)}" fill="${THEME.paper}" />`
     : '';
   const fontAttr = opts.standalone ? ` font-family="${THEME.fontFamily}"` : '';
-  const body = layout.elements.map(elementToSvg).join('\n  ');
+  // Draw all structural lines/curves first, then every word on top, so a word's
+  // paper-coloured halo masks ANY line crossing it — not only lines that happened
+  // to be emitted before it (e.g. an apposition stem the layout pushes after its
+  // word). Stable partition keeps the relative order within each layer intact.
+  const ordered = [
+    ...layout.elements.filter((e) => e.kind !== 'text'),
+    ...layout.elements.filter((e) => e.kind === 'text'),
+  ];
+  const body = ordered.map(elementToSvg).join('\n  ');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${r(width)}" height="${r(height)}" viewBox="0 0 ${r(width)} ${r(height)}"${fontAttr}>
   ${bg}
   <g transform="translate(${pad},${pad})">
