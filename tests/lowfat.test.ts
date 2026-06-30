@@ -236,6 +236,27 @@ describe('Lowfat clause coordination & subordination', () => {
     expect(doc!.syntax.relations.some((r) => r.type === 'apposition')).toBe(false);
   });
 
+  it('attaches a cardinal numeral to its noun adjectivally, not as apposition', () => {
+    // "πέντε ἄρτους" — the numeral πέντε quantifies ἄρτους; as a non-head NP
+    // child it must slant under the noun (adjectival), not sit on the baseline.
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl">
+      <w class="verb" role="v">ἔλαβεν</w>
+      <wg role="o" class="np" rule="NumNp">
+        <w class="num" lemma="πέντε">πέντε</w>
+        <w class="noun" head="true" case="accusative">ἄρτους</w>
+      </wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    const surf = (id: string) => {
+      const n = doc!.syntax.nodes.find((x) => x.id === id);
+      return doc!.tokens.find((t) => t.id === n?.tokenIds[0])?.surface;
+    };
+    const numRel = doc!.syntax.relations.find((r) => surf(r.dependentId) === 'πέντε')!;
+    expect(numRel.type).toBe('adjectival');
+    expect(surf(numRel.headId)).toBe('ἄρτους');
+    expect(doc!.syntax.relations.some((r) => r.type === 'apposition')).toBe(false);
+  });
+
   it('coordinates two prepositional phrases ("ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς")', () => {
     // Regression for Colossians 1:16: a "Conj2Pp" wrapper joins two PPs. The
     // second PP (ἐπὶ τῆς γῆς) must become a CONJUNCT of the first (ἐν τοῖς
