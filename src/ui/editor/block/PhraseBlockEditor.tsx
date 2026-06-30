@@ -172,8 +172,12 @@ export function PhraseBlockEditor({
   );
 
   // Drag-and-drop is the alternative to the Move-under tool; suppress it while a
-  // tool-driven move or a grouping selection is in progress to avoid clashes.
-  const dndEnabled = !moving && !grouping;
+  // tool-driven move or a grouping selection is in progress, and while any row's
+  // inline edit menu is open. Now that a second click on the open row closes its
+  // menu, leaving the handle live at the same time invites a mis-tap to be read
+  // as a drag start instead of a close — so the handles only reappear once the
+  // menu is closed.
+  const dndEnabled = !moving && !grouping && !selectedId;
 
   const canDrop = (id: string | null | undefined): boolean =>
     Boolean(id) && id !== dragRef.current.id && !dragRef.current.invalid.has(id!);
