@@ -183,15 +183,19 @@ describe('Lowfat clause coordination & subordination', () => {
       </wg>
     </wg></sentence></book>`;
     const [doc] = lowfatToDocuments(xml, { book: 'Test' });
-    // ὅτι must NOT survive as its own word-node dependent; it is a connector label.
-    const otiIsNode = doc!.syntax.nodes.some((n) => surfaceOf(doc!, n.id) === 'ὅτι');
-    expect(otiIsNode).toBe(false);
+    // ὅτι is NOT attached as a clause-baseline dependent (it would draw as a stray
+    // floating word); it rides the connecting line as the label instead.
+    const otiNode = doc!.syntax.nodes.find((n) => surfaceOf(doc!, n.id) === 'ὅτι');
+    expect(otiNode).toBeDefined(); // …but it DOES have a node, so it is selectable
+    expect(doc!.syntax.relations.some((r) => r.dependentId === otiNode!.id)).toBe(false);
     const ektisthe = doc!.syntax.nodes.find(
       (n) => n.kind === 'clause' &&
         doc!.syntax.relations.some((r) => r.headId === n.id && surfaceOf(doc!, r.dependentId) === 'ἐκτίσθη'),
     )!;
     const link = doc!.syntax.relations.find((r) => r.dependentId === ektisthe.id)!;
     expect(link.label).toBe('ὅτι');
+    // The connector label points at ὅτι's node so a click shows its word details.
+    expect(link.labelNodeId).toBe(otiNode!.id);
   });
 
   it('treats an asyndetic noun list (πίστις, ἐλπίς, ἀγάπη) as conjuncts, not apposition', () => {

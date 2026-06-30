@@ -110,6 +110,14 @@ export const RelationSchema = z.object({
   dependentId: z.string(),
   /** Optional label drawn on the connector (e.g. preposition, conjunction, "rel."). */
   label: z.string().optional(),
+  /**
+   * Optional node the connector LABEL stands for — a subordinator (ὅτι, ἵνα …)
+   * that rides the connecting line instead of being drawn as its own baseline
+   * word. The node is not attached anywhere else in the tree (so it is never
+   * drawn twice), but it carries the word's token/morphology, which lets the
+   * connector be selected and show word details like any other word.
+   */
+  labelNodeId: z.string().optional(),
   provenance: ProvenanceSchema.optional(),
   notes: z.string().optional(),
 });

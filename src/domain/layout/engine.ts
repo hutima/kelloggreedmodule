@@ -899,7 +899,7 @@ function layoutHead(
  */
 function stackClauses(
   ctx: Ctx,
-  rels: { id: string; dependentId: string; label?: string }[],
+  rels: { id: string; dependentId: string; label?: string; labelNodeId?: string }[],
   seen: Set<string>,
   spineX: number,
   topY: number,
@@ -930,7 +930,7 @@ function stackClauses(
       line(eid(), spineX, y, blockX + block.wordLeft, y, 'dashed', 'stem', undefined, r.id),
     );
     if (labelled) {
-      elements.push(smallText(eid(), (spineX + blockX) / 2, y - 6, r.label!, 'middle', r.id));
+      elements.push(smallText(eid(), (spineX + blockX) / 2, y - 6, r.label!, 'middle', r.id, r.labelNodeId));
     }
     lastBaselineY = y;
     right = Math.max(right, blockX + block.width);
@@ -984,7 +984,7 @@ function layoutClauseSpine(
   ctx: Ctx,
   clause: SyntaxNode,
   seen: Set<string>,
-  rels: { id: string; type: SyntacticRole; dependentId: string; label?: string }[],
+  rels: { id: string; type: SyntacticRole; dependentId: string; label?: string; labelNodeId?: string }[],
 ): Block {
   // A conjunct is a coordinate MEMBER even when it is a bare word/phrase rather
   // than a full clause — e.g. "Οὐκ … ζήσεται [clause] ἀλλ' ἐπὶ παντὶ ῥήματι …"
@@ -1051,7 +1051,7 @@ function layoutClauseSpine(
       const stubW = measureText(r.label!, SMALL_FONT) + 12;
       const stubX = blockX;
       const stubY = y - LAYOUT.fontSize - 14;
-      elements.push(smallText(eid(), stubX + stubW / 2, stubY - 4, r.label!, 'middle', r.id));
+      elements.push(smallText(eid(), stubX + stubW / 2, stubY - 4, r.label!, 'middle', r.id, r.labelNodeId));
       elements.push(line(eid(), stubX, stubY, stubX + stubW, stubY, 'solid', 'baseline'));
     }
     verbYs.push(y);
@@ -1769,7 +1769,7 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     elements.push(line(eid(), connectX, apexY, connectX, baseY, 'solid', 'stem', undefined, rel.id));
     // The connecting word (that / ὅτι / ἵνα) rides the riser.
     if (rel.label && showLabel(ctx, rel.dependentId)) {
-      elements.push(smallText(eid(), connectX + 5, (apexY + baseY) / 2, rel.label, 'start', rel.id));
+      elements.push(smallText(eid(), connectX + 5, (apexY + baseY) / 2, rel.label, 'start', rel.id, rel.labelNodeId));
     }
     x = baseStart + block.width;
   });
@@ -1951,6 +1951,7 @@ function smallText(
   text: string,
   anchor: TextElement['anchor'],
   relationId?: string,
+  nodeId?: string,
 ): TextElement {
-  return { kind: 'text', id, x, y, text, anchor, small: true, italic: true, relationId };
+  return { kind: 'text', id, x, y, text, anchor, small: true, italic: true, relationId, nodeId };
 }
