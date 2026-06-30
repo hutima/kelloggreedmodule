@@ -1969,7 +1969,15 @@ button.mc-code.glossed:hover {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 8px 10px; margin-bottom: 8px; font-size: 13px;
   background: var(--accent-soft); border-radius: 8px;
+  min-height: 34px; box-sizing: border-box;
 }
+/* The always-present drag banner: a subdued idle hint that reserves the slot, so
+   starting a drag (which switches it to the accent "Drop …" state) never shifts
+   the rows. Fixed min-height keeps both states the same size. */
+.pbw-banner-dnd { background: var(--bg); color: var(--ink-soft); }
+.pbw-banner-dnd.dragging { background: var(--accent-soft); color: var(--ink); }
+.pbw-banner-hint { color: var(--muted); }
+.pbw-grip-inline { color: var(--accent); font-weight: 700; }
 .pbw-tree, .pbw-tree ul { list-style: none; margin: 0; padding: 0; }
 .pbw-row {
   display: flex; align-items: center; gap: 8px;

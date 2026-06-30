@@ -296,12 +296,25 @@ export function PhraseBlockEditor({
           </button>
         </div>
       )}
-      {dragId && (
-        <div className="pbw-banner">
-          Drag <strong>{nodeName(doc, dragId)}</strong> onto a block to nest it under that block.
-          <button className="mini" onClick={endDrag}>
-            Cancel
-          </button>
+      {/* PERMANENT drag banner (when not in the move/group tools): it occupies the
+          same slot whether or not a drag is in progress, so starting a drag never
+          pushes the rows down — which would otherwise leave the grabbed word out
+          from under the cursor and make aligning the drop impossible. */}
+      {dndEnabled && (
+        <div className={`pbw-banner pbw-banner-dnd${dragId ? ' dragging' : ''}`}>
+          {dragId ? (
+            <>
+              Drop <strong>{nodeName(doc, dragId)}</strong> on a block to nest it under it.
+              <button className="mini" onClick={endDrag}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <span className="pbw-banner-hint">
+              Drag a row’s <span className="pbw-grip-inline" aria-hidden="true">⠿</span> handle onto
+              another block to nest it under it.
+            </span>
+          )}
         </div>
       )}
       <ul className="pbw-tree" role="tree">
