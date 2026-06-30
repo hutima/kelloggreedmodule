@@ -71,7 +71,7 @@ export function GntPicker() {
   const toggleSourceCompare = useEditorStore((s) => s.toggleSourceCompare);
   const setCompareSource = useEditorStore((s) => s.setCompareSource);
   const [passages, setPassages] = useState<KrDocument[] | null>(() =>
-    gntPassages.length && bookForTitle(gntPassages[0]!.title)?.num === currentBook?.num
+    gntPassages.length && currentBook && bookForTitle(gntPassages[0]!.title)?.num === currentBook.num
       ? gntPassages
       : null,
   );
