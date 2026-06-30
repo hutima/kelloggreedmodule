@@ -219,7 +219,10 @@ export function layoutConstituency(doc: KrDocument): DiagramLayout {
 
     if (n.word) {
       // Terminal: POS tag, then the word just below it (dotted leaf), gloss under.
-      if (n.cat) elements.push(text(x, y, n.cat, { anchor: 'middle', small: true, italic: true, muted: true }));
+      // The POS tag is tappable for a plain-English definition (glossary popover).
+      if (n.cat) {
+        elements.push(text(x, y, n.cat, { anchor: 'middle', small: true, italic: true, muted: true, glossKey: posGlossKey(n.cat) }));
+      }
       const wy = y + WORD_DROP;
       elements.push(line(x, y + 4, x, wy - LAYOUT.fontSize, 'stem', 'dotted', { color: ROOT_COLOR }));
       elements.push(text(x, wy, n.word, { anchor: 'middle', nodeId: n.nodeId, muted: n.implied, italic: n.implied }));
@@ -227,12 +230,22 @@ export function layoutConstituency(doc: KrDocument): DiagramLayout {
         elements.push(text(x, wy + LAYOUT.fontSize + 2, n.gloss, { anchor: 'middle', small: true, muted: true, nodeId: n.nodeId }));
       }
     } else if (n.cat) {
-      // Internal category node (S, NP, VP…), selectable via its head node.
-      elements.push(text(x, y, n.cat, { anchor: 'middle', nodeId: n.nodeId, color: ROOT_COLOR }));
+      // Internal category node (S, NP, VP…) — tappable for what the symbol means,
+      // and still highlights its constituent on hover via its head node id.
+      elements.push(text(x, y, n.cat, { anchor: 'middle', nodeId: n.nodeId, color: ROOT_COLOR, glossKey: phraseGlossKey(n.cat) }));
     }
     return { x, y };
   };
   place(tree, 0, 0);
 
   return finalize(elements);
+}
+
+/** Glossary key for a category symbol — all clause variants share the "S" entry. */
+function phraseGlossKey(cat: string): string {
+  return `phrase:${cat.startsWith('S') ? 'S' : cat}`;
+}
+/** Glossary key for a part-of-speech leaf tag. */
+function posGlossKey(tag: string): string {
+  return `pos:${tag}`;
 }

@@ -171,6 +171,73 @@ const GLOSSARY: Record<string, GlossEntry> = {
     detail: 'The relationship has not yet been classified.',
   },
 
+  // ── Constituency tree: phrase categories ────────────────────────────────
+  // Keyed `phrase:*` / `pos:*` so the single-letter tags can't collide with the
+  // morphology codes below (e.g. "N" the noun tag vs. "n" the neuter code).
+  'phrase:S': {
+    term: 'Sentence / Clause (S)',
+    abbr: 'S',
+    detail: 'A complete clause — a subject together with its predicate. It is the top of the phrase-structure tree.',
+  },
+  'phrase:NP': {
+    term: 'Noun phrase (NP)',
+    abbr: 'NP',
+    detail: 'A noun and the words clustered with it (article, adjectives, genitives) acting as a single unit — e.g. a subject or an object.',
+  },
+  'phrase:VP': {
+    term: 'Verb phrase (VP)',
+    abbr: 'VP',
+    detail: 'The verb together with its objects and modifiers — everything the clause asserts about the subject.',
+  },
+  'phrase:PP': {
+    term: 'Prepositional phrase (PP)',
+    abbr: 'PP',
+    detail: 'A preposition plus the noun phrase it governs (e.g. “in the beginning”), modifying a verb or noun.',
+  },
+  'phrase:AdjP': {
+    term: 'Adjective phrase (AdjP)',
+    abbr: 'AdjP',
+    detail: 'An adjective with any words modifying it, describing a noun.',
+  },
+  'phrase:AdvP': {
+    term: 'Adverb phrase (AdvP)',
+    abbr: 'AdvP',
+    detail: 'An adverb with any words modifying it, qualifying a verb, adjective, or other adverb.',
+  },
+  'phrase:DP': {
+    term: 'Determiner phrase (DP)',
+    abbr: 'DP',
+    detail: 'A phrase headed by an article or determiner (“the …”).',
+  },
+  'phrase:ConjP': {
+    term: 'Coordinate phrase (ConjP)',
+    abbr: 'ConjP',
+    detail: 'Two or more equal elements joined by a conjunction (“and”, “but”, “or”).',
+  },
+  'phrase:PrtP': {
+    term: 'Particle phrase (PrtP)',
+    abbr: 'PrtP',
+    detail: 'A phrase organised around a discourse particle (δέ, γάρ, οὖν …).',
+  },
+  'phrase:XP': {
+    term: 'Phrase',
+    abbr: 'XP',
+    detail: 'A group of words functioning as a unit whose exact category is unclassified.',
+  },
+  // ── Constituency tree: part-of-speech leaf tags ─────────────────────────
+  'pos:N': { term: 'Noun (N)', abbr: 'N', detail: 'Names a person, place, thing, or idea.' },
+  'pos:V': { term: 'Verb (V)', abbr: 'V', detail: 'Expresses an action or state of being.' },
+  'pos:Det': { term: 'Determiner / article (Det)', abbr: 'Det', detail: 'A word like “the” or the Greek article that specifies a noun.' },
+  'pos:P': { term: 'Preposition (P)', abbr: 'P', detail: 'A word that relates its object to the rest of the clause (in, with, from, to …).' },
+  'pos:Adj': { term: 'Adjective (Adj)', abbr: 'Adj', detail: 'Describes a noun (which one, what kind, how many).' },
+  'pos:Adv': { term: 'Adverb (Adv)', abbr: 'Adv', detail: 'Modifies a verb, adjective, or other adverb (how, when, where, why).' },
+  'pos:Conj': { term: 'Conjunction (Conj)', abbr: 'Conj', detail: 'Joins words, phrases, or clauses.' },
+  'pos:Pron': { term: 'Pronoun (Pron)', abbr: 'Pron', detail: 'Stands in for a noun (he, she, it, who …).' },
+  'pos:Prt': { term: 'Particle (Prt)', abbr: 'Prt', detail: 'A small uninflected word shaping discourse (δέ, γάρ, μέν, οὖν …).' },
+  'pos:Intj': { term: 'Interjection (Intj)', abbr: 'Intj', detail: 'An exclamation standing apart from the sentence grammar.' },
+  'pos:Num': { term: 'Numeral (Num)', abbr: 'Num', detail: 'A counting word (one, two, three …).' },
+  'pos:∅': { term: 'Implied / elided', abbr: '∅', detail: 'A word the grammar implies but the text leaves unstated (e.g. a dropped subject or the verb “to be”).' },
+
   // ── Morphology agreement / government links ─────────────────────────────
   agreement: {
     term: 'Agreement',

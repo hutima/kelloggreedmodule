@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ClauseType, KrDocument, SyntacticRole, SyntaxNode } from '@/domain/schema';
 import { useEditorStore } from '@/state';
 import {
@@ -79,6 +79,18 @@ const PART_LABEL: Partial<Record<SyntacticRole, string>> = {
 
 const partLabel = (role: SyntacticRole): string => PART_LABEL[role] ?? ROLE_LABEL[role] ?? role;
 
+/** Drag-and-drop reparenting state + handlers, threaded down to each row. */
+interface RowDnd {
+  enabled: boolean;
+  dragId: string | null;
+  dropTarget: string | null;
+  canDrop: (id: string) => boolean;
+  onStart: (id: string) => void;
+  onEnd: () => void;
+  onOver: (id: string, e: React.DragEvent) => void;
+  onDrop: (id: string) => void;
+}
+
 /** Clause subtypes offered in the Basic clause-type dropdown. */
 const CLAUSE_TYPE_OPTIONS: { ct: ClauseType; label: string }[] = [
   { ct: 'independent', label: 'Main clause' },
@@ -130,6 +142,46 @@ export function PhraseBlockEditor({
   );
 
   const rangeTokens = useMemo(() => new Set(selectedRange), [selectedRange]);
+
+  // --- drag-and-drop reparenting: drag a row onto another to nest it under it ---
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  // Where a dragged block may NOT be dropped: onto itself or its own descendants
+  // (that would detach a subtree from the graph).
+  const dragInvalid = useMemo(
+    () => (dragId ? new Set([dragId, ...descendantIds(doc.syntax, dragId)]) : null),
+    [dragId, doc],
+  );
+  // Drag-and-drop is the alternative to the Move-under tool; suppress it while a
+  // tool-driven move or a grouping selection is in progress to avoid clashes.
+  const dndEnabled = !moving && !grouping;
+
+  const endDrag = () => {
+    setDragId(null);
+    setDropTarget(null);
+  };
+  const dnd: RowDnd = {
+    enabled: dndEnabled,
+    dragId,
+    dropTarget,
+    canDrop: (id) => Boolean(dragId) && id !== dragId && !dragInvalid?.has(id),
+    onStart: (id) => {
+      setDragId(id);
+      setDropTarget(null);
+    },
+    onEnd: endDrag,
+    onOver: (id, e) => {
+      if (!dragId || dragInvalid?.has(id)) return;
+      e.preventDefault(); // allow the drop
+      if (dropTarget !== id) setDropTarget(id);
+    },
+    onDrop: (id) => {
+      if (dragId && id !== dragId && !dragInvalid?.has(id)) {
+        dispatchEditIntent({ kind: 'moveNodeUnder', nodeId: dragId, headId: id });
+      }
+      endDrag();
+    },
+  };
 
   // Esc cancels move/group; reset multi-select range when leaving group mode.
   useEffect(() => {
@@ -189,6 +241,14 @@ export function PhraseBlockEditor({
           </button>
         </div>
       )}
+      {dragId && (
+        <div className="pbw-banner">
+          Drag <strong>{nodeName(doc, dragId)}</strong> onto a block to nest it under that block.
+          <button className="mini" onClick={endDrag}>
+            Cancel
+          </button>
+        </div>
+      )}
       <ul className="pbw-tree" role="tree">
         <Row
           node={outline}
@@ -201,6 +261,7 @@ export function PhraseBlockEditor({
           moving={moving}
           grouping={grouping}
           editTier={editTier}
+          dnd={dnd}
           onRowClick={onRowClick}
           onHover={onHover}
         />
@@ -220,6 +281,7 @@ function Row({
   moving,
   grouping,
   editTier,
+  dnd,
   onRowClick,
   onHover,
 }: {
@@ -233,6 +295,7 @@ function Row({
   moving: boolean;
   grouping: boolean;
   editTier: 'basic' | 'advanced';
+  dnd: RowDnd;
   onRowClick: (id: string) => void;
   onHover: (id?: string) => void;
 }) {
@@ -243,6 +306,12 @@ function Row({
   const isTarget = moving && targetable?.has(node.id);
   const syntaxNode = getNode(doc.syntax, node.id);
   const inRange = grouping && (syntaxNode?.tokenIds.some((t) => rangeTokens.has(t)) ?? false);
+  // Drag-and-drop: a non-root row can be dragged; any row that's a legal target
+  // while a drag is in progress highlights, and the hovered one is the drop slot.
+  const draggable = dnd.enabled && node.id !== doc.syntax.rootId;
+  const isDropTarget = dnd.dropTarget === node.id && dnd.canDrop(node.id);
+  const isDropCandidate = Boolean(dnd.dragId) && dnd.canDrop(node.id);
+  const isDragging = dnd.dragId === node.id;
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (!selected) return;
@@ -271,13 +340,20 @@ function Row({
       <div
         className={`pbw-row${selected ? ' selected' : ''}${hot ? ' hovered' : ''}${
           node.tentative ? ' tentative' : ''
-        }${isTarget ? ' targetable' : ''}${inRange ? ' in-range' : ''}`}
+        }${isTarget ? ' targetable' : ''}${inRange ? ' in-range' : ''}${
+          isDropCandidate ? ' drop-candidate' : ''
+        }${isDropTarget ? ' drop-target' : ''}${isDragging ? ' dragging' : ''}`}
         style={{ paddingLeft: 8 + depth * 18 }}
         tabIndex={selected ? 0 : -1}
+        draggable={draggable}
         onClick={() => onRowClick(node.id)}
         onKeyDown={onKeyDown}
         onMouseEnter={() => onHover(node.id)}
         onMouseLeave={() => onHover(undefined)}
+        onDragStart={draggable ? (e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'; dnd.onStart(node.id); } : undefined}
+        onDragEnd={draggable ? dnd.onEnd : undefined}
+        onDragOver={dnd.dragId ? (e) => dnd.onOver(node.id, e) : undefined}
+        onDrop={dnd.dragId ? (e) => { e.preventDefault(); dnd.onDrop(node.id); } : undefined}
       >
         <span className="pbw-rail" aria-hidden="true" />
         {node.label && <span className="pbw-label">{node.label}</span>}
@@ -310,6 +386,7 @@ function Row({
               moving={moving}
               grouping={grouping}
               editTier={editTier}
+              dnd={dnd}
               onRowClick={onRowClick}
               onHover={onHover}
             />
