@@ -143,6 +143,67 @@ describe('correlative conjunctions stacked in one slot', () => {
   });
 });
 
+describe('substantival / clausal subject on a pedestal', () => {
+  // "οἱ ὄντες ἐν τῷ σκήνει στενάζομεν" — the articular participle phrase is the
+  // subject; as a substantive in a noun slot it rides a pedestal above the line.
+  const subjNodes = [
+    { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+    { id: 'SUBJ', kind: 'clause', clauseType: 'participial', tokenIds: [] },
+    { id: 'PART', kind: 'word', role: 'predicate', tokenIds: ['part'] },
+    { id: 'ART', kind: 'word', role: 'determiner', tokenIds: ['art'] },
+    { id: 'PREP', kind: 'word', role: 'adverbial', tokenIds: ['prep'] },
+    { id: 'OBJ', kind: 'word', role: 'prepositionObject', tokenIds: ['obj'] },
+    { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+  ];
+  const subjRels = [
+    { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'SUBJ' },
+    { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+    { id: 'r3', type: 'predicate', headId: 'SUBJ', dependentId: 'PART' },
+    { id: 'r4', type: 'determiner', headId: 'PART', dependentId: 'ART' },
+    { id: 'r5', type: 'adverbial', headId: 'PART', dependentId: 'PREP' },
+    { id: 'r6', type: 'prepositionObject', headId: 'PREP', dependentId: 'OBJ' },
+  ];
+  const subjTokens = [
+    { id: 'art', index: 0, surface: 'οἱ', pos: 'article' },
+    { id: 'part', index: 1, surface: 'ὄντες', pos: 'participle' },
+    { id: 'prep', index: 2, surface: 'ἐν', pos: 'preposition' },
+    { id: 'obj', index: 3, surface: 'σκήνει', pos: 'noun' },
+    { id: 'v', index: 4, surface: 'στενάζομεν', pos: 'verb' },
+  ];
+  const doc = build(subjNodes, subjRels, subjTokens, 'οἱ ὄντες ἐν τῷ σκήνει στενάζομεν');
+
+  it('raises the substantival subject above the main line (pedestal, not inline)', () => {
+    const layout = layoutDocument(doc);
+    const part = textEl(layout, 'ὄντες');
+    const verb = textEl(layout, 'στενάζομεν');
+    expect(part).toBeDefined();
+    // On a pedestal the subject head sits well ABOVE the baseline the verb is on.
+    expect(part!.y).toBeLessThan(verb!.y - 20);
+  });
+
+  it('keeps the subject modifiers clear of the verb on the baseline', () => {
+    const layout = layoutDocument(doc);
+    const prep = textEl(layout, 'ἐν');
+    const verb = textEl(layout, 'στενάζομεν');
+    // ἐν τῷ σκήνει hangs off the pedestalled participle, above the verb's line.
+    expect(prep!.y).toBeLessThan(verb!.y);
+  });
+
+  it('introductory particle floats clear ABOVE a pedestalled subject', () => {
+    const withParticle = build(
+      [...subjNodes, { id: 'P', kind: 'word', role: 'particle', tokenIds: ['p'] }],
+      [...subjRels, { id: 'r7', type: 'particle', headId: 'n_root', dependentId: 'P' }],
+      [...subjTokens, { id: 'p', index: 5, surface: 'γάρ', pos: 'particle' }],
+      'οἱ ὄντες ἐν τῷ σκήνει στενάζομεν γάρ',
+    );
+    const layout = layoutDocument(withParticle);
+    const gar = textEl(layout, 'γάρ');
+    const part = textEl(layout, 'ὄντες');
+    // The height offset must push the introductory word above the pedestal top.
+    expect(gar!.y).toBeLessThan(part!.y);
+  });
+});
+
 describe('introductory particle on a dotted stem', () => {
   // "γάρ … ἐστὶν ταῦτα" — γάρ introduces the whole clause.
   const doc = build(

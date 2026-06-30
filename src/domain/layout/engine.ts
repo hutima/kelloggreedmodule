@@ -1337,11 +1337,28 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // A compound subject forks open to the right, so its junction meets the
   // subject|predicate divider; everywhere else a coordination forks to the left.
   const subjectNode = subjectRel ? getNode(model, subjectRel.dependentId) : undefined;
+  // A substantival / clausal subject (a participle phrase like οἱ ὄντες ἐν τῷ
+  // σκήνει, or a noun clause filling the subject slot) stands on a PEDESTAL in that
+  // slot — the Kellogg-Reed treatment for a substantive occupying a noun slot,
+  // mirroring how clause complements are pedestalled. Only when it is compact
+  // enough not to tower over the line; a tall one falls back to an inline baseline.
+  const subjectIsClause =
+    !!subjectRel &&
+    isClauseChild(ctx, subjectRel.dependentId) &&
+    !isInfinitival(ctx, subjectRel.dependentId);
+  let pedestalSubject = false;
+  if (subjectIsClause) {
+    const probe = layoutNode(ctx, subjectRel!.dependentId, new Set(seen));
+    pedestalSubject =
+      probe.elements.length > 0 && probe.height + blockAscent(probe) <= LAYOUT.pedestalMaxHeight;
+  }
   const subjectBlock = !subjectRel
     ? impliedBlock('(subject)')
-    : subjectNode && isWordCoordination(ctx, subjectNode)
-      ? layoutCoordination(ctx, subjectNode, seen, true)
-      : layoutNode(ctx, subjectRel.dependentId, seen);
+    : pedestalSubject
+      ? emptyBlock() // drawn as a pedestal below, not inline
+      : subjectNode && isWordCoordination(ctx, subjectNode)
+        ? layoutCoordination(ctx, subjectNode, seen, true)
+        : layoutNode(ctx, subjectRel.dependentId, seen);
 
   // Complements live under the verb node but render on the baseline. A WORD
   // complement sits directly on the line; a CLAUSE complement (a noun clause as
@@ -1387,7 +1404,34 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // subject + subject|predicate divider (crosses the baseline) — unless this is a
   // bare nonfinite predicate, which stands alone with no subject side.
   let divX = 0;
-  if (!omitSubject) {
+  if (!omitSubject && pedestalSubject) {
+    // The substantive rides a pedestal standing in the subject slot, the divider
+    // following it. Its body sits ABOVE the baseline, so it adds no below-line
+    // height (its extent is reserved as ascent wherever this clause is placed).
+    const block = layoutNode(ctx, subjectRel!.dependentId, seen);
+    const baseY = -(block.height + LAYOUT.pedestalFootRise + LAYOUT.pedestalGap);
+    elements.push(...translate(block, 0, baseY));
+    // Stand the foot under the substantive's HEAD (its participle/verb, exposed as
+    // verbX), not the midpoint of its whole span — so the riser rises at the left
+    // and the head's own modifiers (οἱ, ἐν τῷ σκήνει) cascade to the right of it
+    // rather than across it.
+    const center = (block.wordLeft + (block.wordRight || block.width)) / 2;
+    const connectX = Math.max(LAYOUT.pedestalFootHalf, block.verbX ?? center);
+    const apexY = -LAYOUT.pedestalFootRise;
+    // The little forked foot standing on the main line, and the riser up to the
+    // substantive's own baseline.
+    elements.push(line(eid(), connectX - LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
+    elements.push(line(eid(), connectX + LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
+    elements.push(line(eid(), connectX, apexY, connectX, baseY, 'solid', 'stem', undefined, subjectRel?.id));
+    x = Math.max(block.width, connectX + LAYOUT.pedestalFootHalf);
+    divX = x;
+    // Main line under the pedestal, out to the subject|predicate cross.
+    elements.push(line(eid(), 0, 0, divX, 0, 'solid', 'baseline'));
+    elements.push(
+      line(eid(), divX, -LAYOUT.dividerUp, divX, LAYOUT.dividerDown, 'solid', 'divider', undefined, subjectRel?.id),
+    );
+    x += 2;
+  } else if (!omitSubject) {
     placeBlock(subjectBlock);
     divX = x;
     // The subject's baseline must run all the way to the subject|predicate cross.
@@ -1659,7 +1703,20 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // short stub, joined to that end by a DOTTED vertical — Leedy's home for a word
   // that introduces the whole clause rather than modifying any one element. Two
   // or more stack one above another on the shared stem.
-  let aboveY = -(LAYOUT.dividerUp + LAYOUT.slantDrop) * ctx.vScale;
+  //
+  // Start above EVERYTHING already drawn above the line (a pedestalled subject /
+  // complement raises content high into negative y), so an introductory word — or
+  // a floating vocative above it — never lands on top of a pedestal.
+  let topUsed = 0;
+  for (const el of elements) {
+    if (el.kind === 'line') topUsed = Math.min(topUsed, el.y1, el.y2);
+    else if (el.kind === 'curve') topUsed = Math.min(topUsed, el.y1, el.cy, el.y2);
+    else topUsed = Math.min(topUsed, el.y - (el.small ? LAYOUT.smallFontSize : LAYOUT.fontSize));
+  }
+  let aboveY = Math.min(
+    -(LAYOUT.dividerUp + LAYOUT.slantDrop) * ctx.vScale,
+    topUsed - LAYOUT.slantDrop * ctx.vScale,
+  );
   if (introductoryRels.length) {
     let stubY = aboveY;
     let highest = aboveY;
