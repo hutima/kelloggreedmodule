@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ClauseType, KrDocument, SyntacticRole, SyntaxNode } from '@/domain/schema';
 import { useEditorStore } from '@/state';
 import {
@@ -172,7 +172,8 @@ export function PhraseBlockEditor({
     onEnd: endDrag,
     onOver: (id, e) => {
       if (!dragId || dragInvalid?.has(id)) return;
-      e.preventDefault(); // allow the drop
+      e.preventDefault(); // allow the drop on this target…
+      e.dataTransfer.dropEffect = 'move'; // …and negotiate the effect, or it's rejected
       if (dropTarget !== id) setDropTarget(id);
     },
     onDrop: (id) => {
@@ -300,6 +301,7 @@ function Row({
   onHover: (id?: string) => void;
 }) {
   const doc = useEditorStore((s) => s.doc);
+  const rowRef = useRef<HTMLDivElement>(null);
   const selected = node.id === selectedId;
   const hot = hovered.has(node.id);
   const hl = highlights.get(node.id);
@@ -338,6 +340,7 @@ function Row({
   return (
     <li role="treeitem" aria-selected={selected}>
       <div
+        ref={rowRef}
         className={`pbw-row${selected ? ' selected' : ''}${hot ? ' hovered' : ''}${
           node.tentative ? ' tentative' : ''
         }${isTarget ? ' targetable' : ''}${inRange ? ' in-range' : ''}${
@@ -349,12 +352,18 @@ function Row({
         onKeyDown={onKeyDown}
         onMouseEnter={() => onHover(node.id)}
         onMouseLeave={() => onHover(undefined)}
-        onDragOver={dnd.dragId ? (e) => dnd.onOver(node.id, e) : undefined}
-        onDrop={dnd.dragId ? (e) => { e.preventDefault(); dnd.onDrop(node.id); } : undefined}
+        // Always attached (not gated on an in-progress drag) so the browser
+        // reliably permits the drop; the handlers no-op when nothing is dragging.
+        onDragOver={(e) => dnd.onOver(node.id, e)}
+        onDrop={(e) => {
+          e.preventDefault();
+          dnd.onDrop(node.id);
+        }}
       >
         {/* iOS-style drag handle: the ONLY drag source, so the rest of the row
-            stays clickable for selecting. Grabbing it collapses the row's edit
-            menu (below) and lets you drop the block under any word or clause. */}
+            stays clickable. Grabbing it collapses the row's edit menu (below) and
+            lets you drop the block under any word or clause; a plain click on it
+            falls through to select the word like the rest of the row. */}
         {draggable && (
           <span
             className="pbw-grip"
@@ -362,12 +371,14 @@ function Row({
             aria-label="Drag to move this block under another"
             title="Drag to move this block under another word or clause"
             draggable
-            onClick={(e) => e.stopPropagation()}
             onDragStart={(e) => {
               e.stopPropagation();
               e.dataTransfer.effectAllowed = 'move';
               // Firefox won't start a drag unless data is set on the transfer.
               e.dataTransfer.setData('text/plain', node.id);
+              // Drag the WHOLE row (the word), not just the tiny grip glyph, so it
+              // reads as the word itself moving.
+              if (rowRef.current) e.dataTransfer.setDragImage(rowRef.current, 16, 14);
               dnd.onStart(node.id);
             }}
             onDragEnd={dnd.onEnd}
