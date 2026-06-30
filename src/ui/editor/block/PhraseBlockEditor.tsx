@@ -260,7 +260,10 @@ export function PhraseBlockEditor({
       }
       return;
     }
-    select({ nodeId });
+    // Clicking the already-selected row COLLAPSES its inline edit menu (toggle
+    // off); clicking another row closes the open menu and opens that row's — one
+    // click, predictable, so rows don't shift unexpectedly mid drag-and-drop.
+    select(nodeId === selectedId ? {} : { nodeId });
   };
 
   return (
