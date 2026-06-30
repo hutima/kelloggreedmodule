@@ -2000,6 +2000,15 @@ button.mc-code.glossed:hover {
   outline: 2px solid var(--accent); outline-offset: -2px;
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
+/* The word following the cursor during a pointer-drag (a lightweight ghost). */
+.pbw-drag-ghost {
+  position: fixed; z-index: 1000; pointer-events: none;
+  padding: 3px 9px; border-radius: 6px; font-size: 15px;
+  background: var(--accent); color: #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+}
+.pbw.greek .pbw-drag-ghost, .pbw.hebrew .pbw-drag-ghost { font-size: 17px; }
 .pbw-rail { width: 3px; align-self: stretch; border-radius: 2px; background: var(--line); flex: none; }
 .pbw-row.selected .pbw-rail { background: var(--accent); }
 .pbw-label {

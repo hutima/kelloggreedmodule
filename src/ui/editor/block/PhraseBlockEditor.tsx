@@ -85,10 +85,15 @@ interface RowDnd {
   dragId: string | null;
   dropTarget: string | null;
   canDrop: (id: string) => boolean;
-  onStart: (id: string) => void;
-  onEnd: () => void;
-  onOver: (id: string, e: React.DragEvent) => void;
-  onDrop: (id: string) => void;
+  onPointerDown: (id: string, e: React.PointerEvent) => void;
+  onPointerMove: (e: React.PointerEvent) => void;
+  onPointerUp: (e: React.PointerEvent) => void;
+  wasDrag: () => boolean;
+}
+
+/** Nodes a drag may NOT land on: the dragged node itself and its descendants. */
+function dragInvalidFor(nodeId: string, doc: KrDocument): Set<string> {
+  return new Set([nodeId, ...descendantIds(doc.syntax, nodeId)]);
 }
 
 /** Clause subtypes offered in the Basic clause-type dropdown. */
@@ -143,44 +148,88 @@ export function PhraseBlockEditor({
 
   const rangeTokens = useMemo(() => new Set(selectedRange), [selectedRange]);
 
-  // --- drag-and-drop reparenting: drag a row onto another to nest it under it ---
+  // --- drag-and-drop reparenting (POINTER-based, not flaky HTML5 DnD) ---------
+  // Grab a row's handle and drag it onto another block to nest it there. Built on
+  // pointer events + elementFromPoint + pointer capture, so it works the same in
+  // every browser and on touch — the word follows the cursor (a floating ghost),
+  // the block under the cursor highlights, and releasing drops it there.
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  // Where a dragged block may NOT be dropped: onto itself or its own descendants
-  // (that would detach a subtree from the graph).
+  const [ghost, setGhost] = useState<{ x: number; y: number; label: string } | null>(null);
+  // Live refs so the pointer handlers (bound once at drag start) read current state.
+  const dragRef = useRef<{ id: string; invalid: Set<string>; drop: string | null }>({
+    id: '',
+    invalid: new Set(),
+    drop: null,
+  });
+  // Set true on a real drag so the click that follows pointer-up doesn't also
+  // fire a selection on the handle's row.
+  const draggedRef = useRef(false);
+  // Reactive "can't drop here" set (self + descendants) for the row highlighting.
   const dragInvalid = useMemo(
     () => (dragId ? new Set([dragId, ...descendantIds(doc.syntax, dragId)]) : null),
     [dragId, doc],
   );
+
   // Drag-and-drop is the alternative to the Move-under tool; suppress it while a
   // tool-driven move or a grouping selection is in progress to avoid clashes.
   const dndEnabled = !moving && !grouping;
 
+  const canDrop = (id: string | null | undefined): boolean =>
+    Boolean(id) && id !== dragRef.current.id && !dragRef.current.invalid.has(id!);
+
   const endDrag = () => {
     setDragId(null);
     setDropTarget(null);
+    setGhost(null);
+    dragRef.current = { id: '', invalid: new Set(), drop: null };
   };
+
   const dnd: RowDnd = {
     enabled: dndEnabled,
     dragId,
     dropTarget,
     canDrop: (id) => Boolean(dragId) && id !== dragId && !dragInvalid?.has(id),
-    onStart: (id) => {
+    onPointerDown: (id, e) => {
+      // Left button / touch / pen only.
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      draggedRef.current = false;
+      dragRef.current = { id, invalid: dragInvalidFor(id, doc), drop: null };
+      try {
+        (e.currentTarget as Element).setPointerCapture(e.pointerId);
+      } catch {
+        /* capture unsupported — elementFromPoint still works */
+      }
       setDragId(id);
       setDropTarget(null);
+      setGhost({ x: e.clientX, y: e.clientY, label: nodeName(doc, id) });
     },
-    onEnd: endDrag,
-    onOver: (id, e) => {
-      if (!dragId || dragInvalid?.has(id)) return;
-      e.preventDefault(); // allow the drop on this target…
-      e.dataTransfer.dropEffect = 'move'; // …and negotiate the effect, or it's rejected
-      if (dropTarget !== id) setDropTarget(id);
+    onPointerMove: (e) => {
+      if (!dragRef.current.id) return;
+      draggedRef.current = true;
+      setGhost((g) => (g ? { ...g, x: e.clientX, y: e.clientY } : g));
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const row = el?.closest('[data-pbw-node]') as HTMLElement | null;
+      const id = row?.getAttribute('data-pbw-node') ?? null;
+      const next = id && canDrop(id) ? id : null;
+      if (next !== dragRef.current.drop) {
+        dragRef.current.drop = next;
+        setDropTarget(next);
+      }
     },
-    onDrop: (id) => {
-      if (dragId && id !== dragId && !dragInvalid?.has(id)) {
-        dispatchEditIntent({ kind: 'moveNodeUnder', nodeId: dragId, headId: id });
+    onPointerUp: () => {
+      const { id, drop } = dragRef.current;
+      if (id && drop && canDrop(drop)) {
+        dispatchEditIntent({ kind: 'moveNodeUnder', nodeId: id, headId: drop });
       }
       endDrag();
+    },
+    // True (once) if the just-finished gesture was a real drag, so the handle's
+    // trailing click doesn't also fire a selection.
+    wasDrag: () => {
+      const d = draggedRef.current;
+      draggedRef.current = false;
+      return d;
     },
   };
 
@@ -216,6 +265,11 @@ export function PhraseBlockEditor({
 
   return (
     <div className={`pbw${greek ? ' greek' : ''}${hebrew ? ' hebrew' : ''}`}>
+      {ghost && (
+        <div className="pbw-drag-ghost" style={{ left: ghost.x + 14, top: ghost.y + 8 }} aria-hidden="true">
+          {ghost.label}
+        </div>
+      )}
       {moving && (
         <div className="pbw-banner">
           Click the block to move <strong>{nodeName(doc, selectedId!)}</strong> under.
@@ -301,7 +355,6 @@ function Row({
   onHover: (id?: string) => void;
 }) {
   const doc = useEditorStore((s) => s.doc);
-  const rowRef = useRef<HTMLDivElement>(null);
   const selected = node.id === selectedId;
   const hot = hovered.has(node.id);
   const hl = highlights.get(node.id);
@@ -340,7 +393,7 @@ function Row({
   return (
     <li role="treeitem" aria-selected={selected}>
       <div
-        ref={rowRef}
+        data-pbw-node={node.id}
         className={`pbw-row${selected ? ' selected' : ''}${hot ? ' hovered' : ''}${
           node.tentative ? ' tentative' : ''
         }${isTarget ? ' targetable' : ''}${inRange ? ' in-range' : ''}${
@@ -352,36 +405,29 @@ function Row({
         onKeyDown={onKeyDown}
         onMouseEnter={() => onHover(node.id)}
         onMouseLeave={() => onHover(undefined)}
-        // Always attached (not gated on an in-progress drag) so the browser
-        // reliably permits the drop; the handlers no-op when nothing is dragging.
-        onDragOver={(e) => dnd.onOver(node.id, e)}
-        onDrop={(e) => {
-          e.preventDefault();
-          dnd.onDrop(node.id);
-        }}
       >
-        {/* iOS-style drag handle: the ONLY drag source, so the rest of the row
-            stays clickable. Grabbing it collapses the row's edit menu (below) and
-            lets you drop the block under any word or clause; a plain click on it
-            falls through to select the word like the rest of the row. */}
+        {/* iOS-style drag handle: a pointer-driven drag (reliable across browsers
+            and touch, unlike native HTML5 DnD). Grabbing it collapses the row's
+            edit menu (below) and lets you drop the block under any word or clause;
+            a plain click (no drag) falls through to select the word. */}
         {draggable && (
           <span
             className="pbw-grip"
             role="button"
             aria-label="Drag to move this block under another"
             title="Drag to move this block under another word or clause"
-            draggable
-            onDragStart={(e) => {
+            onPointerDown={(e) => {
               e.stopPropagation();
-              e.dataTransfer.effectAllowed = 'move';
-              // Firefox won't start a drag unless data is set on the transfer.
-              e.dataTransfer.setData('text/plain', node.id);
-              // Drag the WHOLE row (the word), not just the tiny grip glyph, so it
-              // reads as the word itself moving.
-              if (rowRef.current) e.dataTransfer.setDragImage(rowRef.current, 16, 14);
-              dnd.onStart(node.id);
+              dnd.onPointerDown(node.id, e);
             }}
-            onDragEnd={dnd.onEnd}
+            onPointerMove={(e) => dnd.onPointerMove(e)}
+            onPointerUp={(e) => dnd.onPointerUp(e)}
+            onPointerCancel={(e) => dnd.onPointerUp(e)}
+            onClick={(e) => {
+              // Suppress the click that trails a real drag; a plain tap falls
+              // through to the row's onClick (select).
+              if (dnd.wasDrag()) e.stopPropagation();
+            }}
           >
             ⠿
           </span>
