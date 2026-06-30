@@ -1242,10 +1242,7 @@ function layoutCoordination(
  */
 function layoutCompoundPredicate(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): Block {
   const conjunctRels = wordConjunctRels(ctx, verbNode.id);
-  const coordRel = childRelations(ctx.doc.syntax, verbNode.id).find((r) => r.type === 'coordinator');
-  const coordText = coordRel
-    ? nodeText(ctx.doc, getNode(ctx.doc.syntax, coordRel.dependentId)!) || ''
-    : '';
+  const coords = coordinatorTexts(ctx, verbNode.id);
 
   // Bare verb words (their shared complements are drawn by the clause after the
   // fork; per-verb adverbials are uncommon and omitted from the fork members).
@@ -1284,10 +1281,20 @@ function layoutCompoundPredicate(ctx: Ctx, verbNode: SyntaxNode, seen: Set<strin
   const topY = ys[0]! - centerY;
   const botY = ys[ys.length - 1]! - centerY;
   elements.push(line(eid(), prong, topY, prong, botY, 'dashed', 'coordination', verbNode.id));
-  if (coordText) {
+  if (coords.length >= 2) {
+    // Correlative pairing (οὐ … ἀλλά, μέν … δέ): stack the conjunctions on the bar,
+    // each at its own member's corner — top-with-top.
+    coords.forEach((c, i) => {
+      const idx = Math.min(i, ys.length - 1);
+      elements.push({
+        kind: 'text', id: eid(), x: prong - 7, y: ys[idx]! - centerY,
+        text: c.text, anchor: 'middle', small: true, rotate: -90, nodeId: c.nodeId,
+      });
+    });
+  } else if (coords.length === 1) {
     elements.push({
-      kind: 'text', id: eid(), x: prong - 7, y: (topY + botY) / 2, text: coordText,
-      anchor: 'middle', small: true, rotate: -90, nodeId: coordRel?.dependentId,
+      kind: 'text', id: eid(), x: prong - 7, y: (topY + botY) / 2, text: coords[0]!.text,
+      anchor: 'middle', small: true, rotate: -90, nodeId: coords[0]!.nodeId,
     });
   }
 
