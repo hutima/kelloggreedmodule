@@ -42,6 +42,15 @@ const POS: Record<string, PartOfSpeech> = {
 
 const MORPH_KEYS = ['case', 'gender', 'number', 'person', 'tense', 'voice', 'mood'] as const;
 
+/** Lowfat `<wg class>` → constituency phrase category (stamped for the tree view). */
+const PHRASE_CAT: Record<string, string> = {
+  np: 'NP',
+  vp: 'VP',
+  pp: 'PP',
+  adjp: 'AdjP',
+  advp: 'AdvP',
+};
+
 /** Lowfat child roles a copula would link: subject, objects, predicate complement. */
 const PRED_ARG_ROLES = new Set(['s', 'o', 'o2', 'io', 'p']);
 
@@ -303,7 +312,28 @@ export class SentenceConverter {
     const prepId = this.wordNode(prepEl);
     const objId = this.convert(objEl);
     this.rel('prepositionObject', prepId, objId);
+    this.stampCategory(prepId, 'pp');
     return prepId; // the preposition is what the governor attaches to
+  }
+
+  /**
+   * Record the SOURCE phrase category (Lowfat `<wg class>`: np/vp/pp/adjp/advp) on
+   * the head word's token, under `morphology.extra.cat`. This is purely additive —
+   * it changes no node or relation — so the KR / Block / Dependency layouts are
+   * untouched; only the Constituency view reads it, preferring this gold-standard
+   * label over the POS-based estimate. Innermost (most specific) category wins.
+   */
+  private stampCategory(repNodeId: string, cls: string | null): void {
+    const cat = cls ? PHRASE_CAT[cls] : undefined;
+    if (!cat) return;
+    const node = this.nodes.find((n) => n.id === repNodeId);
+    const tokId = node?.tokenIds[0];
+    const tok = tokId ? this.tokens.find((t) => t.id === tokId) : undefined;
+    if (!tok) return;
+    const extra = { ...(tok.morphology?.extra ?? {}) };
+    if (extra.cat) return; // keep the first (innermost) category seen
+    extra.cat = cat;
+    tok.morphology = { ...(tok.morphology ?? {}), extra };
   }
 
   /** A clause: the verb is the predicate; arguments hang off verb or clause. */
@@ -442,6 +472,7 @@ export class SentenceConverter {
     const head = this.headChild(el);
     if (!head) return `w_${this.key(el)}`;
     const repId = this.convert(head);
+    this.stampCategory(repId, el.getAttribute('class'));
     const rule = el.getAttribute('rule') ?? '';
     const coordinated = isCoordinationRule(rule);
     for (const child of constituents(el)) {

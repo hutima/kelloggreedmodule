@@ -402,6 +402,9 @@ const ADAPTERS: Record<DiagramMode, EditorViewAdapter> = {
   // The dependency TREE is the same head→dependent graph as the arc view, so it
   // shares its editing adapter (select a word/edge, relink, relabel).
   'dependency-tree': dependencyAdapter,
+  // Constituency is presentation-only (read-only, not in EDITABLE_MODES); this
+  // entry only satisfies the exhaustive map — editing never routes through it.
+  constituency: kelloggReedAdapter,
   morphology: morphologyAdapter,
 };
 
