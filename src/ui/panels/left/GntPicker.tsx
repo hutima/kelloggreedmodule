@@ -8,8 +8,11 @@ import {
   combinePassage,
   loadOpenTextBook,
   OPENTEXT_BOOKS,
+  SYNTAX_SOURCES,
+  type SyntaxSourceId,
   type GntBook,
 } from '@/io';
+import { useViewport } from '@/ui/responsive';
 import type { KrDocument } from '@/domain/schema';
 
 /**
@@ -57,6 +60,12 @@ export function GntPicker() {
   const currentBook = bookForTitle(doc.title);
   const [source, setSource] = useState<Source>('nestle1904');
   const [bookNum, setBookNum] = useState(currentBook?.num ?? 11);
+  // Desktop-only two-source side-by-side comparison.
+  const vp = useViewport();
+  const compareOn = useEditorStore((s) => s.sourceCompare.on);
+  const compareSource = useEditorStore((s) => s.sourceCompare.source);
+  const toggleSourceCompare = useEditorStore((s) => s.toggleSourceCompare);
+  const setCompareSource = useEditorStore((s) => s.setCompareSource);
   const [passages, setPassages] = useState<KrDocument[] | null>(() =>
     gntPassages.length && bookForTitle(gntPassages[0]!.title)?.num === currentBook?.num
       ? gntPassages
@@ -202,6 +211,35 @@ export function GntPicker() {
         <p style={{ fontSize: 12, color: 'var(--muted, #667)' }}>
           OpenText.org analysis (CC BY-SA 4.0), surface text from Nestle 1904.
         </p>
+      )}
+
+      {/* Desktop: compare two syntax sources for the open passage side by side. */}
+      {vp.isDesktop && (
+        <div className="field-group">
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={compareOn}
+              onChange={(e) => toggleSourceCompare(e.target.checked)}
+            />
+            <span>Split view — compare two sources</span>
+          </label>
+          {compareOn && (
+            <label className="field">
+              <span>Compare with</span>
+              <select
+                value={compareSource}
+                onChange={(e) => setCompareSource(e.target.value as SyntaxSourceId)}
+              >
+                {SYNTAX_SOURCES.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
       )}
       {cacheState === 'error' && <p style={{ color: 'var(--danger)', fontSize: 12 }}>Couldn’t save offline.</p>}
       {error && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{error}</p>}

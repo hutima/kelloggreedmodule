@@ -63,7 +63,7 @@ import {
   getIssuesForPassage,
   isMergeIssue,
 } from '@/domain/contested';
-import { combinePassage, loadGntBook, loadOtChapter, GNT_BOOKS, OT_BOOKS } from '@/io';
+import { combinePassage, loadGntBook, loadOtChapter, GNT_BOOKS, OT_BOOKS, sourceOfDoc, type SyntaxSourceId } from '@/io';
 import type { ContestedSyntaxIssue } from '@/domain/schema';
 import type {
   ActiveEditModal,
@@ -228,6 +228,10 @@ export interface EditorActions {
   setDiagramMode: (mode: DiagramMode) => void;
   /** Toggle English-gloss display in the structural diagrams. */
   setGlossMode: (value: boolean) => void;
+  /** Desktop: turn the two-source side-by-side comparison on/off. */
+  toggleSourceCompare: (on?: boolean) => void;
+  /** Desktop: choose the secondary source shown in the comparison's right pane. */
+  setCompareSource: (id: SyntaxSourceId) => void;
   // --- tier-aware editing (Basic / Advanced) ---
   /** Switch the editing surface; resets any in-progress tool/link state. */
   setEditTier: (tier: EditTier) => void;
@@ -455,6 +459,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     previewDoc: null,
     verticalScale: 1,
     diagramMode: DEFAULT_MODE,
+    sourceCompare: { on: false, source: 'opentext' },
     glossMode: false,
     inferences: [],
     status: 'idle',
@@ -892,6 +897,21 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         relationshipDraft: null,
         selectedRange: [],
       }),
+
+    toggleSourceCompare: (on) => {
+      const cur = get().sourceCompare;
+      const next = on ?? !cur.on;
+      // When switching on, default the secondary pane to the OTHER source than
+      // the one the open passage came from, so the two panes differ by default.
+      const source =
+        next && cur.source === sourceOfDoc(get().doc)
+          ? cur.source === 'opentext'
+            ? 'nestle1904'
+            : 'opentext'
+          : cur.source;
+      set({ sourceCompare: { on: next, source } });
+    },
+    setCompareSource: (id) => set({ sourceCompare: { ...get().sourceCompare, source: id } }),
 
     // --- tier-aware editing -------------------------------------------------
     setEditTier: (tier) =>

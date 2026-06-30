@@ -2240,3 +2240,37 @@ button.mc-code.glossed:hover {
 @media (max-width: 520px) {
   .topbar .brand-name { display: none; }
 }
+
+/* Two-source split-view comparison (desktop) — picker toggle + bar control. */
+.field-group {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border, #d7dee5);
+}
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.checkbox-row input { margin: 0; }
+label.field.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+}
+label.field.inline > span { margin-bottom: 0; }
+.vc-frame-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 160px;
+  padding: 24px;
+  text-align: center;
+  color: var(--ink-soft, #667);
+  font-size: 13px;
+}
