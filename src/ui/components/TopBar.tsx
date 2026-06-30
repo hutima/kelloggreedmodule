@@ -100,7 +100,7 @@ export function TopBar() {
           </button>
         )}
         <button className="btn primary" onClick={() => setExportOpen(true)} title="Export diagram">
-          Export
+          Export diagram
         </button>
         <div className="menu-wrap">
           <button className="btn" onClick={() => setMenuOpen((v) => !v)} aria-haspopup="menu" aria-expanded={menuOpen}>
