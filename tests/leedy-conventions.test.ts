@@ -326,6 +326,18 @@ describe('sentence-initial connective on a coordinate spine leads, not joins', (
     expect(dioEl?.rotate ?? 0).toBe(0);
   });
 
+  it('makes a spine coordinator (καί) selectable — its text carries the node id', () => {
+    const doc = spine([{ surface: 'καὶ', index: 4 }]); // joins the two members
+    const layout = layoutDocument(doc);
+    const kai = layout.elements.find(
+      (e) => e.kind === 'text' && (e as { text: string }).text === 'καὶ' &&
+        ((e as { rotate?: number }).rotate ?? 0) === -90,
+    ) as { nodeId?: string } | undefined;
+    expect(kai).toBeDefined();
+    const coordNode = doc.syntax.nodes.find((n) => n.role === 'coordinator')!;
+    expect(kai!.nodeId).toBe(coordNode.id);
+  });
+
   it('keeps a correlative pair (εἴτε…εἴτε) on the spine, not led out', () => {
     const layout = layoutDocument(
       spine([
