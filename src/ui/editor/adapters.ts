@@ -396,6 +396,9 @@ const ADAPTERS: Record<DiagramMode, EditorViewAdapter> = {
   'kellogg-reed': kelloggReedAdapter,
   'phrase-block': phraseBlockAdapter,
   dependency: dependencyAdapter,
+  // The dependency TREE is the same head→dependent graph as the arc view, so it
+  // shares its editing adapter (select a word/edge, relink, relabel).
+  'dependency-tree': dependencyAdapter,
   morphology: morphologyAdapter,
 };
 

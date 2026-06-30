@@ -21,7 +21,7 @@ import { curve, finalize, line, resetIds, text, width } from './builder';
  * predicate verb; a `root` chip points down at each sentence's main verb.
  */
 
-const SHORT_ROLE: Partial<Record<SyntacticRole, string>> = {
+export const SHORT_ROLE: Partial<Record<SyntacticRole, string>> = {
   subject: 'subj',
   predicate: 'pred',
   copula: 'cop',
@@ -54,7 +54,7 @@ const SHORT_ROLE: Partial<Record<SyntacticRole, string>> = {
 const ROOT_COLOR = '#5b6470'; // slate — matches the clause family
 
 /** The token that represents a node in the word-graph (a clause → its verb). */
-function repTokenId(doc: KrDocument, nodeId: string, seen = new Set<string>()): string | undefined {
+export function repTokenId(doc: KrDocument, nodeId: string, seen = new Set<string>()): string | undefined {
   if (seen.has(nodeId)) return undefined;
   seen.add(nodeId);
   const node = getNode(doc.syntax, nodeId);
@@ -66,7 +66,7 @@ function repTokenId(doc: KrDocument, nodeId: string, seen = new Set<string>()): 
 }
 
 /** Main-verb token(s) of the top-level clause(s) — the sentence root(s). */
-function rootTokens(doc: KrDocument): string[] {
+export function rootTokens(doc: KrDocument): string[] {
   const root = getNode(doc.syntax, doc.syntax.rootId);
   if (!root) return [];
   // A "discourse" wrapper holds several sentences; each gets its own root marker.

@@ -8,7 +8,9 @@ import type { EditHelpContent, EditTier } from './types';
  * but says the right thing for THIS mode and tier.
  */
 
-type HelpTable = Record<DiagramMode, Record<EditTier, EditHelpContent>>;
+// Partial: a visualization without its own help (e.g. the Dependency Tree, which
+// shares the arc Dependency view's editing) falls back in `helpFor`.
+type HelpTable = Partial<Record<DiagramMode, Record<EditTier, EditHelpContent>>>;
 
 const HELP: HelpTable = {
   'kellogg-reed': {
@@ -154,5 +156,5 @@ const HELP: HelpTable = {
 };
 
 export function helpFor(mode: DiagramMode, tier: EditTier): EditHelpContent {
-  return HELP[mode][tier];
+  return (HELP[mode] ?? HELP.dependency ?? HELP['kellogg-reed'])![tier];
 }
