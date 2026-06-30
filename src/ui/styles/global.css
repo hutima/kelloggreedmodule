@@ -593,7 +593,11 @@ textarea.code,
   font-size: 15px;
   line-height: 1.6;
 }
-/* Drag handle along the strip's bottom edge to rebalance text vs. diagram. */
+/* Drag handle along the strip's bottom edge to rebalance text vs. diagram.
+   The visible bar stays a slim 7px, but `touch-action: none` keeps a finger
+   drag from scrolling the page, and the transparent `::before` overflows the
+   bar by ~9px above and below so the touch target is ~25px tall — comfortable
+   to grab on a phone without changing how the handle looks. */
 .source-resize {
   flex: 0 0 auto;
   height: 7px;
@@ -601,6 +605,15 @@ textarea.code,
   background: var(--panel, #fff);
   border-top: 1px solid var(--border, #e2e8f0);
   position: relative;
+  touch-action: none;
+}
+.source-resize::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -9px;
+  bottom: -9px;
 }
 .source-resize::after {
   content: '';
