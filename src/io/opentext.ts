@@ -499,23 +499,30 @@ function clauseTypeOf(el: Element): SyntaxNode['clauseType'] {
 export interface OpenTextDocOptions {
   /** Book display name, e.g. "Philemon". */
   book?: string;
+  /** Chapter number — keeps document ids unique across a multi-chapter book. */
+  chapter?: number;
 }
+
+/** Parsed word-level base layer (one per book), reused across the book's chapters. */
+export type OpenTextBase = ReturnType<typeof parseBase>;
 
 /**
  * Convert the three OpenText layers for ONE chapter into one document per
  * PRIMARY clause (embedded clauses nest inside their parent). Each document is
- * titled by the verse(s) its words span.
+ * titled by the verse(s) its words span. `base` is the parsed word layer for the
+ * whole book, so a multi-chapter book parses it ONCE and passes it to each chapter.
  */
-export function openTextToDocuments(
-  baseXml: string,
+export function buildOpenTextDocuments(
+  base: OpenTextBase,
   wgXml: string,
   clauseXml: string,
   opts: OpenTextDocOptions = {},
 ): KrDocument[] {
-  const base = parseBase(baseXml);
   const wg = parseWordGroups(wgXml);
   const dom = parseXml(clauseXml);
-  const book = opts.book ?? dom.querySelector('chapter')?.getAttribute('book') ?? 'GNT';
+  const chapterEl = dom.querySelector('chapter');
+  const book = opts.book ?? chapterEl?.getAttribute('book') ?? 'GNT';
+  const chapter = opts.chapter ?? (Number(chapterEl?.getAttribute('num')) || 1);
 
   // A "primary" clause is a top-level clause — a direct child of <chapter>;
   // everything nested (in a component or another clause) is embedded and handled
@@ -534,8 +541,8 @@ export function openTextToDocuments(
     const ts = '2024-01-01T00:00:00.000Z';
     docs.push({
       schemaVersion: SCHEMA_VERSION,
-      id: `opentext_${slug(book)}_${i}`,
-      title: ref ? `${book} ${ref}` : `${book} (${i + 1})`,
+      id: `opentext_${slug(book)}_${chapter}_${i}`,
+      title: ref ? `${book} ${ref}` : `${book} ${chapter} (${i + 1})`,
       language: 'grc',
       text: conv.tokens.map((t) => t.surface).join(' '),
       notes: '',
@@ -547,6 +554,16 @@ export function openTextToDocuments(
     });
   });
   return docs;
+}
+
+/** Convenience: convert one chapter from the three raw XML strings. */
+export function openTextToDocuments(
+  baseXml: string,
+  wgXml: string,
+  clauseXml: string,
+  opts: OpenTextDocOptions = {},
+): KrDocument[] {
+  return buildOpenTextDocuments(parseBase(baseXml), wgXml, clauseXml, opts);
 }
 
 /** "1:4–6" (or "1:4") from the verse refs of the tokens used. */
