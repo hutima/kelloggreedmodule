@@ -786,13 +786,48 @@ function layoutHead(
   let railRight = wordW;
   let belowBottom = 0; // absolute lowest y reached by any dependent
 
-  // Appositives sit on the SAME baseline, immediately right of the head word.
+  // An appositive RENAMES the head, so it is joined by the Reed-Kellogg apposition
+  // mark "=" (two short strokes across the baseline) — never run on as a second
+  // object/complement. A bare-word appositive sits inline right of the head; a
+  // PHRASAL / clausal appositive (one carrying its own modifiers, e.g. "τὸ ὄνομα
+  // = τὸ ὑπὲρ πᾶν ὄνομα" in Php 2:9) is too big to read inline, so it rides a
+  // PEDESTAL above the line — like a clausal complement — reached through the "=".
+  const EQ_HALF = 6;
+  const EQ_GAP = 4;
+  const drawEquals = (atX: number, relId: string) => {
+    elements.push(line(eid(), atX, -EQ_GAP, atX + EQ_HALF * 2, -EQ_GAP, 'solid', 'separator', undefined, relId));
+    elements.push(line(eid(), atX, EQ_GAP, atX + EQ_HALF * 2, EQ_GAP, 'solid', 'separator', undefined, relId));
+  };
   apposRels.forEach((rel) => {
     cursor += LAYOUT.wordPadX;
     const block = layoutNode(ctx, rel.dependentId, seen);
-    elements.push(...translate(block, cursor, 0));
-    belowBottom = Math.max(belowBottom, block.height);
-    cursor += block.width;
+    const phrasal =
+      block.elements.length > 0 &&
+      (isClauseChild(ctx, rel.dependentId) ||
+        childRelations(ctx.doc.syntax, rel.dependentId).length > 0) &&
+      block.height + blockAscent(block) <= LAYOUT.pedestalMaxHeight;
+    drawEquals(cursor, rel.id);
+    const afterEq = cursor + EQ_HALF * 2 + LAYOUT.wordPadX;
+    if (phrasal) {
+      // Pedestal: a forked foot on the baseline, a riser up to the appositive's
+      // own baseline (the platform), reached from the "=" by a short stretch.
+      const baseY = -(
+        LAYOUT.pedestalFootRise +
+        Math.max(block.height + LAYOUT.pedestalGap, LAYOUT.pedestalMinRiser)
+      );
+      const apexY = -LAYOUT.pedestalFootRise;
+      elements.push(...translate(block, afterEq, baseY));
+      const connectX = afterEq + (block.wordLeft + (block.wordRight || block.width)) / 2;
+      elements.push(line(eid(), cursor + EQ_HALF * 2, 0, connectX, 0, 'solid', 'baseline', undefined, rel.id));
+      elements.push(line(eid(), connectX - LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
+      elements.push(line(eid(), connectX + LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
+      elements.push(line(eid(), connectX, apexY, connectX, baseY, 'solid', 'stem', undefined, rel.id));
+      cursor = afterEq + block.width;
+    } else {
+      elements.push(...translate(block, afterEq, 0));
+      belowBottom = Math.max(belowBottom, block.height);
+      cursor = afterEq + block.width;
+    }
     railRight = Math.max(railRight, cursor);
   });
 
