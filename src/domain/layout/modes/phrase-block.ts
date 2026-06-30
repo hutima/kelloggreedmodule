@@ -2,6 +2,7 @@ import type { KrDocument, SyntacticRole, SyntaxNode } from '@/domain/schema';
 import { childRelations, getNode, nodeText } from '@/domain/model';
 import type { DiagramElement, DiagramLayout } from '../types';
 import { LAYOUT } from '../constants';
+import { toneOfNode } from '../tone';
 import { finalize, line, resetIds, text, width } from './builder';
 
 /**
@@ -116,7 +117,10 @@ export function layoutPhraseBlock(doc: KrDocument): DiagramLayout {
       cx += width(label, true) + 10;
     }
     if (greek) {
-      elements.push(text(cx, y, greek, { anchor: 'start', nodeId, muted: node.implied }));
+      // Tint the word by its grammatical category — the same colours the
+      // Morphology Clause and Kellogg-Reed views use, so a word reads alike
+      // across modes. Implied rows have no token, so they stay muted.
+      elements.push(text(cx, y, greek, { anchor: 'start', nodeId, muted: node.implied, tone: toneOfNode(doc, node) }));
     }
     rowY += ROW_H;
 

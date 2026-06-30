@@ -2,7 +2,8 @@ import type { KrDocument, LayoutHints, Relation, SyntacticRole, SyntaxNode } fro
 import { childRelations, getNode, impliedSubjectPronoun, nodeText } from '@/domain/model';
 import { LAYOUT } from './constants';
 import { measureText, SMALL_FONT } from './measure';
-import type { DiagramElement, DiagramLayout, LineElement, TextElement } from './types';
+import type { DiagramElement, DiagramLayout, GrammarTone, LineElement, TextElement } from './types';
+import { toneOfNode } from './tone';
 
 /**
  * LAYOUT ENGINE — maps the syntax model to pure geometry.
@@ -371,7 +372,7 @@ function drawDiagonalModifier(
   const endX = attachX + run;
   const endY = attachY + drop;
   out.push(line(eid(), attachX, attachY, endX, endY, 'solid', 'slant', undefined, relId));
-  out.push(diagonalText(t, attachX, attachY, endX, endY, relId, node.id, DIAG_TEXT_FRAC));
+  out.push(diagonalText(t, attachX, attachY, endX, endY, relId, node.id, DIAG_TEXT_FRAC, toneOfNode(ctx.doc, node)));
   let bottom = diagonalDepth(attachX, attachY, endX, endY, t, DIAG_TEXT_FRAC);
   let right = endX + measureText(t) * 0.6;
   // Sub-modifiers hang off the word: a short right-angle jog off the parent slant
@@ -487,6 +488,7 @@ function diagonalText(
   relationId?: string,
   nodeId?: string,
   frac = 0.5,
+  tone?: GrammarTone,
 ): TextElement {
   const angle = Math.atan2(y2 - y1, x2 - x1) * DEG;
   // Point `frac` of the way down the line, nudged just above it so the word
@@ -501,6 +503,9 @@ function diagonalText(
     rotate: angle,
     relationId,
     nodeId,
+    // Tint a slanted modifier (article, adjective, single-word genitive) by its
+    // grammatical category, matching the baseline words and the Morphology mode.
+    tone,
   };
 }
 
@@ -776,7 +781,7 @@ function layoutHead(
   // its modifiers. The baseline is extended rightward to reach them.
   const wordLeft = 0;
   const wordRight = wordW;
-  elements.push(wordText(eid(), wordW / 2, -LAYOUT.textRise, text, 'middle', node));
+  elements.push(wordText(eid(), wordW / 2, -LAYOUT.textRise, text, 'middle', node, ctx.doc));
   // Leedy identifies an infinitive with a double vertical crossing its baseline.
   if (wordPos(ctx, node.id) === 'infinitive') {
     elements.push(...infinitiveMark(wordW));
@@ -1460,7 +1465,7 @@ function layoutPredicateArm(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): 
   const elements: DiagramElement[] = [];
   const text = nodeText(ctx.doc, verbNode) || verbNode.label || (verbNode.implied ? ELISION_MARK : '∅');
   const wordW = measureText(text) + LAYOUT.wordPadX * 2;
-  elements.push(wordText(eid(), wordW / 2, -LAYOUT.textRise, text, 'middle', verbNode));
+  elements.push(wordText(eid(), wordW / 2, -LAYOUT.textRise, text, 'middle', verbNode, ctx.doc));
 
   const rels = childRelations(ctx.doc.syntax, verbNode.id).filter(
     (r) => r.type !== 'conjunct' && r.type !== 'coordinator',
@@ -2240,6 +2245,7 @@ function wordText(
   text: string,
   anchor: TextElement['anchor'],
   node: SyntaxNode,
+  doc?: KrDocument,
 ): TextElement {
   return {
     kind: 'text',
@@ -2250,6 +2256,10 @@ function wordText(
     anchor,
     muted: node.implied,
     nodeId: node.id,
+    // Tint the word by its grammatical category (case / verb / participle), the
+    // same colours the Morphology Clause mode uses, so a word reads the same in
+    // every view. Implied nodes have no token, so they stay muted (no tone).
+    tone: doc ? toneOfNode(doc, node) : undefined,
   };
 }
 
