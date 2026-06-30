@@ -542,6 +542,18 @@ function blockAscent(block: Block): number {
   return Math.max(0, -minY);
 }
 
+/**
+ * Extra vertical room a member needs ABOVE its baseline beyond a normal one-line
+ * clause — i.e. the height of a pedestal/platform it raises into negative y (a
+ * substantival subject or a predicate-nominative platform). When such a member
+ * follows another clause on a stacked spine, this is the clearance that must be
+ * added to the inter-clause gap so the platform clears the clause above it
+ * rather than crowding into its descenders. Returns ≥ 0.
+ */
+function pedestalRoom(block: Block): number {
+  return Math.max(0, blockAscent(block) - (LAYOUT.dividerUp + LAYOUT.fontSize));
+}
+
 function translate(block: Block, dx: number, dy: number): DiagramElement[] {
   return block.elements.map((el) => {
     if (el.kind === 'line') {
@@ -902,8 +914,8 @@ function stackClauses(
   let bottom = topY;
   let lastBaselineY = topY;
 
-  rels.forEach((r) => {
-    const block = layoutNode(ctx, r.dependentId, seen);
+  const laidRels = rels.map((r) => ({ r, block: layoutNode(ctx, r.dependentId, seen) }));
+  laidRels.forEach(({ r, block }, i) => {
     // A subordinator label (ὅτι, ἵνα, καθὼς…) rides the connector; lengthen it so
     // the label fits between the stem and the clause word instead of colliding.
     const labelled = r.label && showLabel(ctx, r.dependentId);
@@ -923,7 +935,11 @@ function stackClauses(
     lastBaselineY = y;
     right = Math.max(right, blockX + block.width);
     bottom = Math.max(bottom, y + block.height);
-    cursorTop = y + block.height + LAYOUT.clauseStackGap * ctx.vScale;
+    // Grow the gap to clear a following clause's pedestal/platform (see the
+    // matching note in layoutClauseSpine) instead of letting it crowd upward.
+    const next = laidRels[i + 1]?.block;
+    const extra = next ? pedestalRoom(next) : 0;
+    cursorTop = y + block.height + (LAYOUT.clauseStackGap * ctx.vScale + extra);
   });
 
   // The vertical stem itself, spanning from its top to the last clause.
@@ -980,7 +996,7 @@ function layoutClauseSpine(
   let right = 0;
   let bottom = 0;
 
-  for (const { r, block } of laid) {
+  laid.forEach(({ r, block }, i) => {
     const blockX = verbAlignX - vxOf(block); // ≥ 0; verbs line up at verbAlignX
     const y = cursorTop + blockAscent(block);
     elements.push(...translate(block, blockX, y));
@@ -997,8 +1013,15 @@ function layoutClauseSpine(
     verbYs.push(y);
     right = Math.max(right, blockX + block.width);
     bottom = Math.max(bottom, y + block.height);
-    cursorTop = y + block.height + LAYOUT.clauseStackGap * ctx.vScale;
-  }
+    // Inter-clause spacing is decided HERE, from the laid-out blocks — so the
+    // dashed coordinate bar grows to fit the content rather than a fixed gap.
+    // A following clause that raises a pedestal/platform (a substantival subject
+    // or predicate-nominative platform) gets that extra height cleared below this
+    // clause, so the platform never crowds into the clause above it.
+    const next = laid[i + 1]?.block;
+    const extra = next ? pedestalRoom(next) : 0;
+    cursorTop = y + block.height + (LAYOUT.clauseStackGap * ctx.vScale + extra);
+  });
 
   const top = verbYs[0] ?? 0;
   const last = verbYs[verbYs.length - 1] ?? 0;
