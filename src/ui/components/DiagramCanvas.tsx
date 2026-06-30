@@ -3,7 +3,7 @@ import { useEditorStore } from '@/state';
 import { layoutForMode, DIAGRAM_MODES } from '@/domain/layout';
 import { measureText, SMALL_FONT, BASE_FONT } from '@/domain/layout/measure';
 import { dashFor, toneColor } from '@/domain/render';
-import { describeFunction, getNode, childRelations, lookupGloss, glossDoc } from '@/domain/model';
+import { describeFunction, getNode, childRelations, lookupGloss, glossDoc, impliedSubjectVerbPairs } from '@/domain/model';
 import {
   loadParallelBook,
   alignParallel,
@@ -190,15 +190,21 @@ export function DiagramCanvas() {
   // Fall back to Greek if English isn't available for the current passage.
   const showEnglish = version === 'en' && hasEnglish;
 
+  // A pro-drop / elided subject is inferred FROM its verb's morphology, so the two
+  // belong together: hovering either greys both, making visible that the
+  // "(he/she/it)" and the verb come from the same word.
+  const impliedPairs = useMemo(() => impliedSubjectVerbPairs(doc.syntax), [doc]);
+
   // Hover helpers keep the diagram, Greek strip, and English strip in sync.
   const hoverDiagram = useCallback(
-    (nodeId?: string) =>
-      setHover(
-        nodeId
-          ? { nodes: new Set([nodeId]), en: new Set(parallel?.nodeToEn.get(nodeId) ?? []) }
-          : { nodes: new Set(), en: new Set() },
-      ),
-    [parallel],
+    (nodeId?: string) => {
+      if (!nodeId) return setHover({ nodes: new Set(), en: new Set() });
+      const nodes = new Set<string>([nodeId, ...(impliedPairs.get(nodeId) ?? [])]);
+      const en = new Set<string>();
+      for (const n of nodes) for (const e of parallel?.nodeToEn.get(n) ?? []) en.add(e);
+      setHover({ nodes, en });
+    },
+    [parallel, impliedPairs],
   );
   const hoverEnglish = useCallback(
     (key?: string) =>
