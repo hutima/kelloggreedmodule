@@ -8,6 +8,7 @@ export * from './constants';
 export { tokenTone, nodeTone, toneByNode } from './tone';
 export { measureText } from './measure';
 export { layoutDocument, type LayoutOptions } from './engine';
+export type { TreeOrientation } from './modes/tree-layout';
 export {
   layoutForMode,
   DIAGRAM_MODES,

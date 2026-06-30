@@ -791,6 +791,44 @@ textarea.code,
   font-family: var(--ui);
   font-size: 15px;
 }
+/* Small "dock to side panel / back to center" toggle in the source bar (desktop).
+   `margin-left: auto` groups it (and the collapse caret, when present) at the
+   right end of the bar. */
+.verses-place-btn {
+  margin-left: auto;
+  border: 1px solid var(--border, #e2e8f0);
+  background: var(--bg, #f5f7fa);
+  color: var(--ink-soft, #3e4c59);
+  border-radius: 6px;
+  padding: 3px 9px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.verses-place-btn:hover {
+  border-color: var(--accent, #2f6f9f);
+  color: var(--accent, #2f6f9f);
+}
+/* Verses docked into the right panel: the strip fills its tab body and scrolls
+   internally, rather than the center strip's fixed / resizable height band. */
+.verses-tab-host {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.source-wrap.in-panel {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  border-bottom: none;
+}
+.source-wrap.in-panel .source-bar {
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
 .diagram-paper {
   background: var(--paper);
   box-shadow: var(--shadow);

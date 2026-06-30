@@ -203,17 +203,31 @@ describe('constituency (phrase-structure) tree mode', () => {
     expect(lookupGloss(byText('Det').glossKey)?.term).toContain('Determiner');
   });
 
-  it('keeps sibling role chips from overlapping in a shallow fan (clash guard)', () => {
-    const layout = layoutForMode('constituency', relClause(), {}, {});
+  it('keeps sibling role chips from overlapping in a shallow fan — vertical (clash guard)', () => {
+    const layout = layoutForMode('constituency', relClause(), {}, { treeOrientation: 'vertical' });
     const chips = (layout.elements.filter(
       (e) => e.kind === 'text' && (e as { box?: boolean }).box,
     ) as Array<{ text: string; x: number }>)
       .filter((c) => ['subj', 'cop', 'pred-adj'].includes(c.text))
       .sort((a, b) => a.x - b.x);
     expect(chips.map((c) => c.text)).toEqual(['subj', 'cop', 'pred-adj']);
-    // Centres are well separated, so the chip boxes can't pile up on one spot.
+    // Top-down: siblings fan across X, so the chip boxes can't pile up on one spot.
     for (let i = 1; i < chips.length; i++) {
       expect(chips[i]!.x - chips[i - 1]!.x).toBeGreaterThan(45);
+    }
+  });
+
+  it('keeps sibling role chips from overlapping in a shallow fan — horizontal (clash guard)', () => {
+    // Horizontal is the default; siblings stack down Y instead of across X.
+    const layout = layoutForMode('constituency', relClause(), {}, {});
+    const chips = (layout.elements.filter(
+      (e) => e.kind === 'text' && (e as { box?: boolean }).box,
+    ) as Array<{ text: string; y: number }>)
+      .filter((c) => ['subj', 'cop', 'pred-adj'].includes(c.text))
+      .sort((a, b) => a.y - b.y);
+    expect(chips.length).toBe(3);
+    for (let i = 1; i < chips.length; i++) {
+      expect(chips[i]!.y - chips[i - 1]!.y).toBeGreaterThan(20);
     }
   });
 
@@ -226,13 +240,40 @@ describe('constituency (phrase-structure) tree mode', () => {
 });
 
 describe('dependency tree clash guard', () => {
-  it('places each edge label above its child so close-fanned labels do not overlap', () => {
-    const layout = layoutForMode('dependency-tree', relClause(), {}, {});
+  it('vertical: places each edge label above its child so close-fanned labels do not overlap', () => {
+    const layout = layoutForMode('dependency-tree', relClause(), {}, { treeOrientation: 'vertical' });
     const chips = (layout.elements.filter(
       (e) => e.kind === 'text' && (e as { box?: boolean }).box,
     ) as Array<{ text: string; x: number }>).filter((c) => c.text === 'subj' || c.text === 'pred-adj');
     expect(chips.length).toBe(2);
     expect(Math.abs(chips[0]!.x - chips[1]!.x)).toBeGreaterThan(45);
+  });
+
+  it('horizontal (default): stacks edge labels down Y so close-fanned labels do not overlap', () => {
+    const layout = layoutForMode('dependency-tree', relClause(), {}, {});
+    const chips = (layout.elements.filter(
+      (e) => e.kind === 'text' && (e as { box?: boolean }).box,
+    ) as Array<{ text: string; y: number }>).filter((c) => c.text === 'subj' || c.text === 'pred-adj');
+    expect(chips.length).toBe(2);
+    expect(Math.abs(chips[0]!.y - chips[1]!.y)).toBeGreaterThan(20);
+  });
+});
+
+describe('tree orientation', () => {
+  it('defaults to horizontal growth: the root sits left of its children', () => {
+    const layout = layoutForMode('dependency-tree', relClause(), {}, {});
+    const texts = layout.elements.filter((e) => e.kind === 'text') as Array<{ text: string; x: number }>;
+    const root = texts.find((t) => t.text === '[ROOT]')!;
+    const verb = texts.find((t) => t.text === 'was')!; // the predicate, one level in
+    expect(root.x).toBeLessThan(verb.x);
+  });
+
+  it('vertical growth puts the root above its children', () => {
+    const layout = layoutForMode('dependency-tree', relClause(), {}, { treeOrientation: 'vertical' });
+    const texts = layout.elements.filter((e) => e.kind === 'text') as Array<{ text: string; y: number }>;
+    const root = texts.find((t) => t.text === '[ROOT]')!;
+    const verb = texts.find((t) => t.text === 'was')!;
+    expect(root.y).toBeLessThan(verb.y);
   });
 });
 

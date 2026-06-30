@@ -74,9 +74,9 @@ export function layoutForMode(
     case 'dependency':
       return layoutDependency(doc);
     case 'dependency-tree':
-      return layoutDependencyTree(doc);
+      return layoutDependencyTree(doc, options.treeOrientation);
     case 'constituency':
-      return layoutConstituency(doc);
+      return layoutConstituency(doc, options.treeOrientation);
     case 'phrase-block':
       return layoutPhraseBlock(doc, { colorMode: options.colorMode });
     case 'morphology':

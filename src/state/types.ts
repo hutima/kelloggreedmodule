@@ -1,6 +1,6 @@
 import type { KrDocument, SermonPrepData, SermonAnchor } from '@/domain/schema';
 import type { Inference } from '@/domain/inference';
-import type { DiagramMode } from '@/domain/layout';
+import type { DiagramMode, TreeOrientation } from '@/domain/layout';
 import type { SyntaxSourceId } from '@/io/sources';
 import type { DocumentSummary } from '@/persistence';
 
@@ -174,6 +174,25 @@ export interface EditorState {
   verticalScale: number;
   /** Which diagram renderer is active (Kellogg-Reed by default). */
   diagramMode: DiagramMode;
+  /**
+   * Growth direction of the tree visualizations (Dependency Tree / Constituency
+   * Tree): 'horizontal' (left-to-right, the default) stacks sibling sentences down
+   * the page when several passages are loaded; 'vertical' is the classic top-down
+   * tree. Persisted. Ignored by the non-tree modes.
+   */
+  treeOrientation: TreeOrientation;
+  /**
+   * Desktop only: when true the source-text / verses strip is moved OUT of the
+   * center canvas into a dedicated "Verses" tab on the right panel, giving the
+   * diagram the full height of the center column. Persisted.
+   */
+  versesInPanel: boolean;
+  /**
+   * The right-panel element hosting the verses strip when `versesInPanel` is on
+   * and the Verses tab is active. The DiagramCanvas portals the strip into it so
+   * hover / selection stay in lock-step with the diagram. In-memory only.
+   */
+  versesHost: HTMLElement | null;
   /** Desktop side-by-side comparison of two syntax sources. */
   sourceCompare: SourceCompareState;
   /**

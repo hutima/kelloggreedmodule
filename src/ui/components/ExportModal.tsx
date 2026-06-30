@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { KrDocument } from '@/domain/schema';
-import type { DiagramMode } from '@/domain/layout';
+import type { DiagramMode, TreeOrientation } from '@/domain/layout';
 import {
   documentNaturalSize,
   downloadDocumentPng,
@@ -21,19 +21,24 @@ export function ExportModal({
   doc,
   sourceDoc,
   verticalScale,
+  treeOrientation,
   mode,
   onClose,
 }: {
   doc: KrDocument;
   sourceDoc?: KrDocument;
   verticalScale: number;
+  treeOrientation?: TreeOrientation;
   mode: DiagramMode;
   onClose: () => void;
 }) {
   const jsonDoc = sourceDoc ?? doc;
+  // Carry the on-screen options so the export matches the canvas exactly.
+  const opts = { verticalScale, treeOrientation };
   const natural = useMemo(
-    () => documentNaturalSize(doc, { verticalScale }, mode),
-    [doc, verticalScale, mode],
+    () => documentNaturalSize(doc, opts, mode),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [doc, verticalScale, treeOrientation, mode],
   );
   const aspect = natural.height / natural.width;
 
@@ -54,13 +59,13 @@ export function ExportModal({
 
   const doExport = async () => {
     if (format === 'svg') {
-      downloadDocumentSvg(doc, { verticalScale }, mode);
+      downloadDocumentSvg(doc, opts, mode);
       onClose();
       return;
     }
     setBusy(true);
     try {
-      await downloadDocumentPng(doc, width / natural.width, { verticalScale }, mode);
+      await downloadDocumentPng(doc, width / natural.width, opts, mode);
       onClose();
     } finally {
       setBusy(false);
@@ -150,7 +155,7 @@ export function ExportModal({
             <button className="link-btn" onClick={() => downloadDocumentJson(jsonDoc)}>
               JSON
             </button>
-            <button className="link-btn" onClick={() => printDocument(doc, { verticalScale }, mode)}>
+            <button className="link-btn" onClick={() => printDocument(doc, opts, mode)}>
               Print…
             </button>
           </div>

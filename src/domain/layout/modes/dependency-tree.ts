@@ -3,24 +3,31 @@ import type { DiagramElement, DiagramLayout } from '../types';
 import { LAYOUT, relationColor } from '../constants';
 import { finalize, line, resetIds, text, width } from './builder';
 import { repTokenId, rootTokens, SHORT_ROLE } from './dependency';
+import { tidyTree, columnCentres, type TreeOrientation } from './tree-layout';
 
 /**
  * DEPENDENCY TREE mode — the same head→dependent graph as the arc Dependency
- * view, drawn as a classic TOP-DOWN dependency tree (the shape used by the
- * Perseus / Ancient Greek Dependency Treebank): a `[ROOT]` at the top, each
- * sentence's main verb beneath it, and every dependent hanging below its head
- * with the relation label written on the connecting edge. Words read left to
- * right in surface order within each head's fan of children.
+ * view, drawn as a classic dependency tree (the shape used by the Perseus /
+ * Ancient Greek Dependency Treebank): a `[ROOT]`, each sentence's main verb beside
+ * it, and every dependent hanging off its head with the relation label written on
+ * the connecting edge. Words read in surface order within each head's fan.
+ *
+ * The tree grows LEFT-TO-RIGHT by default (`orientation: 'horizontal'`): the root
+ * sits on the left and each level steps rightward, so sibling sentences stack down
+ * the page — which reads far better when several passages are loaded at once than
+ * a single very wide top-down row. `orientation: 'vertical'` restores the original
+ * top-down Perseus shape.
  *
  * Our `KrDocument` IS a typed dependency graph, so this is a direct, faithful
- * rendering — a clause node carries no token of its own, so it collapses into
- * its predicate verb (via `repTokenId`), exactly as the arc view does.
+ * rendering — a clause node carries no token of its own, so it collapses into its
+ * predicate verb (via `repTokenId`), exactly as the arc view does.
  */
 
 const VROOT = '__root__';
 const ROOT_COLOR = '#5b6470'; // slate — the clause family
 
-const SLOT_GAP = 28; // horizontal padding around each node's word (Greek runs wide)
+const SLOT_GAP = 28; // padding around each node's word along the cross axis (Greek runs wide)
+const COL_PAD = 30; // clear space left of each depth column (room for the edge labels)
 
 interface Edge {
   head: string;
@@ -28,8 +35,12 @@ interface Edge {
   relId: string;
 }
 
-export function layoutDependencyTree(doc: KrDocument): DiagramLayout {
+export function layoutDependencyTree(
+  doc: KrDocument,
+  orientation: TreeOrientation = 'horizontal',
+): DiagramLayout {
   resetIds();
+  const horiz = orientation === 'horizontal';
   const elements: DiagramElement[] = [];
 
   const surface = new Map(doc.tokens.map((t) => [t.id, t.surface]));
@@ -76,62 +87,60 @@ export function layoutDependencyTree(doc: KrDocument): DiagramLayout {
   // beneath it; without the extra height a parent's gloss collides with its
   // children's edge labels. Stay compact when nothing is glossed.
   const hasGloss = doc.tokens.some((t) => t.gloss);
-  const ROW = Math.round(LAYOUT.fontSize * (hasGloss ? 5 : 3.6));
+  const ROW = Math.round(LAYOUT.fontSize * (hasGloss ? 5 : 3.6)); // vertical: depth pitch
+  const ROW_H = Math.round(LAYOUT.fontSize * (hasGloss ? 3.4 : 2.1)); // horizontal: cross slot
 
-  // Each node's OWN horizontal footprint: its word (or gloss, or the [ROOT]
-  // marker), the edge LABEL riding into it, whichever is widest, plus padding.
-  // Reserving the label width keeps a narrow word from letting its edge label
-  // overlap a sibling's (the clashing role chips on close branches).
   const chipW = (role: SyntacticRole | undefined): number =>
     role && SHORT_ROLE[role] ? width(SHORT_ROLE[role]!, true) + 16 : 0;
-  const ownWidth = (tok: string): number => {
-    if (tok === VROOT) return width('[ROOT]', true) + SLOT_GAP;
-    const s = surface.get(tok) ?? '';
+  // A node's OWN text extent (its word, or gloss, or the [ROOT] marker, widest).
+  const textW = (tok: string): number => {
+    if (tok === VROOT) return width('[ROOT]', true);
     const g = gloss.get(tok);
-    // A token's incoming edge type (its parent's edge), or 'predicate' for a root.
-    const role = parent.get(tok)?.type ?? 'predicate';
-    return Math.max(width(s), g ? width(g, true) : 0, chipW(role)) + SLOT_GAP;
+    return Math.max(width(surface.get(tok) ?? ''), g ? width(g, true) : 0);
+  };
+  // Cross-axis footprint when VERTICAL: word/label width + padding (Greek runs
+  // wide), so a wide internal node can't overlap its neighbours.
+  const ownWidth = (tok: string): number => {
+    const role = parent.get(tok)?.type ?? 'predicate'; // its incoming edge type
+    return Math.max(textW(tok), chipW(role)) + SLOT_GAP;
   };
 
-  // Tidy layout in two passes. measure(): a subtree reserves at least the width
-  // of its OWN word — not just its leaves — so a wide INTERNAL node (a head sitting
-  // over a narrow child) can't overlap its neighbours. place(): lay each node's
-  // children left-to-right within its reserved band and centre the node over them.
-  const subW = new Map<string, number>();
-  const measure = (tok: string, seen: Set<string>): number => {
-    const kids = (children.get(tok) ?? []).filter((k) => !seen.has(k.tok));
-    let w = ownWidth(tok);
-    if (kids.length) {
-      const next = new Set(seen).add(tok);
-      w = Math.max(w, kids.reduce((a, k) => a + measure(k.tok, next), 0));
-    }
-    subW.set(tok, w);
-    return w;
+  // The chip label that rides the edge INTO a token: its parent edge's role, or
+  // 'pred' for a genuine sentence root (whose VROOT edge has no `parent` entry).
+  const incomingLabel = (tok: string): string => {
+    const p = parent.get(tok);
+    if (p) return SHORT_ROLE[p.type] ?? p.type;
+    return isRoot.has(tok) ? 'pred' : '';
   };
+  const incomingChipW = (tok: string): number => {
+    const l = incomingLabel(tok);
+    return l ? width(l, true) + 16 : 0;
+  };
+
+  const kidsOf = (tok: string): string[] => (children.get(tok) ?? []).map((k) => k.tok);
+  // Vertical reserves word WIDTH along the (horizontal) cross axis; horizontal
+  // reserves a fixed line-height SLOT along the (vertical) cross axis.
+  const { cross, depth, byDepth } = tidyTree(VROOT, kidsOf, horiz ? () => ROW_H : ownWidth);
 
   const xOf = new Map<string, number>();
   const yOf = new Map<string, number>();
-  const place = (tok: string, left: number, depth: number, seen: Set<string>): void => {
-    yOf.set(tok, depth * ROW);
-    const kids = (children.get(tok) ?? []).filter((k) => !seen.has(k.tok));
-    if (!kids.length) {
-      xOf.set(tok, left + (subW.get(tok) ?? ownWidth(tok)) / 2);
-      return;
+  if (horiz) {
+    // Step rightward by depth; each column is as wide as its widest word, with a
+    // gap big enough for the role chips riding into it.
+    const colWidth = byDepth.map((list) => Math.max(0, ...list.map(textW)));
+    const centres = columnCentres(colWidth, (d) =>
+      d === 0 ? COL_PAD : Math.max(0, ...byDepth[d]!.map(incomingChipW)) + COL_PAD,
+    );
+    for (const [tok, d] of depth) {
+      xOf.set(tok, centres[d]!);
+      yOf.set(tok, cross.get(tok)!);
     }
-    const next = new Set(seen).add(tok);
-    const childTotal = kids.reduce((a, k) => a + (subW.get(k.tok) ?? 0), 0);
-    // Centre the children block within this node's (possibly wider) band.
-    let cx = left + ((subW.get(tok) ?? childTotal) - childTotal) / 2;
-    const childXs: number[] = [];
-    for (const k of kids) {
-      place(k.tok, cx, depth + 1, next);
-      childXs.push(xOf.get(k.tok)!);
-      cx += subW.get(k.tok) ?? 0;
+  } else {
+    for (const [tok, d] of depth) {
+      xOf.set(tok, cross.get(tok)!);
+      yOf.set(tok, d * ROW);
     }
-    xOf.set(tok, (Math.min(...childXs) + Math.max(...childXs)) / 2);
-  };
-  measure(VROOT, new Set([VROOT]));
-  place(VROOT, 0, 0, new Set([VROOT]));
+  }
 
   // Edges first (so the words/labels draw on top), then nodes.
   for (const [head, kids] of children) {
@@ -143,27 +152,43 @@ export function layoutDependencyTree(doc: KrDocument): DiagramLayout {
       const cy = yOf.get(k.tok);
       if (cx === undefined || cy === undefined) continue;
       const color = head === VROOT ? ROOT_COLOR : relationColor(k.type);
-      // Start the edge below the parent's OWN gloss line (when it has one) so the
-      // fan of edges doesn't cross the grey gloss text under the head word.
-      const y1 = hy + (gloss.get(head) ? LAYOUT.fontSize + 8 : 8);
-      const y2 = cy - LAYOUT.fontSize - 4;
-      elements.push(line(hx, y1, cx, y2, 'connector', 'solid', { color, relationId: k.relId || undefined }));
-      // Label sits directly ABOVE the child word (centred in the child's reserved
-      // column) rather than at a point along the edge — so labels on close-fanned
-      // branches never overlap, since each child column reserves the chip's width.
       const label = head === VROOT ? (isRoot.has(k.tok) ? 'pred' : '') : SHORT_ROLE[k.type] ?? k.type;
-      if (label) {
-        elements.push(
-          text(cx, y2 - 4, label, {
-            anchor: 'middle',
-            small: true,
-            italic: true,
-            box: true,
-            color,
-            glossKey: k.type,
-            relationId: k.relId || undefined,
-          }),
-        );
+      if (horiz) {
+        // Step rightward. The edge stops at the role chip's LEFT edge (so no line
+        // runs under the bubble), and the chip sits centred in the gap just before
+        // the child word — its text centred in the box (the renderer only pads
+        // symmetrically for a 'middle' anchor).
+        const x1 = hx + textW(head) / 2 + 6;
+        const wordLeft = cx - textW(k.tok) / 2;
+        let x2 = wordLeft - 5;
+        if (label) {
+          const bw = width(label, true) + 10; // matches the renderer's chip padding
+          const chipCx = wordLeft - 5 - bw / 2;
+          x2 = chipCx - bw / 2;
+          elements.push(
+            text(chipCx, cy, label, {
+              anchor: 'middle', small: true, italic: true, box: true, color, glossKey: k.type,
+              relationId: k.relId || undefined,
+            }),
+          );
+        }
+        elements.push(line(x1, hy, x2, cy, 'connector', 'solid', { color, relationId: k.relId || undefined }));
+      } else {
+        // Top-down: edge drops from below the parent's gloss to above the child.
+        const y1 = hy + (gloss.get(head) ? LAYOUT.fontSize + 8 : 8);
+        const y2 = cy - LAYOUT.fontSize - 4;
+        elements.push(line(hx, y1, cx, y2, 'connector', 'solid', { color, relationId: k.relId || undefined }));
+        // Label sits directly ABOVE the child word (centred in the child's reserved
+        // column) rather than at a point along the edge — so labels on close-fanned
+        // branches never overlap, since each child column reserves the chip's width.
+        if (label) {
+          elements.push(
+            text(cx, y2 - 4, label, {
+              anchor: 'middle', small: true, italic: true, box: true, color, glossKey: k.type,
+              relationId: k.relId || undefined,
+            }),
+          );
+        }
       }
     }
   }

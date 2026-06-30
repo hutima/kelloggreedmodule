@@ -4,11 +4,15 @@ import type { DiagramElement, DiagramLayout } from '../types';
 import { LAYOUT, relationColor } from '../constants';
 import { finalize, line, resetIds, text, width } from './builder';
 import { SHORT_ROLE } from './dependency';
+import { tidyTree, columnCentres, type TreeOrientation } from './tree-layout';
 
 /**
- * CONSTITUENCY (phrase-structure) tree — the classic "S → NP VP" diagram, drawn
- * top-down with category nodes (S, NP, VP, PP…) as the internal branches and the
- * words only at the leaves, each under its part-of-speech tag.
+ * CONSTITUENCY (phrase-structure) tree — the classic "S → NP VP" diagram, with
+ * category nodes (S, NP, VP, PP…) as the internal branches and the words only at
+ * the leaves, each under its part-of-speech tag. It grows LEFT-TO-RIGHT by default
+ * (`orientation: 'horizontal'`) so sibling sentences stack down the page rather
+ * than across one very wide row; `orientation: 'vertical'` restores the classic
+ * top-down shape.
  *
  * This is NOT the dependency tree: that one links word→word with no phrasal
  * nodes. We ESTIMATE the constituency from the one shared syntax graph by
@@ -29,6 +33,7 @@ import { SHORT_ROLE } from './dependency';
 const ROOT_COLOR = '#5b6470';
 const SLOT_GAP = 28;
 const CHIP_PAD = 16; // padding added to a role-chip's text width when reserving space
+const COL_PAD = 30; // horizontal: clear space left of each depth column (room for chips)
 
 /** Part of speech → terminal (leaf) tag. */
 const POS_TAG: Partial<Record<PartOfSpeech, string>> = {
@@ -95,8 +100,12 @@ interface ConsNode {
   children: ConsNode[];
 }
 
-export function layoutConstituency(doc: KrDocument): DiagramLayout {
+export function layoutConstituency(
+  doc: KrDocument,
+  orientation: TreeOrientation = 'horizontal',
+): DiagramLayout {
   resetIds();
+  const horiz = orientation === 'horizontal';
 
   const tokenById = new Map(doc.tokens.map((t) => [t.id, t]));
   const order = new Map(doc.tokens.map((t) => [t.id, t.index]));
@@ -165,53 +174,75 @@ export function layoutConstituency(doc: KrDocument): DiagramLayout {
   const tree = build(doc.syntax.rootId, undefined, new Set());
   if (!tree) return finalize([]);
 
-  // ---- top-down tidy layout (measure widths, then place left-to-right) -------
-  const ROW = Math.round(LAYOUT.fontSize * 3.1); // category → child gap
+  // ---- tidy layout: measure the cross axis, then map (depth, cross) → (x, y) --
+  // Vertical grows top-down (depth → y); horizontal grows left-to-right (depth →
+  // x), which stacks sibling sentences down the page instead of one wide row.
+  const ROW = Math.round(LAYOUT.fontSize * 3.1); // vertical: category → child gap
   const WORD_DROP = Math.round(LAYOUT.fontSize * 1.7); // POS tag → its word
   const hasGloss = doc.tokens.some((t) => t.gloss);
 
-  // A node must reserve room for its OWN label AND the role chip that rides the
-  // branch INTO it — otherwise a narrow leaf ("who", "was") lets its chip overlap
-  // a sibling's (the clashing subj/cop/pred-adj seen in relative clauses).
+  const STEM_H = 16; // horizontal: dotted POS-tag → word connector length
+
   const chipW = (role: SyntacticRole | undefined): number =>
     role && SHORT_ROLE[role] ? width(SHORT_ROLE[role]!, true) + CHIP_PAD : 0;
-  const ownWidth = (n: ConsNode): number => {
-    const label = n.word ? Math.max(width(n.word), width(n.cat, true), n.gloss ? width(n.gloss, true) : 0) : width(n.cat);
-    return Math.max(label, chipW(n.role)) + SLOT_GAP;
-  };
-  const subW = new Map<ConsNode, number>();
-  const measure = (n: ConsNode): number => {
-    let w = ownWidth(n);
-    if (n.children.length) w = Math.max(w, n.children.reduce((a, c) => a + measure(c), 0));
-    subW.set(n, w);
-    return w;
-  };
-  measure(tree);
+  // The word (+ gloss beneath) block of a terminal — its width, the two stacked.
+  const wordBlockW = (n: ConsNode): number =>
+    Math.max(width(n.word ?? ''), n.gloss && hasGloss && n.gloss !== n.word ? width(n.gloss, true) : 0);
+  // A node's OWN width along the WRITING direction. Vertical stacks a terminal's
+  // POS tag above its word, so the leaf is only as wide as the widest line;
+  // horizontal lays "tag ⋯ word" in a row, so it is that whole run wide.
+  const textW = (n: ConsNode): number =>
+    n.word ? Math.max(width(n.word), width(n.cat, true), n.gloss ? width(n.gloss, true) : 0) : width(n.cat);
+  const nodeWh = (n: ConsNode): number =>
+    n.word ? (n.cat ? width(n.cat, true) + STEM_H : 0) + wordBlockW(n) : width(n.cat);
+  // Cross-axis footprint when VERTICAL: text width + the role chip riding the
+  // branch into it (so a narrow leaf's chip can't overlap a sibling) + padding.
+  const ownWidth = (n: ConsNode): number => Math.max(textW(n), chipW(n.role)) + SLOT_GAP;
+  // Cross-axis footprint when HORIZONTAL: one row, plus a second line below a
+  // terminal that carries an English gloss under its word.
+  const crossH = (n: ConsNode): number =>
+    Math.round(LAYOUT.fontSize * (n.word && n.gloss && hasGloss && n.gloss !== n.word ? 2.8 : 1.9));
+
+  const { cross, depth, byDepth } = tidyTree(tree, (n) => n.children, horiz ? crossH : ownWidth);
+
+  const xy = new Map<ConsNode, { x: number; y: number }>();
+  if (horiz) {
+    const colWidth = byDepth.map((list) => Math.max(0, ...list.map(nodeWh)));
+    const centres = columnCentres(colWidth, (d) =>
+      d === 0 ? COL_PAD : Math.max(0, ...byDepth[d]!.map((n) => chipW(n.role))) + COL_PAD,
+    );
+    for (const [n, d] of depth) xy.set(n, { x: centres[d]!, y: cross.get(n)! });
+  } else {
+    for (const [n, d] of depth) xy.set(n, { x: cross.get(n)!, y: d * ROW });
+  }
 
   const elements: DiagramElement[] = [];
-  // depth → y; a terminal also draws its word a fixed drop below its POS tag.
-  const place = (n: ConsNode, left: number, depth: number): { x: number; y: number } => {
-    const y = depth * ROW;
-    let x: number;
-    if (n.children.length) {
-      let cx = left + (subW.get(n)! - n.children.reduce((a, c) => a + subW.get(c)!, 0)) / 2;
-      const pts: { x: number; y: number }[] = [];
-      for (const c of n.children) {
-        const p = place(c, cx, depth + 1);
-        pts.push(p);
-        cx += subW.get(c)!;
-      }
-      x = (Math.min(...pts.map((p) => p.x)) + Math.max(...pts.map((p) => p.x))) / 2;
-      // Branches from this category down to each child.
-      for (let i = 0; i < n.children.length; i++) {
-        const c = n.children[i]!;
-        const p = pts[i]!;
-        const color = c.role ? relationColor(c.role) : ROOT_COLOR;
+
+  const draw = (n: ConsNode): void => {
+    const { x, y } = xy.get(n)!;
+    for (const c of n.children) {
+      const p = xy.get(c)!;
+      const color = c.role ? relationColor(c.role) : ROOT_COLOR;
+      const lbl = c.role ? SHORT_ROLE[c.role] : undefined;
+      if (horiz) {
+        // Branch steps rightward and stops at the role chip's LEFT edge (no line
+        // under the bubble); the chip sits centred in the gap before the child.
+        const x1 = x + nodeWh(n) / 2 + 6;
+        const wordLeft = p.x - nodeWh(c) / 2;
+        let x2 = wordLeft - 5;
+        if (lbl) {
+          const bw = width(lbl, true) + 10; // matches the renderer's chip padding
+          const chipCx = wordLeft - 5 - bw / 2;
+          x2 = chipCx - bw / 2;
+          elements.push(
+            text(chipCx, p.y, lbl, { anchor: 'middle', small: true, italic: true, box: true, color, glossKey: c.role }),
+          );
+        }
+        elements.push(line(x1, y, x2, p.y, 'connector', 'solid', { color }));
+      } else {
+        // Branch drops downward; its role label sits directly above the child
+        // (centred in the child's column) so sibling chips never pile up.
         elements.push(line(x, y + 6, p.x, p.y - LAYOUT.fontSize, 'connector', 'solid', { color }));
-        // The grammatical role labels the branch — placed directly ABOVE the child
-        // (centred in the child's reserved column) rather than at the branch
-        // midpoint, so sibling chips can never pile up where the branches converge.
-        const lbl = c.role ? SHORT_ROLE[c.role] : undefined;
         if (lbl) {
           elements.push(
             text(p.x, p.y - LAYOUT.fontSize - 7, lbl, {
@@ -220,13 +251,29 @@ export function layoutConstituency(doc: KrDocument): DiagramLayout {
           );
         }
       }
-    } else {
-      x = left + subW.get(n)! / 2;
+      draw(c);
     }
 
-    if (n.word) {
-      // Terminal: POS tag, then the word just below it (dotted leaf), gloss under.
-      // The POS tag is tappable for a plain-English definition (glossary popover).
+    if (n.word && horiz) {
+      // Horizontal terminal reads left-to-right: POS tag ⋯ word (gloss beneath the
+      // word), so the leaf grows the same direction as the tree.
+      const w = nodeWh(n);
+      const left = x - w / 2;
+      const tagW = n.cat ? width(n.cat, true) : 0;
+      let wx = x;
+      if (n.cat) {
+        elements.push(text(left + tagW / 2, y, n.cat, { anchor: 'middle', small: true, italic: true, muted: true, glossKey: posGlossKey(n.cat) }));
+        const sy = y - LAYOUT.fontSize * 0.32; // dotted stem at mid text-height
+        elements.push(line(left + tagW + 2, sy, left + tagW + STEM_H - 2, sy, 'stem', 'dotted', { color: ROOT_COLOR }));
+        wx = left + tagW + STEM_H + wordBlockW(n) / 2;
+      }
+      elements.push(text(wx, y, n.word, { anchor: 'middle', nodeId: n.nodeId, muted: n.implied, italic: n.implied }));
+      if (n.gloss && hasGloss && n.gloss !== n.word) {
+        elements.push(text(wx, y + LAYOUT.fontSize + 2, n.gloss, { anchor: 'middle', small: true, muted: true, nodeId: n.nodeId }));
+      }
+    } else if (n.word) {
+      // Vertical terminal: POS tag, then the word a fixed drop below it (dotted
+      // leaf), gloss under.
       if (n.cat) {
         elements.push(text(x, y, n.cat, { anchor: 'middle', small: true, italic: true, muted: true, glossKey: posGlossKey(n.cat) }));
       }
@@ -241,9 +288,8 @@ export function layoutConstituency(doc: KrDocument): DiagramLayout {
       // and still highlights its constituent on hover via its head node id.
       elements.push(text(x, y, n.cat, { anchor: 'middle', nodeId: n.nodeId, color: ROOT_COLOR, glossKey: phraseGlossKey(n.cat) }));
     }
-    return { x, y };
   };
-  place(tree, 0, 0);
+  draw(tree);
 
   return finalize(elements);
 }
