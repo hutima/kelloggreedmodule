@@ -204,6 +204,78 @@ describe('substantival / clausal subject on a pedestal', () => {
   });
 });
 
+describe('coordinate clause spine gives a pedestalled clause extra clearance', () => {
+  // A compound sentence "[clause A] καὶ [clause B]" drawn on the verb-to-verb
+  // spine. When clause B raises a pedestal (a substantival subject standing in a
+  // noun slot above its own baseline), the inter-clause gap must grow so the
+  // platform clears clause A's descenders rather than crowding into them.
+  function spine(secondHasPedestal: boolean): KrDocument {
+    const nodes: unknown[] = [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      // Clause A: subject + verb with a deep prepositional modifier.
+      { id: 'CA', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'SA', kind: 'word', role: 'subject', tokenIds: ['sa'] },
+      { id: 'VA', kind: 'word', role: 'predicate', tokenIds: ['va'] },
+      { id: 'PREP', kind: 'word', role: 'adverbial', tokenIds: ['prep'] },
+      { id: 'POBJ', kind: 'word', role: 'prepositionObject', tokenIds: ['pobj'] },
+      // Clause B: a coordinate member.
+      { id: 'CB', kind: 'clause', clauseType: 'coordinate', tokenIds: [] },
+      { id: 'VB', kind: 'word', role: 'predicate', tokenIds: ['vb'] },
+      { id: 'COORD', kind: 'word', role: 'coordinator', tokenIds: ['kai'] },
+    ];
+    const relations: unknown[] = [
+      { id: 'r1', type: 'conjunct', headId: 'n_root', dependentId: 'CA' },
+      { id: 'r2', type: 'conjunct', headId: 'n_root', dependentId: 'CB' },
+      { id: 'r3', type: 'coordinator', headId: 'n_root', dependentId: 'COORD' },
+      { id: 'r4', type: 'subject', headId: 'CA', dependentId: 'SA' },
+      { id: 'r5', type: 'predicate', headId: 'CA', dependentId: 'VA' },
+      { id: 'r6', type: 'adverbial', headId: 'VA', dependentId: 'PREP' },
+      { id: 'r7', type: 'prepositionObject', headId: 'PREP', dependentId: 'POBJ' },
+      { id: 'r9', type: 'predicate', headId: 'CB', dependentId: 'VB' },
+    ];
+    const tokens: unknown[] = [
+      { id: 'sa', index: 0, surface: 'γόνυ', pos: 'noun' },
+      { id: 'va', index: 1, surface: 'κάμψῃ', pos: 'verb' },
+      { id: 'prep', index: 2, surface: 'ἐν', pos: 'preposition' },
+      { id: 'pobj', index: 3, surface: 'ὀνόματι', pos: 'noun' },
+      { id: 'vb', index: 4, surface: 'ἐξομολογήσηται', pos: 'verb' },
+      { id: 'kai', index: 5, surface: 'καὶ', pos: 'conjunction' },
+    ];
+    if (secondHasPedestal) {
+      // A substantival (clausal) subject on clause B → rides a pedestal.
+      nodes.push(
+        { id: 'SB', kind: 'clause', clauseType: 'participial', tokenIds: [] },
+        { id: 'PARTB', kind: 'word', role: 'predicate', tokenIds: ['partb'] },
+      );
+      relations.push(
+        { id: 'r8', type: 'subject', headId: 'CB', dependentId: 'SB' },
+        { id: 'r10', type: 'predicate', headId: 'SB', dependentId: 'PARTB' },
+      );
+      tokens.push({ id: 'partb', index: 6, surface: 'ΧΡΙΣΤΟΣ', pos: 'participle' });
+    }
+    return build(nodes, relations, tokens, 'spine', 'n_root');
+  }
+
+  it('pushes the pedestalled clause further down than a bare one', () => {
+    const bare = layoutDocument(spine(false));
+    const ped = layoutDocument(spine(true));
+    const bareVb = textEl(bare, 'ἐξομολογήσηται')!;
+    const pedVb = textEl(ped, 'ἐξομολογήσηται')!;
+    // The pedestal's above-baseline height is reserved as extra gap, so clause B's
+    // baseline sits lower when it carries a platform than when it does not.
+    expect(pedVb.y).toBeGreaterThan(bareVb.y);
+  });
+
+  it('keeps clause B pedestal clear of clause A descenders', () => {
+    const ped = layoutDocument(spine(true));
+    const upperLow = textEl(ped, 'ὀνόματι')!; // deepest descender of clause A
+    const pedestal = textEl(ped, 'ΧΡΙΣΤΟΣ')!; // platform of clause B
+    // The platform of the lower clause must sit below the upper clause's
+    // descenders (greater y), not interleaved with them.
+    expect(pedestal.y).toBeGreaterThan(upperLow.y);
+  });
+});
+
 describe('introductory particle on a dotted stem', () => {
   // "γάρ … ἐστὶν ταῦτα" — γάρ introduces the whole clause.
   const doc = build(
