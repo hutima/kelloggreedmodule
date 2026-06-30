@@ -313,6 +313,159 @@ const RAW = {
       alternateReadingIds: ['alt_1tim_3_16_theos', 'alt_1tim_3_16_neuter'],
       bibliography: ['Metzger, Textual Commentary, 1 Timothy 3:16.'],
     },
+
+    // ─────────────── Romans 3:22 (semantic — πίστις Χριστοῦ) ───────────────
+    {
+      id: 'iss_rom_3_22_pistis_christou',
+      passageId: 'gnt_romans_65',
+      verseRef: 'Romans 3:22',
+      kind: 'genitive',
+      sourceType: 'semantic-only',
+      severity: 'major',
+      label: 'πίστεως Ἰησοῦ Χριστοῦ — objective or subjective genitive',
+      shortLabel: 'πίστις Χριστοῦ',
+      summary:
+        'The base tree marks Ἰησοῦ Χριστοῦ as a genitive dependent of πίστεως. The same tree supports more than one construal: faith DIRECTED TOWARD Christ (objective), the faithfulness OF Christ (subjective), or a broader/plenary sense.',
+      affectedTokenIds: ['t_450030220050010', 't_450030220060010', 't_450030220070010'],
+      affectedRelationIds: ['r_s65_18'],
+      defaultReading: {
+        label: 'Genitive (unspecified force)',
+        description:
+          'Ἰησοῦ Χριστοῦ is a genitive modifier of πίστεως; the base does not fix its semantic force.',
+        parseSummary: 'πίστεως → Ἰησοῦ Χριστοῦ (genitive)',
+      },
+      alternateReadingIds: [
+        'alt_rom_3_22_objective',
+        'alt_rom_3_22_subjective',
+        'alt_rom_3_22_plenary',
+      ],
+      notes: 'Part of the wider πίστις Χριστοῦ cluster (cf. Galatians 2:16; Philippians 3:9).',
+    },
+
+    // ─────────────── Galatians 2:16 (semantic — πίστις Χριστοῦ) ───────────────
+    {
+      id: 'iss_gal_2_16_pistis_christou',
+      passageId: 'gnt_galatians_28',
+      verseRef: 'Galatians 2:16',
+      kind: 'genitive',
+      sourceType: 'semantic-only',
+      severity: 'major',
+      label: 'πίστεως Χριστοῦ — objective or subjective genitive',
+      shortLabel: 'πίστις Χριστοῦ',
+      summary:
+        'Galatians 2:16 carries the genitive twice (διὰ πίστεως Χριστοῦ Ἰησοῦ … ἐκ πίστεως Χριστοῦ). The base marks Χριστοῦ as a genitive of πίστεως in both; the construal is debated — faith IN Christ (objective) or the faithfulness OF Christ (subjective).',
+      affectedTokenIds: [
+        't_480020160130010',
+        't_480020160140010',
+        't_480020160250010',
+        't_480020160260010',
+      ],
+      affectedRelationIds: ['r_s28_25', 'r_s28_39'],
+      defaultReading: {
+        label: 'Genitive (unspecified force)',
+        description:
+          'Χριστοῦ is a genitive modifier of πίστεως in both occurrences; the base does not fix its force.',
+        parseSummary: 'πίστεως → Χριστοῦ (genitive)',
+      },
+      alternateReadingIds: ['alt_gal_2_16_objective', 'alt_gal_2_16_subjective'],
+      bibliography: ['Wallace, Greek Grammar Beyond the Basics, “πίστις Χριστοῦ”.'],
+    },
+
+    // ─────────────── Colossians 1:15 (semantic — firstborn genitive) ───────────────
+    {
+      id: 'iss_col_1_15_firstborn',
+      passageId: 'gnt_colossians_3',
+      verseRef: 'Colossians 1:15',
+      kind: 'genitive',
+      sourceType: 'semantic-only',
+      severity: 'major',
+      label: 'πρωτότοκος πάσης κτίσεως — relation of the genitive',
+      shortLabel: 'firstborn of creation',
+      summary:
+        'The base marks κτίσεως as a genitive of πρωτότοκος. Its relation is debated: a genitive of subordination (firstborn — first in rank — OVER all creation), or a partitive genitive (firstborn WITHIN creation, part of the created order).',
+      affectedTokenIds: ['t_510010150080010', 't_510010150090010', 't_510010150100010'],
+      affectedRelationIds: ['r_s3_116'],
+      defaultReading: {
+        label: 'Genitive (unspecified relation)',
+        description:
+          'κτίσεως is a genitive modifier of πρωτότοκος; the base does not fix whether it is partitive or a genitive of subordination.',
+        parseSummary: 'πρωτότοκος → κτίσεως (genitive)',
+      },
+      alternateReadingIds: ['alt_col_1_15_supremacy', 'alt_col_1_15_partitive'],
+      bibliography: ['Wallace, Greek Grammar Beyond the Basics, “Genitive of Subordination”.'],
+    },
+
+    // ─────────────── Colossians 2:18 (semantic — worship of angels) ───────────────
+    {
+      id: 'iss_col_2_18_angels',
+      passageId: 'gnt_colossians_17',
+      verseRef: 'Colossians 2:18',
+      kind: 'genitive',
+      sourceType: 'semantic-only',
+      severity: 'review',
+      label: 'θρησκείᾳ τῶν ἀγγέλων — objective or subjective genitive',
+      shortLabel: 'worship of angels',
+      summary:
+        'The base marks ἀγγέλων as a genitive of θρησκείᾳ. Objective: worship DIRECTED TO angels; subjective: the angels’ OWN heavenly worship, which the visionary claims to join.',
+      affectedTokenIds: ['t_510020180080010', 't_510020180090010', 't_510020180100010'],
+      affectedRelationIds: ['r_s17_6'],
+      defaultReading: {
+        label: 'Genitive (unspecified force)',
+        description:
+          'ἀγγέλων is a genitive modifier of θρησκείᾳ; the base does not fix the direction of the worship.',
+        parseSummary: 'θρησκείᾳ → ἀγγέλων (genitive)',
+      },
+      alternateReadingIds: ['alt_col_2_18_objective', 'alt_col_2_18_subjective'],
+    },
+
+    // ─────────────── Ephesians 2:8-9 (review — antecedent of τοῦτο) ───────────────
+    {
+      id: 'iss_eph_2_8_touto',
+      passageId: 'gnt_ephesians_13',
+      verseRef: 'Ephesians 2:8-9',
+      kind: 'other',
+      sourceType: 'review-only',
+      severity: 'major',
+      label: 'Antecedent of neuter τοῦτο (“and this is God’s gift”)',
+      shortLabel: 'τοῦτο',
+      summary:
+        'The neuter demonstrative τοῦτο has no neuter noun beside it to agree with — χάρις (grace) and πίστις (faith) are both feminine. Its antecedent is therefore debated: faith, grace, or (most commonly) the whole “by grace … through faith” salvation event of the previous clause. The base does not resolve the referent.',
+      pastoralNote:
+        'A clear case where Greek gender rules out a tidy one-word antecedent and points to the whole preceding idea.',
+      affectedTokenIds: ['t_490020080090010', 't_490020080150010'],
+      affectedNodeIds: ['w_490020080090010'],
+      defaultReading: {
+        label: 'Refers to the whole salvation event',
+        description:
+          'The neuter τοῦτο looks back to the entire “by grace … through faith” clause rather than to a single feminine noun.',
+        parseSummary: 'τοῦτο ← (salvation by grace through faith)',
+      },
+      alternateReadingIds: ['alt_eph_2_8_faith', 'alt_eph_2_8_grace'],
+      bibliography: ['Mounce, “Antecedents and Faith (Eph 2:8-9)”.'],
+    },
+
+    // ─────────────── Acts 2:38 (semantic — force of εἰς) ───────────────
+    {
+      id: 'iss_acts_2_38_eis_aphesin',
+      passageId: 'gnt_acts_46',
+      verseRef: 'Acts 2:38',
+      kind: 'semantic',
+      sourceType: 'semantic-only',
+      severity: 'major',
+      label: 'εἰς ἄφεσιν τῶν ἁμαρτιῶν — force of εἰς',
+      shortLabel: 'εἰς ἄφεσιν',
+      summary:
+        'The base hangs εἰς ἄφεσιν as an adverbial under βαπτισθήτω. The relation εἰς expresses is debated: purpose/result (“so as to receive forgiveness”) or reference/basis (“with reference to / on the basis of forgiveness”).',
+      affectedTokenIds: ['t_440020380070010', 't_440020380150010', 't_440020380160010'],
+      affectedRelationIds: ['r_s46_19', 'r_s46_18'],
+      defaultReading: {
+        label: 'Adverbial εἰς-phrase under βαπτισθήτω',
+        description:
+          'εἰς ἄφεσιν modifies βαπτισθήτω; the base does not fix whether εἰς is purpose/result or reference/basis.',
+        parseSummary: 'βαπτισθήτω → εἰς ἄφεσιν (adverbial)',
+      },
+      alternateReadingIds: ['alt_acts_2_38_purpose', 'alt_acts_2_38_basis'],
+    },
   ],
 
   readings: [
@@ -595,6 +748,218 @@ const RAW = {
         affectedBaseTokenIds: ['t_540030160090010'],
         variantTokens: [{ surface: 'ὅ', lemma: 'ὅς', gloss: 'which' }],
         note: 'Agrees with μυστήριον (neuter).',
+      },
+    },
+
+    // Romans 3:22 — three semantic senses, same tree
+    {
+      id: 'alt_rom_3_22_objective',
+      issueId: 'iss_rom_3_22_pistis_christou',
+      passageId: 'gnt_romans_65',
+      label: 'Objective genitive — faith in Christ',
+      shortLabel: 'faith in Christ',
+      interpretation: 'Christ is the object of the believer’s faith.',
+      description: 'Reads πίστεως Ἰησοῦ Χριστοῦ as “faith directed toward Jesus Christ”.',
+      sourceType: 'semantic-only',
+      confidence: 'medium',
+      semanticOverlay: {
+        relationId: 'r_s65_18',
+        semanticLabel: 'objective genitive',
+        explanation: 'Christ is the object of faith — “faith in Christ”.',
+      },
+    },
+    {
+      id: 'alt_rom_3_22_subjective',
+      issueId: 'iss_rom_3_22_pistis_christou',
+      passageId: 'gnt_romans_65',
+      label: 'Subjective genitive — the faithfulness of Christ',
+      shortLabel: 'faithfulness of Christ',
+      interpretation: 'Christ is the one who is faithful.',
+      description: 'Reads πίστεως Ἰησοῦ Χριστοῦ as “the faithfulness of Jesus Christ”.',
+      sourceType: 'semantic-only',
+      confidence: 'medium',
+      semanticOverlay: {
+        relationId: 'r_s65_18',
+        semanticLabel: 'subjective genitive',
+        explanation: 'Christ is the subject — his own faithfulness.',
+      },
+    },
+    {
+      id: 'alt_rom_3_22_plenary',
+      issueId: 'iss_rom_3_22_pistis_christou',
+      passageId: 'gnt_romans_65',
+      label: 'Plenary / broader genitive',
+      shortLabel: 'plenary',
+      interpretation: 'Both senses are held together.',
+      description: 'Reads the genitive broadly, holding both the believer’s faith and Christ’s faithfulness.',
+      sourceType: 'semantic-only',
+      confidence: 'low',
+      semanticOverlay: {
+        relationId: 'r_s65_18',
+        semanticLabel: 'plenary genitive',
+        explanation: 'A deliberately broad construal that does not force a single direction.',
+      },
+    },
+
+    // Galatians 2:16 — two semantic senses, same tree (anchored on the first occurrence)
+    {
+      id: 'alt_gal_2_16_objective',
+      issueId: 'iss_gal_2_16_pistis_christou',
+      passageId: 'gnt_galatians_28',
+      label: 'Objective genitive — faith in Christ',
+      shortLabel: 'faith in Christ',
+      interpretation: 'Christ is the object of faith.',
+      description: 'Reads πίστεως Χριστοῦ as “faith directed toward Christ”.',
+      sourceType: 'semantic-only',
+      confidence: 'medium',
+      semanticOverlay: {
+        relationId: 'r_s28_25',
+        semanticLabel: 'objective genitive',
+        explanation: 'Christ is the object of faith — “faith in Christ”.',
+      },
+    },
+    {
+      id: 'alt_gal_2_16_subjective',
+      issueId: 'iss_gal_2_16_pistis_christou',
+      passageId: 'gnt_galatians_28',
+      label: 'Subjective genitive — the faithfulness of Christ',
+      shortLabel: 'faithfulness of Christ',
+      interpretation: 'Christ is the one who is faithful.',
+      description: 'Reads πίστεως Χριστοῦ as “the faithfulness of Christ”.',
+      sourceType: 'semantic-only',
+      confidence: 'medium',
+      semanticOverlay: {
+        relationId: 'r_s28_25',
+        semanticLabel: 'subjective genitive',
+        explanation: 'Christ is the subject — his own faithfulness.',
+      },
+    },
+
+    // Colossians 1:15 — relation of the genitive (same tree)
+    {
+      id: 'alt_col_1_15_supremacy',
+      issueId: 'iss_col_1_15_firstborn',
+      passageId: 'gnt_colossians_3',
+      label: 'Genitive of subordination — firstborn over creation',
+      shortLabel: 'over creation',
+      interpretation: 'Christ ranks over all creation as its firstborn/heir.',
+      description:
+        'Reads πρωτότοκος πάσης κτίσεως as “firstborn — first in rank — over all creation”, with v. 16 (“for in him all things were created”) as the ground.',
+      sourceType: 'semantic-only',
+      confidence: 'medium',
+      semanticOverlay: {
+        relationId: 'r_s3_116',
+        semanticLabel: 'genitive of subordination (supremacy over)',
+        explanation: 'Christ is supreme over creation, not part of it — “firstborn” marks rank/heirship.',
+      },
+    },
+    {
+      id: 'alt_col_1_15_partitive',
+      issueId: 'iss_col_1_15_firstborn',
+      passageId: 'gnt_colossians_3',
+      label: 'Partitive genitive — firstborn within creation',
+      shortLabel: 'within creation',
+      interpretation: 'Christ is the first member of the created order.',
+      description: 'Reads the genitive partitively — “firstborn within creation” — making Christ part of what is created.',
+      sourceType: 'semantic-only',
+      confidence: 'low',
+      semanticOverlay: {
+        relationId: 'r_s3_116',
+        semanticLabel: 'partitive genitive',
+        explanation: 'Takes πρωτότοκος as one of the κτίσις — the reading the surrounding context is usually read against.',
+      },
+    },
+
+    // Colossians 2:18 — objective vs subjective genitive (same tree)
+    {
+      id: 'alt_col_2_18_objective',
+      issueId: 'iss_col_2_18_angels',
+      passageId: 'gnt_colossians_17',
+      label: 'Objective genitive — worship directed to angels',
+      shortLabel: 'worship of angels',
+      interpretation: 'The angels are the objects of worship.',
+      description: 'Reads θρησκείᾳ τῶν ἀγγέλων as veneration offered TO angels.',
+      sourceType: 'semantic-only',
+      confidence: 'medium',
+      semanticOverlay: {
+        relationId: 'r_s17_6',
+        semanticLabel: 'objective genitive',
+        explanation: 'Angels are the object — worship directed to angels.',
+      },
+    },
+    {
+      id: 'alt_col_2_18_subjective',
+      issueId: 'iss_col_2_18_angels',
+      passageId: 'gnt_colossians_17',
+      label: 'Subjective genitive — the angels’ own worship',
+      shortLabel: 'angelic worship',
+      interpretation: 'The worship is the angels’ own, which the visionary claims to share.',
+      description: 'Reads θρησκείᾳ τῶν ἀγγέλων as the heavenly worship that angels OFFER, entered through visionary ascent.',
+      sourceType: 'semantic-only',
+      confidence: 'medium',
+      semanticOverlay: {
+        relationId: 'r_s17_6',
+        semanticLabel: 'subjective genitive',
+        explanation: 'Angels are the worshippers — participation in angelic worship.',
+      },
+    },
+
+    // Ephesians 2:8-9 — antecedent candidates (review-only; no structural change)
+    {
+      id: 'alt_eph_2_8_faith',
+      issueId: 'iss_eph_2_8_touto',
+      passageId: 'gnt_ephesians_13',
+      label: 'Refers to faith',
+      shortLabel: 'faith',
+      interpretation: 'τοῦτο points to πίστις (faith) as the gift.',
+      description:
+        'Takes the gift to be faith specifically — a conceptual reference, since πίστις is feminine and τοῦτο neuter.',
+      sourceType: 'review-only',
+      confidence: 'low',
+    },
+    {
+      id: 'alt_eph_2_8_grace',
+      issueId: 'iss_eph_2_8_touto',
+      passageId: 'gnt_ephesians_13',
+      label: 'Refers to grace',
+      shortLabel: 'grace',
+      interpretation: 'τοῦτο points to χάρις (grace).',
+      description: 'Takes the gift to be grace — again a conceptual rather than grammatical-gender agreement.',
+      sourceType: 'review-only',
+      confidence: 'low',
+    },
+
+    // Acts 2:38 — force of εἰς (same tree)
+    {
+      id: 'alt_acts_2_38_purpose',
+      issueId: 'iss_acts_2_38_eis_aphesin',
+      passageId: 'gnt_acts_46',
+      label: 'Purpose / result — for forgiveness',
+      shortLabel: 'purpose',
+      interpretation: 'Baptism is oriented toward receiving forgiveness.',
+      description: 'εἰς marks the goal: “be baptized so as to receive the forgiveness of sins”.',
+      sourceType: 'semantic-only',
+      confidence: 'medium',
+      semanticOverlay: {
+        relationId: 'r_s46_19',
+        semanticLabel: 'purpose / result',
+        explanation: 'εἰς ἄφεσιν expresses the aim/result of the command.',
+      },
+    },
+    {
+      id: 'alt_acts_2_38_basis',
+      issueId: 'iss_acts_2_38_eis_aphesin',
+      passageId: 'gnt_acts_46',
+      label: 'Reference / basis — with reference to forgiveness',
+      shortLabel: 'reference',
+      interpretation: 'Baptism is on the basis of / with reference to forgiveness already granted.',
+      description: 'εἰς marks reference or basis: “be baptized with reference to (or because of) the forgiveness of sins”.',
+      sourceType: 'semantic-only',
+      confidence: 'low',
+      semanticOverlay: {
+        relationId: 'r_s46_19',
+        semanticLabel: 'reference / basis',
+        explanation: 'Takes εἰς as causal/referential rather than telic.',
       },
     },
   ],
