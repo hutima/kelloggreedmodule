@@ -146,6 +146,9 @@ export class SentenceConverter {
    * label (Kellogg-Reed writes the subordinator on the dotted connecting line).
    */
   private subLabel = new Map<string, string>();
+  /** Representative node id → the subordinator's own NODE id (so the connector
+   *  label that rides the line is selectable and can show word details). */
+  private subLabelNode = new Map<string, string>();
   private seq = 0;
 
   constructor(
@@ -173,13 +176,17 @@ export class SentenceConverter {
 
   private rel(type: SyntacticRole, headId: string, dependentId: string, label?: string): void {
     if (headId === dependentId) return;
+    // An explicit label wins; otherwise inherit a stashed subordinator, if any —
+    // and carry the subordinator's own node so the connector label is selectable.
+    const inheritedLabel = label ?? this.subLabel.get(dependentId);
+    const labelNodeId = label ? undefined : this.subLabelNode.get(dependentId);
     this.relations.push({
       id: `r_${this.idPrefix}${this.seq++}`,
       type,
       headId,
       dependentId,
-      // An explicit label wins; otherwise inherit a stashed subordinator, if any.
-      label: label ?? this.subLabel.get(dependentId),
+      label: inheritedLabel,
+      ...(labelNodeId ? { labelNodeId } : {}),
       provenance: { source: 'given', confidence: 'high' },
     });
   }
@@ -233,29 +240,6 @@ export class SentenceConverter {
     this.nodes.push({ id: nodeId, kind: 'word', tokenIds: [tokenId], provenance: { source: 'given', confidence: 'high' } });
     this.wordNodeId.set(w, nodeId);
     return nodeId;
-  }
-
-  /**
-   * Create just the TOKEN for a `<w>` leaf (no syntax node), once. Used for a
-   * subordinator/connector word that is shown as a relation LABEL rather than as
-   * its own node — so it still appears in the source text and token stream
-   * (complete + selectable) without being drawn twice on the diagram.
-   */
-  private wordToken(w: Element): void {
-    if (this.wordNodeId.has(w)) return; // already realized by a node + token
-    const tokenId = `t_${this.key(w)}`;
-    if (this.tokens.some((t) => t.id === tokenId)) return;
-    this.tokens.push({
-      id: tokenId,
-      index: this.tokens.length,
-      surface: this.dialect.surfaceOf(w),
-      language: this.dialect.language,
-      pos: this.dialect.posOf(w),
-      lemma: this.dialect.lemmaOf(w),
-      gloss: this.dialect.glossOf(w),
-      morphology: this.dialect.morphOf(w),
-      provenance: { source: 'given', confidence: 'high' },
-    });
   }
 
   private headChild(el: Element): Element | undefined {
@@ -338,20 +322,24 @@ export class SentenceConverter {
 
       if (clauseKids.length === 1) {
         // The bare word(s) are the subordinator (ὅτι, ἵνα, ὡς …) introducing the
-        // clause. Keep them as TOKENS (in surface order, before the clause's own
-        // tokens) so the source text is complete and they're selectable — but with
-        // no node, since they ride the connecting line as the clause's label, not
-        // as a separate word on the diagram.
+        // clause. Give them a NODE (token + word) so the source text is complete
+        // and the connector is SELECTABLE with full word details — but DON'T
+        // attach it anywhere in the tree, so it is never drawn as a separate
+        // baseline word; it rides the connecting line as the clause's label, and
+        // the linking relation points at it via `labelNodeId`.
         const subParts: string[] = [];
+        let subNodeId: string | undefined;
         for (const kid of kids) {
           if (this.isClauseLike(kid)) continue;
-          this.wordToken(kid);
+          const nodeId = this.wordNode(kid); // token + node, but left unattached
+          if (subNodeId === undefined) subNodeId = nodeId; // label points at the first
           const s = (kid.textContent ?? '').trim();
           if (s) subParts.push(s);
         }
         const rep = this.convert(clauseKids[0]!);
         const sub = subParts.join(' ');
         if (sub && !this.subLabel.has(rep)) this.subLabel.set(rep, sub);
+        if (subNodeId && !this.subLabelNode.has(rep)) this.subLabelNode.set(rep, subNodeId);
         return rep;
       }
 
