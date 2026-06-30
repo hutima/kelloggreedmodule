@@ -118,13 +118,24 @@ export function GntPicker() {
   // Switching source resets the list and lands on a book that source covers.
   const changeSource = (next: Source) => {
     setSource(next);
-    setPassages(null);
-    setChecked(new Set());
     setError(null);
     setCacheState('idle');
     const list = booksFor(next);
     if (!list.some((b) => b.num === bookNum)) setBookNum(list[0]!.num);
   };
+
+  // Auto-load the sentence list whenever the source or book changes — the manual
+  // Load button is redundant. A list seeded from the open passage skips the first
+  // fetch (the ref starts matched), and the loaders/service worker cache the rest.
+  const lastLoaded = useRef<string>(passages ? `${source}:${bookNum}` : '');
+  useEffect(() => {
+    const key = `${source}:${bookNum}`;
+    if (lastLoaded.current === key) return;
+    lastLoaded.current = key;
+    void loadBook(bookNum);
+    // loadBook closes over the current source; re-run only on source/book change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source, bookNum]);
 
   const saveOffline = async (num: number) => {
     const b = GNT_BOOKS.find((x) => x.num === num);
@@ -193,9 +204,7 @@ export function GntPicker() {
         </select>
       </label>
       <div className="row">
-        <button className="mini accept" disabled={loading} onClick={() => void loadBook(book.num)}>
-          {loading ? 'Loading…' : 'Load'}
-        </button>
+        {loading && <span style={{ fontSize: 12, color: 'var(--ink-soft, #667)' }}>Loading…</span>}
         {source === 'nestle1904' && (
           <button
             className="mini"
