@@ -16,21 +16,6 @@ import { KrDocumentSchema, SCHEMA_VERSION } from '@/domain/schema';
 
 const TS = '2024-01-01T00:00:00.000Z';
 
-/**
- * Coordinating conjunctions (accented lemmas). A sentence opening with one of
- * these is joined to the previous on a coordinate spine; a SUBORDINATING
- * conjunction (ὅτι, ἵνα, ὅπως, ὡς …) is deliberately excluded — it introduces a
- * dependent clause, not a coordinate sibling, so those keep the stacked layout.
- */
-const COORD_LEMMAS = new Set(
-  [
-    'καί', 'δέ', 'ἀλλά', 'ἤ', 'οὐδέ', 'οὔτε', 'τε', 'μηδέ', 'μήτε', 'εἴτε',
-    'γάρ', 'οὖν', 'διό', 'ἄρα', 'πλήν', 'διόπερ', 'τοίνυν', 'ὥστε',
-    // The same words also surface (e.g. line-initial) with a final-grave accent.
-    'καὶ', 'δὲ', 'ἀλλὰ', 'γὰρ',
-  ].map((s) => s.normalize('NFC')),
-);
-
 /** Strip the book name from a title like "Romans 5:1" → "5:1". */
 function verseOf(title: string): string {
   const m = title.match(/(\d+:\d+(?:[–-]\d+)?)\s*$/);
@@ -55,21 +40,20 @@ function prefixDoc(doc: KrDocument, p: string) {
 }
 
 /**
- * The sentence-initial COORDINATING connector on a document's root clause, if
- * any — the relation that introduces the whole sentence with καί / δέ / διό … .
- * Returns the relation + its connector node so the caller can hoist it onto a
- * coordinate spine. Subordinators are excluded (see COORD_LEMMAS).
+ * The sentence-initial explicit connector on a document's root clause, if any —
+ * the relation that introduces the whole sentence (καί / δέ / διό / ἵνα / ὅτι …).
+ * Any coordinator- or conjunction-typed root child counts: a chain of sentences
+ * each opening with an explicit connector is joined on one spine so the relation
+ * is shown, whether the link is coordinating (καί) or subordinating (ἵνα). A
+ * sentence with no leading connector (asyndeton) returns undefined, so the chain
+ * is not forced.
  */
-function leadingCoordinator(doc: KrDocument): { relId: string; nodeId: string } | undefined {
+function leadingConnector(doc: KrDocument): { relId: string; nodeId: string } | undefined {
   const kids = doc.syntax.relations.filter((r) => r.headId === doc.syntax.rootId);
   for (const r of kids) {
     if (r.type !== 'coordinator' && r.type !== 'conjunction') continue;
     const node = doc.syntax.nodes.find((n) => n.id === r.dependentId);
-    const tok = node?.tokenIds.length
-      ? doc.tokens.find((t) => t.id === node.tokenIds[0])
-      : undefined;
-    const lemma = (tok?.lemma ?? tok?.surface)?.normalize('NFC');
-    if (lemma && COORD_LEMMAS.has(lemma)) return { relId: r.id, nodeId: r.dependentId };
+    if (node?.tokenIds.length) return { relId: r.id, nodeId: r.dependentId };
   }
   return undefined;
 }
@@ -82,10 +66,10 @@ function leadingCoordinator(doc: KrDocument): { relId: string; nodeId: string } 
  * not fully coordinated, so the caller can fall back to the stacked layout.
  */
 function coordinatePassage(valid: KrDocument[]): KrDocument | null {
-  // Every sentence after the first must open with a coordinating conjunction —
-  // otherwise the relation between some pair is not an explicit coordination, and
-  // forcing a spine would misrepresent it. Fall back to stacking in that case.
-  const leads = valid.map((d) => leadingCoordinator(d));
+  // Every sentence AFTER THE FIRST must open with an explicit connector — that
+  // connector is what joins it to the clause before it. If any join is implicit
+  // (asyndeton), don't force a spine; fall back to stacking.
+  const leads = valid.map((d) => leadingConnector(d));
   if (leads.slice(1).some((l) => !l)) return null;
 
   const rootId = 'coord_root';
@@ -101,11 +85,14 @@ function coordinatePassage(valid: KrDocument[]): KrDocument | null {
     // Re-index tokens into one monotonic surface stream across all sentences.
     for (const t of pre.tokens) tokens.push({ ...t, index: nextIndex++ });
     nodes.push(...pre.nodes);
-    const lead = leads[i];
+    // Hoist the JOINING connector (every sentence after the first) onto the
+    // coordinate root as a coordinator riding the spine bar between the clauses.
+    // The FIRST sentence's own lead (e.g. διό) is left inside its clause, where it
+    // renders as that clause's introductory connective — so the spine carries one
+    // connector per join, never one-per-member (which would read as a correlative).
+    const lead = i >= 1 ? leads[i] : undefined;
     const leadRelId = lead ? `s${i}_${lead.relId}` : undefined;
     for (const r of pre.relations) {
-      // Hoist this sentence's leading conjunction onto the coordinate root as a
-      // coordinator (riding the spine), instead of leaving it inside the clause.
       if (r.id === leadRelId) {
         relations.push({ ...r, type: 'coordinator', headId: rootId });
       } else {
