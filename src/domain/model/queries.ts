@@ -79,6 +79,45 @@ export function tidyGloss(gloss: string | undefined): string {
 }
 
 /**
+ * Fallback English glosses for Greek FUNCTION WORDS the base data often leaves
+ * unglossed (subordinating conjunctions, relative pronouns). Without these, a
+ * subordinator/relative — whether shown as a word or written on a connecting line
+ * as a clause's label — stays Greek in English-gloss mode. Keyed by the ACCENTED
+ * surface so a relative (ὅς, ὅ, ᾧ …) is never confused with the look-alike article
+ * (ὁ, τό, ᾧ) that differs only by accent/breathing.
+ */
+export const GRC_FUNCTION_GLOSS: Record<string, string> = {
+  // subordinating conjunctions
+  ὅτι: 'that',
+  ἵνα: 'so that',
+  ὡς: 'as',
+  ὅπως: 'so that',
+  ὥστε: 'so that',
+  ὅτε: 'when',
+  ὅταν: 'when',
+  ἐάν: 'if',
+  εἰ: 'if',
+  καθώς: 'as',
+  ἐπεί: 'since',
+  ἐπειδή: 'since',
+  διότι: 'because',
+  ἕως: 'until',
+  πρίν: 'before',
+  // relative pronoun (ὅς family) — "who / which"
+  ὅς: 'who', ὅ: 'which', ἥ: 'who', οἵ: 'who', αἵ: 'who', ἅ: 'which',
+  οὗ: 'whose', ἧς: 'whose', ὧν: 'whose', ᾧ: 'to whom', ᾗ: 'to whom',
+  οἷς: 'to whom', αἷς: 'to whom', ὅν: 'whom', ἥν: 'whom', οὕς: 'whom', ἅς: 'whom',
+};
+
+/** Gloss the (possibly multi-word) connector label of a relation for gloss mode. */
+function glossGreekLabel(label: string): string {
+  return label
+    .split(/\s+/)
+    .map((w) => GRC_FUNCTION_GLOSS[w] ?? w)
+    .join(' ');
+}
+
+/**
  * A display-only copy of the document with each token's surface replaced by its
  * (tidied) English gloss, falling back to the original surface when there's no
  * gloss. Ids, syntax, and layout are untouched — so the STRUCTURE is still the
@@ -89,11 +128,21 @@ export function tidyGloss(gloss: string | undefined): string {
 export function glossDoc(doc: KrDocument): KrDocument {
   return {
     ...doc,
-    tokens: doc.tokens.map((t) => ({ ...t, surface: tidyGloss(t.gloss) || t.surface })),
+    tokens: doc.tokens.map((t) => ({
+      ...t,
+      // Prefer the data's gloss; fall back to a function-word gloss (ἵνα, ὅς …)
+      // so unglossed subordinators/relatives don't stay Greek; else the surface.
+      surface: tidyGloss(t.gloss) || GRC_FUNCTION_GLOSS[t.surface] || t.surface,
+    })),
     syntax: {
       ...doc.syntax,
       nodes: doc.syntax.nodes.map((n) =>
         n.label === '(ἐστίν)' ? { ...n, label: '(is)' } : n,
+      ),
+      // Connector labels (the subordinator written on a clause's link) are Greek
+      // surfaces; gloss them too so the diagram reads fully English.
+      relations: doc.syntax.relations.map((r) =>
+        r.label ? { ...r, label: glossGreekLabel(r.label) } : r,
       ),
     },
   };
