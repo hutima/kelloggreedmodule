@@ -662,6 +662,43 @@ describe('an appositive is marked with "=" , not run on as a second object', () 
     expect(eq).toHaveLength(2); // the two strokes of "="
   });
 
+  it('keeps the predicate clear of a subject appositive, and the article under its noun', () => {
+    // "ΙΗΣΟΥΣ = ΧΡΙΣΤΟΣ | ἐστίν" with an article on ΙΗΣΟΥΣ: the subject block's
+    // width must INCLUDE the appositive (so the divider/verb sit to its right, no
+    // overlap), and ΙΗΣΟΥΣ's article slants under it, not past the appositive.
+    const d = build(
+      [
+        { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s'] },
+        { id: 'ART', kind: 'word', role: 'determiner', tokenIds: ['art'] },
+        { id: 'A', kind: 'word', role: 'apposition', tokenIds: ['a'] },
+        { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+      ],
+      [
+        { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+        { id: 'r2', type: 'determiner', headId: 'S', dependentId: 'ART' },
+        { id: 'r3', type: 'apposition', headId: 'S', dependentId: 'A' },
+        { id: 'r4', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+      ],
+      [
+        { id: 's', index: 0, surface: 'ΙΗΣΟΥΣ', pos: 'propernoun' },
+        { id: 'art', index: 1, surface: 'ὁ', pos: 'article' },
+        { id: 'a', index: 2, surface: 'ΧΡΙΣΤΟΣ', pos: 'propernoun' },
+        { id: 'v', index: 3, surface: 'ἐστίν', pos: 'verb' },
+      ],
+    );
+    const layout = layoutDocument(d);
+    const head = textEl(layout, 'ΙΗΣΟΥΣ')!;
+    const appos = textEl(layout, 'ΧΡΙΣΤΟΣ')!;
+    const art = textEl(layout, 'ὁ')!;
+    const verb = textEl(layout, 'ἐστίν')!;
+    // The verb sits to the RIGHT of the appositive (subject width includes it).
+    expect(verb.x).toBeGreaterThan(appos.x);
+    // The article stays under its noun — left of the appositive, near the head.
+    expect(art.x).toBeLessThan(appos.x);
+    expect(Math.abs(art.x - head.x)).toBeLessThan(80);
+  });
+
   it('lifts a PHRASAL appositive onto a pedestal above the head baseline', () => {
     // "ὄνομα = τὸ (ὑπὲρ …)" — the appositive carries a prepositional modifier, so
     // it is phrasal and rides a platform above the line rather than running inline.
