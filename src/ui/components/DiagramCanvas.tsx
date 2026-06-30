@@ -434,16 +434,14 @@ export function DiagramCanvas() {
   // Editing is offered only in the two editable visualizations (Kellogg-Reed and
   // Phrase/Block). The other lenses are presentation-only — even while the app is
   // in Edit mode, they behave like Explore (reader popover, no edit tools).
+  // Editing happens ONLY in the Phrase/Block (block) diagram. Every other view is
+  // a read-only rendering of the same shared graph — even in Edit mode they show
+  // a "switch to the block diagram to edit" note and otherwise behave like Explore.
   const editing = appMode === 'edit' && isEditableMode(diagramMode);
+  const editReadOnly = appMode === 'edit' && !editing;
   const editingBasic = editing && editTier === 'basic';
   const linkTool = editingBasic && activeEditTool === 'link';
   const deleteTool = editingBasic && activeEditTool === 'delete';
-
-  // Entering Edit mode on a presentation-only lens (Dependency / Morphology) drops
-  // to the default editable view, so the editor never opens on a non-editable mode.
-  useEffect(() => {
-    if (appMode === 'edit' && !isEditableMode(diagramMode)) setDiagramMode(DEFAULT_EDIT_MODE);
-  }, [appMode, diagramMode, setDiagramMode]);
 
   const onNode = (nodeId?: string) => {
     if (moved.current) return; // a drag, not a tap
@@ -615,11 +613,12 @@ export function DiagramCanvas() {
               value={diagramMode}
               onChange={(e) => setDiagramMode(e.target.value as typeof diagramMode)}
             >
-              {/* In Edit mode only the editable lenses are offered; the others are
-                  presentation-only (and the effect below snaps away from them). */}
-              {(appMode === 'edit' ? DIAGRAM_MODES.filter((m) => isEditableMode(m.id)) : DIAGRAM_MODES).map((m) => (
+              {/* Every view is selectable in Edit mode too — but only the block
+                  diagram is editable; the rest render read-only (with a note). */}
+              {DIAGRAM_MODES.map((m) => (
                 <option key={m.id} value={m.id} title={m.description}>
                   {m.label}
+                  {appMode === 'edit' && !isEditableMode(m.id) ? ' (view only)' : ''}
                 </option>
               ))}
             </select>
@@ -671,6 +670,22 @@ export function DiagramCanvas() {
       {editing && <EditModeToolbar />}
       {editing && <UnassignedWordsBank />}
       {editing && <DependencyEditOverlay />}
+      {editReadOnly && (
+        <div className="edit-readonly-note" role="note">
+          <span className="edit-readonly-icon" aria-hidden="true">👁</span>
+          <span>
+            This view is <strong>read-only</strong>. It shows what the{' '}
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => setDiagramMode(DEFAULT_EDIT_MODE)}
+            >
+              Block diagram
+            </button>{' '}
+            is saying — edit there and every view (including this one) updates.
+          </span>
+        </div>
+      )}
       {linking && (
         <div className="relink-banner">
           Click the word to use as the new <strong>{linking.end}</strong>.

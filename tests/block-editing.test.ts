@@ -40,11 +40,14 @@ function makeBase(): KrDocument {
 }
 
 describe('editable modes', () => {
-  it('only Kellogg-Reed and Phrase/Block are editable', () => {
-    expect(isEditableMode('kellogg-reed')).toBe(true);
+  it('only the Phrase/Block (block) diagram is editable; every other view is read-only', () => {
     expect(isEditableMode('phrase-block')).toBe(true);
+    // Kellogg-Reed and the rest are presentation-only — edits happen in the block
+    // diagram and are visualized everywhere else.
+    expect(isEditableMode('kellogg-reed')).toBe(false);
     expect(isEditableMode('dependency')).toBe(false);
     expect(isEditableMode('dependency-tree')).toBe(false);
+    expect(isEditableMode('constituency')).toBe(false);
     expect(isEditableMode('morphology')).toBe(false);
   });
 });

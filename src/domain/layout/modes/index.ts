@@ -46,16 +46,17 @@ export const DIAGRAM_MODES: DiagramModeInfo[] = [
 export const DEFAULT_MODE: DiagramMode = 'phrase-block';
 
 /**
- * The visualizations that support EDITING. Only the two pedagogically familiar,
- * finger-friendly structural lenses are editable: Kellogg-Reed and Phrase/Block.
- * Dependency, Dependency Tree and Morphology are presentation-only — their direct
- * graph manipulation is not user-friendly, so Edit mode falls back to one of these
- * two. Because every mode is a lens over the ONE shared syntax graph, edits made
- * here still flow through to Explore/Study in every visualization.
+ * The visualization that supports EDITING. Only the Phrase/Block (block diagram)
+ * is editable — it is the finger-friendly, structural lens where building clauses
+ * and assigning words is workable. Every OTHER view (Kellogg-Reed, Dependency,
+ * Dependency Tree, Constituency, Morphology) is a presentation-only rendering of
+ * the same one shared syntax graph: edits made in the block diagram flow through
+ * and update all of them, but you cannot edit IN them. (Kellogg-Reed in
+ * particular is just a visual of what the block diagram is saying.)
  */
-export const EDITABLE_MODES: DiagramMode[] = ['kellogg-reed', 'phrase-block'];
+export const EDITABLE_MODES: DiagramMode[] = ['phrase-block'];
 
-/** The editable mode to fall back to when Edit mode opens on a read-only one. */
+/** The editable mode to fall back to / point users toward for editing. */
 export const DEFAULT_EDIT_MODE: DiagramMode = 'phrase-block';
 
 /** Whether a visualization can be edited (the others are presentation-only). */

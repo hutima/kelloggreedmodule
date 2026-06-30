@@ -63,7 +63,7 @@ const HELP: HelpTable = {
       ],
       createRelationship:
         'Place the word, choose its Function (Subject, Verb, Object, a modifier…), then pick the clause it belongs to under In clause. For a modifier, use Move under to attach it to the word it modifies.',
-      reparent: 'Use Promote / Demote to change the outline level, In clause to move it to another clause, or Move under to pick any new parent.',
+      reparent: 'Drag a row onto another to nest it under that block, or use Promote / Demote to change the outline level, In clause to move it to another clause, or Move under to pick any new parent.',
       changeLabel: 'Select the row and choose from the Function dropdown (words) or Clause type dropdown (clauses).',
       deleteRelationship:
         'Two-step delete: Remove from diagram (or Delete key) puts a word back in the Unassigned bank; delete it there with × to remove it completely. Deleting a clause sends its words back to the bank.',

@@ -1862,6 +1862,16 @@ button.mc-code.glossed:hover {
   background: color-mix(in srgb, var(--accent) 6%, var(--panel));
 }
 .edit-toolbar .spacer { flex: 1; }
+/* Shown in Edit mode on a read-only view (every mode except the block diagram):
+   a friendly note pointing the user to where editing actually happens. */
+.edit-readonly-note {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  font-size: 13px; color: var(--ink-soft);
+}
+.edit-readonly-icon { font-size: 15px; flex: none; }
+.edit-readonly-note .link-btn { font-size: 13px; font-weight: 600; }
 .edit-toolbar-mode {
   font-size: 12px; font-weight: 700; color: var(--accent);
   text-transform: uppercase; letter-spacing: 0.4px;
@@ -1972,6 +1982,15 @@ button.mc-code.glossed:hover {
 .pbw-row.tentative { opacity: 0.7; }
 .pbw-row.targetable { outline: 2px dashed var(--accent); outline-offset: -2px; }
 .pbw-row.in-range { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+/* Drag-and-drop reparenting: a row being dragged dims; legal targets get a faint
+   dashed hint; the hovered drop slot lights up. */
+.pbw-row[draggable='true'] { cursor: grab; }
+.pbw-row.dragging { opacity: 0.45; }
+.pbw-row.drop-candidate { outline: 1px dashed var(--line-strong, #b9c0c9); outline-offset: -2px; }
+.pbw-row.drop-target {
+  outline: 2px solid var(--accent); outline-offset: -2px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
 .pbw-rail { width: 3px; align-self: stretch; border-radius: 2px; background: var(--line); flex: none; }
 .pbw-row.selected .pbw-rail { background: var(--accent); }
 .pbw-label {

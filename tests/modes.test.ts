@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { lowfatToDocuments } from '@/io/lowfat';
 import { layoutForMode, DIAGRAM_MODES, DEFAULT_MODE } from '@/domain/layout';
+import { lookupGloss } from '@/domain/model';
 import { buildSvg } from '@/io';
 
 /**
@@ -157,6 +158,19 @@ describe('constituency (phrase-structure) tree mode', () => {
     // The grammatical role rides each branch as a tappable chip.
     const chips = texts.filter((t) => t.box).map((t) => t.text);
     expect(chips).toEqual(expect.arrayContaining(['subj', 'obj']));
+  });
+
+  it('makes every category and POS-tag symbol tappable for a plain-English definition', () => {
+    const layout = layoutForMode('constituency', doc(), {}, {});
+    const texts = layout.elements.filter((e) => e.kind === 'text') as Array<{ text: string; glossKey?: string }>;
+    const byText = (t: string) => texts.find((e) => e.text === t)!;
+    // Category symbols carry a glossary key that resolves to a definition.
+    expect(lookupGloss(byText('S').glossKey)?.term).toMatch(/Sentence|Clause/);
+    expect(lookupGloss(byText('NP').glossKey)?.term).toContain('Noun phrase');
+    expect(lookupGloss(byText('VP').glossKey)?.term).toContain('Verb phrase');
+    // POS leaf tags too — and "N" must NOT collide with the neuter morphology code.
+    expect(lookupGloss(byText('N').glossKey)?.term).toContain('Noun (N)');
+    expect(lookupGloss(byText('Det').glossKey)?.term).toContain('Determiner');
   });
 
   it('prefers the gold-standard Lowfat <wg> category over the POS estimate', () => {
