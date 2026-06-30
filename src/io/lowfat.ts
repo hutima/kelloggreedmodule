@@ -243,6 +243,33 @@ export class SentenceConverter {
     return nodeId;
   }
 
+  /**
+   * Attach any word node left UNREACHABLE — neither a dependent of a relation nor
+   * the connector LABEL of one — to the root, so no source word is silently
+   * dropped. This rescues a clause-initial connective (οὖν, γάρ, δέ…) sitting on
+   * the OUTERMOST clause: Lowfat wraps it as a subordinator over the real clause,
+   * but when that clause is the document root nothing links to it, so the
+   * connective's stashed label is never consumed and its node would vanish from
+   * every view (the missing-οὖν bug). Idempotent: a word already attached or used
+   * as a referenced label is left untouched.
+   */
+  rescueOrphans(rootId: string): void {
+    const attached = new Set<string>();
+    const labelled = new Set<string>();
+    for (const r of this.relations) {
+      attached.add(r.dependentId);
+      if (r.labelNodeId) labelled.add(r.labelNodeId);
+    }
+    for (const n of this.nodes) {
+      if (n.kind !== 'word' || !n.tokenIds.length) continue;
+      if (n.id === rootId || attached.has(n.id) || labelled.has(n.id)) continue;
+      const tok = this.tokens.find((t) => n.tokenIds.includes(t.id));
+      const role: SyntacticRole =
+        tok?.pos === 'particle' ? 'particle' : tok?.pos === 'conjunction' ? 'conjunction' : 'adjunct';
+      this.rel(role, rootId, n.id);
+    }
+  }
+
   private headChild(el: Element): Element | undefined {
     const kids = constituents(el);
     return (
@@ -542,6 +569,9 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
     const conv = new SentenceConverter(`s${i}_`, greekDialect);
     const rootId = conv.convert(topWg);
     if (!conv.tokens.length) return;
+    // Rescue any word the tree walk left unattached (e.g. a clause-initial οὖν on
+    // the outermost clause) so it isn't dropped from the diagram and the source text.
+    conv.rescueOrphans(rootId);
     conv.orderTokensBySurface();
 
     const ref = verseRef(sentence);

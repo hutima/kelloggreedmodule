@@ -1188,9 +1188,15 @@ function buildSourceItems(doc: KrDocument): SourceItem[] {
   const items: SourceItem[] = [];
   let lastVerse: string | undefined;
   for (const t of doc.tokens) {
-    const v = tokenToVerse.get(t.id) ?? '';
-    if (v && v !== lastVerse) items.push({ kind: 'verse', label: v });
-    lastVerse = v;
+    const v = tokenToVerse.get(t.id);
+    // A token with no mapped verse (an unattached connector/label word such as
+    // οὖν, γάρ, ὅτι) must NOT reset the run — otherwise the next word re-emits the
+    // same marker, repeating "5:6–8" mid-sentence. Carry the current verse forward
+    // and only emit a marker on a real change.
+    if (v && v !== lastVerse) {
+      items.push({ kind: 'verse', label: v });
+      lastVerse = v;
+    }
     items.push({ kind: 'word', tid: t.id, nodeId: tokenToNode.get(t.id), surface: t.surface });
   }
   return items;

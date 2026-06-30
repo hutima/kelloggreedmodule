@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { lowfatToDocuments } from '@/io/lowfat';
 import { KrDocumentSchema } from '@/domain/schema';
 import { layoutDocument } from '@/domain/layout';
+import { unassignedTokens } from '@/domain/model';
 
 /**
  * The gold-standard GNT mode converts published Nestle1904 Lowfat syntax trees
@@ -196,6 +197,31 @@ describe('Lowfat clause coordination & subordination', () => {
     expect(link.label).toBe('ὅτι');
     // The connector label points at ὅτι's node so a click shows its word details.
     expect(link.labelNodeId).toBe(otiNode!.id);
+  });
+
+  it('rescues a clause-initial connective on the OUTERMOST clause (οὖν), instead of dropping it', () => {
+    // 2 Corinthians 5:6-8 shape: Lowfat wraps a sentence-initial οὖν as a
+    // subordinator over the real clause, but that clause is the document ROOT, so
+    // nothing links to it and οὖν's stashed label is never consumed. Without a
+    // rescue, οὖν vanishes from every view AND its missing verse breaks the source
+    // strip's verse run. The converter must still attach it.
+    const xml = `<book name="Test"><sentence>
+      <milestone unit="verse" id="2Cor.5.6"/>
+      <wg role="cl"><wg class="cl" rule="Conj-CL">
+        <w class="conj" lemma="οὖν" n="010010010010010">οὖν</w>
+        <wg class="cl"><w class="verb" role="v" n="010010010020010">θαρροῦμεν</w><w class="pron" role="s" n="010010010030010">ἡμεῖς</w></wg>
+      </wg></wg>
+    </sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: '2 Corinthians' });
+    const oun = doc!.syntax.nodes.find((n) => surfaceOf(doc!, n.id) === 'οὖν')!;
+    expect(oun).toBeDefined();
+    // οὖν is reachable now: a parent relation points at a real node.
+    const rel = doc!.syntax.relations.find((r) => r.dependentId === oun.id)!;
+    expect(rel).toBeDefined();
+    expect(doc!.syntax.nodes.some((n) => n.id === rel.headId)).toBe(true);
+    expect(['conjunction', 'particle']).toContain(rel.type);
+    // No source word is left unassigned.
+    expect(unassignedTokens(doc!).map((t) => t.surface)).toEqual([]);
   });
 
   it('treats an asyndetic noun list (πίστις, ἐλπίς, ἀγάπη) as conjuncts, not apposition', () => {
