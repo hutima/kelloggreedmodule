@@ -45,6 +45,14 @@ const BASELINE_COMPLEMENTS: SyntacticRole[] = [
 ];
 
 /**
+ * Leedy's ellipsis marker, written where an element is elided and its exact
+ * wording is uncertain (a gapped subject, a suppressed antecedent, an elided
+ * copula). The auto-generated structural placeholders "(subject)"/"(verb)" stay
+ * descriptive; this stands in for an EXPLICIT empty node the author left blank.
+ */
+const ELISION_MARK = '(X)';
+
+/**
  * If `rel` introduces a prepositional phrase, return the object node id so the
  * preposition can be written ON the diagonal (traditional Kellogg-Reed) and the
  * object laid out on its own horizontal baseline beneath it. Returns null for
@@ -381,6 +389,40 @@ function drawDiagonalModifier(
   return { bottom, right };
 }
 
+/**
+ * Every coordinator word on a coordination node, in relation order — one for a
+ * plain "A καὶ B", but TWO (or more) for a correlative pairing (μέν…δέ, οὐ…ἀλλά,
+ * both…and). Leedy stacks a correlative pair in the single conjunction slot,
+ * top-with-top, to mark the intensified union.
+ */
+function coordinatorTexts(
+  ctx: Ctx,
+  nodeId: string,
+): { text: string; nodeId: string }[] {
+  return childRelations(ctx.doc.syntax, nodeId)
+    .filter((r) => r.type === 'coordinator')
+    .map((r) => ({
+      text: nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '',
+      nodeId: r.dependentId,
+    }))
+    .filter((c) => c.text);
+}
+
+/**
+ * Leedy's double-vertical mark identifying an infinitive: two short strokes
+ * crossing the infinitive's own baseline near its left end and reaching a little
+ * below it. `wordW` is the infinitive word's baseline width.
+ */
+function infinitiveMark(wordW: number): LineElement[] {
+  const x = Math.min(8, wordW / 4);
+  const up = -8;
+  const down = 12;
+  return [
+    line(eid(), x, up, x, down, 'solid', 'separator'),
+    line(eid(), x + 4, up, x + 4, down, 'solid', 'separator'),
+  ];
+}
+
 /** The word-level `conjunct` members of a coordinated node (clauses excluded). */
 function wordConjunctRels(ctx: Ctx, nodeId: string) {
   return childRelations(ctx.doc.syntax, nodeId).filter(
@@ -670,7 +712,7 @@ function layoutHead(
   excludeCoordination = false,
   excludeApposition = false,
 ): Block {
-  const text = nodeText(ctx.doc, node) || node.label || '∅';
+  const text = nodeText(ctx.doc, node) || node.label || (node.implied ? ELISION_MARK : '∅');
   const wordW = measureText(text) + LAYOUT.wordPadX * 2;
 
   // Every dependent of a word hangs beneath it. Word/modifier dependents flow
@@ -713,6 +755,10 @@ function layoutHead(
   const wordLeft = 0;
   const wordRight = wordW;
   elements.push(wordText(eid(), wordW / 2, -LAYOUT.textRise, text, 'middle', node));
+  // Leedy identifies an infinitive with a double vertical crossing its baseline.
+  if (wordPos(ctx, node.id) === 'infinitive') {
+    elements.push(...infinitiveMark(wordW));
+  }
 
   let cursor = wordW;
   let railRight = wordW;
@@ -956,12 +1002,23 @@ function layoutClauseSpine(
   // the midpoint of the two VERB baselines — the bar runs down the clear verb
   // column (modifiers hang off to the right), so the join reads visually centred
   // between the two main lines rather than sinking toward the lower clause.
-  for (let k = 0; k < laid.length - 1 && k < coordTexts.length; k++) {
-    const midY = (verbYs[k]! + verbYs[k + 1]!) / 2;
-    elements.push({
-      kind: 'text', id: eid(), x: verbAlignX, y: midY, text: coordTexts[k]!,
-      anchor: 'middle', small: true, rotate: -90,
-    });
+  if (coordTexts.length === laid.length && laid.length >= 2) {
+    // A correlative set spanning the clauses (μέν … δέ …): each conjunction rides
+    // the bar at its OWN clause's baseline, top-with-top, rather than one per gap.
+    for (let i = 0; i < laid.length; i++) {
+      elements.push({
+        kind: 'text', id: eid(), x: verbAlignX, y: verbYs[i]!, text: coordTexts[i]!,
+        anchor: 'middle', small: true, rotate: -90,
+      });
+    }
+  } else {
+    for (let k = 0; k < laid.length - 1 && k < coordTexts.length; k++) {
+      const midY = (verbYs[k]! + verbYs[k + 1]!) / 2;
+      elements.push({
+        kind: 'text', id: eid(), x: verbAlignX, y: midY, text: coordTexts[k]!,
+        anchor: 'middle', small: true, rotate: -90,
+      });
+    }
   }
 
   // Introductory words (a sentence-initial particle, a stray conjunction) lead
@@ -1056,10 +1113,7 @@ function layoutCoordination(
   openLeft: boolean,
 ): Block {
   const conjunctRels = wordConjunctRels(ctx, node.id);
-  const coordRel = childRelations(ctx.doc.syntax, node.id).find((r) => r.type === 'coordinator');
-  const coordText = coordRel
-    ? nodeText(ctx.doc, getNode(ctx.doc.syntax, coordRel.dependentId)!) || ''
-    : '';
+  const coords = coordinatorTexts(ctx, node.id);
 
   // An apposition to the WHOLE group ("τὰ τρία ταῦτα" summarising πίστις, ἐλπίς,
   // ἀγάπη) is hoisted onto a platform off the fork's bar, so it is excluded from
@@ -1130,17 +1184,21 @@ function layoutCoordination(
   // throat of the fork — away from the conjunct words — so it never overlaps them.
   const dashX = openLeft ? junctionX - prong : prong;
   elements.push(line(eid(), dashX, topY, dashX, botY, 'dashed', 'coordination', node.id));
-  if (coordText) {
+  const coordTx = dashX + (openLeft ? 8 : -8);
+  if (coords.length >= 2) {
+    // Correlative pairing (μέν…δέ, οὐ…ἀλλά, both…and): stack the conjunctions in
+    // the slot, each riding the bar at its OWN conjunct's baseline — top-with-top.
+    coords.forEach((c, i) => {
+      const idx = Math.min(i, baselines.length - 1);
+      elements.push({
+        kind: 'text', id: eid(), x: coordTx, y: baselines[idx]! - centerY,
+        text: c.text, anchor: 'middle', small: true, rotate: -90, nodeId: c.nodeId,
+      });
+    });
+  } else if (coords.length === 1) {
     elements.push({
-      kind: 'text',
-      id: eid(),
-      x: dashX + (openLeft ? 8 : -8),
-      y: (topY + botY) / 2,
-      text: coordText,
-      anchor: 'middle',
-      small: true,
-      rotate: -90,
-      nodeId: coordRel?.dependentId,
+      kind: 'text', id: eid(), x: coordTx, y: (topY + botY) / 2,
+      text: coords[0]!.text, anchor: 'middle', small: true, rotate: -90, nodeId: coords[0]!.nodeId,
     });
   }
 
@@ -1279,11 +1337,28 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // A compound subject forks open to the right, so its junction meets the
   // subject|predicate divider; everywhere else a coordination forks to the left.
   const subjectNode = subjectRel ? getNode(model, subjectRel.dependentId) : undefined;
+  // A substantival / clausal subject (a participle phrase like οἱ ὄντες ἐν τῷ
+  // σκήνει, or a noun clause filling the subject slot) stands on a PEDESTAL in that
+  // slot — the Kellogg-Reed treatment for a substantive occupying a noun slot,
+  // mirroring how clause complements are pedestalled. Only when it is compact
+  // enough not to tower over the line; a tall one falls back to an inline baseline.
+  const subjectIsClause =
+    !!subjectRel &&
+    isClauseChild(ctx, subjectRel.dependentId) &&
+    !isInfinitival(ctx, subjectRel.dependentId);
+  let pedestalSubject = false;
+  if (subjectIsClause) {
+    const probe = layoutNode(ctx, subjectRel!.dependentId, new Set(seen));
+    pedestalSubject =
+      probe.elements.length > 0 && probe.height + blockAscent(probe) <= LAYOUT.pedestalMaxHeight;
+  }
   const subjectBlock = !subjectRel
     ? impliedBlock('(subject)')
-    : subjectNode && isWordCoordination(ctx, subjectNode)
-      ? layoutCoordination(ctx, subjectNode, seen, true)
-      : layoutNode(ctx, subjectRel.dependentId, seen);
+    : pedestalSubject
+      ? emptyBlock() // drawn as a pedestal below, not inline
+      : subjectNode && isWordCoordination(ctx, subjectNode)
+        ? layoutCoordination(ctx, subjectNode, seen, true)
+        : layoutNode(ctx, subjectRel.dependentId, seen);
 
   // Complements live under the verb node but render on the baseline. A WORD
   // complement sits directly on the line; a CLAUSE complement (a noun clause as
@@ -1329,7 +1404,34 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // subject + subject|predicate divider (crosses the baseline) — unless this is a
   // bare nonfinite predicate, which stands alone with no subject side.
   let divX = 0;
-  if (!omitSubject) {
+  if (!omitSubject && pedestalSubject) {
+    // The substantive rides a pedestal standing in the subject slot, the divider
+    // following it. Its body sits ABOVE the baseline, so it adds no below-line
+    // height (its extent is reserved as ascent wherever this clause is placed).
+    const block = layoutNode(ctx, subjectRel!.dependentId, seen);
+    const baseY = -(block.height + LAYOUT.pedestalFootRise + LAYOUT.pedestalGap);
+    elements.push(...translate(block, 0, baseY));
+    // Stand the foot under the substantive's HEAD (its participle/verb, exposed as
+    // verbX), not the midpoint of its whole span — so the riser rises at the left
+    // and the head's own modifiers (οἱ, ἐν τῷ σκήνει) cascade to the right of it
+    // rather than across it.
+    const center = (block.wordLeft + (block.wordRight || block.width)) / 2;
+    const connectX = Math.max(LAYOUT.pedestalFootHalf, block.verbX ?? center);
+    const apexY = -LAYOUT.pedestalFootRise;
+    // The little forked foot standing on the main line, and the riser up to the
+    // substantive's own baseline.
+    elements.push(line(eid(), connectX - LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
+    elements.push(line(eid(), connectX + LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
+    elements.push(line(eid(), connectX, apexY, connectX, baseY, 'solid', 'stem', undefined, subjectRel?.id));
+    x = Math.max(block.width, connectX + LAYOUT.pedestalFootHalf);
+    divX = x;
+    // Main line under the pedestal, out to the subject|predicate cross.
+    elements.push(line(eid(), 0, 0, divX, 0, 'solid', 'baseline'));
+    elements.push(
+      line(eid(), divX, -LAYOUT.dividerUp, divX, LAYOUT.dividerDown, 'solid', 'divider', undefined, subjectRel?.id),
+    );
+    x += 2;
+  } else if (!omitSubject) {
     placeBlock(subjectBlock);
     divX = x;
     // The subject's baseline must run all the way to the subject|predicate cross.
@@ -1445,11 +1547,18 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   const floatingRels = clauseWordRels.filter(
     (r) => (r.type === 'vocative' || r.type === 'interjection') && !isClauseChild(ctx, r.dependentId),
   );
+  // Introductory words — a sentence-initial discourse particle (γάρ, οὖν, δέ,
+  // μέν) connecting the clause to its context. Leedy floats these above the LEFT
+  // end of the baseline on a dotted stem rather than slanting them off the verb.
+  const introductoryRels = clauseWordRels.filter(
+    (r) => r.type === 'particle' && !isClauseChild(ctx, r.dependentId),
+  );
   const wordAdjuncts = clauseWordRels.filter(
     (r) =>
       (!isClauseChild(ctx, r.dependentId) || isInfinitival(ctx, r.dependentId)) &&
       r.type !== 'vocative' &&
-      r.type !== 'interjection',
+      r.type !== 'interjection' &&
+      r.type !== 'particle',
   );
   const clauseAdjuncts = [
     ...clauseWordRels.filter((r) => isClauseChild(ctx, r.dependentId) && !isInfinitival(ctx, r.dependentId)),
@@ -1590,10 +1699,43 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     height = Math.max(height, stack.bottom);
   }
 
+  // Introductory words (γάρ, οὖν, δέ …): float above the baseline's LEFT end on a
+  // short stub, joined to that end by a DOTTED vertical — Leedy's home for a word
+  // that introduces the whole clause rather than modifying any one element. Two
+  // or more stack one above another on the shared stem.
+  //
+  // Start above EVERYTHING already drawn above the line (a pedestalled subject /
+  // complement raises content high into negative y), so an introductory word — or
+  // a floating vocative above it — never lands on top of a pedestal.
+  let topUsed = 0;
+  for (const el of elements) {
+    if (el.kind === 'line') topUsed = Math.min(topUsed, el.y1, el.y2);
+    else if (el.kind === 'curve') topUsed = Math.min(topUsed, el.y1, el.cy, el.y2);
+    else topUsed = Math.min(topUsed, el.y - (el.small ? LAYOUT.smallFontSize : LAYOUT.fontSize));
+  }
+  let aboveY = Math.min(
+    -(LAYOUT.dividerUp + LAYOUT.slantDrop) * ctx.vScale,
+    topUsed - LAYOUT.slantDrop * ctx.vScale,
+  );
+  if (introductoryRels.length) {
+    let stubY = aboveY;
+    let highest = aboveY;
+    for (const r of introductoryRels) {
+      const block = layoutNode(ctx, r.dependentId, seen);
+      elements.push(...translate(block, 0, stubY));
+      width = Math.max(width, block.width);
+      highest = stubY; // the loop climbs upward, so the last stub is the topmost
+      stubY -= block.height + LAYOUT.fontSize + 8;
+    }
+    // One dotted stem from the baseline's left end up through every stub.
+    elements.push(line(eid(), 0, 0, 0, highest, 'dotted', 'stem'));
+    aboveY = stubY;
+  }
+
   // Direct address / interjection: each rides its own short line floating ABOVE
   // the clause, unconnected — it is outside the sentence's grammar.
   if (floatingRels.length) {
-    let fy = -LAYOUT.dividerUp - LAYOUT.slantDrop;
+    let fy = aboveY - LAYOUT.slantDrop;
     for (const r of floatingRels) {
       const block = layoutNode(ctx, r.dependentId, seen);
       elements.push(...translate(block, 0, fy));
