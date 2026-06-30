@@ -1984,7 +1984,16 @@ button.mc-code.glossed:hover {
 .pbw-row.in-range { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 /* Drag-and-drop reparenting: a row being dragged dims; legal targets get a faint
    dashed hint; the hovered drop slot lights up. */
-.pbw-row[draggable='true'] { cursor: grab; }
+/* iOS-style drag handle — the only drag source, always available in edit mode
+   (no tool to switch into). Faint until the row is hovered/selected. */
+.pbw-grip {
+  flex: none; color: var(--muted, #9aa3ad); font-size: 14px; line-height: 1;
+  cursor: grab; opacity: 0.45; user-select: none;
+  padding: 2px 2px; margin-inline-start: -2px; border-radius: 4px;
+  touch-action: none;
+}
+.pbw-grip:active { cursor: grabbing; }
+.pbw-row:hover .pbw-grip, .pbw-row.selected .pbw-grip { opacity: 1; color: var(--accent); }
 .pbw-row.dragging { opacity: 0.45; }
 .pbw-row.drop-candidate { outline: 1px dashed var(--line-strong, #b9c0c9); outline-offset: -2px; }
 .pbw-row.drop-target {

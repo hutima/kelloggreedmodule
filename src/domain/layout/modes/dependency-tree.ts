@@ -21,9 +21,6 @@ const VROOT = '__root__';
 const ROOT_COLOR = '#5b6470'; // slate — the clause family
 
 const SLOT_GAP = 28; // horizontal padding around each node's word (Greek runs wide)
-/** Edge-label position along the edge — near the child so it clears the parent's
- *  gloss line above and reads as labelling the word it points at. */
-const LABEL_FRAC = 0.72;
 
 interface Edge {
   head: string;
@@ -82,12 +79,18 @@ export function layoutDependencyTree(doc: KrDocument): DiagramLayout {
   const ROW = Math.round(LAYOUT.fontSize * (hasGloss ? 5 : 3.6));
 
   // Each node's OWN horizontal footprint: its word (or gloss, or the [ROOT]
-  // marker), whichever is wider, plus padding.
+  // marker), the edge LABEL riding into it, whichever is widest, plus padding.
+  // Reserving the label width keeps a narrow word from letting its edge label
+  // overlap a sibling's (the clashing role chips on close branches).
+  const chipW = (role: SyntacticRole | undefined): number =>
+    role && SHORT_ROLE[role] ? width(SHORT_ROLE[role]!, true) + 16 : 0;
   const ownWidth = (tok: string): number => {
     if (tok === VROOT) return width('[ROOT]', true) + SLOT_GAP;
     const s = surface.get(tok) ?? '';
     const g = gloss.get(tok);
-    return Math.max(width(s), g ? width(g, true) : 0) + SLOT_GAP;
+    // A token's incoming edge type (its parent's edge), or 'predicate' for a root.
+    const role = parent.get(tok)?.type ?? 'predicate';
+    return Math.max(width(s), g ? width(g, true) : 0, chipW(role)) + SLOT_GAP;
   };
 
   // Tidy layout in two passes. measure(): a subtree reserves at least the width
@@ -145,13 +148,13 @@ export function layoutDependencyTree(doc: KrDocument): DiagramLayout {
       const y1 = hy + (gloss.get(head) ? LAYOUT.fontSize + 8 : 8);
       const y2 = cy - LAYOUT.fontSize - 4;
       elements.push(line(hx, y1, cx, y2, 'connector', 'solid', { color, relationId: k.relId || undefined }));
-      // Label rides the edge, set ~62% of the way down so it sits just above the
-      // child word (as in the Perseus tree) rather than over the parent.
+      // Label sits directly ABOVE the child word (centred in the child's reserved
+      // column) rather than at a point along the edge — so labels on close-fanned
+      // branches never overlap, since each child column reserves the chip's width.
       const label = head === VROOT ? (isRoot.has(k.tok) ? 'pred' : '') : SHORT_ROLE[k.type] ?? k.type;
       if (label) {
-        const f = LABEL_FRAC;
         elements.push(
-          text(hx + (cx - hx) * f, y1 + (y2 - y1) * f, label, {
+          text(cx, y2 - 4, label, {
             anchor: 'middle',
             small: true,
             italic: true,
