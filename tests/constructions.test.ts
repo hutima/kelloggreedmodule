@@ -577,6 +577,94 @@ describe('subject baseline reaches the subject|predicate divider', () => {
   });
 });
 
+describe('an appositive is marked with "=" , not run on as a second object', () => {
+  // "ὄνομα = τὸ (ὑπὲρ πᾶν ὄνομα)" — the appositive renames the head; it must be
+  // separated by the apposition mark so it doesn't read as another baseline object.
+  const doc = build(
+    [
+      { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+      { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s'] },
+      { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+      { id: 'O', kind: 'word', role: 'directObject', tokenIds: ['o'] },
+      { id: 'A', kind: 'word', role: 'apposition', tokenIds: ['a'] },
+    ],
+    [
+      { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+      { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+      { id: 'r3', type: 'directObject', headId: 'V', dependentId: 'O' },
+      { id: 'r4', type: 'apposition', headId: 'O', dependentId: 'A' },
+    ],
+    [
+      { id: 's', index: 0, surface: 'he', pos: 'pronoun' },
+      { id: 'v', index: 1, surface: 'gave', pos: 'verb' },
+      { id: 'o', index: 2, surface: 'ὄνομα', pos: 'noun' },
+      { id: 'a', index: 3, surface: 'τὸ', pos: 'article' },
+    ],
+  );
+
+  it('draws two short parallel strokes (the "=" mark) before a bare-word appositive', () => {
+    const layout = layoutDocument(doc);
+    const o = textEl(layout, 'ὄνομα')!;
+    const a = textEl(layout, 'τὸ')!;
+    // A single-word appositive sits inline, to the right, on the same baseline.
+    expect(a.x).toBeGreaterThan(o.x);
+    expect(Math.abs(a.y - o.y)).toBeLessThan(8);
+    // Two short horizontal separator strokes (the equals mark) sit between them.
+    const eq = layout.elements.filter(
+      (e) => e.kind === 'line' && (e as { role?: string }).role === 'separator' &&
+        Math.abs((e as { y1: number }).y1 - (e as { y2: number }).y2) < 0.5 &&
+        Math.abs((e as { x2: number }).x2 - (e as { x1: number }).x1) < 16 &&
+        (e as { x1: number }).x1 > o.x && (e as { x1: number }).x1 < a.x,
+    );
+    expect(eq).toHaveLength(2); // the two strokes of "="
+  });
+
+  it('lifts a PHRASAL appositive onto a pedestal above the head baseline', () => {
+    // "ὄνομα = τὸ (ὑπὲρ …)" — the appositive carries a prepositional modifier, so
+    // it is phrasal and rides a platform above the line rather than running inline.
+    const phrasal = build(
+      [
+        { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'S', kind: 'word', role: 'subject', tokenIds: ['s'] },
+        { id: 'V', kind: 'word', role: 'predicate', tokenIds: ['v'] },
+        { id: 'O', kind: 'word', role: 'directObject', tokenIds: ['o'] },
+        { id: 'A', kind: 'word', role: 'apposition', tokenIds: ['a'] },
+        { id: 'P', kind: 'word', role: 'prepositionalPhrase', tokenIds: ['p'] },
+        { id: 'PO', kind: 'word', role: 'prepositionObject', tokenIds: ['po'] },
+      ],
+      [
+        { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'S' },
+        { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'V' },
+        { id: 'r3', type: 'directObject', headId: 'V', dependentId: 'O' },
+        { id: 'r4', type: 'apposition', headId: 'O', dependentId: 'A' },
+        { id: 'r5', type: 'prepositionalPhrase', headId: 'A', dependentId: 'P' },
+        { id: 'r6', type: 'prepositionObject', headId: 'P', dependentId: 'PO' },
+      ],
+      [
+        { id: 's', index: 0, surface: 'he', pos: 'pronoun' },
+        { id: 'v', index: 1, surface: 'gave', pos: 'verb' },
+        { id: 'o', index: 2, surface: 'ὄνομα', pos: 'noun' },
+        { id: 'a', index: 3, surface: 'τὸ', pos: 'article' },
+        { id: 'p', index: 4, surface: 'ὑπὲρ', pos: 'preposition' },
+        { id: 'po', index: 5, surface: 'ὄνομα', pos: 'noun' },
+      ],
+    );
+    const layout = layoutDocument(phrasal);
+    const o = textEl(layout, 'ὄνομα')!; // the head DO (leftmost ὄνομα)
+    const a = textEl(layout, 'τὸ')!; // the phrasal appositive head
+    // On a pedestal: the appositive sits clearly ABOVE the head's baseline.
+    expect(a.y).toBeLessThan(o.y - 20);
+    // Still marked by the "=" (separator strokes present).
+    expect(
+      layout.elements.some(
+        (e) => e.kind === 'line' && (e as { role?: string }).role === 'separator' &&
+          Math.abs((e as { y1: number }).y1 - (e as { y2: number }).y2) < 0.5 &&
+          Math.abs((e as { x2: number }).x2 - (e as { x1: number }).x1) < 16,
+      ),
+    ).toBe(true);
+  });
+});
+
 describe('implied subject ↔ verb pairing (grey auto-implied co-highlight)', () => {
   // A finite verb with a pro-drop implied subject: the implied "(he)" node and
   // the verb are paired so hovering either greys both.
