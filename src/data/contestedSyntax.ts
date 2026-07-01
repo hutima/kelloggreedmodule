@@ -518,6 +518,184 @@ const RAW = {
         'Randy Leedy, “New Testament Greek Sentence Diagramming,” Biblical Viewpoint 39/1 (2005).',
       ],
     },
+
+    // ═══════════════════ Major NT textual variants ═══════════════════
+    // Each anchors to the ACTUAL Nestle1904 base word(s); the alternate wording is
+    // shown as a textual variant and NEVER merged into the base token stream.
+
+    // ───────────────────── Mark 1:41 (compassion / anger) ─────────────────────
+    {
+      id: 'iss_mark_1_41_variant',
+      passageId: 'gnt_mark_38',
+      verseRef: 'Mark 1:41',
+      kind: 'textual',
+      sourceType: 'textual-variant',
+      severity: 'major',
+      label: 'σπλαγχνισθεὶς / ὀργισθεὶς — “moved with compassion” or “with anger”',
+      shortLabel: 'compassion / anger',
+      summary:
+        'The base reads σπλαγχνισθεὶς (“moved with compassion”), with the vast majority of witnesses. Codex Bezae (D) and part of the Old Latin read ὀργισθεὶς (“moved with anger/indignation”), which some editors prefer as the harder reading. A textual variant — a different wording — so it is not merged into the base tokens.',
+      affectedTokenIds: ['t_410010410020010'],
+      affectedNodeIds: ['w_410010410020010'],
+      defaultReading: {
+        label: 'σπλαγχνισθεὶς (“moved with compassion”)',
+        description:
+          'The base has the aorist participle σπλαγχνισθεὶς modifying ἥψατο — Jesus is moved with compassion as he touches the leper.',
+        parseSummary: 'ἥψατο ← σπλαγχνισθεὶς (adverbial participle)',
+      },
+      alternateReadingIds: ['alt_mark_1_41_anger'],
+      bibliography: ['Metzger, Textual Commentary, Mark 1:41; NET note on Mark 1:41.'],
+    },
+
+    // ───────────────────── John 1:18 (only God / only Son) ─────────────────────
+    {
+      id: 'iss_john_1_18_variant',
+      passageId: 'gnt_john_16',
+      verseRef: 'John 1:18',
+      kind: 'textual',
+      sourceType: 'textual-variant',
+      severity: 'major',
+      label: 'μονογενὴς θεός / ὁ μονογενὴς υἱός — “the only God” or “the only Son”',
+      shortLabel: 'θεός / υἱός',
+      summary:
+        'The base reads μονογενὴς θεός (“[the] only-begotten God”), with the earliest witnesses (𝔓66 𝔓75 ℵ B C*). Many later manuscripts read ὁ μονογενὴς υἱός (“the only Son”). A major Christological variant: in the abbreviated nomina sacra only one letter (ΘΣ vs ΥΣ) separates the two. Shown as a textual variant; base tokens unchanged.',
+      affectedTokenIds: ['t_430010180060010'],
+      affectedNodeIds: ['w_430010180060010'],
+      defaultReading: {
+        label: 'μονογενὴς θεός (“the only God”)',
+        description:
+          'The base reads the anarthrous θεός with μονογενὴς — “the only-begotten God, who is in the bosom of the Father”.',
+        parseSummary: 'subject μονογενὴς θεός → ἐξηγήσατο',
+      },
+      alternateReadingIds: ['alt_john_1_18_son'],
+      bibliography: ['Metzger, Textual Commentary, John 1:18; NET note (“notoriously difficult”).'],
+    },
+
+    // ───────────────── Acts 20:28 (church of God / of the Lord) ─────────────────
+    {
+      id: 'iss_acts_20_28_variant',
+      passageId: 'gnt_acts_647',
+      verseRef: 'Acts 20:28',
+      kind: 'textual',
+      sourceType: 'textual-variant',
+      severity: 'major',
+      label: 'τὴν ἐκκλησίαν τοῦ θεοῦ / τοῦ κυρίου — “church of God” or “of the Lord”',
+      shortLabel: 'θεοῦ / κυρίου',
+      summary:
+        'The base reads τὴν ἐκκλησίαν τοῦ θεοῦ (“the church of God”, ℵ B), which — with “his own blood” following — carries the striking implication of “God’s blood”. Other witnesses read τοῦ κυρίου (“of the Lord”, 𝔓74 A C D E), and later manuscripts conflate to “the Lord and God”. A textual variant; base tokens unchanged.',
+      affectedTokenIds: ['t_440200280200010'],
+      affectedNodeIds: ['w_440200280200010'],
+      defaultReading: {
+        label: 'τοῦ θεοῦ (“of God”)',
+        description:
+          'The base reads θεοῦ as the genitive head of ἐκκλησίαν — “the church of God, which he obtained with his own blood”.',
+        parseSummary: 'ἐκκλησίαν → τοῦ θεοῦ (genitive)',
+      },
+      alternateReadingIds: ['alt_acts_20_28_lord', 'alt_acts_20_28_lord_and_god'],
+      bibliography: ['Metzger, Textual Commentary, Acts 20:28; NET note on Acts 20:28.'],
+    },
+
+    // ───────────────── Romans 5:1 (let us have / we have peace) ─────────────────
+    {
+      id: 'iss_rom_5_1_variant',
+      passageId: 'gnt_romans_101',
+      verseRef: 'Romans 5:1',
+      kind: 'textual',
+      sourceType: 'textual-variant',
+      severity: 'major',
+      label: 'ἔχωμεν / ἔχομεν — “let us have peace” or “we have peace”',
+      shortLabel: 'ἔχωμεν / ἔχομεν',
+      summary:
+        'The Nestle1904 base reads the subjunctive ἔχωμεν (“let us have peace”), an exhortation, with ℵ* A B* C D. Many witnesses read the indicative ἔχομεν (“we have peace”), a statement — a one-letter (ω/ο) difference. Most modern editors judge the indicative the likely original despite the weaker external support. A textual variant; base tokens unchanged.',
+      affectedTokenIds: ['t_450050010060010'],
+      affectedNodeIds: ['w_450050010060010'],
+      defaultReading: {
+        label: 'ἔχωμεν (subjunctive — “let us have peace”)',
+        description:
+          'The base reads the present subjunctive ἔχωμεν, making v.1 a hortatory “let us have peace with God”.',
+        parseSummary: 'predicate ἔχωμεν (subjunctive)',
+      },
+      alternateReadingIds: ['alt_rom_5_1_indicative'],
+      bibliography: ['Metzger, Textual Commentary, Romans 5:1; NET note on Romans 5:1.'],
+    },
+
+    // ───────────────── Luke 23:34 (forgiveness saying incl./omit) ─────────────────
+    {
+      id: 'iss_luke_23_34_inclusion',
+      passageId: 'gnt_luke_1082',
+      verseRef: 'Luke 23:34',
+      kind: 'textual',
+      sourceType: 'passage-inclusion',
+      severity: 'major',
+      label: '“Father, forgive them…” — included or omitted',
+      shortLabel: 'forgiveness saying',
+      summary:
+        'The base includes Jesus’ prayer “Father, forgive them, for they do not know what they are doing.” Several early and weighty witnesses (𝔓75 ℵ* B D* W Θ) omit it, while many others include it (NA prints it in double brackets). The saying fits Lukan themes of enemy-forgiveness. This concerns the passage’s presence in the tradition; the base keeps the words.',
+      affectedTokenIds: [
+        't_420230340050010', // Πάτερ
+        't_420230340060010', // ἄφες
+        't_420230340070010', // αὐτοῖς
+        't_420230340080010', // οὐ
+        't_420230340090010', // γὰρ
+        't_420230340100010', // οἴδασιν
+        't_420230340110010', // τί
+        't_420230340120010', // ποιοῦσιν
+      ],
+      defaultReading: {
+        label: 'Included (base)',
+        description: 'The base prints the prayer “Πάτερ, ἄφες αὐτοῖς, οὐ γὰρ οἴδασιν τί ποιοῦσιν”.',
+        parseSummary: 'ἔλεγεν → [Πάτερ ἄφες αὐτοῖς …]',
+      },
+      alternateReadingIds: ['alt_luke_23_34_omit'],
+      bibliography: ['Metzger, Textual Commentary, Luke 23:34; NET note on Luke 23:34.'],
+    },
+
+    // ───────────────── 1 Corinthians 13:3 (be burned / boast) ─────────────────
+    {
+      id: 'iss_1cor_13_3_variant',
+      passageId: 'gnt_1-corinthians_376',
+      verseRef: '1 Corinthians 13:3',
+      kind: 'textual',
+      sourceType: 'textual-variant',
+      severity: 'major',
+      label: 'καυθήσομαι / καυχήσωμαι — “that I may be burned” or “that I may boast”',
+      shortLabel: 'burned / boast',
+      summary:
+        'The base reads ἵνα καυθήσομαι (“so that I may be burned”), with the Byzantine and many later witnesses. The earliest witnesses (𝔓46 ℵ A B) read καυχήσωμαι (“so that I may boast”) — a one-letter (θ/χ) difference that reverses the sense. A textual variant; base tokens unchanged.',
+      affectedTokenIds: ['t_460130030150010'],
+      affectedNodeIds: ['w_460130030150010'],
+      defaultReading: {
+        label: 'καυθήσομαι (“that I may be burned”)',
+        description: 'The base reads the future καυθήσομαι — giving over the body “that I may be burned”.',
+        parseSummary: 'ἵνα → καυθήσομαι',
+      },
+      alternateReadingIds: ['alt_1cor_13_3_boast'],
+      bibliography: ['Metzger, Textual Commentary, 1 Corinthians 13:3; NET note on 1 Corinthians 13:3.'],
+    },
+
+    // ───────────────── Matthew 5:22 (“without cause” added?) ─────────────────
+    {
+      id: 'iss_matt_5_22_variant',
+      passageId: 'gnt_matthew_99',
+      verseRef: 'Matthew 5:22',
+      kind: 'textual',
+      sourceType: 'textual-variant',
+      severity: 'major',
+      label: 'ὀργιζόμενος (+ εἰκῇ?) — “angry with his brother” or “…without cause”',
+      shortLabel: 'εἰκῇ (“without cause”)',
+      summary:
+        'The base reads “everyone who is angry with his brother” with no qualifier — the reading of the earliest witnesses (𝔓64vid ℵ* B). Many witnesses add εἰκῇ (“without cause”, ℵ² D L W Θ 𝔐), softening the saying to unjustified anger. A textual variant: the added adverb is not merged into the base tokens.',
+      affectedTokenIds: ['t_400050220080010'],
+      affectedNodeIds: ['w_400050220080010'],
+      defaultReading: {
+        label: 'without εἰκῇ (base)',
+        description:
+          'The base reads ὀργιζόμενος τῷ ἀδελφῷ αὐτοῦ with no qualifier — anger itself is liable to judgment.',
+        parseSummary: 'ὀργιζόμενος → τῷ ἀδελφῷ (no εἰκῇ)',
+      },
+      alternateReadingIds: ['alt_matt_5_22_eike'],
+      bibliography: ['Metzger, Textual Commentary, Matthew 5:22; NET note on Matthew 5:22.'],
+    },
   ],
 
   readings: [
@@ -1074,6 +1252,193 @@ const RAW = {
           remove: ['r_s67_18'], // dangling conjunct from the removed wrapper
         },
         rootId: 'cl_470050040010150', // re-root to the στενάζομεν clause
+      },
+    },
+
+    // ═══════════════════ Major NT textual variants (readings) ═══════════════════
+
+    // Mark 1:41 — ὀργισθεὶς ("moved with anger")
+    {
+      id: 'alt_mark_1_41_anger',
+      issueId: 'iss_mark_1_41_variant',
+      passageId: 'gnt_mark_38',
+      label: 'ὀργισθεὶς — “moved with anger”',
+      shortLabel: 'ὀργισθεὶς',
+      interpretation: 'Jesus is moved with anger/indignation, not compassion.',
+      description:
+        'Codex Bezae and several Old Latin witnesses read ὀργισθεὶς. Some editors adopt it as the “harder reading” a scribe would sooner soften than create. Shown as a textual variant.',
+      sourceType: 'textual-variant',
+      confidence: 'low',
+      textualVariant: {
+        label: 'ὀργισθεὶς',
+        greekText: 'καὶ ὀργισθεὶς ἐκτείνας τὴν χεῖρα αὐτοῦ ἥψατο',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_410010410020010'],
+        variantTokens: [{ surface: 'ὀργισθεὶς', lemma: 'ὀργίζω', gloss: 'having been angered' }],
+        note: 'Western reading (D, part of the Old Latin); NET translates “moved with indignation”.',
+      },
+    },
+
+    // John 1:18 — ὁ μονογενὴς υἱός ("the only Son")
+    {
+      id: 'alt_john_1_18_son',
+      issueId: 'iss_john_1_18_variant',
+      passageId: 'gnt_john_16',
+      label: 'ὁ μονογενὴς υἱός — “the only Son”',
+      shortLabel: 'υἱός',
+      interpretation: 'The Son, not “God”, is the one who makes the Father known.',
+      description:
+        'Many later witnesses (A C³ Θ Ψ 𝔐) read ὁ μονογενὴς υἱός, the more familiar Johannine phrase (cf. 3:16). Shown as a textual variant; base tokens unchanged.',
+      sourceType: 'textual-variant',
+      confidence: 'low',
+      textualVariant: {
+        label: 'υἱός',
+        greekText: 'ὁ μονογενὴς υἱὸς … ἐκεῖνος ἐξηγήσατο',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_430010180060010'],
+        variantTokens: [{ surface: 'υἱός', lemma: 'υἱός', gloss: 'Son' }],
+        note: 'ΥΣ vs ΘΣ in the nomina sacra — a single-letter difference.',
+      },
+    },
+
+    // Acts 20:28 — τοῦ κυρίου, and the conflate τοῦ κυρίου καὶ θεοῦ
+    {
+      id: 'alt_acts_20_28_lord',
+      issueId: 'iss_acts_20_28_variant',
+      passageId: 'gnt_acts_647',
+      label: 'τοῦ κυρίου — “church of the Lord”',
+      shortLabel: 'κυρίου',
+      interpretation: 'The flock is the Lord’s (Christ’s), avoiding “God’s blood”.',
+      description:
+        'A weighty group (𝔓74 A C D E Ψ) reads κυρίου, which removes the “God’s own blood” implication. Shown as a textual variant.',
+      sourceType: 'textual-variant',
+      confidence: 'low',
+      textualVariant: {
+        label: 'κυρίου',
+        greekText: 'τὴν ἐκκλησίαν τοῦ κυρίου',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_440200280200010'],
+        variantTokens: [{ surface: 'κυρίου', lemma: 'κύριος', gloss: 'of [the] Lord' }],
+        note: 'Alexandrian/Western witnesses; NET keeps “of God” on internal grounds.',
+      },
+    },
+    {
+      id: 'alt_acts_20_28_lord_and_god',
+      issueId: 'iss_acts_20_28_variant',
+      passageId: 'gnt_acts_647',
+      label: 'τοῦ κυρίου καὶ θεοῦ — “of the Lord and God”',
+      shortLabel: 'κυρίου καὶ θεοῦ',
+      interpretation: 'A conflate reading naming both titles.',
+      description:
+        'Later manuscripts (Byzantine, Textus Receptus) conflate the two into “the church of the Lord and God”. Shown as a textual variant.',
+      sourceType: 'textual-variant',
+      confidence: 'low',
+      textualVariant: {
+        label: 'κυρίου καὶ θεοῦ',
+        greekText: 'τὴν ἐκκλησίαν τοῦ κυρίου καὶ θεοῦ',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_440200280200010'],
+        variantTokens: [
+          { surface: 'κυρίου', lemma: 'κύριος', gloss: 'of [the] Lord' },
+          { surface: 'καὶ', lemma: 'καί', gloss: 'and' },
+          { surface: 'θεοῦ', lemma: 'θεός', gloss: 'God' },
+        ],
+        note: 'Byzantine / Textus Receptus conflation.',
+      },
+    },
+
+    // Romans 5:1 — ἔχομεν (indicative)
+    {
+      id: 'alt_rom_5_1_indicative',
+      issueId: 'iss_rom_5_1_variant',
+      passageId: 'gnt_romans_101',
+      label: 'ἔχομεν — “we have peace” (indicative)',
+      shortLabel: 'ἔχομεν',
+      interpretation: 'A statement of possessed peace rather than an exhortation.',
+      description:
+        'Reading the indicative ἔχομεν makes v.1 declare “we have peace with God”. Most modern editors judge this the likely original on internal grounds. Shown as a textual variant.',
+      sourceType: 'textual-variant',
+      confidence: 'medium',
+      textualVariant: {
+        label: 'ἔχομεν',
+        greekText: 'εἰρήνην ἔχομεν πρὸς τὸν θεόν',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_450050010060010'],
+        variantTokens: [{ surface: 'ἔχομεν', lemma: 'ἔχω', gloss: 'we have' }],
+        note: 'Indicative (ο) vs the base subjunctive (ω); NET argues the indicative is probably correct.',
+      },
+    },
+
+    // Luke 23:34 — omission of the prayer
+    {
+      id: 'alt_luke_23_34_omit',
+      issueId: 'iss_luke_23_34_inclusion',
+      passageId: 'gnt_luke_1082',
+      label: 'Omitted — the prayer is absent',
+      shortLabel: 'omitted',
+      interpretation: 'Early witnesses lack Jesus’ prayer of forgiveness.',
+      description:
+        '𝔓75 ℵ* B D* W Θ and others omit the saying entirely; NA prints it in double brackets. Shown as a question of inclusion; the base retains the words.',
+      sourceType: 'passage-inclusion',
+      confidence: 'low',
+      textualVariant: {
+        label: 'omit',
+        differsFromBase: true,
+        affectedBaseTokenIds: [
+          't_420230340050010',
+          't_420230340060010',
+          't_420230340070010',
+          't_420230340080010',
+          't_420230340090010',
+          't_420230340100010',
+          't_420230340110010',
+          't_420230340120010',
+        ],
+        note: 'The prayer is absent in several early witnesses; NA prints it in double brackets.',
+      },
+    },
+
+    // 1 Corinthians 13:3 — καυχήσωμαι ("that I may boast")
+    {
+      id: 'alt_1cor_13_3_boast',
+      issueId: 'iss_1cor_13_3_variant',
+      passageId: 'gnt_1-corinthians_376',
+      label: 'καυχήσωμαι — “that I may boast”',
+      shortLabel: 'καυχήσωμαι',
+      interpretation: 'Giving over the body “that I may boast”, not “be burned”.',
+      description:
+        'The earliest witnesses (𝔓46 ℵ A B) read καυχήσωμαι — a one-letter (θ/χ) difference that shifts self-sacrifice to self-glory. Adopted by NA/UBS. Shown as a textual variant.',
+      sourceType: 'textual-variant',
+      confidence: 'medium',
+      textualVariant: {
+        label: 'καυχήσωμαι',
+        greekText: 'ἵνα καυχήσωμαι',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_460130030150010'],
+        variantTokens: [{ surface: 'καυχήσωμαι', lemma: 'καυχάομαι', gloss: 'I may boast' }],
+        note: 'Adopted by NA/UBS; the base prints καυθήσομαι (“be burned”).',
+      },
+    },
+
+    // Matthew 5:22 — the added qualifier εἰκῇ ("without cause")
+    {
+      id: 'alt_matt_5_22_eike',
+      issueId: 'iss_matt_5_22_variant',
+      passageId: 'gnt_matthew_99',
+      label: '+ εἰκῇ — “angry without cause”',
+      shortLabel: '+ εἰκῇ',
+      interpretation: 'Only unjustified anger is liable to judgment.',
+      description:
+        'Many witnesses (ℵ² D L W Θ 𝔐) add εἰκῇ (“without cause”) after “his brother”. Shown as a textual variant; the qualifier is not merged into the base tokens.',
+      sourceType: 'textual-variant',
+      confidence: 'low',
+      textualVariant: {
+        label: 'εἰκῇ',
+        greekText: 'ὁ ὀργιζόμενος τῷ ἀδελφῷ αὐτοῦ εἰκῇ',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_400050220080010'],
+        variantTokens: [{ surface: 'εἰκῇ', lemma: 'εἰκῇ', gloss: 'without cause' }],
+        note: 'Byzantine and many witnesses add εἰκῇ; the earliest (𝔓64vid ℵ* B) omit it.',
       },
     },
   ],

@@ -71,8 +71,54 @@ describe('contested registry — structural integrity', () => {
     expect(types.has('syntax-only')).toBe(true);
     expect(types.has('semantic-only')).toBe(true);
     expect(types.has('textual-variant')).toBe(true);
+    // A passage-inclusion issue is present (Luke 23:34's forgiveness saying).
+    expect(types.has('passage-inclusion')).toBe(true);
     // A Hebrew (WLC) passage is present.
     expect(contestedRegistry.issues.some((i) => i.passageId.startsWith('wlc_'))).toBe(true);
+  });
+});
+
+describe('contested registry — major NT textual variants', () => {
+  const IDS = [
+    'iss_mark_1_41_variant',
+    'iss_john_1_18_variant',
+    'iss_acts_20_28_variant',
+    'iss_rom_5_1_variant',
+    'iss_luke_23_34_inclusion',
+    'iss_1cor_13_3_variant',
+    'iss_matt_5_22_variant',
+  ];
+
+  it('registers all seven curated textual variants', () => {
+    for (const id of IDS) expect(getIssueById(id), id).toBeTruthy();
+  });
+
+  it('each variant reading carries a differing wording and never mutates the base', () => {
+    for (const id of IDS) {
+      const readings = getAlternateReadings(id);
+      expect(readings.length, id).toBeGreaterThan(0);
+      for (const r of readings) {
+        // A textual/inclusion reading depends on a different wording — flagged
+        // explicitly, anchored to a real base token, and NOT an adoptable edit.
+        expect(r.textualVariant?.differsFromBase, r.id).toBe(true);
+        expect(r.textualVariant?.affectedBaseTokenIds?.length, r.id).toBeGreaterThan(0);
+        expect(canAdoptAlternateReading(r), r.id).toBe(false);
+      }
+    }
+  });
+
+  it('honours the ACTUAL Nestle1904 base: Romans 5:1 is the subjunctive, indicative is the variant', () => {
+    const issue = getIssueById('iss_rom_5_1_variant')!;
+    expect(issue.defaultReading.label).toMatch(/subjunctive|ἔχωμεν/);
+    const alt = getAlternateReadings(issue.id)[0]!;
+    expect(alt.textualVariant?.variantTokens?.[0]?.surface).toBe('ἔχομεν');
+  });
+
+  it('John 1:18 anchors to θεός and offers the υἱός reading', () => {
+    const issue = getIssueById('iss_john_1_18_variant')!;
+    expect(issue.affectedTokenIds).toEqual(['t_430010180060010']);
+    const alt = getAlternateReadings(issue.id)[0]!;
+    expect(alt.textualVariant?.variantTokens?.[0]?.surface).toBe('υἱός');
   });
 });
 
