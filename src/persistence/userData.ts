@@ -1,6 +1,11 @@
+import { z } from 'zod';
 import {
+  AlternateReadingSchema,
+  ContestedSyntaxIssueSchema,
   CustomAssignmentPatchSchema,
   SermonPrepDataSchema,
+  type AlternateReading,
+  type ContestedSyntaxIssue,
   type CustomAssignmentPatch,
   type SermonPrepData,
 } from '@/domain/schema';
@@ -84,6 +89,38 @@ export function loadSermonPrep(passageId: string): SermonPrepData | null {
 
 export function deleteSermonPrep(passageId: string): void {
   safeRemove(SERMON_PREFIX + passageId);
+}
+
+// --- user / LLM-imported variant readings ------------------------------------
+
+const VARIANTS_PREFIX = 'kr:variants:';
+
+/** One passage's imported variant readings: a grouping issue + its full-doc readings. */
+const UserVariantBundleSchema = z.object({
+  issue: ContestedSyntaxIssueSchema,
+  readings: z.array(AlternateReadingSchema),
+});
+export type UserVariantBundle = z.infer<typeof UserVariantBundleSchema>;
+
+export function saveUserVariants(passageId: string, bundle: UserVariantBundle): void {
+  safeSet(VARIANTS_PREFIX + passageId, JSON.stringify(bundle));
+}
+
+export function loadUserVariants(passageId: string): UserVariantBundle | null {
+  const raw = safeGet(VARIANTS_PREFIX + passageId);
+  if (!raw) return null;
+  try {
+    const parsed = UserVariantBundleSchema.safeParse(JSON.parse(raw));
+    return parsed.success
+      ? (parsed.data as { issue: ContestedSyntaxIssue; readings: AlternateReading[] })
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function deleteUserVariants(passageId: string): void {
+  safeRemove(VARIANTS_PREFIX + passageId);
 }
 
 // --- bulk export / reset ------------------------------------------------------

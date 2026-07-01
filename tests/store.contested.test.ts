@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useEditorStore } from '@/state';
-import { loadPatch } from '@/persistence';
+import { loadPatch, loadUserVariants } from '@/persistence';
+import { getIssuesForPassage, getAlternateReadings, userIssueId } from '@/domain/contested';
 import { cloneSample } from '@/fixtures';
 
 const store = useEditorStore;
@@ -85,5 +86,59 @@ describe('store — contested readings', () => {
     store.getState().restoreBaseParse();
     expect(store.getState().doc.syntax.relations.find((r) => r.id === 'r2')!.headId).toBe('n_root');
     expect(loadPatch(id)).toBeNull();
+  });
+});
+
+describe('store — imported variant readings', () => {
+  beforeEach(() => {
+    if (typeof localStorage !== 'undefined') localStorage.clear();
+    store.getState().loadDocument(cloneSample('doc_sample_fox')!, { corpus: 'custom' });
+  });
+
+  it('attaches an imported parse as a variant, persists it, and surfaces it in the dropdown', () => {
+    const base = store.getState().doc;
+    // A distinguishable "variant" parse (a full standalone doc).
+    const variantDoc = { ...cloneSample('doc_sample_fox')!, id: 'doc_variant_x', title: 'Alt reading' };
+    store.getState().importAsVariants([
+      { label: 'Fronted adverb reading', impact: 'Reads “quickly” with the verb, not the fox.', doc: variantDoc },
+    ]);
+
+    // The synthesized issue + reading now show up via the normal accessors.
+    const issues = getIssuesForPassage(base);
+    expect(issues.some((i) => i.id === userIssueId(base.id))).toBe(true);
+    const readings = getAlternateReadings(userIssueId(base.id));
+    expect(readings).toHaveLength(1);
+    expect(readings[0]!.label).toBe('Fronted adverb reading');
+    expect(readings[0]!.fullDoc?.id).toBe('doc_variant_x');
+
+    // Persisted for next load.
+    const stored = loadUserVariants(base.id);
+    expect(stored?.readings).toHaveLength(1);
+
+    // The panel focuses the imported-variants issue.
+    expect(store.getState().contested.selectedContestedIssueId).toBe(userIssueId(base.id));
+  });
+
+  it('previewing an imported variant shows its FULL doc, saving nothing', () => {
+    const base = store.getState().doc;
+    const variantDoc = { ...cloneSample('doc_sample_fox')!, id: 'doc_variant_y', title: 'Alt' };
+    store.getState().importAsVariants([{ label: 'Alt', doc: variantDoc }]);
+    const readingId = getAlternateReadings(userIssueId(base.id))[0]!.id;
+
+    store.getState().previewAlternateReading(readingId);
+    const s = store.getState();
+    expect(s.previewDoc?.id).toBe('doc_variant_y'); // the full variant doc, verbatim
+    expect(loadPatch(base.id)).toBeNull(); // preview never persists a patch
+  });
+
+  it('re-registers stored variants when the passage is reloaded', () => {
+    const base = store.getState().doc;
+    const variantDoc = { ...cloneSample('doc_sample_fox')!, id: 'doc_variant_z', title: 'Alt' };
+    store.getState().importAsVariants([{ label: 'Alt', doc: variantDoc }]);
+    // Navigate away and back: the overlay must be restored from storage.
+    store.getState().loadDocument(cloneSample('doc_sample_word_flesh')!, { corpus: 'custom' });
+    expect(getIssuesForPassage(store.getState().doc).some((i) => i.id === userIssueId(base.id))).toBe(false);
+    store.getState().loadDocument(cloneSample('doc_sample_fox')!, { corpus: 'custom' });
+    expect(getAlternateReadings(userIssueId(base.id))).toHaveLength(1);
   });
 });

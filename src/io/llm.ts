@@ -25,6 +25,7 @@ import {
   type Token,
 } from '@/domain/schema';
 import { createDocument, detectLanguage, makeId, normalizeSyntax } from '@/domain/model';
+import type { VariantInput } from '@/domain/contested';
 import type { ImportResult } from './json';
 
 /**
@@ -93,6 +94,22 @@ const LlmRelationSchema = z.object({
   dependent: z.string(),
   label: z.string().optional(),
 });
+/**
+ * An ALTERNATE reading of the same sentence: a full parse (its own nodes /
+ * relations / rootId) plus a short label and an exegetical impact note. Tokens
+ * are optional — when omitted, the variant reuses the primary diagram's tokens
+ * (the common case: same words, a different tree/attachment/segmentation).
+ */
+const LlmVariantSchema = z.object({
+  label: z.string(),
+  impact: z.string().optional(),
+  tokens: z.array(LlmTokenSchema).optional(),
+  nodes: z.array(LlmNodeSchema).default([]),
+  relations: z.array(LlmRelationSchema).default([]),
+  rootId: z.string().optional(),
+  text: z.string().optional(),
+  language: z.string().optional(),
+});
 export const LlmDiagramSchema = z.object({
   kind: z.string().optional(),
   version: z.number().optional(),
@@ -103,6 +120,8 @@ export const LlmDiagramSchema = z.object({
   nodes: z.array(LlmNodeSchema),
   relations: z.array(LlmRelationSchema).default([]),
   rootId: z.string().optional(),
+  /** Optional alternate readings the model judged plausible for this sentence. */
+  variants: z.array(LlmVariantSchema).optional(),
 });
 export type LlmDiagram = z.infer<typeof LlmDiagramSchema>;
 
@@ -126,6 +145,8 @@ const morphList = Object.entries(MORPH_FEATURES)
 export interface LlmPromptOptions {
   /** The source has had punctuation removed — ask the model to infer its own. */
   inferPunctuation?: boolean;
+  /** Ask the model to include plausible ALTERNATE readings as `variants`. */
+  variants?: boolean;
 }
 
 export function buildLlmPrompt(
@@ -139,6 +160,15 @@ export function buildLlmPrompt(
     detected === 'grc' ? 'Koine Greek' : detected === 'hbo' ? 'Biblical Hebrew' : 'English';
   const punctuationRule = opts.inferPunctuation
     ? `\n- PUNCTUATION: the source has had its punctuation REMOVED. Infer the most likely punctuation yourself — sentence breaks, commas, clause boundaries — and let that guide the parse; write the punctuated form into each diagram's "text" field. Where a different punctuation would give a materially different parse, prefer the reading you judge most likely.`
+    : '';
+  const variantsRule = opts.variants
+    ? `\n- ALTERNATE READINGS: where the grammar is genuinely AMBIGUOUS — a participle or adjective that could modify a different head, a prepositional phrase that could attach in more than one place, a punctuation choice that shifts a clause boundary or sentence break, an objective-vs-subjective genitive that changes the tree — add a "variants" array to that sentence's object. Each entry is { "label": short name, "impact": one sentence on the exegetical/interpretive difference, "nodes": [...], "relations": [...], "rootId": "..." } — a COMPLETE alternate parse (omit "tokens" to reuse the same words). ERR ON THE SIDE OF INCLUDING variants: give every reading you'd defend, most likely first. Omit "variants" only when the parse is genuinely uncontested.`
+    : '';
+  const variantsFormat = opts.variants
+    ? `,
+  "variants": [
+    { "label": "…", "impact": "…", "nodes": [ … ], "relations": [ … ], "rootId": "c0" }
+  ]`
     : '';
   const tokenLines = tokens.map((t) => `  ${t.id} = ${JSON.stringify(t.surface)}`).join('\n');
   const tokenJson = tokens
@@ -173,7 +203,7 @@ ${tokenJson}
   "relations": [
     { "type": "subject", "head": "c0", "dependent": "n_subj" }
   ],
-  "rootId": "c0"
+  "rootId": "c0"${variantsFormat}
 }
 
 If the SENTENCE above is actually MORE THAN ONE sentence, reply with a JSON ARRAY
@@ -181,7 +211,7 @@ instead — one complete object (like the one above) per sentence:
   [ { ...diagram for sentence 1... }, { ...diagram for sentence 2... } ]
 
 RULES
-- DETECT THE LANGUAGE from the script/words and set "language" to "en", "grc", or "hbo". Do not rely on the hint above; the sentence is authoritative.${punctuationRule}
+- DETECT THE LANGUAGE from the script/words and set "language" to "en", "grc", or "hbo". Do not rely on the hint above; the sentence is authoritative.${punctuationRule}${variantsRule}
 - Fill a "pos" for every token, plus "lemma" and a short English "gloss".
 - MORPHOLOGY: fill "morphology" for every inflected token with the features that APPLY to it — nominals (noun/adjective/article/participle/pronoun): case, gender, number; finite verbs: person, number, tense, voice, mood (e.g. "1st person singular present active indicative"); infinitives/participles: tense, voice (+ case/gender/number for a participle); adjective/adverb comparison: degree. Omit features that do not apply, and use "morphology": {} for an uninflected word (English preposition, particle). English uses only the subset that applies (person/number/tense/degree).
 - MULTIPLE SENTENCES: diagram each sentence SEPARATELY as its own object in the array, each with its own "nodes"/"relations"/"rootId" and referencing only that sentence's tokens. NEVER join two sentences into one clause or link them with a "conjunct"/"clause" relation — separate sentences are separate diagrams. Reply with a single object only when there is exactly one sentence.
@@ -213,6 +243,8 @@ Reply with only the JSON object.`;
 export interface MultiImportResult {
   ok: boolean;
   documents?: KrDocument[];
+  /** Alternate readings per document (aligned with `documents`); empty if none. */
+  variantsByDoc?: VariantInput[][];
   error?: string;
 }
 
@@ -300,6 +332,7 @@ export function importLlmDiagrams(text: string, opts: { title?: string } = {}): 
       : [raw];
   if (!items.length) return { ok: false, error: 'No diagrams found.' };
   const documents: KrDocument[] = [];
+  const variantsByDoc: VariantInput[][] = [];
   for (let i = 0; i < items.length; i++) {
     // Let each sentence take its own title from its text; only pass the caller's
     // title through when there is a single diagram.
@@ -308,39 +341,53 @@ export function importLlmDiagrams(text: string, opts: { title?: string } = {}): 
       return { ok: false, error: items.length > 1 ? `Sentence ${i + 1}: ${res.error}` : res.error };
     }
     documents.push(res.document);
+    variantsByDoc.push(res.variants ?? []);
   }
-  return { ok: true, documents };
+  return { ok: true, documents, variantsByDoc };
 }
 
-/** Validate + hydrate one already-parsed diagram object into a KrDocument. */
-function hydrateDiagram(raw: unknown, opts: { title?: string } = {}): ImportResult {
-  const parsed = LlmDiagramSchema.safeParse(raw);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; '),
-    };
-  }
-  const d = parsed.data;
+/** The diagram fields (shared by a primary diagram and each of its variants). */
+interface HydrateFields {
+  tokens?: z.infer<typeof LlmTokenSchema>[];
+  nodes: z.infer<typeof LlmNodeSchema>[];
+  relations: z.infer<typeof LlmRelationSchema>[];
+  rootId?: string;
+  text?: string;
+  language?: string;
+}
+
+/**
+ * Build one validated KrDocument from a diagram's fields. `fallbackTokens` are
+ * the primary diagram's tokens, reused when a variant omits its own (same words,
+ * a different tree). Returns a readable error rather than throwing.
+ */
+function hydrateFields(
+  d: HydrateFields,
+  opts: { title?: string; fallbackTokens?: Token[]; fallbackText?: string; fallbackLanguage?: Language },
+): { ok: true; document: KrDocument } | { ok: false; error: string } {
   const language: Language = (['en', 'grc', 'hbo'] as const).includes(d.language as Language)
     ? (d.language as Language)
-    : 'en';
+    : opts.fallbackLanguage ?? 'en';
 
-  const tokens: Token[] = d.tokens.map((t, i) => {
-    const morphology = asMorphology(t.morphology);
-    return {
-      id: t.id,
-      index: i,
-      surface: t.surface,
-      language,
-      ...(asPos(t.pos) ? { pos: asPos(t.pos) } : {}),
-      ...(t.lemma ? { lemma: t.lemma } : {}),
-      ...(t.gloss ? { gloss: t.gloss } : {}),
-      ...(morphology ? { morphology } : {}),
-      provenance: GIVEN,
-    };
-  });
+  const tokens: Token[] =
+    d.tokens && d.tokens.length
+      ? d.tokens.map((t, i) => {
+          const morphology = asMorphology(t.morphology);
+          return {
+            id: t.id,
+            index: i,
+            surface: t.surface,
+            language,
+            ...(asPos(t.pos) ? { pos: asPos(t.pos) } : {}),
+            ...(t.lemma ? { lemma: t.lemma } : {}),
+            ...(t.gloss ? { gloss: t.gloss } : {}),
+            ...(morphology ? { morphology } : {}),
+            provenance: GIVEN,
+          };
+        })
+      : (opts.fallbackTokens ?? []);
   const tokenIds = new Set(tokens.map((t) => t.id));
+  if (!tokens.length) return { ok: false, error: 'No tokens in the imported diagram.' };
 
   const nodes: SyntaxNode[] = d.nodes.map((n) => ({
     id: n.id,
@@ -374,11 +421,11 @@ function hydrateDiagram(raw: unknown, opts: { title?: string } = {}): ImportResu
     d.rootId && nodeIds.has(d.rootId) ? d.rootId : nodes.find((n) => n.kind === 'clause')?.id;
   if (!rootId) return { ok: false, error: 'No root clause node (need a node with kind "clause").' };
 
-  const title = opts.title ?? d.title ?? titleFromText(d.text ?? tokens.map((t) => t.surface).join(' '));
-  const base = createDocument({ language, title, text: d.text ?? tokens.map((t) => t.surface).join(' ') });
+  const text = d.text ?? opts.fallbackText ?? tokens.map((t) => t.surface).join(' ');
+  const title = opts.title ?? titleFromText(text);
+  const base = createDocument({ language, title, text });
   // Normalize so an over-specified reply (a phrase node plus its child words both
-  // carrying the same tokens, or a node hung under two heads) never draws a word
-  // twice.
+  // carrying the same tokens, or a node hung under two heads) never draws a word twice.
   const doc = normalizeSyntax({ ...base, tokens, syntax: { rootId, nodes, relations } } as KrDocument);
 
   const result = KrDocumentSchema.safeParse(doc);
@@ -389,6 +436,37 @@ function hydrateDiagram(raw: unknown, opts: { title?: string } = {}): ImportResu
     };
   }
   return { ok: true, document: result.data };
+}
+
+/** Validate + hydrate one already-parsed diagram object into a KrDocument (+ its variants). */
+function hydrateDiagram(
+  raw: unknown,
+  opts: { title?: string } = {},
+): ImportResult & { variants?: VariantInput[] } {
+  const parsed = LlmDiagramSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; '),
+    };
+  }
+  const d = parsed.data;
+  const primary = hydrateFields(d, { title: opts.title ?? d.title });
+  if (!primary.ok) return { ok: false, error: primary.error };
+
+  // Alternate readings share the primary's tokens unless they supply their own.
+  const variants: VariantInput[] = [];
+  for (const v of d.variants ?? []) {
+    const res = hydrateFields(v, {
+      title: v.label,
+      fallbackTokens: primary.document.tokens,
+      fallbackText: primary.document.text,
+      fallbackLanguage: primary.document.language,
+    });
+    if (res.ok) variants.push({ label: v.label, impact: v.impact, doc: res.document });
+    // A malformed variant is skipped, never fatal — the primary parse still loads.
+  }
+  return { ok: true, document: primary.document, variants };
 }
 
 /** A short title from the opening words of the sentence. */

@@ -19,6 +19,10 @@ import {
   canAdoptAlternateReading,
   adoptAlternateReading,
   diffBaseAndAlternate,
+  buildUserVariants,
+  mergeUserVariants,
+  isCombinedPassage,
+  setUserContested,
 } from '@/domain/contested';
 import { combinePassage } from '@/io';
 import type { KrDocument } from '@/domain/schema';
@@ -185,5 +189,43 @@ describe('contested helpers — preview / adopt / diff', () => {
 
     const tex = diffBaseAndAlternate(oneJohn, oneJohn, textualReading);
     expect(tex.textualVariant).toBe(true);
+  });
+});
+
+describe('user / LLM-imported variant readings', () => {
+  const fox = () => sampleDocuments.find((d) => d.id === 'doc_sample_fox')!;
+
+  it('builds a grouping issue + full-doc readings, previewed verbatim', () => {
+    const base = fox();
+    const variantDoc = { ...fox(), id: 'doc_v1', title: 'Alt' };
+    const { issue, readings } = buildUserVariants(base.id, base.title, [
+      { label: 'Adverb with verb', impact: 'Reads “quickly” with the verb.', doc: variantDoc },
+    ]);
+    expect(issue.passageId).toBe(base.id);
+    expect(issue.alternateReadingIds).toEqual([readings[0]!.id]);
+    expect(readings[0]!.origin).toBe('user');
+    expect(readings[0]!.fullDoc?.id).toBe('doc_v1');
+    // Preview returns the full variant doc verbatim (not a patched base).
+    expect(applyAlternateReadingPreview(base, readings[0]!).id).toBe('doc_v1');
+    // A full-doc variant is not a structural patch, so it can't be "adopted".
+    expect(canAdoptAlternateReading(readings[0]!)).toBe(false);
+  });
+
+  it('merges added variants into the existing set (stable issue, appended readings)', () => {
+    const base = fox();
+    const a = buildUserVariants(base.id, base.title, [{ label: 'A', doc: { ...fox(), id: 'a' } }]);
+    const b = buildUserVariants(base.id, base.title, [{ label: 'B', doc: { ...fox(), id: 'b' } }]);
+    const merged = mergeUserVariants(a, b);
+    expect(merged.readings).toHaveLength(2);
+    expect(merged.issue.id).toBe(a.issue.id);
+    expect(merged.issue.alternateReadingIds).toEqual(merged.readings.map((r) => r.id));
+    setUserContested([], []); // leave the module overlay clean for other tests
+  });
+
+  it('flags a combined multi-sentence passage (variants attach to a single sentence only)', () => {
+    const single = fox();
+    const combined = combinePassage([fox(), sampleDocuments.find((d) => d.id === 'doc_sample_word_flesh')!]);
+    expect(isCombinedPassage(single)).toBe(false);
+    expect(isCombinedPassage(combined)).toBe(true);
   });
 });
