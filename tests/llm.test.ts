@@ -61,6 +61,17 @@ describe('buildLlmPrompt', () => {
     expect(prompt).toMatch(/gets NO node and appears in NO relation/);
     expect(prompt).toMatch(/BEFORE YOU REPLY/);
   });
+
+  it('tells the model to isolate each word and NOT lump a modal verb with its complement', () => {
+    // The Chinese-slogan follow-up: the model lumped 要+做官 and 要+革命 into one
+    // predicate node each. The verb-phrase rule is now scoped to true auxiliaries,
+    // and a matrix/modal verb + complement (and a verb + object) must be separate.
+    expect(prompt).toMatch(/ISOLATE EVERY WORD'S FUNCTION/);
+    expect(prompt).toMatch(/DIRECT OBJECT are separate nodes/);
+    expect(prompt).toMatch(/AUXILIARY plus its main verb/);
+    expect(prompt).toMatch(/MODAL or matrix verb/);
+    expect(prompt).toMatch(/the second verb is a COMPLEMENT/);
+  });
 });
 
 describe('importLlmDiagram', () => {
