@@ -1,5 +1,6 @@
 import { Fragment, useEffect, type ReactNode } from 'react';
 import { DIAGRAM_MODES } from '@/domain/layout';
+import { TONE_COLORS } from '@/domain/render';
 
 /**
  * A read-only "how to read the diagram" reference: what each visualization shows,
@@ -108,12 +109,12 @@ const MARKS: Mark[] = [
   },
   {
     name: 'Apposition',
-    meaning: 'Two short strokes “=” across the line join an appositive that RENAMES the word before it (“Paul, an apostle”).',
+    meaning: 'An “=” lying flat ON the line — two short strokes PARALLEL to the baseline — joins an appositive that RENAMES the word before it (“Paul, an apostle”).',
     draw: (
       <>
         {line(6, 24, 66, 24)}
-        {line(36, 18, 36, 30)}
-        {line(41, 18, 41, 30)}
+        {line(34, 20, 46, 20)}
+        {line(34, 28, 46, 28)}
       </>
     ),
   },
@@ -140,6 +141,22 @@ const MARKS: Mark[] = [
       </>
     ),
   },
+];
+
+/**
+ * The grammatical categories the Morphology Clause view (and the optional colour
+ * overlay) tint, in reading order — keyed to the renderer's TONE_COLORS so the
+ * legend never drifts from the diagram. A finite verb / participle colours by
+ * part of speech; everything else by case (see `tokenTone`).
+ */
+const TONE_LEGEND: { key: keyof typeof TONE_COLORS; label: string; meaning: string }[] = [
+  { key: 'verb', label: 'Finite verb', meaning: 'the conjugated verb of a clause' },
+  { key: 'participle', label: 'Participle', meaning: 'a verbal adjective (“-ing / -ed” form)' },
+  { key: 'nominative', label: 'Nominative', meaning: 'subject or predicate nominative' },
+  { key: 'accusative', label: 'Accusative', meaning: 'direct object' },
+  { key: 'genitive', label: 'Genitive', meaning: 'possessive / “of”' },
+  { key: 'dative', label: 'Dative', meaning: 'indirect object / “to, for”' },
+  { key: 'vocative', label: 'Vocative', meaning: 'direct address' },
 ];
 
 /** One-liners on how to READ each visualization (beyond the selector tooltip). */
@@ -214,9 +231,29 @@ export function DiagramGuideModal({ open, onClose }: { open: boolean; onClose: (
           ))}
         </div>
 
+        <h3 style={{ margin: '16px 0 6px', fontSize: 14 }}>Colour code (morphology)</h3>
+        <p className="hint" style={{ margin: '0 0 8px' }}>
+          Words are tinted by grammatical category — finite verb / participle by form, otherwise by case. The colour is
+          always paired with the word itself, so it is never the only cue.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '6px 12px', fontSize: 13 }}>
+          {TONE_LEGEND.map((t) => (
+            <div key={t.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span
+                aria-hidden="true"
+                style={{ flex: 'none', width: 12, height: 12, borderRadius: 3, background: TONE_COLORS[t.key], transform: 'translateY(1px)' }}
+              />
+              <span>
+                <strong style={{ color: TONE_COLORS[t.key] }}>{t.label}</strong>
+                <span style={{ color: 'var(--ink-soft, #667)' }}> — {t.meaning}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+
         <p className="hint" style={{ marginTop: 14 }}>
-          Colour tints words by grammatical category (case, finite verb, participle…). Small italics on a line are the
-          connector between two parts. Layout nudges (drag, collapse) change only the picture, never the parse.
+          Small italics on a line are the connector between two parts. Layout nudges (drag, collapse) change only the
+          picture, never the parse.
         </p>
 
         <div style={{ textAlign: 'right', marginTop: 14 }}>
