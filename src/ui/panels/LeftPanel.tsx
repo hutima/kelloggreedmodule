@@ -25,11 +25,20 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
   // panel never strands the user on a hidden tab.
   const appMode = useEditorStore((s) => s.appMode);
   const hasSavedCustom = useEditorStore((s) => s.customParses.length > 0);
+  const searchPrefill = useEditorStore((s) => s.searchPrefill);
   const showNew = appMode === 'edit' || hasSavedCustom;
   const [source, setSource] = useState<'gnt' | 'ot' | 'new' | 'search'>(docLang === 'hbo' ? 'ot' : 'gnt');
   useEffect(() => {
     if (!showNew && source === 'new') setSource('gnt');
   }, [showNew, source]);
+  // A search queued from the inspector (a word's Strong's / lemma) opens the
+  // Search tab; the SearchPicker then consumes and clears the prefill.
+  useEffect(() => {
+    if (searchPrefill) {
+      setCollapsed(false);
+      setSource('search');
+    }
+  }, [searchPrefill, setCollapsed]);
 
   // Follow the OPEN document's corpus so a reload (which restores the passage
   // asynchronously, after this panel has mounted on the placeholder doc) lands on

@@ -189,6 +189,8 @@ export function SearchPicker() {
   const setGntContext = useEditorStore((s) => s.setGntContext);
   const select = useEditorStore((s) => s.select);
   const openDocId = useEditorStore((s) => s.doc.id);
+  const searchPrefill = useEditorStore((s) => s.searchPrefill);
+  const setSearchPrefill = useEditorStore((s) => s.setSearchPrefill);
 
   const [source, setSource] = useState<Source>('nestle1904');
   const [bookNum, setBookNum] = useState(11); // Philippians (bundled offline)
@@ -261,6 +263,17 @@ export function SearchPicker() {
 
   // Cancel a running sweep if the panel unmounts.
   useEffect(() => () => sweepRef.current?.abort(), []);
+
+  // Consume a prefill queued from the inspector (a word's Strong's / lemma): open
+  // the matching corpus, scope to the whole testament, and drop in the lemma — the
+  // user just hits "Search {Testament}". Clear it so it fires once.
+  useEffect(() => {
+    if (!searchPrefill) return;
+    setSource(searchPrefill.language === 'hbo' ? 'ot' : 'nestle1904');
+    setBookNum(ALL);
+    setQuery({ text: searchPrefill.text });
+    setSearchPrefill(null);
+  }, [searchPrefill, setSearchPrefill]);
 
   const changeSource = (next: Source) => {
     setSource(next);
