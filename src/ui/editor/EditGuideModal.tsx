@@ -1,6 +1,7 @@
 import { useEditorStore } from '@/state';
 import { Modal } from '@/ui/components/common/Modal';
 import { adapterFor } from './adapters';
+import { RELATIONSHIP_GUIDE, relationshipGloss } from './relationshipGuide';
 
 /**
  * The single editing guide, opened from the edit toolbar's Guide button. It pairs
@@ -100,6 +101,65 @@ export function EditGuideModal({ onClose }: { onClose: () => void }) {
         <dt>When to switch</dt>
         <dd>{help.whenToSwitch}</dd>
       </dl>
+
+      <RelationshipReference />
     </Modal>
+  );
+}
+
+/**
+ * The expandable deep-dive: every relationship (role) you can assign, with a
+ * plain-language definition, a worked example, and how it is drawn in BOTH the
+ * Kellogg-Reed diagram and the Dependency tree — so you can predict the effect of
+ * an edit before you make it. Collapsed by default so it never crowds the quick
+ * orientation above; open it when you want the full reference.
+ */
+function RelationshipReference() {
+  return (
+    <details className="rel-guide">
+      <summary className="help-h">Relationship reference — every role, in detail</summary>
+      <p className="help-bestfor">
+        Each relationship links a <em>dependent</em> word to its <em>head</em>. Below: what the
+        term means, an example, and how it shows up in the Kellogg-Reed diagram and the Dependency
+        tree. Highlighting reflects the dependent.
+      </p>
+      {RELATIONSHIP_GUIDE.map((family) => (
+        <section key={family.title} className="rel-family">
+          <h4 className="help-h">{family.title}</h4>
+          <p className="rel-blurb">{family.blurb}</p>
+          {family.roles.map((doc) => {
+            const g = relationshipGloss(doc.role);
+            return (
+              <div key={doc.role} className="rel-entry">
+                <div className="rel-term">
+                  <strong>{g.term}</strong>
+                  {g.abbr ? <code className="rel-abbr">{g.abbr}</code> : null}
+                </div>
+                <p className="rel-detail">{g.detail}</p>
+                <dl className="rel-facets">
+                  <dt>Example</dt>
+                  <dd>{renderEmphasis(doc.example)}</dd>
+                  <dt>Kellogg-Reed</dt>
+                  <dd>{doc.kr}</dd>
+                  <dt>Dependency tree</dt>
+                  <dd>{doc.tree}</dd>
+                </dl>
+              </div>
+            );
+          })}
+        </section>
+      ))}
+    </details>
+  );
+}
+
+/** Render a string with **double-asterisk** spans as <strong> (used in examples). */
+function renderEmphasis(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith('**') && part.endsWith('**') ? (
+      <strong key={i}>{part.slice(2, -2)}</strong>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
   );
 }
