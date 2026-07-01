@@ -399,3 +399,83 @@ describe('noun-clause complements ride a pedestal', () => {
     expect(wordY(layout, 'he')).toBeDefined();
   });
 });
+
+/**
+ * Regression: a per-verb compound predicate arm (a coordinated infinitive/verb
+ * that carries BOTH a direct object and an adverbial prepositional phrase) must
+ * not overlap the two. `layoutPredicateArm` used to place the direct object right
+ * after the verb word while the adverbial PP hung below from the verb's middle,
+ * with no horizontal coordination — so a wide PP ("to assume AMONG THE POWERS OF
+ * THE EARTH the … station") crashed straight through the object and its own
+ * modifiers. The arm now reserves room for the below-modifier cascade first, so
+ * the object starts past it — the same treatment a full clause already applies.
+ */
+describe('compound-predicate arm reserves room for adverbials', () => {
+  function armWithObjectAndPp(): KrDocument {
+    return KrDocumentSchema.parse({
+      schemaVersion: 1,
+      id: 'doc_arm_pp',
+      title: 't',
+      language: 'en',
+      text: 'people dissolve bands and assume among the powers the station',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      layoutHints: {},
+      tokens: [
+        { id: 't_sub', index: 0, surface: 'people', pos: 'noun' },
+        { id: 't_v1', index: 1, surface: 'dissolve', pos: 'verb' },
+        { id: 't_o1', index: 2, surface: 'bands', pos: 'noun' },
+        { id: 't_and', index: 3, surface: 'and', pos: 'conjunction' },
+        { id: 't_v2', index: 4, surface: 'assume', pos: 'verb' },
+        { id: 't_prep', index: 5, surface: 'among', pos: 'preposition' },
+        { id: 't_the1', index: 6, surface: 'the', pos: 'article' },
+        { id: 't_pobj', index: 7, surface: 'powers', pos: 'noun' },
+        { id: 't_the2', index: 8, surface: 'the', pos: 'article' },
+        { id: 't_obj', index: 9, surface: 'station', pos: 'noun' },
+      ],
+      syntax: {
+        rootId: 'n_root',
+        nodes: [
+          { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+          { id: 'n_sub', kind: 'word', role: 'subject', tokenIds: ['t_sub'] },
+          { id: 'n_v1', kind: 'word', role: 'predicate', tokenIds: ['t_v1'] },
+          { id: 'n_o1', kind: 'word', role: 'directObject', tokenIds: ['t_o1'] },
+          { id: 'n_and', kind: 'word', role: 'coordinator', tokenIds: ['t_and'] },
+          { id: 'n_v2', kind: 'word', role: 'conjunct', tokenIds: ['t_v2'] },
+          { id: 'n_prep', kind: 'word', role: 'prepositionalPhrase', tokenIds: ['t_prep'] },
+          { id: 'n_the1', kind: 'word', role: 'determiner', tokenIds: ['t_the1'] },
+          { id: 'n_pobj', kind: 'word', role: 'prepositionObject', tokenIds: ['t_pobj'] },
+          { id: 'n_the2', kind: 'word', role: 'determiner', tokenIds: ['t_the2'] },
+          { id: 'n_obj', kind: 'word', role: 'directObject', tokenIds: ['t_obj'] },
+        ],
+        relations: [
+          { id: 'r1', type: 'subject', headId: 'n_root', dependentId: 'n_sub' },
+          { id: 'r2', type: 'predicate', headId: 'n_root', dependentId: 'n_v1' },
+          { id: 'r3', type: 'directObject', headId: 'n_v1', dependentId: 'n_o1' },
+          { id: 'r4', type: 'conjunct', headId: 'n_v1', dependentId: 'n_v2' },
+          { id: 'r5', type: 'coordinator', headId: 'n_v1', dependentId: 'n_and' },
+          { id: 'r6', type: 'prepositionalPhrase', headId: 'n_v2', dependentId: 'n_prep' },
+          { id: 'r7', type: 'prepositionObject', headId: 'n_prep', dependentId: 'n_pobj' },
+          { id: 'r8', type: 'determiner', headId: 'n_pobj', dependentId: 'n_the1' },
+          { id: 'r9', type: 'directObject', headId: 'n_v2', dependentId: 'n_obj' },
+          { id: 'r10', type: 'determiner', headId: 'n_obj', dependentId: 'n_the2' },
+        ],
+      },
+    });
+  }
+
+  const wordX = (layout: ReturnType<typeof layoutDocument>, text: string) =>
+    (layout.elements.find((e) => e.kind === 'text' && (e as { text: string }).text === text) as
+      | { x: number }
+      | undefined)?.x;
+
+  it('places the arm direct object clear to the right of the adverbial PP object', () => {
+    const layout = layoutDocument(armWithObjectAndPp());
+    const powers = wordX(layout, 'powers'); // object of the PP hanging under "assume"
+    const station = wordX(layout, 'station'); // "assume"'s own direct object on the baseline
+    expect(powers).toBeDefined();
+    expect(station).toBeDefined();
+    // The object sits past the PP's object, not on top of it.
+    expect(station!).toBeGreaterThan(powers! + 20);
+  });
+});

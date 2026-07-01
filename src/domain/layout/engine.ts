@@ -1605,26 +1605,17 @@ function layoutPredicateArm(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): 
   const baselineRels = rels.filter(onBaseline);
   const belowRels = rels.filter((r) => !onBaseline(r));
 
-  let x = wordW;
-  let right = wordW;
-  let baseHeight = 0;
-  baselineRels.forEach((rel) => {
-    const sepX = x;
-    if (rel.type === 'predicateNominative' || rel.type === 'predicateAdjective') {
-      elements.push(line(eid(), sepX + 10, 0, sepX, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id));
-    } else {
-      elements.push(line(eid(), sepX, 0, sepX, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id));
-    }
-    x += 6;
-    const block = layoutNode(ctx, rel.dependentId, seen);
-    elements.push(...translate(block, x, 0));
-    baseHeight = Math.max(baseHeight, block.height);
-    x += block.width;
-    right = Math.max(right, x);
-  });
-
+  // Draw the verb's OWN below-hanging modifiers (adverbs, particles, adverbial
+  // PPs) FIRST and record how far right their cascade reaches. The baseline
+  // complements then start PAST that band, so a wide adverbial PP hanging under
+  // the verb ("assume AMONG THE POWERS OF THE EARTH") can't collide with the
+  // direct object and its own modifiers sitting on the baseline to the right
+  // ("the SEPARATE AND EQUAL station …"). This mirrors the vModRight handling a
+  // full clause already applies; without it a forked infinitive/verb arm laid
+  // out here overlaps its object with its adverbial.
   const belowTop = LAYOUT.slantDrop * ctx.vScale;
   let belowMaxBottom = 0;
+  let belowRight = wordW;
   let cursor = wordW / 2;
   belowRels.forEach((rel) => {
     cursor += LAYOUT.dependentGap;
@@ -1652,7 +1643,27 @@ function layoutPredicateArm(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): 
     }
     belowMaxBottom = Math.max(belowMaxBottom, ext.bottom);
     cursor = ext.right + LAYOUT.dependentGap;
-    right = Math.max(right, ext.right);
+    belowRight = Math.max(belowRight, ext.right);
+  });
+
+  // Baseline complements start past the below-modifier cascade (else they land on
+  // top of it); with no such cascade they sit right after the verb word as before.
+  let x = baselineRels.length && belowRight > wordW ? belowRight + LAYOUT.dependentGap : wordW;
+  let right = Math.max(wordW, belowRight);
+  let baseHeight = 0;
+  baselineRels.forEach((rel) => {
+    const sepX = x;
+    if (rel.type === 'predicateNominative' || rel.type === 'predicateAdjective') {
+      elements.push(line(eid(), sepX + 10, 0, sepX, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id));
+    } else {
+      elements.push(line(eid(), sepX, 0, sepX, -LAYOUT.separatorUp, 'solid', 'separator', undefined, rel.id));
+    }
+    x += 6;
+    const block = layoutNode(ctx, rel.dependentId, seen);
+    elements.push(...translate(block, x, 0));
+    baseHeight = Math.max(baseHeight, block.height);
+    x += block.width;
+    right = Math.max(right, x);
   });
 
   elements.unshift(line(eid(), 0, 0, right, 0, 'solid', 'baseline'));
