@@ -24,6 +24,15 @@ describe('describeFunction (tap a word to reveal its function)', () => {
     expect(fn.grammar).toContain('genitive');
   });
 
+  it('surfaces the Strong’s number and lemma for a whole-corpus search link', () => {
+    const [v1] = lowfatToDocuments(readFileSync('tests/fixtures-lowfat-phil-1-1-2.xml', 'utf8'));
+    const node = (s: string) =>
+      v1!.syntax.nodes.find((n) => n.tokenIds.some((t) => v1!.tokens.find((x) => x.id === t)?.surface === s))!;
+    const fn = describeFunction(v1!, node('Παῦλος').id)!;
+    expect(fn.strong).toBe('3972'); // present in the Nestle1904 data
+    expect(fn.lemma).toBeTruthy();
+  });
+
   it('flags implied / elided elements', () => {
     const [v1] = lowfatToDocuments(readFileSync('tests/fixtures-lowfat-phil-1-1-2.xml', 'utf8'));
     const implied = v1!.syntax.nodes.find((n) => n.implied);
