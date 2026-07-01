@@ -2268,6 +2268,24 @@ button.mc-code.glossed:hover {
 .help-dl dt { font-weight: 600; font-size: 13px; color: var(--ink); }
 .help-dl dd { margin: 0; font-size: 13px; color: var(--ink-soft); }
 
+/* ---- Detailed relationship reference (expandable in the Editing guide) ---- */
+.rel-guide { margin: 18px 0 0; border-top: 1px solid var(--line, #d9d9e0); padding-top: 10px; }
+.rel-guide > summary { cursor: pointer; list-style: revert; user-select: none; }
+.rel-guide > summary:hover { color: var(--ink); }
+.rel-family { margin: 4px 0 12px; }
+.rel-blurb { margin: 0 0 8px; font-size: 13px; color: var(--ink-soft); }
+.rel-entry { margin: 0 0 12px; padding-left: 10px; border-left: 2px solid var(--line, #e3e3ea); }
+.rel-term { display: flex; align-items: baseline; gap: 8px; font-size: 14px; color: var(--ink); }
+.rel-abbr { font-size: 11px; padding: 1px 5px; border-radius: 4px; background: var(--line, #ececf2); color: var(--ink-soft); font-family: ui-monospace, monospace; }
+.rel-detail { margin: 3px 0 6px; font-size: 13px; color: var(--ink-soft); }
+.rel-facets { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; }
+.rel-facets dt { font-weight: 600; font-size: 12px; color: var(--accent); }
+.rel-facets dd { margin: 0; font-size: 13px; color: var(--ink-soft); }
+@media (max-width: 700px) {
+  .rel-facets { grid-template-columns: 1fr; gap: 1px 0; }
+  .rel-facets dd { margin-bottom: 6px; }
+}
+
 /* ---- Greek/Hebrew ↔ English gloss toggle (diagram words) ---- */
 .lang-toggle { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; }
 .lang-toggle button {
