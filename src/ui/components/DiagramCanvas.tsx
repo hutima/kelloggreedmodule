@@ -58,6 +58,7 @@ export function DiagramCanvas() {
   const appMode = useEditorStore((s) => s.appMode);
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
+  const setSearchPrefill = useEditorStore((s) => s.setSearchPrefill);
   const linking = useEditorStore((s) => s.linking);
   const relinkTo = useEditorStore((s) => s.relinkTo);
   const cancelRelink = useEditorStore((s) => s.cancelRelink);
@@ -608,6 +609,32 @@ export function DiagramCanvas() {
       </div>
     ) : null;
 
+  // Only the two Greek/Hebrew corpora are searchable, so an English custom doc
+  // gets no lemma-search link.
+  const searchLang = doc.language === 'grc' || doc.language === 'hbo' ? doc.language : undefined;
+
+  // A word's Strong's number, shown in the detail popover as a one-tap
+  // whole-corpus lemma search (drops the lemma into the Search tab). Falls back to
+  // "Find <lemma> everywhere" when the token carries a lemma but no Strong's.
+  const strongsRow = (summary: NonNullable<ReturnType<typeof describeFunction>>) => {
+    if (!searchLang || !summary.lemma) return null;
+    const { strong, lemma } = summary;
+    return (
+      <div className="kr-reveal-strongs">
+        {strong && <>Strong’s </>}
+        <button
+          type="button"
+          className="kr-reveal-link"
+          onClick={() => setSearchPrefill({ text: lemma, language: searchLang })}
+          title={`Search every book for “${lemma}” (fills the Search tab; then hit search)`}
+        >
+          {strong ? `${searchLang === 'grc' ? 'G' : 'H'}${strong}` : `Find “${lemma}” everywhere`}
+        </button>
+        {strong && <> · find this lemma everywhere</>}
+      </div>
+    );
+  };
+
   // The fixed detail card shared by the HTML modes and the SVG "undrawn word"
   // fallback (a word with no geometry to anchor a positioned popover to).
   const detailCard = (summary: NonNullable<ReturnType<typeof describeFunction>>) => (
@@ -623,6 +650,7 @@ export function DiagramCanvas() {
       <div className="kr-reveal-role">{summary.role}</div>
       <div className="kr-reveal-detail">{summary.detail}</div>
       {summary.grammar && <div className="kr-reveal-grammar">{summary.grammar}</div>}
+      {strongsRow(summary)}
       {sermonHighlight}
     </div>
   );
@@ -1253,6 +1281,7 @@ export function DiagramCanvas() {
             <div className="kr-reveal-role">{reveal.summary.role}</div>
             <div className="kr-reveal-detail">{reveal.summary.detail}</div>
             {reveal.summary.grammar && <div className="kr-reveal-grammar">{reveal.summary.grammar}</div>}
+            {strongsRow(reveal.summary)}
             {sermonHighlight}
           </div>
         )}

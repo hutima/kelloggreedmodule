@@ -20,6 +20,10 @@ export interface FunctionSummary {
   gloss?: string;
   /** Romanized pronunciation (Greek generated, Hebrew from the source). */
   translit?: string;
+  /** Strong's number (from the token morphology), if present — for a lemma-search link. */
+  strong?: string;
+  /** Lemma (falling back to the surface) to seed a whole-corpus search. */
+  lemma?: string;
 }
 
 const ROLE_PHRASES: Partial<Record<SyntacticRole, { role: string; withHead: (h: string) => string }>> = {
@@ -108,5 +112,7 @@ export function describeFunction(doc: KrDocument, nodeId: string): FunctionSumma
     grammar: grammarString(doc, nodeId),
     gloss: tok?.gloss ? tidyGloss(tok.gloss) : undefined,
     translit: tok ? transliterationOf(tok) : undefined,
+    strong: tok?.morphology?.extra?.strong,
+    lemma: tok ? tok.lemma?.trim() || tok.surface.trim() : undefined,
   };
 }

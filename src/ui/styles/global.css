@@ -449,9 +449,10 @@ textarea.code,
   color: #f5f7fa;
   border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-  /* Click-through so the popover never blocks the diagram beneath it — except
-     the close button, which opts back in. */
-  pointer-events: none;
+  /* A solid card: it captures its own clicks (so a tap inside it — e.g. the
+     Strong's lemma-search link — never falls through to the diagram beneath).
+     Dismiss it with the ✕ (or Esc). */
+  pointer-events: auto;
   font-size: 13px;
   line-height: 1.35;
 }
@@ -503,6 +504,25 @@ textarea.code,
   color: #a9b6c2;
   font-variant: small-caps;
   letter-spacing: 0.02em;
+}
+/* Strong's number / lemma-search link inside the dark detail popover. */
+.kr-reveal-strongs {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #a9b6c2;
+}
+.kr-reveal-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #8fd0ff;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.kr-reveal-link:hover {
+  text-decoration: none;
 }
 /* Sermon-prep highlight palette tucked into the tapped word's detail card (phone
    sermon mode). The card itself is click-through, so this section opts back in. */
