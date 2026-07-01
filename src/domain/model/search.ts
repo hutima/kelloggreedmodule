@@ -48,6 +48,9 @@ export interface SearchHit {
   token: Token;
   /** The syntax node realizing the token, if any (for select-on-open). */
   nodeId?: string;
+  /** Which book the hit came from — set only by a whole-corpus search, so opening
+   *  the hit can RELOAD that one book (the sweep never keeps books in memory). */
+  bookNum?: number;
 }
 
 export interface SearchResult {
@@ -141,5 +144,71 @@ export function searchPassages(passages: KrDocument[], q: SearchQuery): SearchRe
       }
     }
   }
+  return { hits, total, capped: total > hits.length };
+}
+
+/** One book of a corpus, with a loader to fetch+parse it on demand. */
+export interface CorpusBook {
+  num: number;
+  name: string;
+}
+
+/** Live progress of a whole-corpus (testament) sweep. */
+export interface CorpusProgress {
+  /** Books fully searched so far. */
+  done: number;
+  /** Books in the corpus. */
+  total: number;
+  /** The book currently loading/searching (empty when finished). */
+  current: string;
+  /** Running match total across finished books. */
+  matches: number;
+}
+
+/**
+ * Search a WHOLE corpus (a testament) book by book, keeping memory flat: each book
+ * is loaded, searched, its matching hits merged in (capped), and then its parsed
+ * documents are DROPPED before the next book — only the ≤`SEARCH_RESULT_CAP` hit
+ * sentences and the running totals survive. The book loader is injected (so this
+ * stays pure/testable); `afterBook` lets the caller free that book's fetch cache,
+ * and `signal` cancels a running sweep. Hits are stamped with their `bookNum` so
+ * opening one can reload just that book for prev/next context.
+ */
+export async function searchCorpus(
+  books: CorpusBook[],
+  load: (num: number) => Promise<KrDocument[]>,
+  q: SearchQuery,
+  opts: {
+    signal?: AbortSignal;
+    onProgress?: (p: CorpusProgress) => void;
+    onPartial?: (r: SearchResult) => void;
+    afterBook?: (num: number) => void | Promise<void>;
+  } = {},
+): Promise<SearchResult> {
+  const hits: SearchHit[] = [];
+  let total = 0;
+  for (let i = 0; i < books.length; i++) {
+    if (opts.signal?.aborted) break;
+    const b = books[i]!;
+    opts.onProgress?.({ done: i, total: books.length, current: b.name, matches: total });
+    let docs: KrDocument[] | null = null;
+    try {
+      docs = await load(b.num);
+    } catch {
+      await opts.afterBook?.(b.num); // a book that won't load shouldn't sink the sweep
+      continue;
+    }
+    if (opts.signal?.aborted) break;
+    const res = searchPassages(docs, q);
+    total += res.total;
+    for (const h of res.hits) {
+      if (hits.length >= SEARCH_RESULT_CAP) break;
+      hits.push({ ...h, bookNum: b.num });
+    }
+    docs = null; // drop the book's docs; only matched hit sentences are retained
+    opts.onPartial?.({ hits: [...hits], total, capped: total > hits.length });
+    await opts.afterBook?.(b.num);
+  }
+  opts.onProgress?.({ done: books.length, total: books.length, current: '', matches: total });
   return { hits, total, capped: total > hits.length };
 }

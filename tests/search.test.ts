@@ -5,8 +5,10 @@ import {
   hasAccents,
   isEmptyQuery,
   matchToken,
+  searchCorpus,
   searchPassages,
   SEARCH_RESULT_CAP,
+  type CorpusProgress,
   type SearchQuery,
 } from '@/domain/model/search';
 
@@ -132,6 +134,62 @@ describe('searchPassages', () => {
     expect(res.total).toBe(0);
     expect(res.hits).toHaveLength(0);
     expect(res.capped).toBe(false);
+  });
+});
+
+describe('searchCorpus (whole-testament streaming)', () => {
+  // Three "books", each with two sentences (each sentence has exactly one verb).
+  const books = [
+    { num: 1, name: 'Book1' },
+    { num: 2, name: 'Book2' },
+    { num: 3, name: 'Book3' },
+  ];
+  const load = (num: number) =>
+    Promise.resolve([sentence(`b${num}-s0`, `Book${num} 1:1`), sentence(`b${num}-s1`, `Book${num} 1:2`)]);
+
+  it('streams every book, accumulates hits stamped with their book, and totals across books', async () => {
+    const evicted: number[] = [];
+    const progress: CorpusProgress[] = [];
+    const res = await searchCorpus(books, load, { pos: 'verb' }, {
+      onProgress: (p) => progress.push(p),
+      afterBook: (num) => {
+        evicted.push(num);
+      },
+    });
+    // One verb per sentence × 2 sentences × 3 books.
+    expect(res.total).toBe(6);
+    expect(res.hits).toHaveLength(6);
+    // Each hit remembers which book it came from (so opening it can reload it).
+    expect(res.hits.map((h) => h.bookNum).sort()).toEqual([1, 1, 2, 2, 3, 3]);
+    // Every book's cache is freed after it is searched.
+    expect(evicted).toEqual([1, 2, 3]);
+    // Progress ends complete.
+    expect(progress.at(-1)).toMatchObject({ done: 3, total: 3, matches: 6 });
+  });
+
+  it('stops early when the signal is aborted', async () => {
+    const ac = new AbortController();
+    let loaded = 0;
+    const countingLoad = (num: number) => {
+      loaded += 1;
+      if (loaded === 1) ac.abort(); // abort after the first book loads
+      return load(num);
+    };
+    const res = await searchCorpus(books, countingLoad, { pos: 'verb' }, { signal: ac.signal });
+    // The sweep bails out rather than searching all three books.
+    expect(loaded).toBeLessThan(books.length);
+    expect(res.total).toBeLessThan(6);
+  });
+
+  it('caps accumulated hits at SEARCH_RESULT_CAP while still counting the true total', async () => {
+    // Enough sentences per book to blow past the cap across the corpus.
+    const per = SEARCH_RESULT_CAP; // 300 verbs per book → 900 across 3 books
+    const bigLoad = (num: number) =>
+      Promise.resolve(Array.from({ length: per }, (_, i) => sentence(`b${num}-s${i}`, `Book${num} 1:${i}`)));
+    const res = await searchCorpus(books, bigLoad, { pos: 'verb' }, {});
+    expect(res.total).toBe(per * books.length);
+    expect(res.hits).toHaveLength(SEARCH_RESULT_CAP);
+    expect(res.capped).toBe(true);
   });
 });
 

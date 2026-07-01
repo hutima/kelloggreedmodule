@@ -3,6 +3,7 @@ import { useEditorStore } from '@/state';
 import {
   GNT_BOOKS,
   BUNDLED_BOOKS,
+  evictGntBook,
   loadGntBook,
   loadOpenTextBook,
   loadOtBook,
@@ -25,10 +26,13 @@ import {
   hasAccents,
   isEmptyQuery,
   morphCodes,
+  searchCorpus,
   searchPassages,
   tidyGloss,
+  type CorpusProgress,
   type SearchHit,
   type SearchQuery,
+  type SearchResult,
 } from '@/domain/model';
 
 /**
@@ -46,6 +50,9 @@ import {
  * voice / mood / case / degree) are hidden for Hebrew, which has none of them.
  */
 type Source = 'nestle1904' | 'opentext' | 'ot';
+
+/** Sentinel book value for the "whole testament" scope in the book selector. */
+const ALL = -1;
 
 /** Greek-only morphology fields — hidden (and cleared) for the Hebrew source. */
 const GREEK_ONLY_FIELDS = ['tense', 'voice', 'mood', 'case', 'degree'] as const;
@@ -189,25 +196,37 @@ export function SearchPicker() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState<SearchQuery>({});
+  const [corpusResult, setCorpusResult] = useState<SearchResult | null>(null);
+  const [progress, setProgress] = useState<CorpusProgress | null>(null);
+  const sweepRef = useRef<AbortController | null>(null);
 
   const isOt = source === 'ot';
+  const allScope = bookNum === ALL;
   const books = booksFor(source);
   const book = books.find((b) => b.num === bookNum) ?? books[0]!;
-  // Every source now searches a whole BOOK (the OT loads all its chapters).
-  const bookLabel = book.name;
+  const testament = isOt ? 'Old Testament' : 'New Testament';
+  const bookLabel = allScope ? `the ${testament}` : book.name;
 
-  const loadUnit = async (src: Source, num: number) => {
+  /** Load one whole book (all chapters, for the OT) by number, for the source. */
+  const loadByNum = (num: number): Promise<KrDocument[]> =>
+    source === 'ot'
+      ? loadOtBook(OT_BOOKS.find((b) => b.num === num)!)
+      : source === 'opentext'
+        ? loadOpenTextBook(OPENTEXT_BOOKS.find((b) => b.num === num)!)
+        : loadGntBook(GNT_BOOKS.find((b) => b.num === num)!);
+
+  /** After a book is searched in a sweep, free its fetch cache. Only the GNT is
+   *  kept in Cache Storage; the OT/OpenText ride the (self-managing) HTTP cache. */
+  const evictByNum = async (num: number) => {
+    if (source === 'nestle1904') await evictGntBook(GNT_BOOKS.find((b) => b.num === num)!);
+  };
+
+  const loadUnit = async (num: number) => {
     setLoading(true);
     setError(null);
     setPassages(null);
     try {
-      if (src === 'ot') {
-        setPassages(await loadOtBook(OT_BOOKS.find((b) => b.num === num)!));
-      } else if (src === 'opentext') {
-        setPassages(await loadOpenTextBook(OPENTEXT_BOOKS.find((b) => b.num === num)!));
-      } else {
-        setPassages(await loadGntBook(GNT_BOOKS.find((b) => b.num === num)!));
-      }
+      setPassages(await loadByNum(num));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -215,17 +234,33 @@ export function SearchPicker() {
     }
   };
 
-  // Auto-load the whole book whenever the source or book changes; the loaders +
-  // service worker cache repeat fetches.
+  // Auto-load the whole book whenever the source or book changes (single-book
+  // scope only); the loaders + service worker cache repeat fetches. The
+  // whole-testament scope streams on demand instead, so it holds no book here.
   const lastLoaded = useRef<string>('');
   useEffect(() => {
+    if (allScope) {
+      setPassages(null);
+      return;
+    }
     const key = `${source}:${bookNum}`;
     if (lastLoaded.current === key) return;
     lastLoaded.current = key;
-    void loadUnit(source, bookNum);
-    // loadUnit takes its args explicitly; re-run only on source/book change.
+    void loadUnit(bookNum);
+    // loadUnit reads source from closure; re-run only on source/book change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, bookNum]);
+  }, [source, bookNum, allScope]);
+
+  // A changed query / scope / source invalidates any in-flight or finished sweep.
+  useEffect(() => {
+    sweepRef.current?.abort();
+    sweepRef.current = null;
+    setProgress(null);
+    setCorpusResult(null);
+  }, [query, source, bookNum]);
+
+  // Cancel a running sweep if the panel unmounts.
+  useEffect(() => () => sweepRef.current?.abort(), []);
 
   const changeSource = (next: Source) => {
     setSource(next);
@@ -234,8 +269,9 @@ export function SearchPicker() {
     const list = booksFor(next);
     // Reset the book when crossing the Greek/Hebrew boundary (book numbers
     // overlap between corpora) or when the current book isn't in the new source.
+    // The whole-testament scope carries across (both corpora support it).
     const crossCorpus = (next === 'ot') !== (source === 'ot');
-    if (crossCorpus || !list.some((b) => b.num === bookNum)) {
+    if (bookNum !== ALL && (crossCorpus || !list.some((b) => b.num === bookNum))) {
       setBookNum(defaultBook(next));
     }
   };
@@ -245,22 +281,94 @@ export function SearchPicker() {
   const active = !isEmptyQuery(query);
 
   const result = useMemo(
-    () => (passages && active ? searchPassages(passages, query) : null),
-    [passages, active, query],
+    () => (!allScope && passages && active ? searchPassages(passages, query) : null),
+    [allScope, passages, active, query],
   );
+  const shown = allScope ? corpusResult : result;
 
-  const openHit = (hit: SearchHit) => {
+  /** Stream the query across every book of the testament, book by book. */
+  const runSweep = async () => {
+    sweepRef.current?.abort();
+    const ac = new AbortController();
+    sweepRef.current = ac;
+    setError(null);
+    setCorpusResult({ hits: [], total: 0, capped: false });
+    setProgress({ done: 0, total: books.length, current: books[0]?.name ?? '', matches: 0 });
+    try {
+      const res = await searchCorpus(books, loadByNum, applicableQuery(source, query), {
+        signal: ac.signal,
+        onProgress: setProgress,
+        onPartial: setCorpusResult,
+        afterBook: evictByNum,
+      });
+      if (!ac.signal.aborted) setCorpusResult(res);
+    } catch (e) {
+      if (!ac.signal.aborted) setError((e as Error).message);
+    } finally {
+      if (sweepRef.current === ac) {
+        setProgress(null);
+        sweepRef.current = null;
+      }
+    }
+  };
+  const stopSweep = () => {
+    sweepRef.current?.abort();
+    sweepRef.current = null;
+    setProgress(null);
+  };
+
+  const openHit = async (hit: SearchHit) => {
     loadDocument(hit.doc, { corpus: isOt ? 'ot' : 'gnt' });
-    if (passages) setGntContext(passages, hit.docIndex);
     setMode('parsed');
     // Highlight the matched word: prefer its syntax node (what the diagram
     // highlights); fall back to the raw token for an unassigned word.
     if (hit.nodeId) select({ nodeId: hit.nodeId });
     else select({ tokenId: hit.token.id });
+    // Restore prev/next context. A single-book search already holds its book; a
+    // corpus hit reloads just its own book (the sweep kept none in memory).
+    if (hit.bookNum != null) {
+      try {
+        const bk = await loadByNum(hit.bookNum);
+        const idx = bk.findIndex((d) => d.id === hit.doc.id);
+        setGntContext(bk, idx >= 0 ? idx : 0);
+      } catch {
+        /* prev/next context is best-effort */
+      }
+    } else if (passages) {
+      setGntContext(passages, hit.docIndex);
+    }
   };
 
   return (
     <div className="gnt-picker">
+      {progress && (
+        <div className="search-progress" style={{ margin: '0 0 8px' }}>
+          <div style={{ fontSize: 12, color: 'var(--ink-soft, #667)', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+            <span>
+              Searching {progress.current || 'the corpus'} — {progress.done}/{progress.total} books · {progress.matches}{' '}
+              {progress.matches === 1 ? 'match' : 'matches'}
+            </span>
+            <button className="mini" onClick={stopSweep}>
+              Stop
+            </button>
+          </div>
+          <div
+            style={{ height: 4, borderRadius: 2, background: 'var(--line, #ddd)', overflow: 'hidden', marginTop: 4 }}
+            role="progressbar"
+            aria-valuenow={progress.done}
+            aria-valuemax={progress.total}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`,
+                background: 'var(--accent, #48c)',
+                transition: 'width 120ms linear',
+              }}
+            />
+          </div>
+        </div>
+      )}
       <label className="field">
         <span>Source</span>
         <select value={source} onChange={(e) => changeSource(e.target.value as Source)}>
@@ -271,8 +379,9 @@ export function SearchPicker() {
       </label>
       <div className="row">
         <label className="field" style={{ flex: 1 }}>
-          <span>Search in book</span>
+          <span>Search in</span>
           <select value={bookNum} onChange={(e) => setBookNum(Number(e.target.value))}>
+            <option value={ALL}>Whole {testament} ({books.length} books)</option>
             {books.map((b) => (
               <option key={b.num} value={b.num} title={b.name}>
                 {b.name}
@@ -333,25 +442,32 @@ export function SearchPicker() {
 
       <div className="row search-controls">
         {loading && <span style={{ fontSize: 12, color: 'var(--ink-soft, #667)' }}>Loading {bookLabel}…</span>}
+        {allScope && !progress && (
+          <button className="mini" disabled={!active} onClick={runSweep} title={`Search all ${books.length} books`}>
+            Search {testament}
+          </button>
+        )}
         <button className="mini" disabled={!active} onClick={clear}>
           Clear
         </button>
       </div>
       {error && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{error}</p>}
 
-      {result && (
+      {shown && (
         <div className="gnt-passages">
           <div className="gnt-actions">
             <span className="gnt-all">
-              {result.total === 0
-                ? 'No matches'
-                : result.capped
-                  ? `First ${result.hits.length} of ${result.total} in ${bookLabel}`
-                  : `${result.total} ${result.total === 1 ? 'match' : 'matches'} in ${bookLabel}`}
+              {shown.total === 0
+                ? progress
+                  ? 'No matches yet…'
+                  : 'No matches'
+                : shown.capped
+                  ? `First ${shown.hits.length} of ${shown.total} in ${bookLabel}`
+                  : `${shown.total} ${shown.total === 1 ? 'match' : 'matches'} in ${bookLabel}`}
             </span>
           </div>
           <ul className="gnt-list">
-            {result.hits.map((hit) => {
+            {shown.hits.map((hit) => {
               const isOpen = hit.doc.id === openDocId;
               const gloss = tidyGloss(hit.token.gloss);
               return (
@@ -361,7 +477,8 @@ export function SearchPicker() {
                     onClick={() => openHit(hit)}
                     title={`Open ${hit.doc.title}`}
                   >
-                    <span className="gnt-ref">{verse(hit.doc.title)}</span>
+                    {/* A whole-testament sweep spans books, so name the book too. */}
+                    <span className="gnt-ref">{allScope ? hit.doc.title : verse(hit.doc.title)}</span>
                     <span className="search-hit-body">
                       <span className={`${isOt ? 'hebrew' : 'greek'} search-hit-surface`}>{hit.token.surface}</span>
                       <span className="search-codes">
@@ -380,9 +497,15 @@ export function SearchPicker() {
           </ul>
         </div>
       )}
-      {!result && passages && (
+      {!shown && !progress && (
         <p style={{ fontSize: 12, color: 'var(--muted, #667)' }}>
-          Enter a word or choose a morphology filter to search {bookLabel}.
+          {allScope
+            ? active
+              ? `Press “Search ${testament}” to sweep all ${books.length} books.`
+              : `Enter a word or filter, then search the whole ${testament}.`
+            : passages
+              ? `Enter a word or choose a morphology filter to search ${bookLabel}.`
+              : ''}
         </p>
       )}
     </div>

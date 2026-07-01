@@ -87,9 +87,17 @@ export async function cacheGntBook(book: GntBook): Promise<boolean> {
   }
 }
 
+/** The runtime cache the service worker keeps GNT XML in (must match src/sw.ts). */
+const GNT_CACHE = 'gnt-books-v1';
+
+/** Candidate cache URLs for a book (bundled path + upstream source). */
+function bookUrls(book: GntBook): string[] {
+  return [localBase() + book.file, SOURCE_BASE + book.file];
+}
+
 async function fetchBookXml(book: GntBook): Promise<string> {
   // Prefer a bundled copy (instant, offline); fall back to the upstream source.
-  for (const url of [localBase() + book.file, SOURCE_BASE + book.file]) {
+  for (const url of bookUrls(book)) {
     try {
       const res = await fetch(url);
       if (res.ok) return await res.text();
@@ -98,4 +106,20 @@ async function fetchBookXml(book: GntBook): Promise<string> {
     }
   }
   throw new Error(`Could not load ${book.name}. Check your connection and try again.`);
+}
+
+/**
+ * Evict a book's XML from the runtime cache. A whole-NT search streams every book
+ * through the service worker's cache-first handler; without this, one sweep would
+ * leave the entire corpus (~80 MB) sitting in Cache Storage. Best-effort — a no-op
+ * where the Cache Storage API is unavailable (older engines, non-secure contexts).
+ */
+export async function evictGntBook(book: GntBook): Promise<void> {
+  if (typeof caches === 'undefined') return;
+  try {
+    const cache = await caches.open(GNT_CACHE);
+    await Promise.all(bookUrls(book).map((u) => cache.delete(u)));
+  } catch {
+    /* cache eviction is best-effort; a failure never breaks the search */
+  }
 }
