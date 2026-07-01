@@ -581,6 +581,72 @@ textarea.code,
   -webkit-box-orient: vertical;
 }
 
+/* --- Morphological search (SearchPicker) ------------------------------------ */
+/* The morphology filters sit two-up so the eight selects don't run the panel
+   long. Each reuses label.field but drops its bottom margin (the grid gaps it). */
+.search-morph {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+  margin-bottom: 10px;
+}
+.search-morph label.field {
+  margin-bottom: 0;
+}
+.search-controls {
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+/* A concordance line: verse ref, then the matched word with its parse codes. */
+.search-hit {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 4px;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.search-hit:hover {
+  background: var(--bg, #f5f7fa);
+}
+.search-hit.checked {
+  background: color-mix(in srgb, var(--accent, #2f6f9f) 10%, transparent);
+}
+.search-hit-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.search-hit-surface {
+  font-size: 15px;
+  line-height: 1.3;
+}
+.search-codes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+}
+.search-code {
+  font-size: 11px;
+  color: var(--ink-soft, #667);
+  background: var(--bg, #f5f7fa);
+  border-radius: 4px;
+  padding: 0 5px;
+}
+.search-gloss {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted, #667);
+}
+
 /* Source text reference strip above the diagram. The strip's height is set
    inline (draggable); the text fills the remaining space and scrolls. */
 .source-text {

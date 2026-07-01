@@ -3,6 +3,7 @@ import { useEditorStore } from '@/state';
 import { GntPicker } from './left/GntPicker';
 import { OtPicker } from './left/OtPicker';
 import { NewSourcePicker } from './left/NewSourcePicker';
+import { SearchPicker } from './left/SearchPicker';
 
 /**
  * Left panel: the passage pickers for the two gold-standard corpora — the Greek
@@ -25,7 +26,7 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
   const appMode = useEditorStore((s) => s.appMode);
   const hasSavedCustom = useEditorStore((s) => s.customParses.length > 0);
   const showNew = appMode === 'edit' || hasSavedCustom;
-  const [source, setSource] = useState<'gnt' | 'ot' | 'new'>(docLang === 'hbo' ? 'ot' : 'gnt');
+  const [source, setSource] = useState<'gnt' | 'ot' | 'new' | 'search'>(docLang === 'hbo' ? 'ot' : 'gnt');
   useEffect(() => {
     if (!showNew && source === 'new') setSource('gnt');
   }, [showNew, source]);
@@ -39,9 +40,14 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
   useEffect(() => {
     if (docId === lastSyncedDocId.current) return;
     lastSyncedDocId.current = docId;
-    if (docLang === 'hbo') setSource('ot');
-    else if (docLang === 'grc') setSource('gnt');
-    // 'en' (custom) leaves the current tab as-is.
+    // Keep the Search tab sticky: opening a search result changes the open doc,
+    // and we don't want that to bounce the user off their results list.
+    setSource((cur) => {
+      if (cur === 'search') return cur;
+      if (docLang === 'hbo') return 'ot';
+      if (docLang === 'grc') return 'gnt';
+      return cur; // 'en' (custom) leaves the current tab as-is.
+    });
   }, [docId, docLang]);
 
   return (
@@ -64,6 +70,13 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
             >
               GNT
             </button>
+            <button
+              className={source === 'search' ? 'active' : ''}
+              title="Search a book by word or morphology (verb parse, case…)"
+              onClick={() => setSource('search')}
+            >
+              Search
+            </button>
             {showNew && (
               <button
                 className={source === 'new' ? 'active' : ''}
@@ -85,7 +98,15 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
         </button>
       </div>
       <div className="panel-body">
-        {source === 'ot' ? <OtPicker /> : source === 'new' && showNew ? <NewSourcePicker /> : <GntPicker />}
+        {source === 'ot' ? (
+          <OtPicker />
+        ) : source === 'search' ? (
+          <SearchPicker />
+        ) : source === 'new' && showNew ? (
+          <NewSourcePicker />
+        ) : (
+          <GntPicker />
+        )}
       </div>
     </aside>
   );
