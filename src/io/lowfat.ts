@@ -340,9 +340,49 @@ export class SentenceConverter {
   convert(el: Element): string {
     if (tag(el) === 'w') return this.wordNode(el);
     const cls = el.getAttribute('class');
-    if (cls === 'pp') return this.convertPp(el);
+    if (cls === 'pp') {
+      return /but/i.test(el.getAttribute('rule') ?? '')
+        ? this.convertContrastivePp(el)
+        : this.convertPp(el);
+    }
     if (cls === 'cl' || el.getAttribute('role') === 'cl' || !cls) return this.convertClause(el);
     return this.convertPhrase(el);
+  }
+
+  /**
+   * A CONTRASTIVE coordination of prepositional phrases — Lowfat's "notPPbutPP"
+   * ("οὐκ ἀπ’ ἀνθρώπων οὐδὲ δι’ ἀνθρώπου ἀλλὰ διὰ Ἰησοῦ Χριστοῦ …", Gal 1:1). The
+   * source nests the negated phrase(s) and the "but" phrase under one wrapper (the
+   * "but" PP marked head); percolating that naively makes the negated phrases
+   * modifiers of the "but" preposition, which the layout's PP path then silently
+   * drops — losing the whole "not from men…" clause. Flatten it instead into ONE
+   * coordination whose members are EVERY constituent PP (a nested PP-coordination
+   * flattened too), joined by the negator/conjunctions — the fork Reed-Kellogg
+   * draws for "not X nor Y but Z".
+   */
+  private convertContrastivePp(el: Element): string {
+    const members: Element[] = []; // each a simple prep+object PP
+    const connectors: Element[] = []; // οὐκ (negator adv) · οὐδέ · ἀλλά
+    const collect = (node: Element): void => {
+      for (const c of constituents(node)) {
+        const cls = c.getAttribute('class');
+        if (cls === 'pp') {
+          if (constituents(c).some((x) => x.getAttribute('class') === 'prep')) members.push(c);
+          else collect(c); // a nested pp-coordination wrapper: flatten its members
+        } else if (cls === 'conj' || cls === 'adv') {
+          connectors.push(c);
+        }
+      }
+    };
+    collect(el);
+    if (members.length < 2) return this.convertPhrase(el); // not a coordination after all
+    const headId = this.convert(members[0]!);
+    for (let i = 1; i < members.length; i++) this.rel('conjunct', headId, this.convert(members[i]!));
+    // Every connector rides the coordination as a coordinator; the layout places
+    // one BEFORE the first member (a leading negator, οὐκ) on the first slant, and
+    // each one BETWEEN members on the bar of the join it introduces.
+    for (const w of connectors) this.rel('coordinator', headId, this.convert(w));
+    return headId;
   }
 
   /** A prepositional phrase: the preposition governs the (head) object. */

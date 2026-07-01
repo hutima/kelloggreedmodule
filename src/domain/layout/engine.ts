@@ -299,42 +299,70 @@ function drawPpCoordination(
   seen: Set<string>,
   out: DiagramElement[],
 ): { right: number; bottom: number } {
+  const headId = headRel.dependentId;
+  // The preposition's OWN surface position, so members lay out left-to-right in
+  // reading order (a coordinator child, e.g. a leading negator, must not drag the
+  // head's ordering index below its own preposition).
+  const prepIdx = (id: string): number => {
+    const n = getNode(ctx.doc.syntax, id);
+    const t = n?.tokenIds.length ? ctx.doc.tokens.find((x) => x.id === n.tokenIds[0]) : undefined;
+    return t ? t.index : Infinity;
+  };
   const members = [
-    { prepNodeId: headRel.dependentId, objId: headObjId, relId: headRel.id },
+    { prepNodeId: headId, objId: headObjId, relId: headRel.id },
     ...conjRels.map((r) => ({
       prepNodeId: r.dependentId,
       objId: prepObjectOf(ctx, r.dependentId)!,
       relId: r.id,
     })),
-  ];
+  ].sort((a, b) => prepIdx(a.prepNodeId) - prepIdx(b.prepNodeId));
+
   let cursor = attachX;
   let right = attachX;
   let bottom = topY;
-  let minOTop = Infinity;
-  const slants: number[] = [];
+  const slants: { x: number; oTop: number }[] = [];
   for (const m of members) {
-    slants.push(cursor);
     const ext = drawPp(ctx, m.prepNodeId, m.objId, m.relId, cursor, topY, seen, out);
+    slants.push({ x: cursor, oTop: ext.oTop });
     right = Math.max(right, ext.right);
     bottom = Math.max(bottom, ext.bottom);
-    minOTop = Math.min(minOTop, ext.oTop);
     cursor = ext.right + LAYOUT.dependentGap;
   }
-  const coordRel = childRelations(ctx.doc.syntax, headRel.dependentId).find(
-    (r) => r.type === 'coordinator',
-  );
-  const coordText = coordRel
-    ? nodeText(ctx.doc, getNode(ctx.doc.syntax, coordRel.dependentId)!) || ''
-    : '';
-  if (coordText && slants.length >= 2) {
-    // Bridge the first two slants partway down, where both are still on the slant
-    // (above their object baselines); the conjunction rides the bar.
-    const d = minOTop * 0.55;
-    const dx = slantRun(d);
-    const x0 = slants[0]! + dx;
-    const x1 = slants[1]! + dx;
-    out.push(line(eid(), x0, d, x1, d, 'dashed', 'coordination', headRel.dependentId));
-    out.push(smallText(eid(), (x0 + x1) / 2, d - 4, coordText, 'middle', coordRel?.id));
+
+  // Connectors (owned by the head): a conjunction BETWEEN two members rides the
+  // dashed bar of that join; a connector BEFORE the first member — a negator like
+  // οὐκ in "οὐκ ἀπ’ ἀνθρώπων … ἀλλὰ διὰ …" — leads the whole construction on the
+  // first slant. Ordered by surface position so each maps to the right join.
+  const firstIdx = prepIdx(members[0]!.prepNodeId);
+  const coords = childRelations(ctx.doc.syntax, headId)
+    .filter((r) => r.type === 'coordinator')
+    .map((r) => ({
+      id: r.id,
+      idx: subtreeMinIndex(ctx, r.dependentId),
+      text: nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '',
+    }))
+    .filter((c) => c.text)
+    .sort((a, b) => a.idx - b.idx);
+  const between = coords.filter((c) => c.idx > firstIdx);
+  const lead = coords.filter((c) => c.idx < firstIdx);
+
+  // One dashed bar per join, partway down where both slants are still above their
+  // object baselines; the join's conjunction rides it.
+  for (let i = 0; i < slants.length - 1; i++) {
+    const c = between[i];
+    if (!c) continue;
+    const d = Math.min(slants[i]!.oTop, slants[i + 1]!.oTop) * 0.55;
+    const x0 = slants[i]!.x + slantRun(d);
+    const x1 = slants[i + 1]!.x + slantRun(d);
+    out.push(line(eid(), x0, d, x1, d, 'dashed', 'coordination', headId));
+    out.push(smallText(eid(), (x0 + x1) / 2, d - 4, c.text, 'middle', c.id));
+  }
+
+  // A leading negator (οὐκ / μή) rides the top of the first member's slant.
+  if (lead.length) {
+    const d = Math.min(slants[0]!.oTop * 0.3, 22);
+    const x = slants[0]!.x + slantRun(d);
+    out.push(smallText(eid(), x - 3, d, lead.map((c) => c.text).join(' '), 'end', lead[0]!.id));
   }
   return { right, bottom };
 }
@@ -1288,15 +1316,25 @@ function layoutCoordination(
     ...conjunctRels.flatMap((r) => coordinatorTexts(ctx, r.dependentId)),
   ];
 
-  // An apposition to the WHOLE group ("τὰ τρία ταῦτα" summarising πίστις, ἐλπίς,
-  // ἀγάπη) is hoisted onto a platform off the fork's bar, so it is excluded from
-  // the head conjunct's own inline modifiers below.
+  // An apposition on the head node splits two ways by surface order. A SUMMARY
+  // apposition of the WHOLE group ("τὰ τρία ταῦτα" summarising πίστις, ἐλπίς,
+  // ἀγάπη) FOLLOWS every conjunct, and is hoisted onto a platform off the fork's
+  // bar. A HEAD-CONJUNCT apposition ("Ἰησοῦ = Χριστοῦ", i.e. "Jesus Christ")
+  // PRECEDES the other members and renames only the first arm, so it must ride
+  // INLINE with the head member — not be dropped below the whole fork (which split
+  // Ἰησοῦ from Χριστοῦ in Gal 1:1). The boundary is where the other members begin.
   const apposRels = childRelations(ctx.doc.syntax, node.id).filter((r) => r.type === 'apposition');
+  const memberStart = Math.min(
+    Infinity,
+    ...conjunctRels.map((r) => subtreeMinIndex(ctx, r.dependentId)),
+    ...coords.map((c) => subtreeMinIndex(ctx, c.nodeId)),
+  );
+  const summaryApposRels = apposRels.filter((r) => subtreeMinIndex(ctx, r.dependentId) >= memberStart);
 
-  // Member 0 is the head word with its own (non-coordination) modifiers; the
-  // rest are the conjunct subtrees.
+  // Member 0 is the head word with its own (non-coordination) modifiers — keeping
+  // its inline head-conjunct appositive; the rest are the conjunct subtrees.
   const members: Block[] = [
-    layoutHead(ctx, node, seen, false, true, apposRels.length > 0),
+    layoutHead(ctx, node, seen, false, true, summaryApposRels.length > 0),
     ...conjunctRels.map((r) => layoutNode(ctx, r.dependentId, seen)),
   ];
 
@@ -1400,7 +1438,7 @@ function layoutCoordination(
   // junction) is unchanged — the parent's subject|predicate divider still
   // attaches at the junction, keeping the fork tied to its verb.
   let bottom = botY + lastMember.height;
-  for (const ar of apposRels) {
+  for (const ar of summaryApposRels) {
     const ab = layoutNode(ctx, ar.dependentId, seen);
     if (!ab.elements.length) continue;
     const platTop = bottom + LAYOUT.adjunctDrop * ctx.vScale;

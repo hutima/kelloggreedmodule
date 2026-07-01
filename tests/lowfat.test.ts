@@ -475,4 +475,78 @@ describe('Lowfat clause coordination & subordination', () => {
     expect(texts).toContain('ὅτι');
     expect(texts).toContain('ἐστιν εἰργασμένα');
   });
+
+  it('draws a contrastive PP coordination ("οὐκ … οὐδὲ … ἀλλὰ …") without dropping a phrase', () => {
+    // Galatians 1:1: Lowfat's "notPPbutPP" nests the negated phrases and the "but"
+    // phrase under the (head-marked) "but" preposition. Percolated naively they
+    // become modifiers of διά and the layout's PP path silently drops the whole
+    // "οὐκ ἀπ’ ἀνθρώπων οὐδὲ δι’ ἀνθρώπου ἀλλὰ" clause. The converter must flatten it
+    // into one PP coordination; the layout must draw every member AND every connector.
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl">
+      <w class="verb" role="v" n="010010010010010">ἦν</w>
+      <wg role="s" class="np" rule="NpPp">
+        <w class="noun" head="true" case="nominative" n="010010010020010">ἀπόστολος</w>
+        <wg class="pp" rule="notPPbutPP">
+          <w class="adv" lemma="οὐ" n="010010010030010">οὐκ</w>
+          <wg class="pp" rule="Conj2Pp">
+            <wg class="pp" head="true" rule="PrepNp"><w class="prep" n="010010010040010">ἀπ’</w><w class="noun" head="true" case="genitive" n="010010010050010">ἀνθρώπων</w></wg>
+            <w class="conj" lemma="οὐδέ" n="010010010060010">οὐδὲ</w>
+            <wg class="pp" rule="PrepNp"><w class="prep" n="010010010070010">δι’</w><w class="noun" head="true" case="genitive" n="010010010080010">ἀνθρώπου</w></wg>
+          </wg>
+          <w class="conj" lemma="ἀλλά" n="010010010090010">ἀλλὰ</w>
+          <wg class="pp" head="true" rule="PrepNp"><w class="prep" n="010010010100010">διὰ</w><w class="propernoun" head="true" case="genitive" n="010010010110010">Χριστοῦ</w></wg>
+        </wg>
+      </wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    const surf = (id: string) => {
+      const n = doc!.syntax.nodes.find((x) => x.id === id);
+      return doc!.tokens.find((t) => t.id === n?.tokenIds[0])?.surface;
+    };
+    // The three PPs coordinate off the first (ἀπ’): δι’ and διὰ are its conjuncts.
+    const ap = doc!.syntax.nodes.find((n) => surf(n.id) === 'ἀπ’')!;
+    const apKids = doc!.syntax.relations.filter((r) => r.headId === ap.id);
+    expect(apKids.filter((r) => r.type === 'conjunct').map((r) => surf(r.dependentId)).sort()).toEqual(
+      ['δι’', 'διὰ'].sort(),
+    );
+    // οὐκ / οὐδὲ / ἀλλὰ all ride the coordination as connectors (not lost, not nested
+    // under διά as dropped modifiers).
+    expect(apKids.filter((r) => r.type === 'coordinator').map((r) => surf(r.dependentId)).sort()).toEqual(
+      ['οὐκ', 'οὐδὲ', 'ἀλλὰ'].sort(),
+    );
+    // The whole phrase is drawn — nothing silently dropped.
+    const texts = layoutDocument(doc!, {}).elements.flatMap((e) => (e.kind === 'text' ? [e.text] : []));
+    for (const w of ['οὐκ', 'ἀπ’', 'ἀνθρώπων', 'οὐδὲ', 'δι’', 'ἀνθρώπου', 'ἀλλὰ', 'διὰ', 'Χριστοῦ']) {
+      expect(texts, `expected "${w}" in the diagram`).toContain(w);
+    }
+  });
+
+  it('keeps a head-conjunct appositive inline with its arm ("Ἰησοῦ Χριστοῦ καὶ Θεοῦ Πατρὸς")', () => {
+    // Galatians 1:1: the object of διά is "Ἰησοῦ Χριστοῦ καὶ Θεοῦ Πατρὸς" — a
+    // coordination whose head Ἰησοῦ carries the appositive Χριστοῦ. The coordination
+    // layout used to treat ANY head apposition as a group SUMMARY and drop it below
+    // the whole fork, splitting Ἰησοῦ from Χριστοῦ. A head-conjunct appositive (which
+    // precedes the other members) must instead ride inline on the head's arm.
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl">
+      <w class="verb" role="v" n="010010010010010">ἦν</w>
+      <wg role="s" class="np" rule="NpaNp">
+        <wg class="np" head="true" rule="Np-Appos"><w class="propernoun" head="true" case="nominative" n="010010010020010">Ἰησοῦς</w><w class="propernoun" case="nominative" n="010010010030010">Χριστός</w></wg>
+        <w class="conj" lemma="καί" n="010010010040010">καὶ</w>
+        <wg class="np" rule="Np-Appos"><w class="noun" head="true" case="nominative" n="010010010050010">Θεός</w><w class="noun" case="nominative" n="010010010060010">Πατήρ</w></wg>
+      </wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    const texts = layoutDocument(doc!, {}).elements.filter((e) => e.kind === 'text') as Array<{
+      text: string;
+      y: number;
+    }>;
+    const y = (t: string) => texts.find((e) => e.text === t)?.y;
+    // Ἰησοῦς and its appositive Χριστός share one baseline (same arm)…
+    expect(y('Ἰησοῦς')).toBeDefined();
+    expect(y('Χριστός')).toBeCloseTo(y('Ἰησοῦς')!, 1);
+    // …and the second arm (Θεός Πατήρ) is on a DIFFERENT baseline below.
+    expect(y('Θεός')).toBeDefined();
+    expect(Math.abs(y('Θεός')! - y('Ἰησοῦς')!)).toBeGreaterThan(10);
+    expect(y('Πατήρ')).toBeCloseTo(y('Θεός')!, 1);
+  });
 });
