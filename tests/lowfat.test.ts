@@ -419,4 +419,60 @@ describe('Lowfat clause coordination & subordination', () => {
     const clauses = doc!.syntax.nodes.filter((n) => n.kind === 'clause');
     expect(clauses).toHaveLength(1); // the wrapper collapsed away
   });
+
+  it('renders a periphrastic verb (ἐστιν εἰργασμένα) as ONE compound baseline verb', () => {
+    // A Lowfat BeVerb VP groups the finite copula ἐστιν with the perfect-passive
+    // participle εἰργασμένα (John 3:21). The tree marks the participle as the phrase
+    // head, which would make the participle the predicate and leave ἐστιν hanging
+    // beneath it as a stray apposition. Reed-Kellogg instead writes the whole
+    // periphrasis on the baseline as one verb.
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl" rule="S-V">
+      <wg role="s" class="np"><w class="noun" head="true" case="nominative" n="010010010010010">ἔργα</w></wg>
+      <wg role="v" class="vp" rule="BeVerb">
+        <w class="verb" lemma="εἰμί" mood="indicative" n="010010010020010">ἐστιν</w>
+        <w class="verb" lemma="ἐργάζομαι" mood="participle" head="true" n="010010010030010">εἰργασμένα</w>
+      </wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    const pred = doc!.syntax.relations.find((r) => r.type === 'predicate')!;
+    const verb = doc!.syntax.nodes.find((n) => n.id === pred.dependentId)!;
+    const surfaceOfToken = (id: string) => doc!.tokens.find((t) => t.id === id)?.surface;
+    const verbSurfaces = verb.tokenIds.map(surfaceOfToken);
+    // Both verb words live on ONE predicate node…
+    expect(verbSurfaces).toContain('ἐστιν');
+    expect(verbSurfaces).toContain('εἰργασμένα');
+    // …with the finite copula first, so the clause reads as finite (not a bare
+    // participle head, which would drop the subject slot).
+    expect(surfaceOfToken(verb.tokenIds[0]!)).toBe('ἐστιν');
+    // …and the copula is NEVER a stray apposition of the participle.
+    expect(doc!.syntax.relations.some((r) => r.type === 'apposition')).toBe(false);
+    // The layout draws the periphrasis as a single baseline text element.
+    const texts = layoutDocument(doc!, {}).elements.flatMap((e) => (e.kind === 'text' ? [e.text] : []));
+    expect(texts).toContain('ἐστιν εἰργασμένα');
+  });
+
+  it('keeps a subordinate clause (ὅτι …) out of a shared-subject predicate merge', () => {
+    // Regression for John 3:21: once the periphrastic ὅτι-clause reads as finite, it
+    // must NOT be swept into a compound predicate with the clause it is merely
+    // coordinated-with by the wrapper. The connector label (ὅτι) rides a conjunct and
+    // must survive — a merge would fork the verbs and drop it.
+    const xml = `<book name="Test"><sentence><wg role="cl" class="cl" rule="ClCl">
+      <wg class="cl" rule="V-S"><w class="verb" role="v" n="010010010010010">φανερωθῇ</w><w class="noun" role="s" n="010010010020010">ἔργα</w></wg>
+      <wg class="cl" rule="sub"><w class="conj" lemma="ὅτι" n="010010010030010">ὅτι</w>
+        <wg class="cl" rule="V"><wg role="v" class="vp" rule="BeVerb">
+          <w class="verb" lemma="εἰμί" mood="indicative" n="010010010040010">ἐστιν</w>
+          <w class="verb" lemma="ἐργάζομαι" mood="participle" head="true" n="010010010050010">εἰργασμένα</w>
+        </wg></wg>
+      </wg>
+    </wg></sentence></book>`;
+    const [doc] = lowfatToDocuments(xml, { book: 'Test' });
+    // ὅτι is still present as a connector label (not dropped by a merge).
+    expect(doc!.syntax.relations.some((r) => r.label === 'ὅτι')).toBe(true);
+    // The two clauses stay separate — not collapsed into one shared-subject clause.
+    expect(doc!.syntax.nodes.filter((n) => n.kind === 'clause').length).toBeGreaterThan(1);
+    // Every source word is still drawn.
+    const texts = layoutDocument(doc!, {}).elements.flatMap((e) => (e.kind === 'text' ? [e.text] : []));
+    expect(texts).toContain('ὅτι');
+    expect(texts).toContain('ἐστιν εἰργασμένα');
+  });
 });

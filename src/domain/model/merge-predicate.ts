@@ -66,6 +66,11 @@ export function mergeSharedSubjectPredicate(doc: KrDocument): KrDocument {
       const kids = relations.filter((r) => r.headId === clause.id);
       if (kids.some((r) => r.type === 'subject' || r.type === 'predicate' || r.type === 'copula'))
         return false; // not headless
+      // A conjunct carrying a connector LABEL is a SUBORDINATE clause (ὅτι/ἵνα/ὡς…)
+      // that the wrapper logic modelled as coordination — not a shared-subject
+      // compound predicate. Merging it would fork subordinate-related verbs onto one
+      // baseline and silently drop the connector, so leave those coordinations alone.
+      if (kids.some((r) => r.type === 'conjunct' && r.label)) return false;
       return matches(membersOf(kids));
     });
     if (!target) break;
