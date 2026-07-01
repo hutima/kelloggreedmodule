@@ -479,3 +479,99 @@ describe('compound-predicate arm reserves room for adverbials', () => {
     expect(station!).toBeGreaterThan(powers! + 20);
   });
 });
+
+/**
+ * Regression: a head that carries BOTH below-hanging modifiers AND an inline
+ * appositive that dips below the baseline (a coordination fork straddling the
+ * line) — the Col 1:16 shape "τὰ πάντα ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς, τὰ
+ * ὁρατὰ καὶ τὰ ἀόρατα". The appositive used to be drawn right after the word at
+ * y = 0 while the PP cascade reset back under the word at a fixed drop, so the
+ * fork's lower arm overprinted the PP objects. The appositive now shifts right,
+ * past the modifier cascade, on the same baseline.
+ */
+describe('inline appositive fork clears the head\'s below-hanging modifiers', () => {
+  function headWithPpAndForkAppositive(): KrDocument {
+    return KrDocumentSchema.parse({
+      schemaVersion: 1,
+      id: 'doc_appos_fork',
+      title: 't',
+      language: 'grc',
+      text: 'ἐκτίσθη τὰ πάντα ἐν τοῖς οὐρανοῖς τὰ ὁρατὰ καὶ τὰ ἀόρατα εἴτε θρόνοι εἴτε κυριότητες',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      layoutHints: {},
+      tokens: [
+        { id: 't_v', index: 0, surface: 'ἐκτίσθη', pos: 'verb' },
+        { id: 't_ta1', index: 1, surface: 'τὰ', pos: 'article' },
+        { id: 't_panta', index: 2, surface: 'πάντα', pos: 'adjective' },
+        { id: 't_en', index: 3, surface: 'ἐν', pos: 'preposition' },
+        { id: 't_tois', index: 4, surface: 'τοῖς', pos: 'article' },
+        { id: 't_our', index: 5, surface: 'οὐρανοῖς', pos: 'noun' },
+        { id: 't_ta2', index: 6, surface: 'τὰ', pos: 'article' },
+        { id: 't_horata', index: 7, surface: 'ὁρατὰ', pos: 'adjective' },
+        { id: 't_kai', index: 8, surface: 'καὶ', pos: 'conjunction' },
+        { id: 't_ta3', index: 9, surface: 'τὰ', pos: 'article' },
+        { id: 't_aorata', index: 10, surface: 'ἀόρατα', pos: 'adjective' },
+        // The second apposition chain ("εἴτε θρόνοι εἴτε κυριότητες") makes the
+        // fork too tall for a pedestal, forcing the INLINE path — as in the real
+        // Col 1:16 parse, where the fork straddles the head's baseline.
+        { id: 't_eite1', index: 11, surface: 'εἴτε', pos: 'conjunction' },
+        { id: 't_thr', index: 12, surface: 'θρόνοι', pos: 'noun' },
+        { id: 't_eite2', index: 13, surface: 'εἴτε', pos: 'conjunction' },
+        { id: 't_kyr', index: 14, surface: 'κυριότητες', pos: 'noun' },
+      ],
+      syntax: {
+        rootId: 'n_root',
+        nodes: [
+          { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+          { id: 'n_v', kind: 'word', role: 'predicate', tokenIds: ['t_v'] },
+          { id: 'n_panta', kind: 'word', role: 'subject', tokenIds: ['t_panta'] },
+          { id: 'n_ta1', kind: 'word', role: 'determiner', tokenIds: ['t_ta1'] },
+          { id: 'n_en', kind: 'word', role: 'prepositionalPhrase', tokenIds: ['t_en'] },
+          { id: 'n_tois', kind: 'word', role: 'determiner', tokenIds: ['t_tois'] },
+          { id: 'n_our', kind: 'word', role: 'prepositionObject', tokenIds: ['t_our'] },
+          { id: 'n_horata', kind: 'word', role: 'apposition', tokenIds: ['t_horata'] },
+          { id: 'n_ta2', kind: 'word', role: 'determiner', tokenIds: ['t_ta2'] },
+          { id: 'n_kai', kind: 'word', role: 'coordinator', tokenIds: ['t_kai'] },
+          { id: 'n_aorata', kind: 'word', role: 'conjunct', tokenIds: ['t_aorata'] },
+          { id: 'n_ta3', kind: 'word', role: 'determiner', tokenIds: ['t_ta3'] },
+          { id: 'n_eite1', kind: 'word', role: 'coordinator', tokenIds: ['t_eite1'] },
+          { id: 'n_thr', kind: 'word', role: 'apposition', tokenIds: ['t_thr'] },
+          { id: 'n_eite2', kind: 'word', role: 'coordinator', tokenIds: ['t_eite2'] },
+          { id: 'n_kyr', kind: 'word', role: 'conjunct', tokenIds: ['t_kyr'] },
+        ],
+        relations: [
+          { id: 'r1', type: 'predicate', headId: 'n_root', dependentId: 'n_v' },
+          { id: 'r2', type: 'subject', headId: 'n_root', dependentId: 'n_panta' },
+          { id: 'r3', type: 'determiner', headId: 'n_panta', dependentId: 'n_ta1' },
+          { id: 'r4', type: 'prepositionalPhrase', headId: 'n_panta', dependentId: 'n_en' },
+          { id: 'r5', type: 'prepositionObject', headId: 'n_en', dependentId: 'n_our' },
+          { id: 'r6', type: 'determiner', headId: 'n_our', dependentId: 'n_tois' },
+          { id: 'r7', type: 'apposition', headId: 'n_panta', dependentId: 'n_horata' },
+          { id: 'r8', type: 'determiner', headId: 'n_horata', dependentId: 'n_ta2' },
+          { id: 'r9', type: 'coordinator', headId: 'n_horata', dependentId: 'n_kai' },
+          { id: 'r10', type: 'conjunct', headId: 'n_horata', dependentId: 'n_aorata' },
+          { id: 'r11', type: 'determiner', headId: 'n_aorata', dependentId: 'n_ta3' },
+          { id: 'r12', type: 'apposition', headId: 'n_horata', dependentId: 'n_thr' },
+          { id: 'r13', type: 'coordinator', headId: 'n_thr', dependentId: 'n_eite1' },
+          { id: 'r14', type: 'conjunct', headId: 'n_thr', dependentId: 'n_kyr' },
+          { id: 'r15', type: 'coordinator', headId: 'n_thr', dependentId: 'n_eite2' },
+        ],
+      },
+    });
+  }
+
+  it('shifts the fork appositive past the PP hanging under the head', () => {
+    const layout = layoutDocument(headWithPpAndForkAppositive());
+    const at = (text: string) =>
+      layout.elements.find((e) => e.kind === 'text' && (e as { text: string }).text === text) as
+        | { x: number; y: number }
+        | undefined;
+    const ouranois = at('οὐρανοῖς')!; // PP object under πάντα
+    const aorata = at('ἀόρατα')!; // the fork's LOWER arm — dips below the baseline
+    expect(ouranois).toBeDefined();
+    expect(aorata).toBeDefined();
+    // The fork's lower arm sits clear to the right of the PP object, not on it.
+    expect(aorata.x).toBeGreaterThan(ouranois.x + 40);
+  });
+});

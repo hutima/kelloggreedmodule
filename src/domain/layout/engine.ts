@@ -936,38 +936,27 @@ function layoutHead(
     elements.push(line(eid(), atX, -EQ_GAP, atX + EQ_HALF * 2, -EQ_GAP, 'solid', 'separator', undefined, relId));
     elements.push(line(eid(), atX, EQ_GAP, atX + EQ_HALF * 2, EQ_GAP, 'solid', 'separator', undefined, relId));
   };
-  apposRels.forEach((rel) => {
-    cursor += LAYOUT.wordPadX;
+  // Lay each appositive out NOW (before the modifiers, the same layout order as
+  // always, so shared-`seen` semantics are unchanged) but decide where to DRAW it
+  // after the modifier row below is measured. An appositive that DIPS BELOW the
+  // baseline — a coordination fork straddling the line ("τὰ ὁρατὰ καὶ τὰ
+  // ἀόρατα"), or a phrase too tall for a pedestal — must start PAST the head's
+  // own below-hanging modifiers, or the fork's lower arm overprints the PPs
+  // hanging under the word (the Col 1:16 "τὰ πάντα ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς
+  // γῆς, τὰ ὁρατὰ καὶ τὰ ἀόρατα" clash). The modifiers stay directly under their
+  // word — it is the appositive that shifts right along the shared baseline.
+  const apposLaid = apposRels.map((rel) => {
     const block = layoutNode(ctx, rel.dependentId, seen);
     const phrasal =
       block.elements.length > 0 &&
       (isClauseChild(ctx, rel.dependentId) ||
         childRelations(ctx.doc.syntax, rel.dependentId).length > 0) &&
       block.height + blockAscent(block) <= LAYOUT.pedestalMaxHeight;
-    drawEquals(cursor, rel.id);
-    const afterEq = cursor + EQ_HALF * 2 + LAYOUT.wordPadX;
-    if (phrasal) {
-      // Pedestal: a forked foot on the baseline, a riser up to the appositive's
-      // own baseline (the platform), reached from the "=" by a short stretch.
-      const baseY = -(
-        LAYOUT.pedestalFootRise +
-        Math.max(block.height + LAYOUT.pedestalGap, LAYOUT.pedestalMinRiser)
-      );
-      const apexY = -LAYOUT.pedestalFootRise;
-      elements.push(...translate(block, afterEq, baseY));
-      const connectX = afterEq + (block.wordLeft + (block.wordRight || block.width)) / 2;
-      elements.push(line(eid(), cursor + EQ_HALF * 2, 0, connectX, 0, 'solid', 'baseline', undefined, rel.id));
-      elements.push(line(eid(), connectX - LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
-      elements.push(line(eid(), connectX + LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
-      elements.push(line(eid(), connectX, apexY, connectX, baseY, 'solid', 'stem', undefined, rel.id));
-      cursor = afterEq + block.width;
-    } else {
-      elements.push(...translate(block, afterEq, 0));
-      belowBottom = Math.max(belowBottom, block.height);
-      cursor = afterEq + block.width;
-    }
-    railRight = Math.max(railRight, cursor);
+    return { rel, block, phrasal };
   });
+  // A pedestalled appositive sits fully above the line; only an inline one with
+  // real height reaches below the baseline where the modifier cascade lives.
+  const apposDipsBelow = apposLaid.some(({ block, phrasal }) => !phrasal && block.height > 0);
 
   // A modifier hangs BELOW the head word, attaching from the middle of the word
   // — ALWAYS, even when the word also carries an appositive. The appositive sits
@@ -1036,6 +1025,41 @@ function layoutHead(
     }
   });
 
+  // Right edge of the modifier cascade (`cursor` advances monotonically through
+  // the loop above) — part of the block's width whether or not appositives follow.
+  const modRight = cursor;
+
+  // Appositives continue on the shared baseline right of the head — right after
+  // the word as always, EXCEPT that one dipping below the line starts past the
+  // modifier cascade, so the two never overprint (see the note above `apposLaid`).
+  cursor = apposDipsBelow && wordRels.length ? Math.max(wordW, modRight) : wordW;
+  apposLaid.forEach(({ rel, block, phrasal }) => {
+    cursor += LAYOUT.wordPadX;
+    drawEquals(cursor, rel.id);
+    const afterEq = cursor + EQ_HALF * 2 + LAYOUT.wordPadX;
+    if (phrasal) {
+      // Pedestal: a forked foot on the baseline, a riser up to the appositive's
+      // own baseline (the platform), reached from the "=" by a short stretch.
+      const baseY = -(
+        LAYOUT.pedestalFootRise +
+        Math.max(block.height + LAYOUT.pedestalGap, LAYOUT.pedestalMinRiser)
+      );
+      const apexY = -LAYOUT.pedestalFootRise;
+      elements.push(...translate(block, afterEq, baseY));
+      const connectX = afterEq + (block.wordLeft + (block.wordRight || block.width)) / 2;
+      elements.push(line(eid(), cursor + EQ_HALF * 2, 0, connectX, 0, 'solid', 'baseline', undefined, rel.id));
+      elements.push(line(eid(), connectX - LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
+      elements.push(line(eid(), connectX + LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
+      elements.push(line(eid(), connectX, apexY, connectX, baseY, 'solid', 'stem', undefined, rel.id));
+      cursor = afterEq + block.width;
+    } else {
+      elements.push(...translate(block, afterEq, 0));
+      belowBottom = Math.max(belowBottom, block.height);
+      cursor = afterEq + block.width;
+    }
+    railRight = Math.max(railRight, cursor);
+  });
+
   // The head's baseline, extended to carry appositives and modifier diagonals.
   elements.unshift(line(eid(), 0, 0, Math.max(wordW, railRight), 0, 'solid', 'baseline', node.id));
 
@@ -1043,12 +1067,11 @@ function layoutHead(
 
   // Clause dependents stack vertically on a stem dropping from the head word.
   let bottom = rowHeight;
-  // Include `railRight` (the rightmost extent of appositives + modifiers), not
-  // just the modifier `cursor`: the cursor is reset back under the word for the
-  // modifiers, so on its own it would drop an appositive drawn to the right —
-  // making the block too narrow and letting the appositive overlap whatever
-  // follows (the predicate). railRight tracks the true right edge.
-  let right = Math.max(cursor, railRight, wordW);
+  // The true right edge is the widest of: the modifier cascade (`modRight`), the
+  // appositive run (`cursor` after the appositive loop), and the attach-point
+  // rail. Missing any one lets the block undersize and overlap what follows
+  // (the predicate).
+  let right = Math.max(cursor, modRight, railRight, wordW);
   if (clauseRels.length) {
     const spineX = wordW / 2;
     const topY = (rowHeight > 0 ? rowHeight : 0) + LAYOUT.adjunctDrop * ctx.vScale;
