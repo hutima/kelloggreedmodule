@@ -38,6 +38,16 @@ describe('import / export', () => {
     expect(svg.startsWith('<svg')).toBe(true);
   });
 
+  it('honours the grammar-colour option so exports match the coloured canvas', () => {
+    // A Greek sample so the case/verb palette actually paints something.
+    const doc = cloneSample('doc_sample_1john_1_1')!;
+    const plain = buildSvg(doc, { colorMode: false });
+    const coloured = buildSvg(doc, { colorMode: true });
+    // Colour on must change the SVG (tinted word fills) and add non-ink strokes.
+    expect(coloured).not.toBe(plain);
+    expect(coloured).toMatch(/fill="#[0-9a-fA-F]{6}"/);
+  });
+
   it('slugifies titles for filenames', () => {
     expect(slugify('The quick brown fox!')).toBe('the-quick-brown-fox');
     expect(slugify('   ')).toBe('diagram');
