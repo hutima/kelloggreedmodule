@@ -122,8 +122,13 @@ ${tokenJson}
   "rootId": "c0"
 }
 
+If the SENTENCE above is actually MORE THAN ONE sentence, reply with a JSON ARRAY
+instead — one complete object (like the one above) per sentence:
+  [ { ...diagram for sentence 1... }, { ...diagram for sentence 2... } ]
+
 RULES
 - Fill a "pos" for every token (you may also add "lemma" and a short English "gloss").
+- MULTIPLE SENTENCES: diagram each sentence SEPARATELY as its own object in the array, each with its own "nodes"/"relations"/"rootId" and referencing only that sentence's tokens. NEVER join two sentences into one clause or link them with a "conjunct"/"clause" relation — separate sentences are separate diagrams. Reply with a single object only when there is exactly one sentence.
 - A relation reads "dependent functions as <type> of head"; "head" and "dependent" are NODE ids.
 - EVERY node must OWN at least one token in "tokens" — the ONLY exception is an implied/elided element ("tokens": [], "implied": true, "label": "(he)"). NEVER create an empty grouping node (a node with no tokens that only holds other nodes) — empty wrappers are dropped and their contents lose their role.
 - COORDINATION ("X and Y" — compound subjects, objects, verbs, or clauses): do NOT wrap the parts in a parent node. Make the FIRST part the head that carries the role (e.g. "subject"); attach each other part to that head with a "conjunct" relation and each conjunction word with a "coordinator" relation.
@@ -146,6 +151,13 @@ ALLOWED VALUES
 Reply with only the JSON object.`;
 }
 
+/** Result of importing possibly-several diagrams (one per sentence). */
+export interface MultiImportResult {
+  ok: boolean;
+  documents?: KrDocument[];
+  error?: string;
+}
+
 // ── importing the model's reply ───────────────────────────────────────────────
 function relax(text: string): string {
   return text
@@ -165,6 +177,19 @@ const asClause = (c?: string): ClauseType | undefined =>
   c ? ((CLAUSE_TYPES.has(c) ? c : 'unknown') as ClauseType) : undefined;
 const asKind = (k?: string): SyntaxNode['kind'] => (k && KINDS.has(k) ? (k as SyntaxNode['kind']) : 'word');
 
+/** Parse JSON, retrying once after relaxing code fences / smart quotes. */
+function parseJsonLoose(text: string): { ok: true; raw: unknown } | { ok: false; error: string } {
+  try {
+    return { ok: true, raw: JSON.parse(text) };
+  } catch {
+    try {
+      return { ok: true, raw: JSON.parse(relax(text)) };
+    } catch (e) {
+      return { ok: false, error: `Invalid JSON: ${(e as Error).message}` };
+    }
+  }
+}
+
 /**
  * Parse an LLM reply in the compact diagram format and hydrate it into a fully
  * validated KrDocument. Tolerant of code fences / smart quotes and of unknown
@@ -172,16 +197,43 @@ const asKind = (k?: string): SyntaxNode['kind'] => (k && KINDS.has(k) ? (k as Sy
  * pointing at a missing node, or no root clause) with a readable message.
  */
 export function importLlmDiagram(text: string, opts: { title?: string } = {}): ImportResult {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    try {
-      raw = JSON.parse(relax(text));
-    } catch (e) {
-      return { ok: false, error: `Invalid JSON: ${(e as Error).message}` };
+  const parsed0 = parseJsonLoose(text);
+  if (!parsed0.ok) return { ok: false, error: parsed0.error };
+  return hydrateDiagram(parsed0.raw, opts);
+}
+
+/**
+ * Import possibly-SEVERAL diagrams — one per sentence. A multi-sentence reply is a
+ * JSON array (or a `{ "diagrams": [...] }` wrapper) of diagram objects; a single
+ * sentence is one object. Each becomes its own document, so separate sentences are
+ * separate diagrams instead of being wrongly linked into one clause.
+ */
+export function importLlmDiagrams(text: string, opts: { title?: string } = {}): MultiImportResult {
+  const parsed0 = parseJsonLoose(text);
+  if (!parsed0.ok) return { ok: false, error: parsed0.error };
+  const raw = parsed0.raw;
+  const wrapped = raw as { diagrams?: unknown };
+  const items: unknown[] = Array.isArray(raw)
+    ? raw
+    : Array.isArray(wrapped?.diagrams)
+      ? wrapped.diagrams
+      : [raw];
+  if (!items.length) return { ok: false, error: 'No diagrams found.' };
+  const documents: KrDocument[] = [];
+  for (let i = 0; i < items.length; i++) {
+    // Let each sentence take its own title from its text; only pass the caller's
+    // title through when there is a single diagram.
+    const res = hydrateDiagram(items[i], { title: items.length > 1 ? undefined : opts.title });
+    if (!res.ok || !res.document) {
+      return { ok: false, error: items.length > 1 ? `Sentence ${i + 1}: ${res.error}` : res.error };
     }
+    documents.push(res.document);
   }
+  return { ok: true, documents };
+}
+
+/** Validate + hydrate one already-parsed diagram object into a KrDocument. */
+function hydrateDiagram(raw: unknown, opts: { title?: string } = {}): ImportResult {
   const parsed = LlmDiagramSchema.safeParse(raw);
   if (!parsed.success) {
     return {
