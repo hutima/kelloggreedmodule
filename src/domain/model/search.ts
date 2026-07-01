@@ -59,11 +59,25 @@ export interface SearchResult {
 }
 
 /**
- * Fold combining diacritics away and lowercase, so an unaccented query
- * ("logos" / "λογος") still finds the accented surface/lemma ("λόγος").
+ * Fold diacritics away and lowercase, so an unaccented query ("logos" / "λογος")
+ * still finds the accented surface/lemma ("λόγος"). Decomposing (NFD) first turns
+ * precomposed polytonic Greek and pointed Hebrew into base letter + combining
+ * marks, then every NONSPACING mark (`\p{Mn}` — Greek accents/breathings/iota
+ * subscript AND Hebrew vowel points / cantillation) is stripped, so the fold is
+ * script-agnostic: both the query and the corpus it is matched against lose their
+ * accents/points.
  */
 export function foldAccents(s: string): string {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return s.normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase();
+}
+
+/**
+ * Whether a string carries any accent/point that `foldAccents` would strip — used
+ * to note to the user that their accented query is matched without accents (so an
+ * exact-accent expectation isn't silently ignored).
+ */
+export function hasAccents(s: string): boolean {
+  return /\p{Mn}/u.test(s.normalize('NFD'));
 }
 
 /** True when the query has no active criteria (a search would match everything). */
