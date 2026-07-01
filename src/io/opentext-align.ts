@@ -38,19 +38,29 @@ function parseOsisId(ref: string | undefined): { verse: string; idx: number } | 
 interface SurfaceIndex {
   byPos: Map<string, Token>; // "verse!idx" → token
   byVerse: Map<string, Token[]>; // verse → tokens (lemma fallback)
+  glossByLemma: Map<string, string>; // bare lemma → an English gloss (book-wide)
 }
 
 /** Index Nestle1904 tokens (from `lowfatToDocuments`) by verse + position. */
 export function buildSurfaceIndex(nestleTokens: Token[]): SurfaceIndex {
   const byPos = new Map<string, Token>();
   const byVerse = new Map<string, Token[]>();
+  // A book-wide lemma → gloss table, so a word whose inflected surface can't be
+  // aligned (a textual variant, an embedded copula) still reads in English from
+  // ANY occurrence of its lemma. First non-empty gloss per lemma wins (stable).
+  const glossByLemma = new Map<string, string>();
   for (const t of nestleTokens) {
+    const gloss = t.gloss?.trim();
+    if (gloss) {
+      const key = bareLemma(t.lemma ?? t.surface);
+      if (key && !glossByLemma.has(key)) glossByLemma.set(key, t.gloss!);
+    }
     const loc = parseOsisId(t.morphology?.extra?.ref);
     if (!loc) continue;
     byPos.set(`${loc.verse}!${loc.idx}`, t);
     (byVerse.get(loc.verse) ?? byVerse.set(loc.verse, []).get(loc.verse)!).push(t);
   }
-  return { byPos, byVerse };
+  return { byPos, byVerse, glossByLemma };
 }
 
 export interface AlignResult {
@@ -84,13 +94,17 @@ export function alignOpenTextSurface(doc: KrDocument, index: SurfaceIndex): Alig
       );
       match = candidates[0];
     }
-    if (!match) return t;
+    // English gloss: OpenText ships none (only lemma + Louw-Nida). Prefer the
+    // aligned token's gloss; else fall back to any book-wide gloss for this lemma,
+    // so even an UNALIGNED word (or one whose Nestle match lacks a gloss) still
+    // reads in English when the gloss toggle is on.
+    const gloss = match?.gloss ?? t.gloss ?? index.glossByLemma.get(lemKey);
+    if (!match) {
+      return gloss === t.gloss ? t : { ...t, gloss };
+    }
     used.add(match);
     aligned++;
-    // Take the inflected surface AND the English gloss from Nestle1904 — OpenText
-    // ships no English gloss (only lemma + Louw-Nida), so without this the
-    // English-gloss toggle has nothing to show and leaves the Greek in place.
-    return { ...t, surface: match.surface, gloss: match.gloss ?? t.gloss };
+    return { ...t, surface: match.surface, gloss };
   });
 
   const text = [...tokens].sort((a, b) => a.index - b.index).map((t) => t.surface).join(' ');
