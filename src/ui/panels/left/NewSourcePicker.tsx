@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
-import { detectLanguage, tokenize } from '@/domain/model';
+import { detectLanguage, stripPunctuation, tokenize } from '@/domain/model';
 import { buildLlmPrompt, importLlmDiagrams, importJson, copyText, downloadText, slugify } from '@/io';
+import { isCombinedPassage, type VariantInput } from '@/domain/contested';
 import { useViewport } from '@/ui/responsive';
 import { Modal } from '@/ui/components/common/Modal';
 import type { KrDocument, Language } from '@/domain/schema';
@@ -12,9 +13,17 @@ const LANG_LABEL: Record<Language, string> = {
   hbo: 'Hebrew (Biblical)',
 };
 
-/** Parse pasted/loaded text as the compact LLM format (one OR several sentences)
- *  or a full KrDocument — always returning a list of documents. */
-function parseDiagrams(raw: string): { ok: boolean; documents?: KrDocument[]; error?: string } {
+interface ParsedDiagrams {
+  ok: boolean;
+  documents?: KrDocument[];
+  /** Alternate readings per document (aligned with `documents`). */
+  variantsByDoc?: VariantInput[][];
+  error?: string;
+}
+
+/** Parse pasted/loaded text as the compact LLM format (one OR several sentences,
+ *  possibly with alternate readings) or a full KrDocument — always a list of docs. */
+function parseDiagrams(raw: string): ParsedDiagrams {
   const llm = importLlmDiagrams(raw);
   if (llm.ok) return llm;
   const full = importJson(raw);
@@ -43,8 +52,14 @@ export function NewSourcePicker() {
   const openCustomParse = useEditorStore((s) => s.openCustomParse);
   const removeCustomParse = useEditorStore((s) => s.removeCustomParse);
   const isCustomDoc = useEditorStore((s) => s.corpus === 'custom' && s.baseDoc === null);
-  const docId = useEditorStore((s) => s.doc.id);
+  const currentDoc = useEditorStore((s) => s.doc);
+  const importAsVariants = useEditorStore((s) => s.importAsVariants);
+  const docId = currentDoc.id;
   const vp = useViewport();
+
+  // A variant attaches to a SINGLE loaded source sentence; block it while a
+  // combined (multi-sentence) passage is open, and when nothing real is loaded.
+  const canAttachVariant = currentDoc.tokens.length > 0 && !isCombinedPassage(currentDoc);
 
   const [saved, setSaved] = useState(false);
   useEffect(() => setSaved(false), [docId]); // a different doc hasn't been saved yet
@@ -57,6 +72,8 @@ export function NewSourcePicker() {
   const [promptText, setPromptText] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [ignorePunctuation, setIgnorePunctuation] = useState(false);
+  const [askVariants, setAskVariants] = useState(false);
 
   const ready = text.trim().length > 0;
   // Language is auto-detected from the script (Greek / Hebrew / English), so there
@@ -79,17 +96,49 @@ export function NewSourcePicker() {
 
   const exportForLlm = () => {
     if (!ready) return;
-    const tokens = tokenize(text.trim(), language);
-    setPromptText(buildLlmPrompt(text.trim(), tokens, language));
+    // With "ignore punctuation" on, strip editorial punctuation before tokenizing
+    // and ask the model to infer its own — useful for unpointed Greek/Hebrew.
+    const source = ignorePunctuation ? stripPunctuation(text.trim()) : text.trim();
+    const tokens = tokenize(source, language);
+    setPromptText(
+      buildLlmPrompt(source, tokens, language, {
+        inferPunctuation: ignorePunctuation,
+        variants: askVariants,
+      }),
+    );
   };
 
-  /** Load parsed diagram document(s) — several when the import was multi-sentence.
-   *  The first opens; the rest become a prev/next context so each sentence is its
-   *  own diagram you can step through. */
-  const acceptDocuments = (documents: KrDocument[]) => {
+  /**
+   * Load parsed diagram document(s). Normally the first opens as a new canvas (the
+   * rest become a prev/next context), and each sentence's alternate readings are
+   * attached to it. When `asVariants` is set, NOTHING opens: every imported parse
+   * (and its own alternates) attaches to the CURRENT passage as a variant reading.
+   */
+  const acceptDocuments = (parsed: ParsedDiagrams, asVariants: boolean) => {
+    const documents = parsed.documents ?? [];
     if (!documents.length) return;
+    const variantsByDoc = parsed.variantsByDoc ?? [];
+
+    if (asVariants && canAttachVariant) {
+      // Each imported document becomes a variant reading of the current passage;
+      // its own alternates come along too (labelled under it).
+      const variants: VariantInput[] = [];
+      documents.forEach((d, i) => {
+        variants.push({ label: d.title || 'Imported reading', doc: d });
+        for (const v of variantsByDoc[i] ?? []) variants.push(v);
+      });
+      importAsVariants(variants, { targetDoc: currentDoc });
+      if (vp.isDesktop) setAppMode('explore');
+      collapseIfNarrow();
+      return;
+    }
+
     loadDocument(documents[0]!, { corpus: 'custom' });
     if (documents.length > 1) setGntContext(documents, 0);
+    // Attach each sentence's alternate readings to that sentence's own diagram.
+    documents.forEach((d, i) => {
+      if (variantsByDoc[i]?.length) importAsVariants(variantsByDoc[i]!, { targetDoc: d });
+    });
     if (vp.isDesktop) setAppMode('edit');
     collapseIfNarrow();
   };
@@ -124,6 +173,23 @@ export function NewSourcePicker() {
           </button>
         )}
       </div>
+
+      <label className="check-row" title="Strip punctuation and let the LLM infer the most likely sentence breaks and attachments">
+        <input
+          type="checkbox"
+          checked={ignorePunctuation}
+          onChange={(e) => setIgnorePunctuation(e.target.checked)}
+        />
+        <span>Ignore punctuation (LLM infers it)</span>
+      </label>
+      <label className="check-row" title="Ask the LLM to also return plausible alternate readings (ambiguous attachments, participles, punctuation) with a note on each">
+        <input
+          type="checkbox"
+          checked={askVariants}
+          onChange={(e) => setAskVariants(e.target.checked)}
+        />
+        <span>Include alternate readings (variants)</span>
+      </label>
 
       <div className="row new-actions">
         <button className="mini" disabled={!ready} title="Build a prompt for an LLM" onClick={exportForLlm}>
@@ -196,9 +262,11 @@ export function NewSourcePicker() {
       {infoOpen && <LlmWorkflowModal onClose={() => setInfoOpen(false)} />}
       {importOpen && (
         <ImportDiagramModal
+          canAttachVariant={canAttachVariant}
+          attachTitle={currentDoc.title}
           onClose={() => setImportOpen(false)}
-          onImport={(docs) => {
-            acceptDocuments(docs);
+          onImport={(parsed, asVariants) => {
+            acceptDocuments(parsed, asVariants);
             setImportOpen(false);
           }}
         />
@@ -207,16 +275,22 @@ export function NewSourcePicker() {
   );
 }
 
-/** Paste JSON (or load a .json file) and confirm to import a diagram. */
+/** Paste JSON (or load a .json file) and confirm to import a diagram (optionally
+ *  as variant readings of the currently-open passage). */
 function ImportDiagramModal({
   onClose,
   onImport,
+  canAttachVariant,
+  attachTitle,
 }: {
   onClose: () => void;
-  onImport: (docs: KrDocument[]) => void;
+  onImport: (parsed: ParsedDiagrams, asVariants: boolean) => void;
+  canAttachVariant: boolean;
+  attachTitle: string;
 }) {
   const [raw, setRaw] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [asVariants, setAsVariants] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const confirm = () => {
@@ -225,7 +299,7 @@ function ImportDiagramModal({
       setError(res.error ?? 'Could not read that diagram.');
       return;
     }
-    onImport(res.documents);
+    onImport(res, asVariants && canAttachVariant);
   };
 
   const loadFile = async (file: File) => {
@@ -265,6 +339,18 @@ function ImportDiagramModal({
         style={{ width: '100%', fontFamily: 'monospace', fontSize: 12 }}
       />
       {error && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{error}</p>}
+      {canAttachVariant ? (
+        <label className="check-row" title="Attach the imported parse(s) as variant readings of the currently-open passage, instead of opening a new diagram">
+          <input type="checkbox" checked={asVariants} onChange={(e) => setAsVariants(e.target.checked)} />
+          <span>
+            Load as variant reading of “{attachTitle}” (instead of a new diagram)
+          </span>
+        </label>
+      ) : (
+        <p style={{ fontSize: 12, color: 'var(--muted, #667)' }}>
+          Open a single source sentence to attach this as a variant reading of it.
+        </p>
+      )}
       <input
         ref={fileRef}
         type="file"

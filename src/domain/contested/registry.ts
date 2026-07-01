@@ -2,24 +2,42 @@ import type { KrDocument, ContestedSyntaxIssue, AlternateReading } from '@/domai
 import { contestedRegistry } from '@/data/contestedSyntax';
 
 /**
- * Read-only accessors over the curated contested-syntax registry. Pure; the
- * registry is matched to a passage by its STABLE document id (the same id the
- * loaders mint for a GNT/WLC sentence or a bundled sample).
+ * Read-only accessors over the contested-syntax registry. The CURATED registry is
+ * a module constant matched to a passage by its STABLE document id; on top of it
+ * sits a small runtime OVERLAY of USER / LLM-imported variants (a full standalone
+ * parse per reading). The overlay is registered by the store when a passage loads
+ * (from local storage) and after an import, so every accessor below — and thus the
+ * badge, the panel, and the dropdown — surface user variants alongside curated
+ * ones without any call site needing to know the difference.
  */
 
+let userIssues: ContestedSyntaxIssue[] = [];
+let userReadings: AlternateReading[] = [];
+
+/** Replace the runtime user overlay (issues + full-doc readings). */
+export function setUserContested(issues: ContestedSyntaxIssue[], readings: AlternateReading[]): void {
+  userIssues = issues;
+  userReadings = readings;
+}
+
+/** The user overlay currently registered (for persistence / inspection). */
+export function getUserContested(): { issues: ContestedSyntaxIssue[]; readings: AlternateReading[] } {
+  return { issues: userIssues, readings: userReadings };
+}
+
 export function allContestedIssues(): ContestedSyntaxIssue[] {
-  return contestedRegistry.issues;
+  return [...contestedRegistry.issues, ...userIssues];
 }
 
 export function allAlternateReadings(): AlternateReading[] {
-  return contestedRegistry.readings;
+  return [...contestedRegistry.readings, ...userReadings];
 }
 
 export function getIssuesForPassage(doc: KrDocument): ContestedSyntaxIssue[] {
   // A cross-sentence-boundary issue (mergePassageIds) attaches to EVERY sentence
   // it spans, so the badge / panel appear on both sides of the boundary (e.g.
   // Romans 9:5 shows on the 9:3–5 sentence and on the doxology sentence alike).
-  return contestedRegistry.issues.filter(
+  return allContestedIssues().filter(
     (i) => i.passageId === doc.id || (i.mergePassageIds?.includes(doc.id) ?? false),
   );
 }
@@ -34,15 +52,15 @@ export function isMergeIssue(issue: ContestedSyntaxIssue): boolean {
 }
 
 export function getIssueById(id: string): ContestedSyntaxIssue | undefined {
-  return contestedRegistry.issues.find((i) => i.id === id);
+  return allContestedIssues().find((i) => i.id === id);
 }
 
 export function getAlternateReadings(issueId: string): AlternateReading[] {
-  return contestedRegistry.readings.filter((r) => r.issueId === issueId);
+  return allAlternateReadings().filter((r) => r.issueId === issueId);
 }
 
 export function getReadingById(id: string): AlternateReading | undefined {
-  return contestedRegistry.readings.find((r) => r.id === id);
+  return allAlternateReadings().find((r) => r.id === id);
 }
 
 export function getAffectedIds(issue: ContestedSyntaxIssue): {

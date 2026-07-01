@@ -61,6 +61,8 @@ import {
   listCustomParses,
   getCustomParse,
   deleteCustomParse,
+  loadUserVariants,
+  saveUserVariants,
 } from '@/persistence';
 import { applyPatch, diffDocuments, hashBase } from '@/domain/patch';
 import { isEmptySyntaxPatch } from '@/domain/schema';
@@ -74,6 +76,11 @@ import {
   getIssueById,
   getIssuesForPassage,
   isMergeIssue,
+  setUserContested,
+  buildUserVariants,
+  mergeUserVariants,
+  userIssueId,
+  type VariantInput,
 } from '@/domain/contested';
 import { combinePassage, loadGntBook, loadOtChapter, GNT_BOOKS, OT_BOOKS, sourceOfDoc, type SyntaxSourceId } from '@/io';
 import type { ContestedSyntaxIssue } from '@/domain/schema';
@@ -101,6 +108,16 @@ const FRESH_CONTESTED = {
   alternateDisplayMode: 'base-only' as const,
   linkedScrolling: true,
 };
+
+/**
+ * Load the imported variant readings stored for `passageId` and register them as
+ * the runtime contested overlay, so the badge / panel / dropdown surface them for
+ * the passage now in view. Cleared (empty overlay) when the passage has none.
+ */
+function registerUserVariants(passageId: string): void {
+  const bundle = loadUserVariants(passageId);
+  setUserContested(bundle ? [bundle.issue] : [], bundle ? bundle.readings : []);
+}
 
 /**
  * The id of the last document the user was viewing/editing, so a refresh (or an
@@ -453,6 +470,11 @@ export interface EditorActions {
   setLinkedScrolling: (value: boolean) => void;
   /** Adopt a structural alternate as the user's custom parse (persists a patch). */
   adoptContestedReading: (readingId: string) => void;
+  /**
+   * Attach imported parses as full-doc alternate readings of a passage (the
+   * current doc by default), persist them, and surface them in the dropdown.
+   */
+  importAsVariants: (variants: VariantInput[], opts?: { targetDoc?: KrDocument }) => void;
   // click-to-relink
   startRelink: (relationId: string, end: 'head' | 'dependent') => void;
   cancelRelink: () => void;
@@ -693,6 +715,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         contested: { ...FRESH_CONTESTED },
         status: 'saved',
       });
+      registerUserVariants(base.id);
       void saveBase(base).catch(() => {});
       persistOpened(live);
     },
@@ -749,6 +772,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         contested: { ...FRESH_CONTESTED },
         status: 'idle',
       });
+      registerUserVariants(d.id);
       scheduleAutosave(d, (status) => set({ status }));
     },
 
@@ -805,6 +829,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         contested: { ...FRESH_CONTESTED },
         status: 'saved',
       });
+      registerUserVariants(base.id);
       void saveBase(base).catch(() => {});
       persistOpened(live);
     },
@@ -1584,6 +1609,32 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           alternateDisplayMode: 'base-only',
         },
       }));
+    },
+
+    importAsVariants: (variants, opts) => {
+      const target = opts?.targetDoc ?? get().doc;
+      const passageId = target.id;
+      // Attach the imported parses as full-doc alternate readings of the target
+      // passage, MERGING with any already stored, then persist + register so they
+      // appear in the reading dropdown / comparison.
+      const built = buildUserVariants(passageId, target.title, variants);
+      const merged = mergeUserVariants(loadUserVariants(passageId), built);
+      saveUserVariants(passageId, merged);
+      if (get().doc.id === passageId) {
+        registerUserVariants(passageId);
+        set((s) => ({
+          contestedBaseDoc: null,
+          previewDoc: null,
+          contested: {
+            ...s.contested,
+            showAlternateParsePanel: true,
+            selectedContestedIssueId: userIssueId(passageId),
+            selectedAlternateReadingId: undefined,
+            previewAlternateReadingId: undefined,
+            alternateDisplayMode: 'base-only',
+          },
+        }));
+      }
     },
 
     startRelink: (relationId, end) => set({ linking: { relationId, end }, selection: { relationId } }),

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildLlmPrompt, importLlmDiagram, importLlmDiagrams, LLM_DIAGRAM_KIND } from '@/io';
-import { detectLanguage, tokenize } from '@/domain/model';
+import { detectLanguage, stripPunctuation, tokenize } from '@/domain/model';
 import { layoutDocument } from '@/domain/layout';
 
 /**
@@ -257,6 +257,104 @@ describe('importLlmDiagrams (multiple sentences)', () => {
     const res = importLlmDiagrams(JSON.stringify([oneSentence('a', 'Boys', 'run'), bad]));
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/sentence 2/i);
+  });
+});
+
+describe('LLM alternate readings (variants)', () => {
+  it('asks for variants (with an impact note) only when the option is set', () => {
+    const text = 'faith of Christ';
+    const plain = buildLlmPrompt(text, tokenize(text));
+    const withVar = buildLlmPrompt(text, tokenize(text), undefined, { variants: true });
+    expect(plain).not.toMatch(/ALTERNATE READINGS/);
+    expect(withVar).toMatch(/ALTERNATE READINGS/);
+    expect(withVar).toMatch(/"variants"/);
+    expect(withVar).toMatch(/impact/i);
+  });
+
+  it('imports variants as full parses that reuse the primary tokens', () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'en',
+      text: 'the love of God',
+      tokens: [
+        { id: 't0', surface: 'the', pos: 'article' },
+        { id: 't1', surface: 'love', pos: 'noun' },
+        { id: 't2', surface: 'of', pos: 'preposition' },
+        { id: 't3', surface: 'God', pos: 'propernoun' },
+      ],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'n_love', kind: 'word', role: 'subject', tokens: ['t1'] },
+      ],
+      relations: [{ type: 'subject', head: 'c0', dependent: 'n_love' }],
+      rootId: 'c0',
+      variants: [
+        {
+          label: 'Objective genitive',
+          impact: 'God is the object of love — “our love for God”.',
+          // reuses the primary tokens (no tokens field)
+          nodes: [
+            { id: 'c0', kind: 'clause', clauseType: 'independent' },
+            { id: 'n_love', kind: 'word', role: 'subject', tokens: ['t1'] },
+            { id: 'n_god', kind: 'word', role: 'genitive', tokens: ['t3'] },
+          ],
+          relations: [
+            { type: 'subject', head: 'c0', dependent: 'n_love' },
+            { type: 'genitive', head: 'n_love', dependent: 'n_god' },
+          ],
+          rootId: 'c0',
+        },
+      ],
+    };
+    const res = importLlmDiagrams(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    expect(res.documents).toHaveLength(1);
+    const variants = res.variantsByDoc![0]!;
+    expect(variants).toHaveLength(1);
+    expect(variants[0]!.label).toBe('Objective genitive');
+    expect(variants[0]!.impact).toMatch(/object of love/);
+    // the variant reused the primary's 4 tokens and lays out
+    expect(variants[0]!.doc.tokens).toHaveLength(4);
+    expect(variants[0]!.doc.syntax.relations.some((r) => r.type === 'genitive')).toBe(true);
+  });
+
+  it('skips a malformed variant without failing the primary import', () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'en',
+      text: 'God is love',
+      tokens: [{ id: 't0', surface: 'God', pos: 'noun' }],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'n', kind: 'word', role: 'subject', tokens: ['t0'] },
+      ],
+      relations: [{ type: 'subject', head: 'c0', dependent: 'n' }],
+      rootId: 'c0',
+      variants: [{ label: 'broken', relations: [{ type: 'subject', head: 'c0', dependent: 'ghost' }] }],
+    };
+    const res = importLlmDiagrams(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    expect(res.variantsByDoc![0]).toHaveLength(0); // the broken variant is dropped
+  });
+});
+
+describe('ignore-punctuation export option', () => {
+  it('strips editorial punctuation but keeps elision apostrophes', () => {
+    const stripped = stripPunctuation('διδάσκειν, οὐκ ἐπιτρέπω· ἀλλ’ εἶναι.');
+    expect(stripped).toBe('διδάσκειν οὐκ ἐπιτρέπω ἀλλ’ εἶναι'); // no comma / ano teleia / period
+    expect(stripped).toContain('ἀλλ’'); // word-internal elision survives
+    expect(stripPunctuation('The Word became flesh; and God saw it.')).toBe(
+      'The Word became flesh and God saw it',
+    );
+  });
+
+  it('adds an infer-punctuation instruction only when the option is set', () => {
+    const text = 'ἀγαπῶμεν ἀλλήλους';
+    const plain = buildLlmPrompt(text, tokenize(text));
+    const infer = buildLlmPrompt(text, tokenize(text), undefined, { inferPunctuation: true });
+    expect(plain).not.toMatch(/PUNCTUATION: the source has had its punctuation REMOVED/);
+    expect(infer).toMatch(/PUNCTUATION: the source has had its punctuation REMOVED/);
+    expect(infer).toMatch(/infer the most likely punctuation/i);
   });
 });
 

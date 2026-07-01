@@ -51,3 +51,17 @@ export function detectLanguage(text: string): Language {
   if (hebrew > greek && hebrew > latin) return 'hbo';
   return 'en';
 }
+
+/**
+ * Sentence punctuation the editions add editorially — periods, commas, colons,
+ * the Greek ano teleia (·) and question mark (;), dashes, quotes, brackets. A
+ * word-internal ELISION apostrophe (ἀλλ') is deliberately NOT stripped: it is
+ * part of the word, not sentence punctuation. Used by the "infer punctuation"
+ * export option so the model proposes its own breaks/attachments.
+ */
+const SENTENCE_PUNCT = /[.,:;!?·…—–‑―«»"“”„‟()[\]{}··;‐]/g;
+
+/** Strip editorial sentence punctuation from `text`, collapsing whitespace. */
+export function stripPunctuation(text: string): string {
+  return text.replace(SENTENCE_PUNCT, ' ').replace(/\s+/g, ' ').trim();
+}

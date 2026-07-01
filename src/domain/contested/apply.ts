@@ -34,6 +34,8 @@ export function applyAlternateReadingPreview(
   baseDoc: KrDocument,
   reading: AlternateReading,
 ): KrDocument {
+  // A user / LLM-imported variant is a full standalone parse — show it verbatim.
+  if (reading.fullDoc) return reading.fullDoc;
   if (reading.syntaxPatch) {
     return applyPatch(baseDoc, overlayToPatch(baseDoc, reading.syntaxPatch));
   }

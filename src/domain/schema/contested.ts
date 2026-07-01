@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SyntaxPatchSchema } from './patch';
+import type { KrDocument } from './document';
 
 /**
  * CONTESTED SYNTAX / ALTERNATE READINGS.
@@ -109,6 +110,17 @@ export const AlternateReadingSchema = z.object({
   semanticOverlay: SemanticOverlaySchema.optional(),
   /** A different wording — never merged into the base token stream. */
   textualVariant: TextualVariantSchema.optional(),
+
+  /**
+   * A FULL standalone parse of the same passage — used for USER / LLM-imported
+   * variants, whose ids don't align with the base (so they can't be a patch). When
+   * present, previewing this reading shows `fullDoc` verbatim beside the base.
+   */
+  fullDoc: z.custom<KrDocument>().optional(),
+  /** A short exegetical / interpretive impact note for an imported variant. */
+  impact: z.string().optional(),
+  /** Where this reading came from — curated registry vs. a user/LLM import. */
+  origin: z.enum(['curated', 'user']).optional(),
 
   confidence: z.enum(['high', 'medium', 'low']).optional(),
   /** True if this alternate IS what the base tree already encodes. */
