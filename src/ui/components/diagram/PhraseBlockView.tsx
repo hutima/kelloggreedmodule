@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useEditorStore } from '@/state';
-import { buildOutline, glossDoc, type OutlineNode } from '@/domain/model';
+import { buildOutline, glossDoc, docDirection, type OutlineNode } from '@/domain/model';
 import { toneByNode } from '@/domain/layout';
 import { toneColor } from '@/domain/render';
 import { nodeHighlightColors } from '@/ui/sermon/highlights';
@@ -54,6 +54,12 @@ export function PhraseBlockView({
   );
   const greek = doc.language === 'grc' && !englishGloss;
   const hebrew = doc.language === 'hbo' && !englishGloss;
+  // Effective tree direction: an RTL document (Hebrew, Arabic…) nests right-to-left
+  // to match its reading order; the flip toggle un-mirrors it to left-to-right so the
+  // outline reads in English word order. Word glyphs keep their own direction (a
+  // Hebrew word stays RTL) — only the nesting/indent direction flips.
+  const flipDiagram = useEditorStore((s) => s.flipDiagram);
+  const treeDir: 'ltr' | 'rtl' = docDirection(doc) === 'rtl' && !flipDiagram ? 'rtl' : 'ltr';
 
   // Collapsed branch ids (controlled), reset when the document changes.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -96,7 +102,7 @@ export function PhraseBlockView({
           </button>
         </div>
       )}
-      <ul className="ob-tree" role="tree">
+      <ul className="ob-tree" role="tree" style={{ direction: treeDir }}>
         <OutlineRow
           node={outline}
           depth={0}

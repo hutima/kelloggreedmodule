@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LanguageSchema } from './primitives';
+import { DirectionSchema, LanguageSchema } from './primitives';
 import { TokenSchema } from './token';
 import { SyntaxModelSchema } from './syntax';
 import { LayoutHintsSchema } from './layout';
@@ -20,6 +20,12 @@ export const KrDocumentSchema = z.object({
   id: z.string(),
   title: z.string().default('Untitled'),
   language: LanguageSchema,
+  /**
+   * Writing direction. Optional — when absent the layout infers it from the
+   * language/script (RTL for Hebrew/Arabic). Stored explicitly for an imported
+   * doc whose language the app doesn't otherwise recognise.
+   */
+  direction: DirectionSchema.optional(),
   /** Raw sentence text, if entered. */
   text: z.string().default(''),
   tokens: z.array(TokenSchema).default([]),

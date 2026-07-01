@@ -1,5 +1,5 @@
 import type { KrDocument, LayoutHints, Relation, SyntacticRole, SyntaxNode } from '@/domain/schema';
-import { childRelations, getNode, impliedSubjectPronoun, nodeText } from '@/domain/model';
+import { childRelations, docDirection, getNode, impliedSubjectPronoun, nodeText } from '@/domain/model';
 import { LAYOUT } from './constants';
 import { measureText, SMALL_FONT } from './measure';
 import { nodeTone } from './tone';
@@ -746,7 +746,7 @@ export function layoutDocument(
   const width = maxX - minX + (m + pad) * 2;
   const height = maxY - minY + (m + pad) * 2;
   const placed = translate(block, m + pad - minX, m + pad - minY);
-  const rtl = options.rtl ?? doc.language === 'hbo';
+  const rtl = options.rtl ?? docDirection(doc) === 'rtl';
   return { width, height, elements: rtl ? mirrorX(placed, width) : placed };
 }
 
@@ -772,6 +772,17 @@ function mirrorX(elements: DiagramElement[], width: number): DiagramElement[] {
       rotate: el.rotate ? -el.rotate : el.rotate,
     };
   });
+}
+
+/**
+ * Mirror a whole laid-out diagram horizontally (any mode) — used to flip a
+ * non-Kellogg-Reed mode (e.g. the phrase/block diagram) for a right-to-left
+ * sentence, or to flip a diagram to match English word order on request. The KR
+ * engine already mirrors internally via its `rtl` option; this lets the other
+ * modes get the same treatment without each re-implementing it.
+ */
+export function mirrorLayout(layout: DiagramLayout): DiagramLayout {
+  return { ...layout, elements: mirrorX(layout.elements, layout.width) };
 }
 
 /** Axis-aligned bounding box of a set of primitives (line endpoints + text anchors). */

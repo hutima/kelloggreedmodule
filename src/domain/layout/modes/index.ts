@@ -1,7 +1,7 @@
 import type { KrDocument, LayoutHints, Relation } from '@/domain/schema';
-import { childRelations, getNode } from '@/domain/model';
+import { childRelations, docDirection, getNode } from '@/domain/model';
 import type { DiagramLayout } from '../types';
-import { layoutDocument, type LayoutOptions } from '../engine';
+import { layoutDocument, mirrorLayout, type LayoutOptions } from '../engine';
 import { layoutDependency } from './dependency';
 import { layoutDependencyTree } from './dependency-tree';
 import { layoutConstituency } from './constituency';
@@ -108,6 +108,12 @@ export function layoutForMode(
   options: LayoutOptions = {},
 ): DiagramLayout {
   doc = attachSubjectParticles(doc);
+  // The effective right-to-left flag: an explicit option wins (the flip toggle),
+  // else the document's own direction (Hebrew/Arabic → RTL). Kellogg-Reed mirrors
+  // internally via its `rtl` option; the phrase/block diagram is mirrored here so
+  // both flip together. (The tree/dependency/morphology modes read left-to-right
+  // regardless, so they are left unflipped.)
+  const rtl = options.rtl ?? docDirection(doc) === 'rtl';
   switch (mode) {
     case 'dependency':
       return layoutDependency(doc);
@@ -115,12 +121,14 @@ export function layoutForMode(
       return layoutDependencyTree(doc, options.treeOrientation);
     case 'constituency':
       return layoutConstituency(doc, options.treeOrientation);
-    case 'phrase-block':
-      return layoutPhraseBlock(doc, { colorMode: options.colorMode });
+    case 'phrase-block': {
+      const layout = layoutPhraseBlock(doc, { colorMode: options.colorMode });
+      return rtl ? mirrorLayout(layout) : layout;
+    }
     case 'morphology':
       return layoutMorphology(doc);
     case 'kellogg-reed':
     default:
-      return layoutDocument(doc, hints, options);
+      return layoutDocument(doc, hints, { ...options, rtl });
   }
 }

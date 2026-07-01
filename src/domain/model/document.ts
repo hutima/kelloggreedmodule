@@ -1,4 +1,5 @@
 import {
+  type Direction,
   type KrDocument,
   type Language,
   type ParseInput,
@@ -24,7 +25,7 @@ export function emptySyntax(): SyntaxModel {
 }
 
 export function createDocument(
-  opts: { title?: string; language: Language; text?: string },
+  opts: { title?: string; language: Language; text?: string; direction?: Direction },
   clock: Clock = systemClock,
 ): KrDocument {
   const now = clock();
@@ -33,6 +34,7 @@ export function createDocument(
     id: makeId('doc'),
     title: opts.title ?? 'Untitled',
     language: opts.language,
+    ...(opts.direction ? { direction: opts.direction } : {}),
     text: opts.text ?? '',
     tokens: [],
     syntax: emptySyntax(),

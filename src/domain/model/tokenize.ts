@@ -1,4 +1,4 @@
-import type { Language, Token } from '@/domain/schema';
+import type { Direction, Language, Token } from '@/domain/schema';
 import { makeId } from './ids';
 
 /**
@@ -50,6 +50,52 @@ export function detectLanguage(text: string): Language {
   if (greek >= hebrew && greek > latin) return 'grc';
   if (hebrew > greek && hebrew > latin) return 'hbo';
   return 'en';
+}
+
+/** Language codes that are written RIGHT-TO-LEFT (used when no script is present). */
+const RTL_LANGUAGES = new Set([
+  'hbo', 'he', 'iw', 'yi', 'ar', 'fa', 'ur', 'ps', 'sd', 'ug', 'ckb', 'dv', 'syr', 'arc', 'nqo',
+]);
+
+/** Whether a language CODE denotes a right-to-left script. */
+export function isRtlLanguage(language: string | undefined): boolean {
+  return !!language && RTL_LANGUAGES.has(language.toLowerCase());
+}
+
+/**
+ * Detect the writing direction of `text` from its DOMINANT script — right-to-left
+ * for Hebrew, Arabic, Syriac, Thaana, N'Ko (and their presentation forms), else
+ * left-to-right. Lets Hebrew/Arabic sentences (and future Quran analysis) lay out
+ * in the correct direction regardless of the coarse language bucket.
+ */
+export function detectDirection(text: string): Direction {
+  let rtl = 0;
+  let ltr = 0;
+  for (const ch of text) {
+    const c = ch.codePointAt(0)!;
+    const isRtl =
+      (c >= 0x0590 && c <= 0x05ff) || // Hebrew
+      (c >= 0x0600 && c <= 0x06ff) || // Arabic
+      (c >= 0x0700 && c <= 0x074f) || // Syriac
+      (c >= 0x0750 && c <= 0x077f) || // Arabic Supplement
+      (c >= 0x0780 && c <= 0x07bf) || // Thaana
+      (c >= 0x07c0 && c <= 0x07ff) || // N'Ko
+      (c >= 0x08a0 && c <= 0x08ff) || // Arabic Extended-A
+      (c >= 0xfb1d && c <= 0xfb4f) || // Hebrew presentation forms
+      (c >= 0xfb50 && c <= 0xfdff) || // Arabic presentation forms-A
+      (c >= 0xfe70 && c <= 0xfeff); // Arabic presentation forms-B
+    const isLtr = (c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a) || (c >= 0x0370 && c <= 0x03ff);
+    if (isRtl) rtl++;
+    else if (isLtr) ltr++;
+  }
+  return rtl > ltr ? 'rtl' : 'ltr';
+}
+
+/** The effective direction of a document — its explicit `direction`, else inferred. */
+export function docDirection(doc: { direction?: Direction; language?: string; text?: string }): Direction {
+  if (doc.direction) return doc.direction;
+  if (isRtlLanguage(doc.language)) return 'rtl';
+  return doc.text ? detectDirection(doc.text) : 'ltr';
 }
 
 /**

@@ -47,6 +47,7 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
   const returnToBase = useEditorStore((s) => s.returnToBaseReading);
   const restoreBase = useEditorStore((s) => s.restoreBaseParse);
   const deleteVariant = useEditorStore((s) => s.deleteImportedVariant);
+  const promoteToBase = useEditorStore((s) => s.promoteReadingToBase);
   const preferAppDiff = useEditorStore((s) => s.preferAppDiff);
   const setPreferAppDiff = useEditorStore((s) => s.setPreferAppDiff);
 
@@ -213,6 +214,15 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
                 <button className="btn" onClick={() => returnToBase()}>
                   Return to base
                 </button>
+                {previewReading.origin === 'user' && previewReading.fullDoc && (
+                  <button
+                    className="btn"
+                    title="Make this reading the base parse — the outgoing base becomes a reading, and every reading then compares against this one"
+                    onClick={() => promoteToBase(previewReading.id)}
+                  >
+                    Make this the base
+                  </button>
+                )}
                 {previewReading.origin === 'user' && (
                   <button
                     className="btn danger"

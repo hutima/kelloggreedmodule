@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '@/state';
-import { glossDoc } from '@/domain/model';
+import { glossDoc, docDirection } from '@/domain/model';
 import { useViewport } from '@/ui/responsive';
 import { ModeSwitcher } from '@/ui/shell/ModeSwitcher';
 import { ForcedDesktopModeModal } from '@/ui/shell/ForcedDesktopModeModal';
@@ -22,7 +22,12 @@ export function TopBar() {
   const diagramMode = useEditorStore((s) => s.diagramMode);
   const treeOrientation = useEditorStore((s) => s.treeOrientation);
   const glossMode = useEditorStore((s) => s.glossMode);
+  const flipDiagram = useEditorStore((s) => s.flipDiagram);
   const status = useEditorStore((s) => s.status);
+
+  // Match the canvas's effective direction so the export mirrors what's on screen:
+  // an RTL doc lays out right-to-left unless the flip toggle un-mirrors it.
+  const rtl = docDirection(doc) === 'rtl' && !flipDiagram;
 
   // Export what's actually on screen: when the English-gloss toggle is on, the
   // diagram shows glosses (via glossDoc), so the export must too. Morphology stays
@@ -160,7 +165,7 @@ export function TopBar() {
       </div>
 
       {exportOpen && (
-        <ExportModal doc={exportDoc} sourceDoc={doc} verticalScale={verticalScale} treeOrientation={treeOrientation} mode={diagramMode} onClose={() => setExportOpen(false)} />
+        <ExportModal doc={exportDoc} sourceDoc={doc} verticalScale={verticalScale} treeOrientation={treeOrientation} rtl={rtl} mode={diagramMode} onClose={() => setExportOpen(false)} />
       )}
       {dataOpen && <ImportExportModal onClose={() => setDataOpen(false)} />}
       {resetOpen && <ResetPassageModal onClose={() => setResetOpen(false)} />}

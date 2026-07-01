@@ -171,4 +171,53 @@ describe('store — imported variant readings', () => {
     expect(store.getState().previewDoc).toBeNull();
     expect(store.getState().contested.previewAlternateReadingId).toBeUndefined();
   });
+
+  it('promotes a variant to base: it becomes the new base, the old base becomes a reading', () => {
+    const oldBase = store.getState().doc;
+    store.getState().importAsVariants([
+      { label: 'Doxology', doc: { ...cloneSample('doc_sample_fox')!, id: 'doc_dox', title: 'Doxology' } },
+      { label: 'Appositional', doc: { ...cloneSample('doc_sample_fox')!, id: 'doc_app', title: 'Appositional' } },
+    ]);
+    const readings = getAlternateReadings(userIssueId(oldBase.id));
+    const promoteId = readings.find((r) => r.label === 'Doxology')!.id;
+
+    store.getState().promoteReadingToBase(promoteId);
+
+    // The working doc is now the promoted reading's parse (new id, its label as title).
+    const s = store.getState();
+    expect(s.doc.id).not.toBe(oldBase.id);
+    expect(s.doc.title).toBe('Doxology');
+    expect(s.corpus).toBe('custom');
+
+    // The old passage's variant bundle is gone; the new base owns the readings.
+    expect(loadUserVariants(oldBase.id)).toBeNull();
+    const newReadings = getAlternateReadings(userIssueId(s.doc.id));
+    const labels = newReadings.map((r) => r.label);
+    // The remaining alternate carried over, and the outgoing base is demoted to a reading.
+    expect(labels).toContain('Appositional');
+    expect(labels).toContain('Previous base parse');
+    // The promoted reading is no longer a reading (it IS the base now).
+    expect(labels).not.toContain('Doxology');
+
+    // The readings panel is focused on the new base's issue.
+    expect(s.contested.selectedContestedIssueId).toBe(userIssueId(s.doc.id));
+  });
+
+  it('promoted base re-keys its readings under the new id and re-registers on reload', () => {
+    const oldBase = store.getState().doc;
+    store.getState().importAsVariants([
+      { label: 'Alt', doc: { ...cloneSample('doc_sample_fox')!, id: 'doc_alt', title: 'Alt' } },
+    ]);
+    const id = getAlternateReadings(userIssueId(oldBase.id))[0]!.id;
+    store.getState().promoteReadingToBase(id);
+    const promoted = store.getState().doc;
+    // The new base persisted its readings under its OWN id (localStorage, synchronous).
+    expect(loadUserVariants(promoted.id)?.readings.some((r) => r.label === 'Previous base parse')).toBe(true);
+
+    // Navigate away: the overlay clears. Reopen the promoted doc: its readings return.
+    store.getState().loadDocument(cloneSample('doc_sample_word_flesh')!, { corpus: 'custom' });
+    expect(getAlternateReadings(userIssueId(promoted.id))).toHaveLength(0);
+    store.getState().loadDocument(promoted, { corpus: 'custom' });
+    expect(getAlternateReadings(userIssueId(promoted.id)).some((r) => r.label === 'Previous base parse')).toBe(true);
+  });
 });

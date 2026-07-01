@@ -4,7 +4,7 @@ import { useEditorStore } from '@/state';
 import { layoutForMode, DIAGRAM_MODES, isEditableMode, DEFAULT_EDIT_MODE } from '@/domain/layout';
 import { measureText, SMALL_FONT, BASE_FONT } from '@/domain/layout/measure';
 import { dashFor, toneColor } from '@/domain/render';
-import { describeFunction, getNode, childRelations, lookupGloss, glossDoc, impliedSubjectVerbPairs } from '@/domain/model';
+import { describeFunction, getNode, childRelations, lookupGloss, glossDoc, impliedSubjectVerbPairs, docDirection } from '@/domain/model';
 import {
   loadParallelBook,
   alignParallel,
@@ -151,14 +151,25 @@ export function DiagramCanvas() {
   // Grammar-colour tinting (case / verb / participle), shared with Morphology mode.
   const colorMode = useEditorStore((s) => s.colorMode);
   const setColorMode = useEditorStore((s) => s.setColorMode);
+  // Horizontal flip for RTL documents. The doc's natural direction lays a Hebrew
+  // baseline out right-to-left; flipping mirrors it to left-to-right so it reads in
+  // English word order. Only meaningful when the doc is RTL, so the effective flag
+  // is `rtlDoc && !flipDiagram` and the toggle is shown only for RTL texts.
+  const flipDiagram = useEditorStore((s) => s.flipDiagram);
+  const setFlipDiagram = useEditorStore((s) => s.setFlipDiagram);
+  const rtlDoc = useMemo(() => docDirection(doc) === 'rtl', [doc]);
+  const rtl = rtlDoc && !flipDiagram;
   const layoutDoc = useMemo(
     () => (glossMode && diagramMode !== 'morphology' ? glossDoc(doc) : doc),
     [glossMode, diagramMode, doc],
   );
   const layout = useMemo(
-    () => layoutForMode(diagramMode, layoutDoc, doc.layoutHints, { verticalScale, colorMode, treeOrientation }),
-    [diagramMode, layoutDoc, doc.layoutHints, verticalScale, colorMode, treeOrientation],
+    () => layoutForMode(diagramMode, layoutDoc, doc.layoutHints, { verticalScale, colorMode, treeOrientation, rtl }),
+    [diagramMode, layoutDoc, doc.layoutHints, verticalScale, colorMode, treeOrientation, rtl],
   );
+  // The flip toggle applies to the two baseline-oriented structural diagrams; the
+  // trees/dependency/morphology read left-to-right regardless.
+  const flippable = diagramMode === 'kellogg-reed' || diagramMode === 'phrase-block';
   // The two literal "tree" views get an orientation toggle (left-to-right vs the
   // classic top-down); it's a no-op for the other modes, so the control is hidden.
   const isTreeMode = diagramMode === 'dependency-tree' || diagramMode === 'constituency';
@@ -947,6 +958,26 @@ export function DiagramCanvas() {
               >
                 <span className="color-swatch" aria-hidden="true" />
                 Colour
+              </button>
+            </div>
+          )}
+          {rtlDoc && flippable && (
+            <div className="lang-toggle flip-toggle" role="group" aria-label="Diagram direction">
+              <button
+                className={!flipDiagram ? 'active' : ''}
+                title="Read right-to-left, matching the Hebrew / Arabic text"
+                aria-pressed={!flipDiagram}
+                onClick={() => setFlipDiagram(false)}
+              >
+                {/* leftward arrow: right-to-left, the source direction */}←
+              </button>
+              <button
+                className={flipDiagram ? 'active' : ''}
+                title="Flip horizontally to read left-to-right (English word order)"
+                aria-pressed={flipDiagram}
+                onClick={() => setFlipDiagram(true)}
+              >
+                {/* rightward arrow: flipped to left-to-right */}→
               </button>
             </div>
           )}

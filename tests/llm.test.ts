@@ -436,13 +436,109 @@ describe('language detection (drives the auto-detected prompt, no dropdown)', ()
   });
 });
 
+describe('importLlmDiagram is language-agnostic (any language + direction)', () => {
+  it('preserves a non-en/grc/hbo language code on the document and its tokens', () => {
+    // A Chinese sentence: the importer must keep "zh" verbatim, not coerce it to en.
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'zh',
+      text: '道 成 了 肉身',
+      tokens: [
+        { id: 't0', surface: '道', pos: 'noun' },
+        { id: 't1', surface: '成', pos: 'verb' },
+        { id: 't2', surface: '肉身', pos: 'noun' },
+      ],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+        { id: 'nv', kind: 'word', role: 'predicate', tokens: ['t1'] },
+        { id: 'no', kind: 'word', role: 'directObject', tokens: ['t2'] },
+      ],
+      relations: [
+        { type: 'subject', head: 'c0', dependent: 'ns' },
+        { type: 'predicate', head: 'c0', dependent: 'nv' },
+        { type: 'directObject', head: 'nv', dependent: 'no' },
+      ],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    expect(res.document!.language).toBe('zh');
+    expect(res.document!.tokens.every((t) => t.language === 'zh')).toBe(true);
+    // left-to-right by default (Chinese is not an RTL script)
+    expect(res.document!.direction).toBe('ltr');
+    expect(layoutDocument(res.document!).elements.length).toBeGreaterThan(0);
+  });
+
+  it('honours an explicit rtl direction from the model', () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'ar',
+      direction: 'rtl',
+      text: 'الكلمة صار جسدا',
+      tokens: [
+        { id: 't0', surface: 'الكلمة', pos: 'noun' },
+        { id: 't1', surface: 'صار', pos: 'verb' },
+      ],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+        { id: 'nv', kind: 'word', role: 'predicate', tokens: ['t1'] },
+      ],
+      relations: [
+        { type: 'subject', head: 'c0', dependent: 'ns' },
+        { type: 'predicate', head: 'c0', dependent: 'nv' },
+      ],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    expect(res.document!.direction).toBe('rtl');
+  });
+
+  it('infers rtl from an RTL language code even when the model omits direction', () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'fa', // Persian — RTL, but no explicit direction field
+      text: 'کلمه بود',
+      tokens: [{ id: 't0', surface: 'کلمه', pos: 'noun' }],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+      ],
+      relations: [{ type: 'subject', head: 'c0', dependent: 'ns' }],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    expect(res.document!.direction).toBe('rtl');
+  });
+});
+
 describe('buildLlmPrompt is language-agnostic and asks for morphology', () => {
   const text = 'ἀγαπῶμεν ἀλλήλους';
   const prompt = buildLlmPrompt(text, tokenize(text)); // no language arg → detects
 
   it('tells the model to detect the language itself (so the UI needs no dropdown)', () => {
     expect(prompt).toMatch(/DETECT THE LANGUAGE/i);
-    expect(prompt).toContain('"en", "grc", or "hbo"');
+    expect(prompt).toMatch(/"en"\/"grc"\/"hbo"/);
+  });
+
+  it('works for ANY language — asks for a BCP-47 code and a text direction', () => {
+    // The prompt is not English/Greek/Hebrew-only: a Chinese, Arabic, or Latin
+    // sentence should parse too, with the model naming the language and direction.
+    expect(prompt).toMatch(/ANY language/i);
+    expect(prompt).toMatch(/BCP-47/);
+    expect(prompt).toContain('"direction"');
+    expect(prompt).toMatch(/rtl for/i);
+  });
+
+  it('lets the model fall back to a plain TOKENIZATION for a language it cannot parse', () => {
+    // Sumerian, say: rather than guess a wrong tree, emit one clause + each word as
+    // its own unknown-role node so the sentence still renders as a labelled list.
+    expect(prompt).toMatch(/IF YOU CANNOT confidently analyse/i);
+    expect(prompt).toMatch(/just TOKENIZE/i);
+    expect(prompt).toMatch(/role "unknown"/);
   });
 
   it('requests morphology and lists the schema-derived feature values', () => {

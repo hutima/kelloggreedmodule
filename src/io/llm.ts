@@ -16,6 +16,7 @@ import {
   MorphologySchema,
   type ClauseType,
   type KrDocument,
+  type Direction,
   type Language,
   type Morphology,
   type PartOfSpeech,
@@ -24,7 +25,14 @@ import {
   type SyntaxNode,
   type Token,
 } from '@/domain/schema';
-import { createDocument, detectLanguage, makeId, normalizeSyntax } from '@/domain/model';
+import {
+  createDocument,
+  detectDirection,
+  detectLanguage,
+  isRtlLanguage,
+  makeId,
+  normalizeSyntax,
+} from '@/domain/model';
 import type { VariantInput } from '@/domain/contested';
 import type { ImportResult } from './json';
 
@@ -116,6 +124,7 @@ export const LlmDiagramSchema = z.object({
   kind: z.string().optional(),
   version: z.number().optional(),
   language: z.string().optional(),
+  direction: z.string().optional(),
   text: z.string().optional(),
   title: z.string().optional(),
   tokens: z.array(LlmTokenSchema),
@@ -181,9 +190,9 @@ export function buildLlmPrompt(
         `    { "id": ${JSON.stringify(t.id)}, "surface": ${JSON.stringify(t.surface)}, "pos": "", "lemma": "", "gloss": "", "morphology": {} }`,
     )
     .join(',\n');
-  return `You are a grammarian helping build a Reed-Kellogg sentence diagram. Work in whatever language the sentence is written in — English, Koine Greek, or Biblical Hebrew.
+  return `You are a grammarian helping build a Reed-Kellogg sentence diagram. Work in whatever language the sentence is written in — ANY language, not only English/Greek/Hebrew.
 
-SENTENCE (looks like ${langName} — confirm this yourself and set "language" accordingly):
+SENTENCE (looks like ${langName} — but confirm the language yourself and set "language"):
 ${JSON.stringify(text)}
 
 TOKENS — reference these EXACT ids in your answer:
@@ -195,7 +204,8 @@ Analyse the grammar and reply with ONE JSON object — no prose, no markdown cod
 {
   "kind": "${LLM_DIAGRAM_KIND}",
   "version": 1,
-  "language": "en | grc | hbo — the language YOU detect",
+  "language": "the language code YOU detect (en / grc / hbo, or a BCP-47 code like zh, ar, la, …)",
+  "direction": "ltr or rtl (rtl for Hebrew, Arabic, Syriac … scripts)",
   "text": ${JSON.stringify(text)},
   "tokens": [
 ${tokenJson}
@@ -215,7 +225,8 @@ instead — one complete object (like the one above) per sentence:
   [ { ...diagram for sentence 1... }, { ...diagram for sentence 2... } ]
 
 RULES
-- DETECT THE LANGUAGE from the script/words and set "language" to "en", "grc", or "hbo". Do not rely on the hint above; the sentence is authoritative.${punctuationRule}${variantsRule}
+- DETECT THE LANGUAGE and set "language" to its code — "en"/"grc"/"hbo" for English/Koine Greek/Biblical Hebrew, otherwise a short BCP-47 code (e.g. "zh" Chinese, "ar" Arabic, "la" Latin). Also set "direction" to "rtl" for right-to-left scripts (Hebrew, Arabic, Syriac, …), else "ltr". Do not rely on the hint above; the sentence is authoritative.
+- IF YOU CANNOT confidently analyse this language's grammar, DO NOT GUESS a parse — just TOKENIZE: emit one "clause" node (rootId) and attach each word as its own "word" node (role "unknown", pos "unknown" if unsure) so the sentence still renders as a labelled token list. A faithful token list beats a wrong tree.${punctuationRule}${variantsRule}
 - Fill a "pos" for every token, plus "lemma" and a short English "gloss".
 - MORPHOLOGY: fill "morphology" for every inflected token with the features that APPLY to it — nominals (noun/adjective/article/participle/pronoun): case, gender, number; finite verbs: person, number, tense, voice, mood (e.g. "1st person singular present active indicative"); infinitives/participles: tense, voice (+ case/gender/number for a participle); adjective/adverb comparison: degree. Omit features that do not apply, and use "morphology": {} for an uninflected word (English preposition, particle). English uses only the subset that applies (person/number/tense/degree).
 - MULTIPLE SENTENCES: diagram each sentence SEPARATELY as its own object in the array, each with its own "nodes"/"relations"/"rootId" and referencing only that sentence's tokens. NEVER join two sentences into one clause or link them with a "conjunct"/"clause" relation — separate sentences are separate diagrams. Reply with a single object only when there is exactly one sentence.
@@ -362,6 +373,7 @@ interface HydrateFields {
   rootId?: string;
   text?: string;
   language?: string;
+  direction?: string;
 }
 
 /**
@@ -373,9 +385,9 @@ function hydrateFields(
   d: HydrateFields,
   opts: { title?: string; fallbackTokens?: Token[]; fallbackText?: string; fallbackLanguage?: Language },
 ): { ok: true; document: KrDocument } | { ok: false; error: string } {
-  const language: Language = (['en', 'grc', 'hbo'] as const).includes(d.language as Language)
-    ? (d.language as Language)
-    : opts.fallbackLanguage ?? 'en';
+  // Any non-empty language code is accepted — not just en/grc/hbo — so a sentence
+  // in any language imports faithfully.
+  const language: Language = d.language?.trim() || opts.fallbackLanguage || 'en';
 
   const tokens: Token[] =
     d.tokens && d.tokens.length
@@ -431,7 +443,14 @@ function hydrateFields(
 
   const text = d.text ?? opts.fallbackText ?? tokens.map((t) => t.surface).join(' ');
   const title = opts.title ?? titleFromText(text);
-  const base = createDocument({ language, title, text });
+  // Direction: the model's explicit value if valid, else inferred from language/script.
+  const direction: Direction =
+    d.direction === 'rtl' || d.direction === 'ltr'
+      ? d.direction
+      : isRtlLanguage(language) || detectDirection(text) === 'rtl'
+        ? 'rtl'
+        : 'ltr';
+  const base = createDocument({ language, title, text, direction });
   // Normalize so an over-specified reply (a phrase node plus its child words both
   // carrying the same tokens, or a node hung under two heads) never draws a word twice.
   const doc = normalizeSyntax({ ...base, tokens, syntax: { rootId, nodes, relations } } as KrDocument);

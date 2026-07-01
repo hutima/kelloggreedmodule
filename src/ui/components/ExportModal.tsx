@@ -22,6 +22,7 @@ export function ExportModal({
   sourceDoc,
   verticalScale,
   treeOrientation,
+  rtl,
   mode,
   onClose,
 }: {
@@ -29,16 +30,18 @@ export function ExportModal({
   sourceDoc?: KrDocument;
   verticalScale: number;
   treeOrientation?: TreeOrientation;
+  /** Effective right-to-left flag (RTL doc, unless the flip toggle un-mirrors it). */
+  rtl?: boolean;
   mode: DiagramMode;
   onClose: () => void;
 }) {
   const jsonDoc = sourceDoc ?? doc;
   // Carry the on-screen options so the export matches the canvas exactly.
-  const opts = { verticalScale, treeOrientation };
+  const opts = { verticalScale, treeOrientation, rtl };
   const natural = useMemo(
     () => documentNaturalSize(doc, opts, mode),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [doc, verticalScale, treeOrientation, mode],
+    [doc, verticalScale, treeOrientation, rtl, mode],
   );
   const aspect = natural.height / natural.width;
 
