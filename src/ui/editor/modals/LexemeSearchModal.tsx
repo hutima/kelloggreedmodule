@@ -1,31 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '@/state';
-import { getNode, searchLexemes, type LexemeEntry, type SearchQuery } from '@/domain/model';
+import { getNode } from '@/domain/model';
 import { Modal } from '@/ui/components/common/Modal';
 import type { KrDocument, Language, Token } from '@/domain/schema';
-import { GNT_BOOKS, loadGntBook } from '@/io/gnt';
-import { OT_BOOKS, loadOtBook } from '@/io/ot';
+import { loadStrongs, searchStrongs, type StrongsEntry } from '@/io/strongs';
 
 /**
- * Add / fill a word for a textual variant, in two steps: (1) the WORD itself
- * (the surface — the actual inflected/conjugated form) and (2) an optional GLOSS.
- * The word is typed by hand precisely so CONJUGATED forms are possible — a lexeme
- * gloss alone only ever gives the dictionary form.
+ * Add / fill a word for a textual variant, in two steps: (1) the WORD (its actual
+ * inflected/conjugated surface) and (2) — for Greek/Hebrew — a GLOSS that doubles
+ * as a Strong's search.
  *
- * Language is chosen up front:
- *   - Greek (NT) / Hebrew (OT): an OPTIONAL Strong's lookup searches a real corpus
- *     (Nestle1904 GNT / macula-hebrew OT, loaded on demand like the search picker,
- *     plus the open document) by Strong's number, lemma, or gloss. Picking an entry
- *     prefills the word (dictionary form, to inflect) and gloss, and attaches its
- *     lemma + Strong's number + part of speech — but the typed word wins.
- *   - English: just the word + optional gloss (no Strong's lexicon).
+ *   - Greek (NT) / Hebrew (OT): one field is BOTH the gloss and a live search of
+ *     the whole Strong's lexicon (by number, lemma, transliteration, or gloss).
+ *     Picking a result attaches its lemma + Strong's number and seeds the word
+ *     (dictionary form, to then inflect). If nothing is picked, whatever you typed
+ *     is kept as a plain custom gloss — so a form the lexicon doesn't know still
+ *     works.
+ *   - English: just the word. An English word is its own gloss, so there's no gloss
+ *     field.
  *
- * The gloss comes along, so English-gloss mode keeps working for the new word.
+ * The word you type always wins as the surface (that's what allows conjugated
+ * forms), and any gloss rides along so English-gloss mode keeps working.
  */
 
 const MANUAL = { source: 'manual', confidence: 'high' } as const;
-const DEFAULT_GRC_BOOK = 11; // Philippians — bundled for offline / first-run use
-const DEFAULT_HBO_BOOK = 1; // Genesis
 
 type Lang = 'grc' | 'hbo' | 'en';
 
@@ -38,29 +36,24 @@ export function LexemeSearchModal({ nodeId, onClose }: { nodeId: string; onClose
   const [lang, setLang] = useState<Lang>(
     doc.language === 'hbo' ? 'hbo' : doc.language === 'en' ? 'en' : 'grc',
   );
-  // Step 1 + 2: the word (surface) and its optional gloss.
   const [word, setWord] = useState('');
-  const [gloss, setGloss] = useState('');
-  // The looked-up lexeme backing the word (its lemma / Strong's / pos), if any.
-  const [picked, setPicked] = useState<LexemeEntry | null>(null);
+  // The combined gloss / Strong's-search field (Greek/Hebrew only).
+  const [glossQuery, setGlossQuery] = useState('');
+  const [picked, setPicked] = useState<StrongsEntry | null>(null);
 
-  // Greek/Hebrew Strong's lookup state.
-  const [bookNum, setBookNum] = useState(doc.language === 'hbo' ? DEFAULT_HBO_BOOK : DEFAULT_GRC_BOOK);
-  const [passages, setPassages] = useState<KrDocument[] | null>(null);
+  const [lexicon, setLexicon] = useState<StrongsEntry[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [text, setText] = useState('');
 
   const greek = lang === 'grc';
   const english = lang === 'en';
-  const books = lang === 'hbo' ? OT_BOOKS : GNT_BOOKS;
+  const scriptClass = greek ? 'greek' : undefined;
 
-  // Load the chosen lookup book on demand (cached by the service worker), like the
-  // search picker; the open document's words are searched too, so a lemma already
-  // in the passage is found even offline. English has no lexicon to load.
+  // Lazy-load the whole Strong's lexicon for the chosen language (cached). English
+  // needs none.
   useEffect(() => {
     if (english) {
-      setPassages(null);
+      setLexicon(null);
       setError(null);
       setLoading(false);
       return;
@@ -68,13 +61,10 @@ export function LexemeSearchModal({ nodeId, onClose }: { nodeId: string; onClose
     let cancelled = false;
     setLoading(true);
     setError(null);
-    setPassages(null);
     (async () => {
       try {
-        const docs = greek
-          ? await loadGntBook(GNT_BOOKS.find((b) => b.num === bookNum)!)
-          : await loadOtBook(OT_BOOKS.find((b) => b.num === bookNum)!);
-        if (!cancelled) setPassages(docs);
+        const entries = await loadStrongs(lang);
+        if (!cancelled) setLexicon(entries);
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
       } finally {
@@ -84,62 +74,57 @@ export function LexemeSearchModal({ nodeId, onClose }: { nodeId: string; onClose
     return () => {
       cancelled = true;
     };
-  }, [english, greek, bookNum]);
+  }, [lang, english]);
 
-  const results = useMemo<LexemeEntry[]>(() => {
-    const q: SearchQuery = { text: text.trim() };
-    if (english || !q.text) return [];
-    return searchLexemes([doc, ...(passages ?? [])], q);
-  }, [english, text, passages, doc]);
+  const results = useMemo<StrongsEntry[]>(() => {
+    if (english || !lexicon || !glossQuery.trim()) return [];
+    return searchStrongs(lexicon, glossQuery);
+  }, [english, lexicon, glossQuery]);
 
   const changeLang = (next: Lang) => {
     if (next === lang) return;
     setLang(next);
     setWord('');
-    setGloss('');
+    setGlossQuery('');
     setPicked(null);
-    setText('');
-    if (next === 'grc' || next === 'hbo') setBookNum(next === 'hbo' ? DEFAULT_HBO_BOOK : DEFAULT_GRC_BOOK);
   };
 
-  // Pick a lexeme from the lookup: seed the word (dictionary form — the user then
-  // inflects it) and the gloss when they're still empty, and remember its identity.
-  const choose = (e: LexemeEntry) => {
+  // Pick a lexicon entry: attach it, seed the word (dictionary form — the user then
+  // inflects it) when still empty, and set the gloss field to its short gloss.
+  const choose = (e: StrongsEntry) => {
     setPicked(e);
     setWord((w) => w.trim() || e.lemma);
-    setGloss((g) => g.trim() || e.gloss || '');
+    setGlossQuery(e.gloss ?? '');
   };
+
+  const clearPick = () => setPicked(null);
 
   const canAdd = Boolean(word.trim() && tokenId);
   const add = () => {
     const surface = word.trim();
     if (surface && tokenId) {
-      const patch: Partial<Token> = {
-        surface,
-        gloss: gloss.trim() || undefined,
-        language: lang as Language,
-        provenance: MANUAL,
-      };
+      const patch: Partial<Token> = { surface, language: lang as Language, provenance: MANUAL };
       if (english) {
+        // An English word is its own gloss — no separate gloss, no lexicon.
         patch.lemma = surface;
+        patch.gloss = undefined;
         patch.pos = undefined;
-        patch.morphology = undefined; // no Strong's / Greek morphology on an English word
+        patch.morphology = undefined;
       } else {
-        // The looked-up lexeme (if any) supplies the DICTIONARY lemma, Strong's, and
-        // part of speech, while the typed surface stays the inflected form.
-        patch.lemma = picked?.lemma || surface;
-        patch.pos = picked?.pos;
-        if (picked?.strong) {
+        const gloss = glossQuery.trim();
+        patch.gloss = gloss || undefined; // a picked gloss, or a plain custom gloss
+        if (picked) {
+          patch.lemma = picked.lemma;
           const prev = tokenOf(doc, tokenId)?.morphology;
           patch.morphology = { ...prev, extra: { ...prev?.extra, strong: picked.strong } };
+        } else {
+          patch.lemma = surface; // no lexeme picked — keep the typed form as the lemma
         }
       }
       updateToken(tokenId, patch);
     }
     onClose();
   };
-
-  const scriptClass = greek ? ' greek' : '';
 
   return (
     <Modal
@@ -177,7 +162,7 @@ export function LexemeSearchModal({ nodeId, onClose }: { nodeId: string; onClose
           <label className="qg-field">
             Word
             <input
-              className={scriptClass.trim() || undefined}
+              className={scriptClass}
               autoFocus
               value={word}
               placeholder={english ? 'the word…' : 'the inflected form…'}
@@ -186,75 +171,60 @@ export function LexemeSearchModal({ nodeId, onClose }: { nodeId: string; onClose
             />
           </label>
 
-          {/* Step 2: an optional gloss. */}
-          <label className="qg-field">
-            Gloss (optional)
-            <input
-              value={gloss}
-              placeholder="English gloss…"
-              onChange={(e) => setGloss(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && canAdd && add()}
-            />
-          </label>
-
+          {/* Step 2 (Greek/Hebrew only): the gloss, which also searches Strong's. */}
           {!english && (
-            <div className="lex-lookup">
-              <div className="lex-source" role="group" aria-label="Lexicon book">
-                <span className="lex-lookup-label">Look up a Strong’s lemma (optional)</span>
-                <select
-                  aria-label="Lexicon book"
-                  value={bookNum}
-                  onChange={(e) => setBookNum(Number(e.target.value))}
-                  title="The book whose words are searched (a wider lexicon is one pick away)"
-                >
-                  {books.map((b) => (
-                    <option key={b.num} value={b.num}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <input
-                className={`lex-search${scriptClass}`}
-                value={text}
-                placeholder="Strong’s number, lemma, or gloss…"
-                onChange={(e) => setText(e.target.value)}
-              />
+            <>
+              <label className="qg-field">
+                Gloss / Strong’s
+                <input
+                  value={glossQuery}
+                  placeholder="Gloss, or search Strong’s (number, lemma, gloss)…"
+                  onChange={(e) => {
+                    setGlossQuery(e.target.value);
+                    if (picked) setPicked(null); // editing detaches; re-pick to re-attach
+                  }}
+                />
+              </label>
 
               {picked && (
                 <p className="lex-picked">
                   Using{' '}
-                  <span className={scriptClass.trim() || undefined}>{picked.lemma}</span>
-                  {picked.strong && ` · ${greek ? 'G' : 'H'}${picked.strong}`}
-                  {picked.gloss && ` · ${picked.gloss}`}
+                  <span className={scriptClass}>{picked.lemma}</span>
+                  {` · ${greek ? 'G' : 'H'}${picked.strong}`}
+                  <button type="button" className="lex-clear" onClick={clearPick} aria-label="Detach Strong's">
+                    ✕
+                  </button>
                 </p>
               )}
 
-              {loading && <p className="hint">Loading {books.find((b) => b.num === bookNum)?.name}…</p>}
+              {loading && <p className="hint">Loading the {greek ? 'Greek' : 'Hebrew'} lexicon…</p>}
               {error && <p className="hint error">{error}</p>}
-              {!loading && !error && text.trim() && results.length === 0 && (
-                <p className="hint">No lexeme matches “{text.trim()}” in this book. Try another book.</p>
+              {!loading && !error && !picked && glossQuery.trim() && results.length === 0 && (
+                <p className="hint">
+                  No Strong’s match — “{glossQuery.trim()}” will be saved as a custom gloss.
+                </p>
               )}
 
-              <ul className="lex-results">
-                {results.map((e) => (
-                  <li key={e.key}>
-                    <button className="lex-hit" onClick={() => choose(e)}>
-                      <span className={`lex-lemma${scriptClass}`}>{e.lemma}</span>
-                      {e.gloss && <span className="lex-gloss"> · {e.gloss}</span>}
-                      {e.strong && <span className="lex-strong">{greek ? 'G' : 'H'}{e.strong}</span>}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+              {!picked && (
+                <ul className="lex-results">
+                  {results.map((e) => (
+                    <li key={e.strong}>
+                      <button className="lex-hit" onClick={() => choose(e)}>
+                        <span className={`lex-lemma${greek ? ' greek' : ''}`}>{e.lemma}</span>
+                        {e.gloss && <span className="lex-gloss"> · {e.gloss}</span>}
+                        <span className="lex-strong">{greek ? 'G' : 'H'}{e.strong}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
 
           <p className="hint">
-            Type the word (its inflected form), and optionally a gloss. On Greek/Hebrew you
-            can look one up to attach its Strong’s lemma — then edit the word to the exact
-            form you want. The gloss comes along, so English-gloss mode keeps working.
+            {english
+              ? 'Type the English word (its own gloss). Select it afterward to set its role.'
+              : 'Type the word (its inflected form). The gloss field searches the whole Strong’s lexicon — pick a match to attach its lemma, or just save your text as a custom gloss.'}
           </p>
         </>
       )}

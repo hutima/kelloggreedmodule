@@ -27,13 +27,16 @@ cleanupOutdatedCaches();
 self.addEventListener('fetch', (event) => {
   const p = new URL(event.request.url).pathname;
   const isCorpus =
-    p.endsWith('.xml') &&
-    (p.includes('/gnt/') ||
-      p.includes('nestle1904-lowfat') ||
-      p.includes('/ot/') ||
-      p.includes('macula-hebrew') ||
-      p.includes('/opentext/') ||
-      p.includes('OpenText-org'));
+    (p.endsWith('.xml') &&
+      (p.includes('/gnt/') ||
+        p.includes('nestle1904-lowfat') ||
+        p.includes('/ot/') ||
+        p.includes('macula-hebrew') ||
+        p.includes('/opentext/') ||
+        p.includes('OpenText-org'))) ||
+    // The Strong's lexicon JSON (fetched on demand by the add-a-word search) —
+    // large, immutable, cache-first so it's instant on re-open and works offline.
+    (p.includes('/lexicon/') && p.endsWith('.json'));
   if (event.request.method !== 'GET' || !isCorpus) return;
   event.respondWith(
     caches.open('gnt-books-v1').then(async (cache) => {

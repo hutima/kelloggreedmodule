@@ -108,6 +108,14 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
               (CC BY 4.0).
             </li>
             <li>
+              <strong>Strong’s lexicon</strong> — James Strong’s Exhaustive Concordance (1904,
+              public domain), machine‑readable edition from{' '}
+              <a href="https://github.com/openscriptures/strongs" target="_blank" rel="noopener noreferrer">
+                Open Scriptures
+              </a>{' '}
+              (CC BY‑SA), used for the add‑a‑word Greek/Hebrew lemma search.
+            </li>
+            <li>
               <strong>Polytonic Greek fonts</strong> — Gentium Plus, Cardo, New Athena Unicode, and
               GFS Didot (open / SIL OFL licences).
             </li>
