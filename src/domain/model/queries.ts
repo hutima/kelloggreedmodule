@@ -240,6 +240,13 @@ function glossGreekLabel(label: string): string {
 export function glossDoc(doc: KrDocument): KrDocument {
   return {
     ...doc,
+    // The displayed words are now English, so report the language as English too —
+    // this is what lets a pro-drop clause's IMPLIED SUBJECT read in English
+    // ("(you)" for a 2nd-person imperative) instead of the Greek "(ὑμεῖς)", the
+    // same way the elided copula label is glossed below. Scoped to Greek so a
+    // Hebrew passage keeps its right-to-left layout (the only other thing the
+    // layout reads `language` for); a Hebrew implied subject stays "(subject)".
+    language: doc.language === 'grc' ? 'en' : doc.language,
     tokens: doc.tokens.map((t) => ({
       ...t,
       // Prefer the data's gloss; fall back to a function-word gloss (ἵνα, ὅς …)

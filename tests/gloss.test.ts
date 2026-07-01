@@ -1,6 +1,31 @@
 import { describe, it, expect } from 'vitest';
 import { glossDoc, GRC_FUNCTION_GLOSS } from '@/domain/model';
+import { layoutDocument } from '@/domain/layout';
 import { KrDocumentSchema, type KrDocument } from '@/domain/schema';
+
+/** A pro-drop clause: a 2nd-person-plural verb with NO written subject, so the
+ *  layout imputes the subject pronoun from the verb (Matthew 28:19 "[you] disciple"). */
+function proDrop(): KrDocument {
+  return KrDocumentSchema.parse({
+    schemaVersion: 1, id: 'p', title: 't', language: 'grc', text: 'μαθητεύσατε',
+    createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z',
+    layoutHints: {},
+    tokens: [
+      { id: 't_v', index: 0, surface: 'μαθητεύσατε', pos: 'verb', gloss: 'disciple',
+        morphology: { person: 'second', number: 'plural', mood: 'imperative' } },
+    ],
+    syntax: {
+      rootId: 'c0',
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'v', kind: 'word', role: 'predicate', tokenIds: ['t_v'] },
+      ],
+      relations: [{ id: 'r1', type: 'predicate', headId: 'c0', dependentId: 'v' }],
+    },
+  });
+}
+const diagramTexts = (d: KrDocument) =>
+  layoutDocument(d, {}).elements.flatMap((e) => (e.kind === 'text' ? [e.text] : []));
 
 /**
  * English-gloss mode swaps Greek words for their glosses. Function words the base
@@ -49,5 +74,21 @@ describe('gloss-mode function-word fallback', () => {
     // ὅ (relative) is mapped; ὁ (article) is not.
     expect(GRC_FUNCTION_GLOSS['ὅ']).toBe('which');
     expect(GRC_FUNCTION_GLOSS['ὁ']).toBeUndefined();
+  });
+});
+
+describe('implied subject in gloss mode', () => {
+  it('reads an imputed pro-drop subject in ENGLISH ("(you)") when glossed', () => {
+    const g = glossDoc(proDrop());
+    expect(g.language).toBe('en'); // the display copy of a Greek doc reports English
+    const texts = diagramTexts(g);
+    expect(texts).toContain('(you)');
+    expect(texts).not.toContain('(ὑμεῖς)');
+  });
+
+  it('keeps the Greek pronoun ("(ὑμεῖς)") when NOT glossed', () => {
+    const texts = diagramTexts(proDrop());
+    expect(texts).toContain('(ὑμεῖς)');
+    expect(texts).not.toContain('(you)');
   });
 });
