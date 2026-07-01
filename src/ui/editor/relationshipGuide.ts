@@ -1,5 +1,13 @@
 import { lookupGloss, type GlossEntry } from '@/domain/model';
-import type { SyntacticRole } from '@/domain/schema';
+import type {
+  KrDocument,
+  Language,
+  PartOfSpeech,
+  Relation,
+  SyntacticRole,
+  SyntaxNode,
+  Token,
+} from '@/domain/schema';
 
 /**
  * DETAILED RELATIONSHIP REFERENCE for the Edit-mode guide.
@@ -235,3 +243,170 @@ export const RELATIONSHIP_GUIDE: RelationshipFamily[] = [
 export const DOCUMENTED_ROLES: SyntacticRole[] = RELATIONSHIP_GUIDE.flatMap((f) =>
   f.roles.map((r) => r.role),
 );
+
+// ── Tiny worked examples, rendered live as KR + Dependency mini-diagrams ───────
+
+/**
+ * One word of a demo sentence: its surface, part of speech, the role of its node,
+ * and (for a modifier) the INDEX of the word it attaches to. A word with no `head`
+ * attaches to the root clause (subject / predicate). Kept deliberately tiny so the
+ * rendered diagram reads at a glance beside the description.
+ */
+export interface DemoWord {
+  s: string;
+  pos: PartOfSpeech;
+  role: SyntacticRole;
+  head?: number;
+}
+
+/** Build a minimal, valid KrDocument from a demo sentence, ready to lay out. */
+export function buildDemoDoc(words: DemoWord[], language: Language = 'en'): KrDocument {
+  const tokens: Token[] = words.map((w, i) => ({
+    id: `t${i}`,
+    index: i,
+    surface: w.s,
+    pos: w.pos,
+    language,
+  }));
+  const nodes: SyntaxNode[] = [
+    { id: 'c0', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+    ...words.map((w, i) => ({
+      id: `n${i}`,
+      kind: 'word' as const,
+      tokenIds: [`t${i}`],
+      role: w.role,
+    })),
+  ];
+  const relations: Relation[] = words.map((w, i) => ({
+    id: `r${i}`,
+    type: w.role,
+    headId: w.head == null ? 'c0' : `n${w.head}`,
+    dependentId: `n${i}`,
+  }));
+  return {
+    schemaVersion: 1,
+    id: 'demo',
+    title: 'demo',
+    language,
+    text: words.map((w) => w.s).join(' '),
+    notes: '',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    layoutHints: {},
+    tokens,
+    syntax: { rootId: 'c0', nodes, relations },
+  };
+}
+
+// Shared demos (one construction illustrates several roles).
+const COORDINATION: DemoWord[] = [
+  { s: 'Paul', pos: 'propernoun', role: 'subject' },
+  { s: 'and', pos: 'conjunction', role: 'coordinator', head: 0 },
+  { s: 'Timothy', pos: 'propernoun', role: 'conjunct', head: 0 },
+  { s: 'serve', pos: 'verb', role: 'predicate' },
+];
+const PREP_PHRASE: DemoWord[] = [
+  { s: 'waits', pos: 'verb', role: 'predicate' },
+  { s: 'in', pos: 'preposition', role: 'prepositionalPhrase', head: 0 },
+  { s: 'silence', pos: 'noun', role: 'prepositionObject', head: 1 },
+];
+
+/**
+ * Per-role demo sentences. Not every role gets one — a bare `clause`, a discourse
+ * `particle`, or the `unknown` catch-all read better as words than as a lone
+ * mini-diagram — those fall back to the text description only.
+ */
+export const ROLE_DEMOS: Partial<Record<SyntacticRole, DemoWord[]>> = {
+  subject: [
+    { s: 'Birds', pos: 'noun', role: 'subject' },
+    { s: 'fly', pos: 'verb', role: 'predicate' },
+  ],
+  predicate: [
+    { s: 'Birds', pos: 'noun', role: 'subject' },
+    { s: 'fly', pos: 'verb', role: 'predicate' },
+  ],
+  copula: [
+    { s: 'Word', pos: 'noun', role: 'subject' },
+    { s: 'is', pos: 'verb', role: 'copula' },
+    { s: 'God', pos: 'noun', role: 'predicateNominative', head: 1 },
+  ],
+  directObject: [
+    { s: 'She', pos: 'pronoun', role: 'subject' },
+    { s: 'reads', pos: 'verb', role: 'predicate' },
+    { s: 'books', pos: 'noun', role: 'directObject', head: 1 },
+  ],
+  indirectObject: [
+    { s: 'gives', pos: 'verb', role: 'predicate' },
+    { s: 'her', pos: 'pronoun', role: 'indirectObject', head: 0 },
+    { s: 'books', pos: 'noun', role: 'directObject', head: 0 },
+  ],
+  predicateNominative: [
+    { s: 'Word', pos: 'noun', role: 'subject' },
+    { s: 'is', pos: 'verb', role: 'predicate' },
+    { s: 'God', pos: 'noun', role: 'predicateNominative', head: 1 },
+  ],
+  predicateAdjective: [
+    { s: 'God', pos: 'noun', role: 'subject' },
+    { s: 'is', pos: 'verb', role: 'predicate' },
+    { s: 'good', pos: 'adjective', role: 'predicateAdjective', head: 1 },
+  ],
+  objectComplement: [
+    { s: 'They', pos: 'pronoun', role: 'subject' },
+    { s: 'made', pos: 'verb', role: 'predicate' },
+    { s: 'him', pos: 'pronoun', role: 'directObject', head: 1 },
+    { s: 'king', pos: 'noun', role: 'objectComplement', head: 2 },
+  ],
+  dativeComplement: [
+    { s: 'obeys', pos: 'verb', role: 'predicate' },
+    { s: 'voice', pos: 'noun', role: 'dativeComplement', head: 0 },
+  ],
+  genitiveComplement: [
+    { s: 'rules', pos: 'verb', role: 'predicate' },
+    { s: 'men', pos: 'noun', role: 'genitiveComplement', head: 0 },
+  ],
+  agent: [
+    { s: 'sent', pos: 'verb', role: 'predicate' },
+    { s: 'by', pos: 'preposition', role: 'agent', head: 0 },
+    { s: 'God', pos: 'noun', role: 'prepositionObject', head: 1 },
+  ],
+  adjectival: [
+    { s: 'Good', pos: 'adjective', role: 'adjectival', head: 1 },
+    { s: 'shepherds', pos: 'noun', role: 'subject' },
+    { s: 'lead', pos: 'verb', role: 'predicate' },
+  ],
+  adverbial: [
+    { s: 'runs', pos: 'verb', role: 'predicate' },
+    { s: 'quickly', pos: 'adverb', role: 'adverbial', head: 0 },
+  ],
+  determiner: [
+    { s: 'The', pos: 'article', role: 'determiner', head: 1 },
+    { s: 'light', pos: 'noun', role: 'subject' },
+    { s: 'shines', pos: 'verb', role: 'predicate' },
+  ],
+  genitive: [
+    { s: 'servants', pos: 'noun', role: 'subject' },
+    { s: 'God', pos: 'noun', role: 'genitive', head: 0 },
+    { s: 'serve', pos: 'verb', role: 'predicate' },
+  ],
+  apposition: [
+    { s: 'Paul', pos: 'propernoun', role: 'subject' },
+    { s: 'apostle', pos: 'noun', role: 'apposition', head: 0 },
+    { s: 'writes', pos: 'verb', role: 'predicate' },
+  ],
+  prepositionalPhrase: PREP_PHRASE,
+  prepositionObject: PREP_PHRASE,
+  // `conjunction` (a general joiner) shares no literal relation with the fork
+  // demo below, so it stays text-only; `coordinator`/`conjunct` show the fork.
+  coordinator: COORDINATION,
+  conjunct: COORDINATION,
+  vocative: [
+    { s: 'Lord', pos: 'noun', role: 'vocative' },
+    { s: 'save', pos: 'verb', role: 'predicate' },
+    { s: 'us', pos: 'pronoun', role: 'directObject', head: 1 },
+  ],
+  interjection: [
+    { s: 'Behold', pos: 'interjection', role: 'interjection' },
+    { s: 'he', pos: 'pronoun', role: 'subject' },
+    { s: 'comes', pos: 'verb', role: 'predicate' },
+  ],
+};

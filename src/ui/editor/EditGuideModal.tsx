@@ -1,7 +1,28 @@
+import { useMemo } from 'react';
 import { useEditorStore } from '@/state';
 import { Modal } from '@/ui/components/common/Modal';
+import { layoutForMode } from '@/domain/layout';
+import { layoutToSvg } from '@/domain/render';
 import { adapterFor } from './adapters';
-import { RELATIONSHIP_GUIDE, relationshipGloss } from './relationshipGuide';
+import { RELATIONSHIP_GUIDE, ROLE_DEMOS, buildDemoDoc, relationshipGloss } from './relationshipGuide';
+import type { SyntacticRole } from '@/domain/schema';
+
+/** Render the KR + Dependency mini-diagrams for every role that ships a demo. */
+function useRoleDemoSvgs(): Partial<Record<SyntacticRole, { kr: string; tree: string }>> {
+  return useMemo(() => {
+    const out: Partial<Record<SyntacticRole, { kr: string; tree: string }>> = {};
+    for (const [role, demo] of Object.entries(ROLE_DEMOS)) {
+      if (!demo) continue;
+      const doc = buildDemoDoc(demo);
+      const opts = { padding: 6, background: false, standalone: true } as const;
+      out[role as SyntacticRole] = {
+        kr: layoutToSvg(layoutForMode('kellogg-reed', doc), opts),
+        tree: layoutToSvg(layoutForMode('dependency', doc), opts),
+      };
+    }
+    return out;
+  }, []);
+}
 
 /**
  * The single editing guide, opened from the edit toolbar's Guide button. It pairs
@@ -115,13 +136,14 @@ export function EditGuideModal({ onClose }: { onClose: () => void }) {
  * orientation above; open it when you want the full reference.
  */
 function RelationshipReference() {
+  const demoSvgs = useRoleDemoSvgs();
   return (
     <details className="rel-guide">
       <summary className="help-h">Relationship reference — every role, in detail</summary>
       <p className="help-bestfor">
         Each relationship links a <em>dependent</em> word to its <em>head</em>. Below: what the
         term means, an example, and how it shows up in the Kellogg-Reed diagram and the Dependency
-        tree. Highlighting reflects the dependent.
+        tree — with a little rendered picture of each. Highlighting reflects the dependent.
       </p>
       {RELATIONSHIP_GUIDE.map((family) => (
         <section key={family.title} className="rel-family">
@@ -129,6 +151,7 @@ function RelationshipReference() {
           <p className="rel-blurb">{family.blurb}</p>
           {family.roles.map((doc) => {
             const g = relationshipGloss(doc.role);
+            const svgs = demoSvgs[doc.role];
             return (
               <div key={doc.role} className="rel-entry">
                 <div className="rel-term">
@@ -140,9 +163,15 @@ function RelationshipReference() {
                   <dt>Example</dt>
                   <dd>{renderEmphasis(doc.example)}</dd>
                   <dt>Kellogg-Reed</dt>
-                  <dd>{doc.kr}</dd>
+                  <dd>
+                    {doc.kr}
+                    {svgs ? <DemoFigure svg={svgs.kr} /> : null}
+                  </dd>
                   <dt>Dependency tree</dt>
-                  <dd>{doc.tree}</dd>
+                  <dd>
+                    {doc.tree}
+                    {svgs ? <DemoFigure svg={svgs.tree} /> : null}
+                  </dd>
                 </dl>
               </div>
             );
@@ -151,6 +180,11 @@ function RelationshipReference() {
       ))}
     </details>
   );
+}
+
+/** A rendered mini-diagram (KR or dependency) inline in the reference. */
+function DemoFigure({ svg }: { svg: string }) {
+  return <div className="rel-demo" aria-hidden dangerouslySetInnerHTML={{ __html: svg }} />;
 }
 
 /** Render a string with **double-asterisk** spans as <strong> (used in examples). */
