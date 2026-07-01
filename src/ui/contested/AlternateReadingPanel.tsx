@@ -8,6 +8,7 @@ import {
   getReadingById,
   getAlternateReadings,
   diffBaseAndAlternate,
+  alignedDiff,
   canAdoptAlternateReading,
   isMergeIssue,
 } from '@/domain/contested';
@@ -45,6 +46,9 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
   const adopt = useEditorStore((s) => s.adoptContestedReading);
   const returnToBase = useEditorStore((s) => s.returnToBaseReading);
   const restoreBase = useEditorStore((s) => s.restoreBaseParse);
+  const deleteVariant = useEditorStore((s) => s.deleteImportedVariant);
+  const preferAppDiff = useEditorStore((s) => s.preferAppDiff);
+  const setPreferAppDiff = useEditorStore((s) => s.setPreferAppDiff);
 
   // The live doc has diverged from the pristine base → a custom/adopted parse is
   // in effect, so offer to restore the original tree.
@@ -73,13 +77,21 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
   }, [issue, contestedBase]);
 
   const previewReading = previewReadingId ? getReadingById(previewReadingId) : undefined;
-  const diff = useMemo(
-    () =>
-      previewReading && previewDoc
-        ? diffBaseAndAlternate(contestedBase, previewDoc, previewReading)
-        : null,
-    [previewReading, previewDoc, contestedBase],
-  );
+  // A full-doc (imported) variant is diffed by surface alignment; a curated
+  // overlay shares base ids and is diffed by id. `unmatched` drives the
+  // "loaded without analysis" note.
+  const { diff, unmatched } = useMemo(() => {
+    if (!previewReading || !previewDoc) return { diff: null, unmatched: false };
+    if (previewReading.fullDoc) {
+      const res = alignedDiff(
+        contestedBase,
+        previewDoc,
+        preferAppDiff ? undefined : previewReading.diffWords,
+      );
+      return { diff: res.diff, unmatched: !res.matched };
+    }
+    return { diff: diffBaseAndAlternate(contestedBase, previewDoc, previewReading), unmatched: false };
+  }, [previewReading, previewDoc, contestedBase, preferAppDiff]);
 
   if (!issue) return <p className="empty">No contested readings for this passage.</p>;
   const readings = getAlternateReadings(issue.id);
@@ -135,6 +147,12 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
             <div className="arp-reading">
               <p className="arp-reading-interp">{previewReading.interpretation}</p>
               <p className="arp-reading-desc">{previewReading.description}</p>
+              {unmatched && (
+                <p className="arp-variant-note">
+                  Variant could not be matched to the base — shown without difference analysis. You
+                  can still switch between the base and this reading.
+                </p>
+              )}
               {diff?.summary?.length ? (
                 <ul className="arp-diff">
                   {diff.summary.map((line, i) => (
@@ -142,6 +160,16 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
                   ))}
                 </ul>
               ) : null}
+              {previewReading.fullDoc && (
+                <label className="check-row" title="Ignore any LLM-supplied difference words and let the app detect differences by aligning lexemes">
+                  <input
+                    type="checkbox"
+                    checked={preferAppDiff}
+                    onChange={(e) => setPreferAppDiff(e.target.checked)}
+                  />
+                  <span>Detect differences in-app (ignore LLM&apos;s)</span>
+                </label>
+              )}
               {previewReading.textualVariant && (
                 <div className="arp-variant-warn">
                   ⚠ Textual variant — depends on a different wording.
@@ -185,6 +213,22 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
                 <button className="btn" onClick={() => returnToBase()}>
                   Return to base
                 </button>
+                {previewReading.origin === 'user' && (
+                  <button
+                    className="btn danger"
+                    title="Remove this imported reading"
+                    onClick={() => {
+                      if (
+                        typeof window === 'undefined' ||
+                        window.confirm('Delete this imported reading?')
+                      ) {
+                        deleteVariant(previewReading.id);
+                      }
+                    }}
+                  >
+                    Delete reading
+                  </button>
+                )}
                 {variant === 'desktop' && canAdoptAlternateReading(previewReading) && !isMergeIssue(issue) && (
                   <button
                     className="btn primary"

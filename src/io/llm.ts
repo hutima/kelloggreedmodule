@@ -103,6 +103,8 @@ const LlmRelationSchema = z.object({
 const LlmVariantSchema = z.object({
   label: z.string(),
   impact: z.string().optional(),
+  /** Surface words that differ from the primary reading (drives difference tags). */
+  diff: z.array(z.string()).optional(),
   tokens: z.array(LlmTokenSchema).optional(),
   nodes: z.array(LlmNodeSchema).default([]),
   relations: z.array(LlmRelationSchema).default([]),
@@ -147,6 +149,8 @@ export interface LlmPromptOptions {
   inferPunctuation?: boolean;
   /** Ask the model to include plausible ALTERNATE readings as `variants`. */
   variants?: boolean;
+  /** Ask the model to return a downloadable FILE rather than inline chat text. */
+  outputFile?: boolean;
 }
 
 export function buildLlmPrompt(
@@ -162,12 +166,12 @@ export function buildLlmPrompt(
     ? `\n- PUNCTUATION: the source has had its punctuation REMOVED. Infer the most likely punctuation yourself — sentence breaks, commas, clause boundaries — and let that guide the parse; write the punctuated form into each diagram's "text" field. Where a different punctuation would give a materially different parse, prefer the reading you judge most likely.`
     : '';
   const variantsRule = opts.variants
-    ? `\n- ALTERNATE READINGS: where the grammar is genuinely AMBIGUOUS — a participle or adjective that could modify a different head, a prepositional phrase that could attach in more than one place, a punctuation choice that shifts a clause boundary or sentence break, an objective-vs-subjective genitive that changes the tree — add a "variants" array to that sentence's object. Each entry is { "label": short name, "impact": one sentence on the exegetical/interpretive difference, "nodes": [...], "relations": [...], "rootId": "..." } — a COMPLETE alternate parse (omit "tokens" to reuse the same words). ERR ON THE SIDE OF INCLUDING variants: give every reading you'd defend, most likely first. Omit "variants" only when the parse is genuinely uncontested.`
+    ? `\n- ALTERNATE READINGS: where the grammar is genuinely AMBIGUOUS — a participle or adjective that could modify a different head, a prepositional phrase that could attach in more than one place, a punctuation choice that shifts a clause boundary or sentence break, an objective-vs-subjective genitive that changes the tree — add a "variants" array to that sentence's object. Each entry is { "label": short name, "impact": one sentence on the exegetical/interpretive difference, "diff": [the surface words whose attachment/role differs from the primary reading], "nodes": [...], "relations": [...], "rootId": "..." } — a COMPLETE alternate parse (omit "tokens" to reuse the same words). Always fill "diff" with the words that actually change so the app can highlight them. ERR ON THE SIDE OF INCLUDING variants: give every reading you'd defend, most likely first. Omit "variants" only when the parse is genuinely uncontested.`
     : '';
   const variantsFormat = opts.variants
     ? `,
   "variants": [
-    { "label": "…", "impact": "…", "nodes": [ … ], "relations": [ … ], "rootId": "c0" }
+    { "label": "…", "impact": "…", "diff": ["…"], "nodes": [ … ], "relations": [ … ], "rootId": "c0" }
   ]`
     : '';
   const tokenLines = tokens.map((t) => `  ${t.id} = ${JSON.stringify(t.surface)}`).join('\n');
@@ -236,7 +240,11 @@ ALLOWED VALUES
 - morphology features (fill the keys that apply):
 ${morphList}
 
-Reply with only the JSON object.`;
+${
+  opts.outputFile
+    ? 'Return your answer AS A DOWNLOADABLE FILE — a .json file / artifact / canvas whose contents are ONLY the JSON (no prose, no code fence) — rather than pasting it into the chat. Name it "diagram.json".'
+    : 'Reply with only the JSON object.'
+}`;
 }
 
 /** Result of importing possibly-several diagrams (one per sentence). */
@@ -463,7 +471,7 @@ function hydrateDiagram(
       fallbackText: primary.document.text,
       fallbackLanguage: primary.document.language,
     });
-    if (res.ok) variants.push({ label: v.label, impact: v.impact, doc: res.document });
+    if (res.ok) variants.push({ label: v.label, impact: v.impact, diffWords: v.diff, doc: res.document });
     // A malformed variant is skipped, never fatal — the primary parse still loads.
   }
   return { ok: true, document: primary.document, variants };

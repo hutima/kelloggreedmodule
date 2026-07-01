@@ -63,6 +63,7 @@ import {
   deleteCustomParse,
   loadUserVariants,
   saveUserVariants,
+  deleteUserVariants,
 } from '@/persistence';
 import { applyPatch, diffDocuments, hashBase } from '@/domain/patch';
 import { isEmptySyntaxPatch } from '@/domain/schema';
@@ -317,6 +318,8 @@ export interface EditorActions {
   // saved custom parses ("my sentences")
   /** Save the current document to the custom-parse list (keeps it across sessions). */
   saveCurrentAsCustom: () => void;
+  /** Save the current sentence AND its imported variant readings as one custom sentence. */
+  saveWithVariants: () => void;
   /** Re-read the saved custom-parse list from storage into state. */
   refreshCustomParses: () => void;
   /** Open a saved custom parse as the active document. */
@@ -426,6 +429,8 @@ export interface EditorActions {
   setGlossMode: (value: boolean) => void;
   /** Toggle grammar-colour tinting in the Kellogg-Reed / Phrase-Block diagrams. */
   setColorMode: (value: boolean) => void;
+  /** Prefer the app's own difference detection over any LLM-supplied diff words. */
+  setPreferAppDiff: (value: boolean) => void;
   /** Desktop: turn the two-source side-by-side comparison on/off. */
   toggleSourceCompare: (on?: boolean) => void;
   /** Desktop: choose the secondary source shown in the comparison's right pane. */
@@ -475,6 +480,8 @@ export interface EditorActions {
    * current doc by default), persist them, and surface them in the dropdown.
    */
   importAsVariants: (variants: VariantInput[], opts?: { targetDoc?: KrDocument }) => void;
+  /** Delete one imported variant reading of the current passage (persisted). */
+  deleteImportedVariant: (readingId: string) => void;
   // click-to-relink
   startRelink: (relationId: string, end: 'head' | 'dependent') => void;
   cancelRelink: () => void;
@@ -668,6 +675,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     sourceCompare: { on: false, source: 'opentext' },
     glossMode: false,
     colorMode: true,
+    preferAppDiff: false,
     inferences: [],
     status: 'idle',
     past: [],
@@ -782,6 +790,31 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       void saveCustomParse(doc)
         .then(() => get().refreshCustomParses())
         .catch(() => {});
+    },
+
+    saveWithVariants: () => {
+      const src = get().doc;
+      const isCustom = get().corpus === 'custom' && get().baseDoc === null;
+      // An already-standalone custom sentence keeps its id, so its variants (keyed
+      // by that id) come back on reopen — just persist the doc.
+      if (isCustom) {
+        get().saveCurrentAsCustom();
+        return;
+      }
+      // A source passage (GNT/WLC) is copied to a NEW standalone custom sentence
+      // that owns the base + all its imported readings, re-keyed to the new id.
+      const bundle = loadUserVariants(src.id);
+      const variants: VariantInput[] = bundle
+        ? bundle.readings
+            .filter((r) => r.fullDoc)
+            .map((r) => ({ label: r.label, impact: r.impact, doc: r.fullDoc! }))
+        : [];
+      const doc = touch({ ...src, id: makeId('doc') });
+      if (variants.length) saveUserVariants(doc.id, buildUserVariants(doc.id, doc.title, variants));
+      void saveCustomParse(doc)
+        .then(() => get().refreshCustomParses())
+        .catch(() => {});
+      get().loadDocument(doc, { corpus: 'custom' });
     },
 
     refreshCustomParses: () => {
@@ -1482,6 +1515,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setVersesHost: (el) => set({ versesHost: el }),
     setGlossMode: (value) => set({ glossMode: value }),
     setColorMode: (value) => set({ colorMode: value }),
+    setPreferAppDiff: (value) => set({ preferAppDiff: value }),
 
     openEditModal: (modal) => set({ editModal: modal }),
     closeEditModal: () => set({ editModal: null }),
@@ -1635,6 +1669,41 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           },
         }));
       }
+    },
+
+    deleteImportedVariant: (readingId) => {
+      const passageId = get().doc.id;
+      const bundle = loadUserVariants(passageId);
+      if (!bundle) return;
+      const readings = bundle.readings.filter((r) => r.id !== readingId);
+      if (readings.length) {
+        saveUserVariants(passageId, {
+          issue: { ...bundle.issue, alternateReadingIds: readings.map((r) => r.id) },
+          readings,
+        });
+      } else {
+        deleteUserVariants(passageId); // last one removed → drop the whole issue
+      }
+      registerUserVariants(passageId);
+      set((s) => {
+        const wasPreviewing = s.contested.previewAlternateReadingId === readingId;
+        return {
+          previewDoc: wasPreviewing ? null : s.previewDoc,
+          contested: {
+            ...s.contested,
+            previewAlternateReadingId: wasPreviewing
+              ? undefined
+              : s.contested.previewAlternateReadingId,
+            alternateDisplayMode: wasPreviewing ? 'base-only' : s.contested.alternateDisplayMode,
+            selectedContestedIssueId: readings.length
+              ? s.contested.selectedContestedIssueId
+              : getIssuesForPassage(get().doc)[0]?.id,
+            showAlternateParsePanel: readings.length
+              ? s.contested.showAlternateParsePanel
+              : getIssuesForPassage(get().doc).length > 0 && s.contested.showAlternateParsePanel,
+          },
+        };
+      });
     },
 
     startRelink: (relationId, end) => set({ linking: { relationId, end }, selection: { relationId } }),

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useEditorStore } from '@/state';
 import { glossDoc } from '@/domain/model';
-import { getReadingById, diffBaseAndAlternate } from '@/domain/contested';
+import { getReadingById, diffBaseAndAlternate, alignedDiff } from '@/domain/contested';
 import { StaticDiagramFrame } from './StaticDiagramFrame';
 import { BlockOutlineFrame } from './BlockOutlineFrame';
 import { DifferenceLegend } from './DifferenceLegend';
@@ -29,11 +29,18 @@ export function VariantComparisonView() {
     (s) => s.contested.previewAlternateReadingId ?? s.contested.selectedAlternateReadingId,
   );
 
+  const preferAppDiff = useEditorStore((s) => s.preferAppDiff);
   const reading = readingId ? getReadingById(readingId) : undefined;
-  const diff = useMemo(
-    () => (reading && previewDoc ? diffBaseAndAlternate(baseDoc, previewDoc, reading) : null),
-    [reading, previewDoc, baseDoc],
-  );
+  const diff = useMemo(() => {
+    if (!reading || !previewDoc) return null;
+    // A full-doc (imported) variant has its own ids — align by surface. Otherwise
+    // the curated overlay shares base ids, so diff by id.
+    if (reading.fullDoc) {
+      const res = alignedDiff(baseDoc, previewDoc, preferAppDiff ? undefined : reading.diffWords);
+      return res.matched ? res.diff : null; // unmatched → show the variant without highlighting
+    }
+    return diffBaseAndAlternate(baseDoc, previewDoc, reading);
+  }, [reading, previewDoc, baseDoc, preferAppDiff]);
 
   const { leftRef, rightRef, onLeftScroll, onRightScroll } = useLinkedDiagramView(linked);
 
@@ -79,7 +86,7 @@ export function VariantComparisonView() {
               variantDoc={variantShow}
               role="base"
               diff={diff}
-              title="Base 1904 parse"
+              title="Base parse"
               onScrollSync={onLeftScroll}
             />
             <BlockOutlineFrame
@@ -99,7 +106,7 @@ export function VariantComparisonView() {
               doc={baseShow}
               mode={diagramMode}
               diff={diff}
-              title="Base 1904 parse"
+              title="Base parse"
               onScrollSync={onLeftScroll}
             />
             <StaticDiagramFrame

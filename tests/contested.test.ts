@@ -23,6 +23,7 @@ import {
   mergeUserVariants,
   isCombinedPassage,
   setUserContested,
+  alignedDiff,
 } from '@/domain/contested';
 import { combinePassage } from '@/io';
 import type { KrDocument } from '@/domain/schema';
@@ -227,5 +228,69 @@ describe('user / LLM-imported variant readings', () => {
     const combined = combinePassage([fox(), sampleDocuments.find((d) => d.id === 'doc_sample_word_flesh')!]);
     expect(isCombinedPassage(single)).toBe(false);
     expect(isCombinedPassage(combined)).toBe(true);
+  });
+});
+
+describe('variant difference tagging (surface alignment)', () => {
+  // Romans 9:5-style ambiguity: does "God" (θεὸς) attach up to the participle
+  // ("Christ, who is God over all") or head its own doxology ("God be blessed")?
+  // The two parses share the SAME words but attach "God" differently — the aligner
+  // must flag exactly that word even though the ids don't match.
+  const mk = (idp: string, godHead: 'n_christ' | 'n_blessed'): KrDocument => ({
+    schemaVersion: 1, id: `doc_${idp}`, title: 'Rom 9:5', language: 'grc',
+    text: 'Χριστὸς ὁ ὢν θεὸς εὐλογητός', notes: '',
+    createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z', layoutHints: {},
+    tokens: [
+      { id: `${idp}t0`, index: 0, surface: 'Χριστὸς', pos: 'propernoun', language: 'grc' },
+      { id: `${idp}t1`, index: 1, surface: 'ὢν', pos: 'participle', language: 'grc' },
+      { id: `${idp}t2`, index: 2, surface: 'θεὸς', pos: 'noun', language: 'grc' },
+      { id: `${idp}t3`, index: 3, surface: 'εὐλογητός', pos: 'adjective', language: 'grc' },
+    ],
+    syntax: {
+      rootId: 'c0',
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'n_christ', kind: 'word', role: 'subject', tokenIds: [`${idp}t0`] },
+        { id: 'n_ptc', kind: 'word', role: 'adjectival', tokenIds: [`${idp}t1`] },
+        { id: 'n_god', kind: 'word', role: godHead === 'n_christ' ? 'predicateNominative' : 'subject', tokenIds: [`${idp}t2`] },
+        { id: 'n_blessed', kind: 'word', role: 'predicateAdjective', tokenIds: [`${idp}t3`] },
+      ],
+      relations: [
+        { id: 'r1', type: 'subject', headId: 'c0', dependentId: 'n_christ' },
+        { id: 'r2', type: 'adjectival', headId: 'n_christ', dependentId: 'n_ptc' },
+        // the contested attachment: God predicated of Christ, OR its own subject
+        { id: 'r3', type: godHead === 'n_christ' ? 'predicateNominative' : 'subject', headId: godHead, dependentId: 'n_god' },
+        { id: 'r4', type: 'predicateAdjective', headId: 'c0', dependentId: 'n_blessed' },
+      ],
+    },
+  });
+
+  it('aligns identical words and flags only the one that attaches differently', () => {
+    const base = mk('b', 'n_christ');
+    const variant = mk('v', 'n_blessed');
+    const { diff, matched } = alignedDiff(base, variant);
+    expect(matched).toBe(true);
+    // "God" changed in BOTH frames (base + variant ids), the others did not.
+    expect(diff.changedTokenIds).toContain('bt2');
+    expect(diff.changedTokenIds).toContain('vt2');
+    expect(diff.changedTokenIds).not.toContain('bt0'); // Χριστὸς unchanged
+    expect(diff.summary.join(' ')).toMatch(/θεὸς/);
+  });
+
+  it('honours LLM-supplied diff words (precedence over auto-detection)', () => {
+    const base = mk('b', 'n_christ');
+    const variant = mk('v', 'n_christ'); // structurally identical…
+    const { diff } = alignedDiff(base, variant, ['εὐλογητός']); // …but LLM says THIS word differs
+    expect(diff.changedTokenIds).toContain('bt3');
+    expect(diff.changedTokenIds).toContain('vt3');
+    expect(diff.changedTokenIds).not.toContain('bt2');
+  });
+
+  it('reports not-matched when the words do not overlap', () => {
+    const base = mk('b', 'n_christ');
+    const other = sampleDocuments.find((d) => d.id === 'doc_sample_fox')!; // a totally different sentence
+    const { matched, diff } = alignedDiff(base, other);
+    expect(matched).toBe(false);
+    expect(diff.summary.join(' ')).toMatch(/could not align/i);
   });
 });
