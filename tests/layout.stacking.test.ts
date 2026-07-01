@@ -574,4 +574,29 @@ describe('inline appositive fork clears the head\'s below-hanging modifiers', ()
     // The fork's lower arm sits clear to the right of the PP object, not on it.
     expect(aorata.x).toBeGreaterThan(ouranois.x + 40);
   });
+
+  it('lands the summary-apposition stem ON the sub-fork junction, not past it', () => {
+    const layout = layoutDocument(headWithPpAndForkAppositive());
+    // The stem carrying the "=" strokes from the ὁρατὰ/ἀόρατα fork's bar down to
+    // the εἴτε θρόνοι platform is tagged with the apposition relation r12.
+    const stems = layout.elements.filter(
+      (e) => e.kind === 'line' && (e as { role: string }).role === 'stem' && (e as { relationId?: string }).relationId === 'r12',
+    ) as { x1: number; y1: number; x2: number; y2: number }[];
+    expect(stems.length).toBe(1);
+    const stem = stems[0]!;
+    const end = { x: stem.x2, y: stem.y2 }; // the platform end (drawn bar → platform)
+    // The θρόνοι fork's arms are 'coordination' lines converging on its junction;
+    // the stem must END at a point one of them starts from — i.e. actually touch
+    // the fork instead of sailing past its right edge into empty space.
+    const touches = layout.elements.some(
+      (e) =>
+        e.kind === 'line' &&
+        (e as { role: string }).role === 'coordination' &&
+        [
+          [(e as { x1: number }).x1, (e as { y1: number }).y1],
+          [(e as { x2: number }).x2, (e as { y2: number }).y2],
+        ].some(([x, y]) => Math.abs(x! - end.x) < 0.5 && Math.abs(y! - end.y) < 0.5),
+    );
+    expect(touches).toBe(true);
+  });
 });

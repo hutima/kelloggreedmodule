@@ -1046,7 +1046,15 @@ function layoutHead(
       );
       const apexY = -LAYOUT.pedestalFootRise;
       elements.push(...translate(block, afterEq, baseY));
-      const connectX = afterEq + (block.wordLeft + (block.wordRight || block.width)) / 2;
+      // The riser must meet the appositive at its connection point: a block
+      // exposing a fork junction (wordLeft === wordRight — a compact coordination
+      // on the pedestal) is met AT the junction; a word-headed block at the
+      // middle of its head word's baseline span.
+      const connectX =
+        afterEq +
+        (block.wordLeft === block.wordRight
+          ? block.wordLeft
+          : (block.wordLeft + (block.wordRight || block.width)) / 2);
       elements.push(line(eid(), cursor + EQ_HALF * 2, 0, connectX, 0, 'solid', 'baseline', undefined, rel.id));
       elements.push(line(eid(), connectX - LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
       elements.push(line(eid(), connectX + LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
@@ -1537,17 +1545,26 @@ function layoutCoordination(
     if (!ab.elements.length) continue;
     const platTop = bottom + LAYOUT.adjunctDrop * ctx.vScale;
     const platY = platTop + blockAscent(ab);
-    const span = ab.wordLeft + (ab.wordRight || ab.width);
+    // Where the stem lands depends on the appositive block's OWN connection
+    // point. A block that exposes a fork junction / spine bar (wordLeft ===
+    // wordRight — e.g. "εἴτε θρόνοι εἴτε κυριότητες" summarising ὁρατά/ἀόρατα in
+    // Col 1:16) must be met AT that junction: the word-edge rule below read its
+    // 0-valued wordRight as "unset", fell back to the block's full width, and
+    // sent the stem past the whole fork into empty space, leaving the sub-fork
+    // hanging unattached. A WORD-headed block instead connects on the word's
+    // RIGHT EDGE, not its centre: a stem to the centre slants straight THROUGH
+    // the word (δοῦλοι Χριστοῦ Ἰησοῦ in Phil 1:1), which the centre rule did
+    // both when clamped (a diagonal across the word) and unclamped (a vertical
+    // drop down its middle). The baseline already runs on rightward to carry the
+    // genitive, so meeting it just past the last glyph reads as a clean pedestal
+    // connection and leaves the word fully legible.
+    const isJunctionBlock = ab.wordLeft === ab.wordRight;
+    const wordEnd = isJunctionBlock ? ab.wordRight : ab.wordRight || ab.width;
+    // Centre the CONNECTION POINT under the bar (a junction sits right below it;
+    // a word straddles it), clamped to the fork's own width.
+    const span = isJunctionBlock ? ab.wordLeft * 2 : ab.wordLeft + wordEnd;
     const baseStart = Math.max(0, Math.min(dashX - span / 2, width - ab.width));
     elements.push(...translate(ab, baseStart, platY));
-    // Stem from the joining bar down to the appositive's baseline. Land it on the
-    // word's RIGHT EDGE (`baseStart + wordEnd`), not its centre: a stem to the
-    // centre slants straight THROUGH the word (δοῦλοι Χριστοῦ Ἰησοῦ in Phil 1:1),
-    // which the centre rule did both when clamped (a diagonal across the word) and
-    // unclamped (a vertical drop down its middle). The baseline already runs on
-    // rightward to carry the genitive, so meeting it just past the last glyph reads
-    // as a clean pedestal connection and leaves the word fully legible.
-    const wordEnd = ab.wordRight || ab.width;
     const connectX = baseStart + wordEnd;
     elements.push(line(eid(), dashX, botY, connectX, platY, 'solid', 'stem', undefined, ar.id));
     // Mark the connector with the Reed-Kellogg apposition "=" (two short strokes
