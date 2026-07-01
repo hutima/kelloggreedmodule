@@ -91,6 +91,29 @@ export async function loadOtChapter(book: OtBook, chapter: number): Promise<KrDo
 }
 
 /**
+ * Fetch and convert an ENTIRE OT book — every chapter concatenated in order — so a
+ * corpus search can span the whole book like the GNT sources do (macula-hebrew
+ * ships one file per chapter, unlike the GNT's one-file-per-book). Chapters are
+ * fetched on demand and cached by the service worker; a chapter that can't be
+ * loaded is skipped rather than sinking the whole book, and the caller still gets
+ * every chapter that did load.
+ */
+export async function loadOtBook(book: OtBook): Promise<KrDocument[]> {
+  const docs: KrDocument[] = [];
+  for (let ch = 1; ch <= book.chapters; ch++) {
+    try {
+      docs.push(...(await loadOtChapter(book, ch)));
+    } catch {
+      /* a chapter missing upstream shouldn't sink the whole book */
+    }
+  }
+  if (!docs.length) {
+    throw new Error(`Could not load ${book.name}. Check your connection and try again.`);
+  }
+  return docs;
+}
+
+/**
  * Warm the service-worker cache for a chapter so it is available offline, without
  * opening a passage. Resolves true on success.
  */

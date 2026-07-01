@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { KrDocumentSchema, type KrDocument } from '@/domain/schema';
 import {
   foldAccents,
+  hasAccents,
   isEmptyQuery,
   matchToken,
   searchPassages,
@@ -50,6 +51,22 @@ describe('foldAccents', () => {
   it('strips polytonic diacritics and lowercases so an unaccented query matches', () => {
     expect(foldAccents('λόγος')).toBe(foldAccents('λογος'));
     expect(foldAccents('ἦν')).toBe('ην');
+  });
+
+  it('strips Hebrew vowel points so an unpointed query matches a pointed word', () => {
+    expect(foldAccents('בָּרָא')).toBe(foldAccents('ברא'));
+    expect(foldAccents('אֱלֹהִים')).toBe(foldAccents('אלהים'));
+  });
+});
+
+describe('hasAccents', () => {
+  it('is true only when a string carries an accent/point foldAccents would strip', () => {
+    expect(hasAccents('λόγος')).toBe(true); // Greek accent
+    expect(hasAccents('בָּרָא')).toBe(true); // Hebrew points
+    expect(hasAccents('λογος')).toBe(false); // bare Greek
+    expect(hasAccents('ברא')).toBe(false); // bare Hebrew
+    expect(hasAccents('love')).toBe(false); // Latin
+    expect(hasAccents('')).toBe(false);
   });
 });
 
@@ -161,5 +178,12 @@ describe('searchPassages (Hebrew / OT source)', () => {
     expect(verbs.hits[0]!.nodeId).toBe('h1-V');
     // Greek-only criteria simply never match Hebrew tokens.
     expect(searchPassages(chapter, { case: 'nominative' }).total).toBe(0);
+  });
+
+  it('matches a pointed Hebrew surface from an unpointed query', () => {
+    // The surface בָּרָא is pointed; typing the bare consonants ברא still finds it.
+    expect(searchPassages(chapter, { text: 'ברא' }).total).toBe(1);
+    // And a fully-pointed query lands on the same word.
+    expect(searchPassages(chapter, { text: 'בָּרָא' }).total).toBe(1);
   });
 });

@@ -5,7 +5,7 @@ import {
   BUNDLED_BOOKS,
   loadGntBook,
   loadOpenTextBook,
-  loadOtChapter,
+  loadOtBook,
   OPENTEXT_BOOKS,
   OT_BOOKS,
 } from '@/io';
@@ -22,6 +22,7 @@ import type {
   Voice,
 } from '@/domain/schema';
 import {
+  hasAccents,
   isEmptyQuery,
   morphCodes,
   searchPassages,
@@ -184,7 +185,6 @@ export function SearchPicker() {
 
   const [source, setSource] = useState<Source>('nestle1904');
   const [bookNum, setBookNum] = useState(11); // Philippians (bundled offline)
-  const [chapter, setChapter] = useState(1); // OT only
   const [passages, setPassages] = useState<KrDocument[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,16 +193,16 @@ export function SearchPicker() {
   const isOt = source === 'ot';
   const books = booksFor(source);
   const book = books.find((b) => b.num === bookNum) ?? books[0]!;
-  const otBook = isOt ? OT_BOOKS.find((b) => b.num === bookNum) : undefined;
-  const bookLabel = isOt ? `${book.name} ${chapter}` : book.name;
+  // Every source now searches a whole BOOK (the OT loads all its chapters).
+  const bookLabel = book.name;
 
-  const loadUnit = async (src: Source, num: number, ch: number) => {
+  const loadUnit = async (src: Source, num: number) => {
     setLoading(true);
     setError(null);
     setPassages(null);
     try {
       if (src === 'ot') {
-        setPassages(await loadOtChapter(OT_BOOKS.find((b) => b.num === num)!, ch));
+        setPassages(await loadOtBook(OT_BOOKS.find((b) => b.num === num)!));
       } else if (src === 'opentext') {
         setPassages(await loadOpenTextBook(OPENTEXT_BOOKS.find((b) => b.num === num)!));
       } else {
@@ -215,17 +215,17 @@ export function SearchPicker() {
     }
   };
 
-  // Auto-load the unit whenever the source, book, or (OT) chapter changes; the
-  // loaders + service worker cache repeat fetches. Chapter only matters for OT.
+  // Auto-load the whole book whenever the source or book changes; the loaders +
+  // service worker cache repeat fetches.
   const lastLoaded = useRef<string>('');
   useEffect(() => {
-    const key = `${source}:${bookNum}:${isOt ? chapter : ''}`;
+    const key = `${source}:${bookNum}`;
     if (lastLoaded.current === key) return;
     lastLoaded.current = key;
-    void loadUnit(source, bookNum, chapter);
-    // loadUnit takes its args explicitly; re-run only on source/book/chapter change.
+    void loadUnit(source, bookNum);
+    // loadUnit takes its args explicitly; re-run only on source/book change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, bookNum, chapter, isOt]);
+  }, [source, bookNum]);
 
   const changeSource = (next: Source) => {
     setSource(next);
@@ -237,7 +237,6 @@ export function SearchPicker() {
     const crossCorpus = (next === 'ot') !== (source === 'ot');
     if (crossCorpus || !list.some((b) => b.num === bookNum)) {
       setBookNum(defaultBook(next));
-      setChapter(1);
     }
   };
 
@@ -271,7 +270,7 @@ export function SearchPicker() {
         </select>
       </label>
       <div className="row">
-        <label className="field" style={{ flex: isOt ? 2 : 1 }}>
+        <label className="field" style={{ flex: 1 }}>
           <span>Search in book</span>
           <select value={bookNum} onChange={(e) => setBookNum(Number(e.target.value))}>
             {books.map((b) => (
@@ -282,18 +281,6 @@ export function SearchPicker() {
             ))}
           </select>
         </label>
-        {isOt && otBook && (
-          <label className="field" style={{ flex: 1 }}>
-            <span>Chapter</span>
-            <select value={chapter} onChange={(e) => setChapter(Number(e.target.value))}>
-              {Array.from({ length: otBook.chapters }, (_, i) => i + 1).map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
       </div>
 
       <label className="field">
@@ -301,10 +288,15 @@ export function SearchPicker() {
         <input
           type="search"
           value={query.text ?? ''}
-          placeholder={isOt ? 'e.g. אֱלֹהִים, בָּרָא, God' : 'e.g. λόγος, ἀγαπάω, love'}
+          placeholder={isOt ? 'e.g. אלהים, ברא, God' : 'e.g. λογος, αγαπαω, love'}
           onChange={(e) => update({ text: e.target.value })}
         />
       </label>
+      {hasAccents(query.text ?? '') && (
+        <p className="search-note" style={{ fontSize: 12, color: 'var(--muted, #667)', margin: '2px 0 0' }}>
+          {isOt ? 'Vowel points are ignored' : 'Accents are ignored'} — you can type without them.
+        </p>
+      )}
       <label className="field">
         <span>Part of speech</span>
         <select

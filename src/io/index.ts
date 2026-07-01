@@ -2,7 +2,7 @@ export * from './json';
 export * from './export';
 export { lowfatToDocuments, type LowfatDocOptions } from './lowfat';
 export { loadGntBook, cacheGntBook, GNT_BOOKS, BUNDLED_BOOKS, type GntBook } from './gnt';
-export { loadOtChapter, cacheOtChapter, chapterFile, OT_BOOKS, type OtBook } from './ot';
+export { loadOtChapter, loadOtBook, cacheOtChapter, chapterFile, OT_BOOKS, type OtBook } from './ot';
 export { maculaHebrewToDocuments, type MaculaHebrewDocOptions } from './macula-hebrew';
 export { openTextToDocuments, type OpenTextDocOptions } from './opentext';
 export { buildSurfaceIndex, alignOpenTextSurface, type AlignResult } from './opentext-align';
