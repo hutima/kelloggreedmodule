@@ -1,21 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { KrDocument } from '@/domain/schema';
 import type { DiagramMode, TreeOrientation } from '@/domain/layout';
+import type { SvgHighlights } from '@/domain/render';
 import {
   documentNaturalSize,
   downloadDocumentPng,
   downloadDocumentSvg,
   downloadDocumentJson,
-  printDocument,
 } from '@/io';
+import { useEditorStore } from '@/state';
+import { nodeHighlightColors, relationHighlightColors } from '@/ui/sermon/highlights';
+import { useContestedAffectedNodes } from '@/ui/contested';
 
 /**
- * Export dialog. The diagram is vector, so SVG exports at any size; PNG lets the
- * reader pick exact pixel dimensions (aspect-locked to the diagram). JSON and
- * Print are offered as secondary actions. Export honours the active diagram
- * `mode` AND the on-screen language (the glossed `doc`), so what you see is what
- * you export. JSON falls back to `sourceDoc` (the un-glossed model) so a data
- * export still round-trips in the source language.
+ * Export dialogue. The diagram is vector, so SVG exports at any size; PNG lets the
+ * reader pick exact pixel dimensions (aspect-locked to the diagram). JSON is
+ * offered as a secondary action. Export honours the active diagram `mode`, the
+ * on-screen language (the glossed `doc`), AND any sermon highlights / contested
+ * washes, so what you see is what you export. JSON falls back to `sourceDoc`
+ * (the un-glossed model) so a data export still round-trips in the source
+ * language.
  */
 export function ExportModal({
   doc,
@@ -41,6 +45,19 @@ export function ExportModal({
   const jsonDoc = sourceDoc ?? doc;
   // Carry the on-screen options so the export matches the canvas exactly.
   const opts = { verticalScale, treeOrientation, rtl, colorMode };
+  // Sermon highlights + the amber contested wash, as plain id → colour lookups,
+  // so exports paint the same swashes as the canvas (a sermon colour wins over
+  // the contested wash, exactly as on screen).
+  const sermonHighlights = useEditorStore((s) => s.sermon.highlights);
+  const contestedAffected = useContestedAffectedNodes();
+  const highlights = useMemo<SvgHighlights | undefined>(() => {
+    const nodeFills = nodeHighlightColors(sermonHighlights);
+    for (const id of contestedAffected) {
+      if (!nodeFills.has(id)) nodeFills.set(id, 'rgba(217,119,6,0.26)');
+    }
+    const relationFills = relationHighlightColors(sermonHighlights);
+    return nodeFills.size || relationFills.size ? { nodeFills, relationFills } : undefined;
+  }, [sermonHighlights, contestedAffected]);
   const natural = useMemo(
     () => documentNaturalSize(doc, opts, mode),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,13 +82,13 @@ export function ExportModal({
 
   const doExport = async () => {
     if (format === 'svg') {
-      downloadDocumentSvg(doc, opts, mode);
+      downloadDocumentSvg(doc, opts, mode, highlights);
       onClose();
       return;
     }
     setBusy(true);
     try {
-      await downloadDocumentPng(doc, width / natural.width, opts, mode);
+      await downloadDocumentPng(doc, width / natural.width, opts, mode, highlights);
       onClose();
     } finally {
       setBusy(false);
@@ -160,9 +177,6 @@ export function ExportModal({
           <div className="export-secondary">
             <button className="link-btn" onClick={() => downloadDocumentJson(jsonDoc)}>
               JSON
-            </button>
-            <button className="link-btn" onClick={() => printDocument(doc, opts, mode)}>
-              Print…
             </button>
           </div>
           <div className="modal-buttons">
