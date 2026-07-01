@@ -123,10 +123,23 @@ const morphList = Object.entries(MORPH_FEATURES)
  * voice/mood for verbs; degree for adjective/adverbs), the parse the Morphology
  * view and agreement-based inference rely on.
  */
-export function buildLlmPrompt(text: string, tokens: Token[], language?: Language): string {
+export interface LlmPromptOptions {
+  /** The source has had punctuation removed — ask the model to infer its own. */
+  inferPunctuation?: boolean;
+}
+
+export function buildLlmPrompt(
+  text: string,
+  tokens: Token[],
+  language?: Language,
+  opts: LlmPromptOptions = {},
+): string {
   const detected = language ?? detectLanguage(text);
   const langName =
     detected === 'grc' ? 'Koine Greek' : detected === 'hbo' ? 'Biblical Hebrew' : 'English';
+  const punctuationRule = opts.inferPunctuation
+    ? `\n- PUNCTUATION: the source has had its punctuation REMOVED. Infer the most likely punctuation yourself — sentence breaks, commas, clause boundaries — and let that guide the parse; write the punctuated form into each diagram's "text" field. Where a different punctuation would give a materially different parse, prefer the reading you judge most likely.`
+    : '';
   const tokenLines = tokens.map((t) => `  ${t.id} = ${JSON.stringify(t.surface)}`).join('\n');
   const tokenJson = tokens
     .map(
@@ -168,7 +181,7 @@ instead — one complete object (like the one above) per sentence:
   [ { ...diagram for sentence 1... }, { ...diagram for sentence 2... } ]
 
 RULES
-- DETECT THE LANGUAGE from the script/words and set "language" to "en", "grc", or "hbo". Do not rely on the hint above; the sentence is authoritative.
+- DETECT THE LANGUAGE from the script/words and set "language" to "en", "grc", or "hbo". Do not rely on the hint above; the sentence is authoritative.${punctuationRule}
 - Fill a "pos" for every token, plus "lemma" and a short English "gloss".
 - MORPHOLOGY: fill "morphology" for every inflected token with the features that APPLY to it — nominals (noun/adjective/article/participle/pronoun): case, gender, number; finite verbs: person, number, tense, voice, mood (e.g. "1st person singular present active indicative"); infinitives/participles: tense, voice (+ case/gender/number for a participle); adjective/adverb comparison: degree. Omit features that do not apply, and use "morphology": {} for an uninflected word (English preposition, particle). English uses only the subset that applies (person/number/tense/degree).
 - MULTIPLE SENTENCES: diagram each sentence SEPARATELY as its own object in the array, each with its own "nodes"/"relations"/"rootId" and referencing only that sentence's tokens. NEVER join two sentences into one clause or link them with a "conjunct"/"clause" relation — separate sentences are separate diagrams. Reply with a single object only when there is exactly one sentence.

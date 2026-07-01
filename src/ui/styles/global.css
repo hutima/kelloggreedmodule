@@ -2590,6 +2590,18 @@ label.field.inline > span { margin-bottom: 0; }
   margin-left: auto;
   font-weight: 600;
 }
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--ink-soft, #4a4a55);
+  margin: 8px 0 2px;
+  cursor: pointer;
+}
+.check-row input {
+  margin: 0;
+}
 
 /* Unassigned-words bank: tokens the parser left unplaced, click to add to line. */
 .word-bank {

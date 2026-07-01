@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
-import { detectLanguage, tokenize } from '@/domain/model';
+import { detectLanguage, stripPunctuation, tokenize } from '@/domain/model';
 import { buildLlmPrompt, importLlmDiagrams, importJson, copyText, downloadText, slugify } from '@/io';
 import { useViewport } from '@/ui/responsive';
 import { Modal } from '@/ui/components/common/Modal';
@@ -57,6 +57,7 @@ export function NewSourcePicker() {
   const [promptText, setPromptText] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [ignorePunctuation, setIgnorePunctuation] = useState(false);
 
   const ready = text.trim().length > 0;
   // Language is auto-detected from the script (Greek / Hebrew / English), so there
@@ -79,8 +80,11 @@ export function NewSourcePicker() {
 
   const exportForLlm = () => {
     if (!ready) return;
-    const tokens = tokenize(text.trim(), language);
-    setPromptText(buildLlmPrompt(text.trim(), tokens, language));
+    // With "ignore punctuation" on, strip editorial punctuation before tokenizing
+    // and ask the model to infer its own — useful for unpointed Greek/Hebrew.
+    const source = ignorePunctuation ? stripPunctuation(text.trim()) : text.trim();
+    const tokens = tokenize(source, language);
+    setPromptText(buildLlmPrompt(source, tokens, language, { inferPunctuation: ignorePunctuation }));
   };
 
   /** Load parsed diagram document(s) — several when the import was multi-sentence.
@@ -124,6 +128,15 @@ export function NewSourcePicker() {
           </button>
         )}
       </div>
+
+      <label className="check-row" title="Strip punctuation and let the LLM infer the most likely sentence breaks and attachments">
+        <input
+          type="checkbox"
+          checked={ignorePunctuation}
+          onChange={(e) => setIgnorePunctuation(e.target.checked)}
+        />
+        <span>Ignore punctuation (LLM infers it)</span>
+      </label>
 
       <div className="row new-actions">
         <button className="mini" disabled={!ready} title="Build a prompt for an LLM" onClick={exportForLlm}>

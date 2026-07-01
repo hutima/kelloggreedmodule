@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildLlmPrompt, importLlmDiagram, importLlmDiagrams, LLM_DIAGRAM_KIND } from '@/io';
-import { detectLanguage, tokenize } from '@/domain/model';
+import { detectLanguage, stripPunctuation, tokenize } from '@/domain/model';
 import { layoutDocument } from '@/domain/layout';
 
 /**
@@ -257,6 +257,26 @@ describe('importLlmDiagrams (multiple sentences)', () => {
     const res = importLlmDiagrams(JSON.stringify([oneSentence('a', 'Boys', 'run'), bad]));
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/sentence 2/i);
+  });
+});
+
+describe('ignore-punctuation export option', () => {
+  it('strips editorial punctuation but keeps elision apostrophes', () => {
+    const stripped = stripPunctuation('διδάσκειν, οὐκ ἐπιτρέπω· ἀλλ’ εἶναι.');
+    expect(stripped).toBe('διδάσκειν οὐκ ἐπιτρέπω ἀλλ’ εἶναι'); // no comma / ano teleia / period
+    expect(stripped).toContain('ἀλλ’'); // word-internal elision survives
+    expect(stripPunctuation('The Word became flesh; and God saw it.')).toBe(
+      'The Word became flesh and God saw it',
+    );
+  });
+
+  it('adds an infer-punctuation instruction only when the option is set', () => {
+    const text = 'ἀγαπῶμεν ἀλλήλους';
+    const plain = buildLlmPrompt(text, tokenize(text));
+    const infer = buildLlmPrompt(text, tokenize(text), undefined, { inferPunctuation: true });
+    expect(plain).not.toMatch(/PUNCTUATION: the source has had its punctuation REMOVED/);
+    expect(infer).toMatch(/PUNCTUATION: the source has had its punctuation REMOVED/);
+    expect(infer).toMatch(/infer the most likely punctuation/i);
   });
 });
 
