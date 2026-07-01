@@ -93,7 +93,7 @@ export function EditModeToolbar() {
         <button
           type="button"
           className="tool-btn add-word-btn"
-          title="Add a new word — search a Greek/Hebrew Strong's lemma to fill it (author a textual variant)"
+          title="Add a new word (Greek, Hebrew, or English) for a textual variant — type it, with an optional gloss and Strong's lookup"
           onClick={addBlankWord}
         >
           <span className="tool-icon" aria-hidden="true">
