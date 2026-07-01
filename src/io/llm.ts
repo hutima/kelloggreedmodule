@@ -124,10 +124,18 @@ ${tokenJson}
 
 RULES
 - Fill a "pos" for every token (you may also add "lemma" and a short English "gloss").
-- Make a node for each meaningful constituent. A node's "tokens" are token ids (use [] for an implied/elided element, with "implied": true and a "label" like "(he)").
 - A relation reads "dependent functions as <type> of head"; "head" and "dependent" are NODE ids.
-- "rootId" must be the main (independent) clause node.
-- Attach articles/adjectives to their noun with a "determiner"/"adjectival" relation; prepositions take their object via "prepositionObject" and attach to a head via "prepositionalPhrase"/"adverbial".
+- EVERY node must OWN at least one token in "tokens" — the ONLY exception is an implied/elided element ("tokens": [], "implied": true, "label": "(he)"). NEVER create an empty grouping node (a node with no tokens that only holds other nodes) — empty wrappers are dropped and their contents lose their role.
+- COORDINATION ("X and Y" — compound subjects, objects, verbs, or clauses): do NOT wrap the parts in a parent node. Make the FIRST part the head that carries the role (e.g. "subject"); attach each other part to that head with a "conjunct" relation and each conjunction word with a "coordinator" relation.
+- A VERB PHRASE (auxiliary + main verb, e.g. "have lighted"): make ONE "predicate" node and list BOTH verb token ids in its "tokens". Do not invent roles like "auxiliary" or "head".
+- A PREPOSITIONAL PHRASE: the node for the PREPOSITION word (holding the preposition's token) governs its object via "prepositionObject" and attaches to what it modifies via "prepositionalPhrase" or "adverbial". Do not make a separate empty phrase node for it.
+- Attach articles/adjectives to their noun with a "determiner"/"adjectival" relation.
+- "rootId" is the main clause. For two coordinated main clauses, make the first the root and attach the second with "conjunct" (and the conjunction with "coordinator").
+- Use ONLY the values listed below for "pos", node "kind", relation type/role, and "clauseType".
+
+EXAMPLE — a compound subject "Dogs and cats sleep" (note: the FIRST conjunct carries "subject"; no wrapper node):
+  nodes:  { "id":"s1","kind":"word","role":"subject","tokens":["dogs"] }, { "id":"cc","kind":"word","role":"coordinator","tokens":["and"] }, { "id":"s2","kind":"word","role":"conjunct","tokens":["cats"] }, { "id":"v","kind":"word","role":"predicate","tokens":["sleep"] }
+  relations:  { "type":"subject","head":"c0","dependent":"s1" }, { "type":"conjunct","head":"s1","dependent":"s2" }, { "type":"coordinator","head":"s1","dependent":"cc" }, { "type":"predicate","head":"c0","dependent":"v" }
 
 ALLOWED VALUES
 - pos: ${list(POS)}

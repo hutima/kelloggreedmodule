@@ -24,6 +24,17 @@ describe('buildLlmPrompt', () => {
     expect(prompt).toContain('independent');
     expect(prompt).toContain('article');
   });
+
+  it('steers away from empty wrapper nodes and toward head-based coordination', () => {
+    // The reported bug: an LLM wrapped a compound subject in an empty "phrase"
+    // node, which is spliced on import — dropping the subject role. The prompt now
+    // forbids empty grouping nodes and gives the head-based coordination pattern.
+    expect(prompt).toMatch(/empty grouping node/i);
+    expect(prompt).toMatch(/COORDINATION/);
+    expect(prompt).toMatch(/FIRST (part|conjunct) .*(carries|subject)/i);
+    expect(prompt).toMatch(/conjunct/);
+    expect(prompt).toMatch(/coordinator/);
+  });
 });
 
 describe('importLlmDiagram', () => {
@@ -87,6 +98,81 @@ describe('importLlmDiagram', () => {
     expect(res.ok).toBe(true);
     expect(res.document!.tokens[0]!.pos).toBe('unknown');
     expect(res.document!.syntax.relations[0]!.type).toBe('unknown');
+  });
+
+  it('lays out a HEAD-BASED compound subject with the subject role intact', () => {
+    // The format the fixed prompt produces: the first conjunct carries "subject";
+    // the others attach to it via conjunct/coordinator. No empty wrapper, so the
+    // clause keeps its subject relation (the coordinate subject stays a subject,
+    // not stranded in the predicate).
+    const compound = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'en',
+      text: 'Tomorrow and tomorrow creeps.',
+      tokens: [
+        { id: 't1', surface: 'Tomorrow', pos: 'noun' },
+        { id: 'ta', surface: 'and', pos: 'conjunction' },
+        { id: 't2', surface: 'tomorrow', pos: 'noun' },
+        { id: 'tv', surface: 'creeps', pos: 'verb' },
+      ],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'n1', kind: 'word', role: 'subject', tokens: ['t1'] },
+        { id: 'na', kind: 'word', role: 'coordinator', tokens: ['ta'] },
+        { id: 'n2', kind: 'word', role: 'conjunct', tokens: ['t2'] },
+        { id: 'nv', kind: 'word', role: 'predicate', tokens: ['tv'] },
+      ],
+      relations: [
+        { type: 'subject', head: 'c0', dependent: 'n1' },
+        { type: 'conjunct', head: 'n1', dependent: 'n2' },
+        { type: 'coordinator', head: 'n1', dependent: 'na' },
+        { type: 'predicate', head: 'c0', dependent: 'nv' },
+      ],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(compound));
+    expect(res.ok).toBe(true);
+    const rels = res.document!.syntax.relations;
+    // The clause keeps BOTH a subject and a predicate relation.
+    expect(rels.some((r) => r.type === 'subject' && r.headId === 'c0' && r.dependentId === 'n1')).toBe(true);
+    expect(rels.some((r) => r.type === 'predicate' && r.headId === 'c0')).toBe(true);
+    // and the other conjunct hangs off the subject head, not the clause.
+    expect(rels.some((r) => r.type === 'conjunct' && r.headId === 'n1' && r.dependentId === 'n2')).toBe(true);
+    expect(layoutDocument(res.document!).elements.length).toBeGreaterThan(0);
+  });
+
+  it('drops an EMPTY wrapper subject node and its role (why the prompt forbids them)', () => {
+    // Documents the failure mode: a compound subject wrapped in an empty phrase
+    // node loses its subject relation on normalize, so the clause has no subject.
+    const wrapped = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'en',
+      text: 'Tomorrow and tomorrow creeps.',
+      tokens: [
+        { id: 't1', surface: 'Tomorrow', pos: 'noun' },
+        { id: 't2', surface: 'tomorrow', pos: 'noun' },
+        { id: 'tv', surface: 'creeps', pos: 'verb' },
+      ],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'w', kind: 'phrase', role: 'subject', tokens: [] }, // empty wrapper
+        { id: 'n1', kind: 'word', role: 'conjunct', tokens: ['t1'] },
+        { id: 'n2', kind: 'word', role: 'conjunct', tokens: ['t2'] },
+        { id: 'nv', kind: 'word', role: 'predicate', tokens: ['tv'] },
+      ],
+      relations: [
+        { type: 'subject', head: 'c0', dependent: 'w' },
+        { type: 'conjunct', head: 'w', dependent: 'n1' },
+        { type: 'conjunct', head: 'w', dependent: 'n2' },
+        { type: 'predicate', head: 'c0', dependent: 'nv' },
+      ],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(wrapped));
+    expect(res.ok).toBe(true);
+    const rels = res.document!.syntax.relations;
+    // The wrapper is spliced and the subject relation is gone — exactly the bug.
+    expect(rels.some((r) => r.type === 'subject')).toBe(false);
   });
 
   it('rejects a relation pointing at a missing node', () => {
