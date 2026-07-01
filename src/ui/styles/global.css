@@ -633,6 +633,15 @@ textarea.code,
   color: var(--accent, #2f6f9f);
   white-space: nowrap;
 }
+.gnt-contested-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: #c2410c;
+  vertical-align: middle;
+}
 .gnt-text {
   font-size: 15px;
   line-height: 1.35;

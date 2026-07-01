@@ -344,6 +344,10 @@ export interface EditorActions {
   /** Queue (or clear) a search to run from the Search tab — a word's lemma /
    *  Strong's clicked in the inspector. The Search panel consumes and clears it. */
   setSearchPrefill: (prefill: SearchPrefill | null) => void;
+  /** Flag which contested issues belong to the sentences making up the current
+   *  multi-sentence selection (set by the GNT/OT pickers on Open; cleared by
+   *  `loadDocument` for every ordinary load). */
+  setMultiSentenceContested: (issues: ContestedSyntaxIssue[]) => void;
   /** Load the sentence `delta` away in the current GNT book (prev/next). */
   stepGnt: (delta: number) => void;
   // saved custom parses ("my sentences")
@@ -729,8 +733,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     compareToBase: false,
     firstRun: isFirstRun(),
     forceDesktop: loadForceDesktop(),
+    multiSentenceContested: [],
 
     setGntContext: (passages, index) => set({ gntPassages: passages, gntIndex: index }),
+    setMultiSentenceContested: (issues) => set({ multiSentenceContested: issues }),
     setLeftCollapsed: (collapsed) => set({ leftCollapsed: collapsed }),
     // Also un-collapses the left panel: on mobile it's the sources drawer, which
     // only mounts (and can only react to the prefill) once it's open — so this
@@ -765,6 +771,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         previewDoc: null,
         contestedBaseDoc: null,
         contested: { ...FRESH_CONTESTED },
+        multiSentenceContested: [],
         status: 'saved',
       });
       registerUserVariants(base.id);
@@ -787,6 +794,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         previewDoc: null,
         contestedBaseDoc: null,
         contested: { ...FRESH_CONTESTED },
+        multiSentenceContested: [],
         status: 'idle',
       });
       scheduleAutosave(doc, (status) => set({ status }));
@@ -822,6 +830,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         previewDoc: null,
         contestedBaseDoc: null,
         contested: { ...FRESH_CONTESTED },
+        multiSentenceContested: [],
         status: 'idle',
       });
       registerUserVariants(d.id);
@@ -904,6 +913,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         previewDoc: null,
         contestedBaseDoc: null,
         contested: { ...FRESH_CONTESTED },
+        multiSentenceContested: [],
         status: 'saved',
       });
       registerUserVariants(base.id);
@@ -952,6 +962,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         previewDoc: null,
         contestedBaseDoc: null,
         contested: { ...FRESH_CONTESTED },
+        multiSentenceContested: [],
         status: 'saved',
       });
       // Rebuild prev/next sentence navigation for a restored gold-standard

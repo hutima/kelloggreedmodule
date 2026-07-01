@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { OT_BOOKS, cacheOtChapter, loadOtChapter, combinePassage, type OtBook } from '@/io';
 import type { KrDocument } from '@/domain/schema';
+import { loadPatch } from '@/persistence';
+import { applyPatch } from '@/domain/patch';
+import { getIssuesForPassage } from '@/domain/contested';
 
 /** The OT book whose name a passage/sentence title begins with, if any. */
 function otBookForTitle(title: string): OtBook | undefined {
@@ -28,6 +31,7 @@ export function OtPicker() {
   const setMode = useEditorStore((s) => s.setMode);
   const setGntContext = useEditorStore((s) => s.setGntContext);
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
+  const setMultiSentenceContested = useEditorStore((s) => s.setMultiSentenceContested);
   const doc = useEditorStore((s) => s.doc);
   // Seed from the CURRENT Hebrew passage so the Book/Chapter reflect what's open
   // instead of always resetting to Genesis 1.
@@ -112,10 +116,30 @@ export function OtPicker() {
     if (!passages) return;
     const selected = passages.filter((p) => checked.has(p.id));
     if (!selected.length) return;
-    loadDocument(combinePassage(selected), { corpus: 'ot' });
+    // Fold in each sentence's saved patch (e.g. a promoted/adopted alternate
+    // reading) BEFORE combining, so a multi-sentence selection shows it instead
+    // of silently reverting that sentence to its untouched base.
+    const patched = selected.map((p) => {
+      const patch = loadPatch(p.id);
+      return patch ? applyPatch(p, patch) : p;
+    });
+    loadDocument(combinePassage(patched), { corpus: 'ot' });
     const firstIdx = passages.findIndex((p) => checked.has(p.id));
     setGntContext(passages, firstIdx);
     setMode('parsed');
+    // Flag any contested/debated readings among the included sentences — but
+    // only for a GENUINE multi-sentence combination (a single checked sentence
+    // opens unchanged, so its own id already matches the normal per-passage
+    // badge; flagging it again here would just duplicate that badge).
+    if (selected.length > 1) {
+      const seenIssueIds = new Set<string>();
+      const multiIssues = selected
+        .flatMap((p) => getIssuesForPassage(p))
+        .filter((i) => (seenIssueIds.has(i.id) ? false : (seenIssueIds.add(i.id), true)));
+      setMultiSentenceContested(multiIssues);
+    } else {
+      setMultiSentenceContested([]);
+    }
     if (typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches) {
       setLeftCollapsed(true);
     }
@@ -197,7 +221,16 @@ export function OtPicker() {
               <li key={p.id}>
                 <label className={`gnt-sentence${checked.has(p.id) ? ' checked' : ''}`}>
                   <input type="checkbox" checked={checked.has(p.id)} onChange={() => toggle(p.id)} />
-                  <span className="gnt-ref">{verse(p.title)}</span>
+                  <span className="gnt-ref">
+                    {verse(p.title)}
+                    {getIssuesForPassage(p).length > 0 && (
+                      <span
+                        className="gnt-contested-dot"
+                        aria-hidden="true"
+                        title="This sentence has a debated syntactic or textual reading"
+                      />
+                    )}
+                  </span>
                   <span className="hebrew gnt-text">{p.text}</span>
                 </label>
               </li>

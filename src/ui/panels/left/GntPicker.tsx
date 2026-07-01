@@ -15,6 +15,9 @@ import {
 } from '@/io';
 import { useViewport } from '@/ui/responsive';
 import type { KrDocument } from '@/domain/schema';
+import { loadPatch } from '@/persistence';
+import { applyPatch } from '@/domain/patch';
+import { getIssuesForPassage } from '@/domain/contested';
 
 /**
  * Greek New Testament passage picker. Load a book, tick any number of sentences,
@@ -54,6 +57,7 @@ export function GntPicker() {
   const setMode = useEditorStore((s) => s.setMode);
   const setGntContext = useEditorStore((s) => s.setGntContext);
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
+  const setMultiSentenceContested = useEditorStore((s) => s.setMultiSentenceContested);
   const doc = useEditorStore((s) => s.doc);
   const gntPassages = useEditorStore((s) => s.gntPassages);
   // Seed from the CURRENT passage so reopening Sources (which remounts the panel
@@ -168,13 +172,33 @@ export function GntPicker() {
     if (!passages) return;
     const selected = passages.filter((p) => checked.has(p.id));
     if (!selected.length) return;
+    // Fold in each sentence's saved patch (e.g. a promoted/adopted alternate
+    // reading) BEFORE combining, so a multi-sentence selection shows it instead
+    // of silently reverting that sentence to its untouched base.
+    const patched = selected.map((p) => {
+      const patch = loadPatch(p.id);
+      return patch ? applyPatch(p, patch) : p;
+    });
     // OpenText carries an explicit clause-connector layer, so chained sentences
     // (καί / δέ / διό …) join on one coordinate spine rather than stacking.
-    loadDocument(combinePassage(selected, { coordinate: source === 'opentext' }), { corpus: 'gnt' });
+    loadDocument(combinePassage(patched, { coordinate: source === 'opentext' }), { corpus: 'gnt' });
     // Reading context for prev/next nav: the book's sentences + the first opened.
     const firstIdx = passages.findIndex((p) => checked.has(p.id));
     setGntContext(passages, firstIdx);
     setMode('parsed');
+    // Flag any contested/debated readings among the included sentences — but
+    // only for a GENUINE multi-sentence combination (a single checked sentence
+    // opens unchanged, so its own id already matches the normal per-passage
+    // badge; flagging it again here would just duplicate that badge).
+    if (selected.length > 1) {
+      const seenIssueIds = new Set<string>();
+      const multiIssues = selected
+        .flatMap((p) => getIssuesForPassage(p))
+        .filter((i) => (seenIssueIds.has(i.id) ? false : (seenIssueIds.add(i.id), true)));
+      setMultiSentenceContested(multiIssues);
+    } else {
+      setMultiSentenceContested([]);
+    }
     // On a narrow screen, collapse the picker so the text + diagram get the room.
     if (typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches) {
       setLeftCollapsed(true);
@@ -281,7 +305,16 @@ export function GntPicker() {
               <li key={p.id}>
                 <label className={`gnt-sentence${checked.has(p.id) ? ' checked' : ''}`}>
                   <input type="checkbox" checked={checked.has(p.id)} onChange={() => toggle(p.id)} />
-                  <span className="gnt-ref">{verse(p.title)}</span>
+                  <span className="gnt-ref">
+                    {verse(p.title)}
+                    {getIssuesForPassage(p).length > 0 && (
+                      <span
+                        className="gnt-contested-dot"
+                        aria-hidden="true"
+                        title="This sentence has a debated syntactic or textual reading"
+                      />
+                    )}
+                  </span>
                   <span className="greek gnt-text">{p.text}</span>
                 </label>
               </li>

@@ -1,4 +1,4 @@
-import type { KrDocument, Language, SermonPrepData, SermonAnchor } from '@/domain/schema';
+import type { ContestedSyntaxIssue, KrDocument, Language, SermonPrepData, SermonAnchor } from '@/domain/schema';
 import type { Inference } from '@/domain/inference';
 import type { DiagramMode, TreeOrientation } from '@/domain/layout';
 import type { SyntaxSourceId } from '@/io/sources';
@@ -260,4 +260,14 @@ export interface EditorState {
   firstRun: boolean;
   /** User override: force the desktop layout/editing on a small screen. */
   forceDesktop: boolean;
+  /**
+   * Contested-syntax issues found among the individual sentences making up the
+   * CURRENT multi-sentence selection (opening several checked passages together
+   * combines them into one synthetic document, so the normal per-passage lookup
+   * — keyed by the combined doc's own id — finds nothing). Informational only:
+   * the combined view isn't editable, so this just flags that one of the
+   * included sentences has a debated reading worth reviewing singly. Empty for
+   * an ordinary single-sentence passage.
+   */
+  multiSentenceContested: ContestedSyntaxIssue[];
 }

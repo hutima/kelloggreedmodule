@@ -30,6 +30,7 @@ import { DependencyEditOverlay } from '@/ui/editor/dependency/DependencyEditOver
 import {
   ContestedBadge,
   MobileContestedBar,
+  MultiSentenceContestedNotice,
   SinglePreviewView,
   VariantComparisonView,
   useContestedAffectedNodes,
@@ -997,6 +998,7 @@ export function DiagramCanvas() {
           )}
         </div>
         {!viewport.isMobile && <ContestedBadge />}
+        {!viewport.isMobile && <MultiSentenceContestedNotice />}
         <button
           className="collapse-btn"
           aria-expanded={!collapsed}
@@ -1007,6 +1009,7 @@ export function DiagramCanvas() {
         </button>
       </div>
       {viewport.isMobile && <MobileContestedBar />}
+      {viewport.isMobile && <MultiSentenceContestedNotice mobile />}
       {editing && <EditModeToolbar />}
       {editing && <UnassignedWordsBank />}
       {editing && <DependencyEditOverlay />}
