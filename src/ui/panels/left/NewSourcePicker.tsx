@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
-import { tokenize } from '@/domain/model';
+import { detectLanguage, tokenize } from '@/domain/model';
 import { buildLlmPrompt, importLlmDiagrams, importJson, copyText, downloadText, slugify } from '@/io';
 import { useViewport } from '@/ui/responsive';
 import { Modal } from '@/ui/components/common/Modal';
 import type { KrDocument, Language } from '@/domain/schema';
+
+const LANG_LABEL: Record<Language, string> = {
+  en: 'English',
+  grc: 'Greek (Koine)',
+  hbo: 'Hebrew (Biblical)',
+};
 
 /** Parse pasted/loaded text as the compact LLM format (one OR several sentences)
  *  or a full KrDocument — always returning a list of documents. */
@@ -48,12 +54,14 @@ export function NewSourcePicker() {
   };
 
   const [text, setText] = useState('');
-  const [language, setLanguage] = useState<Language>('en');
   const [promptText, setPromptText] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
   const ready = text.trim().length > 0;
+  // Language is auto-detected from the script (Greek / Hebrew / English), so there
+  // is no error-prone dropdown to keep in sync — the words decide.
+  const language: Language = detectLanguage(text);
 
   /** On a narrow screen, free the room for the diagram once a doc is loaded. */
   const collapseIfNarrow = () => {
@@ -89,15 +97,14 @@ export function NewSourcePicker() {
   return (
     <div className="gnt-picker new-picker">
       <label className="field">
-        <span>Language</span>
-        <select value={language} onChange={(e) => setLanguage(e.target.value as Language)}>
-          <option value="en">English</option>
-          <option value="grc">Greek (Koine)</option>
-        </select>
-      </label>
-
-      <label className="field">
-        <span>Sentence</span>
+        <span>
+          Sentence{' '}
+          {ready && (
+            <span className="lang-detected" style={{ color: 'var(--muted, #667)', fontWeight: 400 }}>
+              · {LANG_LABEL[language]} (auto-detected)
+            </span>
+          )}
+        </span>
         <textarea
           className="new-text"
           rows={4}

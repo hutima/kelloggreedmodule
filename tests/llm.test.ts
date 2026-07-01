@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildLlmPrompt, importLlmDiagram, importLlmDiagrams, LLM_DIAGRAM_KIND } from '@/io';
-import { tokenize } from '@/domain/model';
+import { detectLanguage, tokenize } from '@/domain/model';
 import { layoutDocument } from '@/domain/layout';
 
 /**
@@ -257,5 +257,81 @@ describe('importLlmDiagrams (multiple sentences)', () => {
     const res = importLlmDiagrams(JSON.stringify([oneSentence('a', 'Boys', 'run'), bad]));
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/sentence 2/i);
+  });
+});
+
+describe('language detection (drives the auto-detected prompt, no dropdown)', () => {
+  it('detects Greek, Hebrew, and English by dominant script', () => {
+    expect(detectLanguage('διδάσκειν δὲ γυναικὶ οὐκ ἐπιτρέπω')).toBe('grc');
+    expect(detectLanguage('בְּרֵאשִׁית בָּרָא אֱלֹהִים')).toBe('hbo');
+    expect(detectLanguage('The Word became flesh.')).toBe('en');
+  });
+
+  it('is robust to a stray foreign word — the majority script wins', () => {
+    expect(detectLanguage('the λόγος became flesh')).toBe('en');
+    expect(detectLanguage('ὁ λόγος (the Word) ἦν πρὸς τὸν θεόν')).toBe('grc');
+  });
+});
+
+describe('buildLlmPrompt is language-agnostic and asks for morphology', () => {
+  const text = 'ἀγαπῶμεν ἀλλήλους';
+  const prompt = buildLlmPrompt(text, tokenize(text)); // no language arg → detects
+
+  it('tells the model to detect the language itself (so the UI needs no dropdown)', () => {
+    expect(prompt).toMatch(/DETECT THE LANGUAGE/i);
+    expect(prompt).toContain('"en", "grc", or "hbo"');
+  });
+
+  it('requests morphology and lists the schema-derived feature values', () => {
+    expect(prompt).toMatch(/MORPHOLOGY/);
+    expect(prompt).toContain('"morphology"');
+    expect(prompt).toContain('indicative');
+    expect(prompt).toContain('genitive');
+    expect(prompt).toContain('aorist');
+  });
+});
+
+describe('importLlmDiagram carries the morphological parse through', () => {
+  const base = {
+    kind: LLM_DIAGRAM_KIND,
+    language: 'grc',
+    text: 'ἀγαπῶμεν',
+    nodes: [
+      { id: 'c0', kind: 'clause', clauseType: 'independent' },
+      { id: 'v', kind: 'word', role: 'predicate', tokens: ['tok_a'] },
+    ],
+    relations: [{ type: 'predicate', head: 'c0', dependent: 'v' }],
+    rootId: 'c0',
+  };
+
+  it('validates and attaches a full verb parse on the imported token', () => {
+    const reply = {
+      ...base,
+      tokens: [
+        {
+          id: 'tok_a',
+          surface: 'ἀγαπῶμεν',
+          pos: 'verb',
+          morphology: { person: 'first', number: 'plural', tense: 'present', voice: 'active', mood: 'indicative' },
+        },
+      ],
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    expect(res.document!.tokens[0]!.morphology).toEqual({
+      person: 'first', number: 'plural', tense: 'present', voice: 'active', mood: 'indicative',
+    });
+  });
+
+  it('lower-cases valid values and keeps unknown keys under extra (nothing lost)', () => {
+    const reply = {
+      ...base,
+      tokens: [{ id: 'tok_a', surface: 'ἀγαπῶμεν', pos: 'verb', morphology: { case: 'GENITIVE', bogus: 'xyz' } }],
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    const m = res.document!.tokens[0]!.morphology!;
+    expect(m.case).toBe('genitive');
+    expect(m.extra).toEqual({ bogus: 'xyz' });
   });
 });
