@@ -26,3 +26,28 @@ export function tokenize(text: string, language?: Language): Token[] {
 export function reindex(tokens: Token[]): Token[] {
   return tokens.map((t, i) => ({ ...t, index: i }));
 }
+
+/**
+ * Detect the language of a sentence from its DOMINANT script — Koine Greek,
+ * Biblical Hebrew, or English (the default). Each language uses a disjoint
+ * Unicode block, so this is unambiguous for whole-sentence input and lets the UI
+ * skip an error-prone language dropdown (a stray Greek word in an English gloss,
+ * or vice versa, can't flip the result because we count the majority script).
+ */
+export function detectLanguage(text: string): Language {
+  let greek = 0;
+  let hebrew = 0;
+  let latin = 0;
+  for (const ch of text) {
+    const c = ch.codePointAt(0)!;
+    // Greek and Coptic (0370–03FF) + Greek Extended / polytonic (1F00–1FFF).
+    if ((c >= 0x0370 && c <= 0x03ff) || (c >= 0x1f00 && c <= 0x1fff)) greek++;
+    // Hebrew block (0590–05FF).
+    else if (c >= 0x0590 && c <= 0x05ff) hebrew++;
+    // Basic Latin letters.
+    else if ((c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a)) latin++;
+  }
+  if (greek >= hebrew && greek > latin) return 'grc';
+  if (hebrew > greek && hebrew > latin) return 'hbo';
+  return 'en';
+}

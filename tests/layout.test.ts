@@ -65,4 +65,87 @@ describe('layout engine', () => {
     expect(layout.elements.length).toBeGreaterThan(20);
     expect(layout.height).toBeGreaterThan(120);
   });
+
+  it('places per-join coordinators BETWEEN member arms, not on their baselines', () => {
+    // A three-member coordinated object "A nor B but C" (two coordinators on the
+    // head, one per join) must NOT be treated as a correlative pair: each
+    // conjunction rides the gap between two arms, clear of every arm's word.
+    const w = (id: string, surface: string, role?: string) => ({
+      id: `n_${id}`,
+      kind: 'word' as const,
+      tokenIds: [`t_${id}`],
+      ...(role ? { role: role as never } : {}),
+    });
+    const tok = (id: string, index: number, surface: string, pos: string) => ({
+      id: `t_${id}`,
+      index,
+      surface,
+      pos: pos as never,
+      language: 'en' as const,
+    });
+    const doc: KrDocument = {
+      schemaVersion: 1,
+      id: 'doc_test_perjoin',
+      title: 'per-join',
+      language: 'en',
+      text: 'I want this nor that but other',
+      notes: '',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      layoutHints: {},
+      tokens: [
+        tok('i', 0, 'I', 'pronoun'),
+        tok('want', 1, 'want', 'verb'),
+        tok('a', 2, 'this', 'noun'),
+        tok('nor', 3, 'nor', 'conjunction'),
+        tok('b', 4, 'that', 'noun'),
+        tok('but', 5, 'but', 'conjunction'),
+        tok('c', 6, 'other', 'noun'),
+      ],
+      syntax: {
+        rootId: 'c0',
+        nodes: [
+          { id: 'c0', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+          w('i', 'I', 'subject'),
+          w('want', 'want', 'predicate'),
+          w('a', 'this', 'directObject'),
+          w('nor', 'nor', 'coordinator'),
+          w('b', 'that', 'conjunct'),
+          w('but', 'but', 'coordinator'),
+          w('c', 'other', 'conjunct'),
+        ],
+        relations: [
+          { id: 'r1', type: 'subject', headId: 'c0', dependentId: 'n_i' },
+          { id: 'r2', type: 'predicate', headId: 'c0', dependentId: 'n_want' },
+          { id: 'r3', type: 'directObject', headId: 'n_want', dependentId: 'n_a' },
+          { id: 'r4', type: 'coordinator', headId: 'n_a', dependentId: 'n_nor' },
+          { id: 'r5', type: 'conjunct', headId: 'n_a', dependentId: 'n_b' },
+          { id: 'r6', type: 'coordinator', headId: 'n_a', dependentId: 'n_but' },
+          { id: 'r7', type: 'conjunct', headId: 'n_a', dependentId: 'n_c' },
+        ],
+      },
+    };
+    const layout = layoutDocument(doc);
+    const textY = (t: string) => {
+      const el = layout.elements.find(
+        (e) => e.kind === 'text' && (e as { text: string }).text === t,
+      ) as { y: number; rotate?: number } | undefined;
+      expect(el, `expected to find "${t}"`).toBeDefined();
+      return el!.y;
+    };
+    const aY = textY('this');
+    const bY = textY('that');
+    const cY = textY('other');
+    const norY = textY('nor');
+    const butY = textY('but');
+    // arms stack top→bottom
+    expect(aY).toBeLessThan(bY);
+    expect(bY).toBeLessThan(cY);
+    // each coordinator sits strictly BETWEEN the two arms it joins (per-join),
+    // never on an arm baseline (the old correlative mis-placement).
+    expect(norY).toBeGreaterThan(aY);
+    expect(norY).toBeLessThan(bY);
+    expect(butY).toBeGreaterThan(bY);
+    expect(butY).toBeLessThan(cY);
+  });
 });

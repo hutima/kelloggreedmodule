@@ -5,16 +5,26 @@ import {
   SyntacticRoleSchema,
   ClauseTypeSchema,
   NodeKindSchema,
+  GrammaticalCaseSchema,
+  GenderSchema,
+  NumberSchema,
+  PersonSchema,
+  TenseSchema,
+  VoiceSchema,
+  MoodSchema,
+  DegreeSchema,
+  MorphologySchema,
   type ClauseType,
   type KrDocument,
   type Language,
+  type Morphology,
   type PartOfSpeech,
   type Relation,
   type SyntacticRole,
   type SyntaxNode,
   type Token,
 } from '@/domain/schema';
-import { createDocument, makeId, normalizeSyntax } from '@/domain/model';
+import { createDocument, detectLanguage, makeId, normalizeSyntax } from '@/domain/model';
 import type { ImportResult } from './json';
 
 /**
@@ -39,6 +49,18 @@ const ROLES = new Set<string>(SyntacticRoleSchema.options);
 const CLAUSE_TYPES = new Set<string>(ClauseTypeSchema.options);
 const KINDS = new Set<string>(NodeKindSchema.options);
 
+/** Morphology feature → its allowed enum values, for the prompt + coercion. */
+const MORPH_FEATURES = {
+  case: GrammaticalCaseSchema.options,
+  gender: GenderSchema.options,
+  number: NumberSchema.options,
+  person: PersonSchema.options,
+  tense: TenseSchema.options,
+  voice: VoiceSchema.options,
+  mood: MoodSchema.options,
+  degree: DegreeSchema.options,
+} as const;
+
 export const LLM_DIAGRAM_KIND = 'scripture-diagrammer/diagram';
 
 const GIVEN = { source: 'given', confidence: 'high' } as const;
@@ -51,6 +73,9 @@ const LlmTokenSchema = z.object({
   pos: z.string().optional(),
   lemma: z.string().optional(),
   gloss: z.string().optional(),
+  // A forgiving morphology bundle: any subset of the feature keys, each a free
+  // string coerced/validated on hydrate (unknown values are dropped, never fatal).
+  morphology: z.record(z.string()).optional(),
 });
 const LlmNodeSchema = z.object({
   id: z.string(),
@@ -81,21 +106,37 @@ export const LlmDiagramSchema = z.object({
 });
 export type LlmDiagram = z.infer<typeof LlmDiagramSchema>;
 
-const list = (s: Set<string>) => [...s].join(' · ');
+const list = (s: Set<string> | readonly string[]) => [...s].join(' · ');
+const morphList = Object.entries(MORPH_FEATURES)
+  .map(([k, vs]) => `    ${k}: ${list(vs)}`)
+  .join('\n');
 
 /**
  * Build the copy-paste prompt for an LLM. `tokens` are the already-tokenized
  * words of `text`; their ids are what the model must reference in `nodes`.
+ *
+ * The prompt is LANGUAGE-AGNOSTIC: it asks the model to detect the language and
+ * fill the `language` field itself (so the UI needs no error-prone language
+ * dropdown). A detected hint is passed for context, but the model is the
+ * authority — its answer sets the language and the parse. It also asks for full
+ * MORPHOLOGY on every token (case/gender/number for nominals; person/tense/
+ * voice/mood for verbs; degree for adjective/adverbs), the parse the Morphology
+ * view and agreement-based inference rely on.
  */
-export function buildLlmPrompt(text: string, tokens: Token[], language: Language): string {
-  const langName = language === 'grc' ? 'Koine Greek' : language === 'hbo' ? 'Biblical Hebrew' : 'English';
+export function buildLlmPrompt(text: string, tokens: Token[], language?: Language): string {
+  const detected = language ?? detectLanguage(text);
+  const langName =
+    detected === 'grc' ? 'Koine Greek' : detected === 'hbo' ? 'Biblical Hebrew' : 'English';
   const tokenLines = tokens.map((t) => `  ${t.id} = ${JSON.stringify(t.surface)}`).join('\n');
   const tokenJson = tokens
-    .map((t) => `    { "id": ${JSON.stringify(t.id)}, "surface": ${JSON.stringify(t.surface)}, "pos": "" }`)
+    .map(
+      (t) =>
+        `    { "id": ${JSON.stringify(t.id)}, "surface": ${JSON.stringify(t.surface)}, "pos": "", "lemma": "", "gloss": "", "morphology": {} }`,
+    )
     .join(',\n');
-  return `You are a ${langName} grammarian helping build a Reed-Kellogg sentence diagram.
+  return `You are a grammarian helping build a Reed-Kellogg sentence diagram. Work in whatever language the sentence is written in — English, Koine Greek, or Biblical Hebrew.
 
-SENTENCE (${langName}):
+SENTENCE (looks like ${langName} — confirm this yourself and set "language" accordingly):
 ${JSON.stringify(text)}
 
 TOKENS — reference these EXACT ids in your answer:
@@ -107,7 +148,7 @@ Analyse the grammar and reply with ONE JSON object — no prose, no markdown cod
 {
   "kind": "${LLM_DIAGRAM_KIND}",
   "version": 1,
-  "language": "${language}",
+  "language": "en | grc | hbo — the language YOU detect",
   "text": ${JSON.stringify(text)},
   "tokens": [
 ${tokenJson}
@@ -127,7 +168,9 @@ instead — one complete object (like the one above) per sentence:
   [ { ...diagram for sentence 1... }, { ...diagram for sentence 2... } ]
 
 RULES
-- Fill a "pos" for every token (you may also add "lemma" and a short English "gloss").
+- DETECT THE LANGUAGE from the script/words and set "language" to "en", "grc", or "hbo". Do not rely on the hint above; the sentence is authoritative.
+- Fill a "pos" for every token, plus "lemma" and a short English "gloss".
+- MORPHOLOGY: fill "morphology" for every inflected token with the features that APPLY to it — nominals (noun/adjective/article/participle/pronoun): case, gender, number; finite verbs: person, number, tense, voice, mood (e.g. "1st person singular present active indicative"); infinitives/participles: tense, voice (+ case/gender/number for a participle); adjective/adverb comparison: degree. Omit features that do not apply, and use "morphology": {} for an uninflected word (English preposition, particle). English uses only the subset that applies (person/number/tense/degree).
 - MULTIPLE SENTENCES: diagram each sentence SEPARATELY as its own object in the array, each with its own "nodes"/"relations"/"rootId" and referencing only that sentence's tokens. NEVER join two sentences into one clause or link them with a "conjunct"/"clause" relation — separate sentences are separate diagrams. Reply with a single object only when there is exactly one sentence.
 - A relation reads "dependent functions as <type> of head"; "head" and "dependent" are NODE ids.
 - EVERY node must OWN at least one token in "tokens" — the ONLY exception is an implied/elided element ("tokens": [], "implied": true, "label": "(he)"). NEVER create an empty grouping node (a node with no tokens that only holds other nodes) — empty wrappers are dropped and their contents lose their role.
@@ -136,7 +179,7 @@ RULES
 - A PREPOSITIONAL PHRASE: the node for the PREPOSITION word (holding the preposition's token) governs its object via "prepositionObject" and attaches to what it modifies via "prepositionalPhrase" or "adverbial". Do not make a separate empty phrase node for it.
 - Attach articles/adjectives to their noun with a "determiner"/"adjectival" relation.
 - "rootId" is the main clause. For two coordinated main clauses, make the first the root and attach the second with "conjunct" (and the conjunction with "coordinator").
-- Use ONLY the values listed below for "pos", node "kind", relation type/role, and "clauseType".
+- Use ONLY the values listed below for "pos", node "kind", relation type/role, "clauseType", and each "morphology" feature.
 
 EXAMPLE — a compound subject "Dogs and cats sleep" (note: the FIRST conjunct carries "subject"; no wrapper node):
   nodes:  { "id":"s1","kind":"word","role":"subject","tokens":["dogs"] }, { "id":"cc","kind":"word","role":"coordinator","tokens":["and"] }, { "id":"s2","kind":"word","role":"conjunct","tokens":["cats"] }, { "id":"v","kind":"word","role":"predicate","tokens":["sleep"] }
@@ -147,6 +190,8 @@ ALLOWED VALUES
 - node kind: ${list(KINDS)}
 - relation type / role: ${list(ROLES)}
 - clauseType: ${list(CLAUSE_TYPES)}
+- morphology features (fill the keys that apply):
+${morphList}
 
 Reply with only the JSON object.`;
 }
@@ -176,6 +221,28 @@ const asRole = (r?: string): SyntacticRole | undefined =>
 const asClause = (c?: string): ClauseType | undefined =>
   c ? ((CLAUSE_TYPES.has(c) ? c : 'unknown') as ClauseType) : undefined;
 const asKind = (k?: string): SyntaxNode['kind'] => (k && KINDS.has(k) ? (k as SyntaxNode['kind']) : 'word');
+
+/**
+ * Coerce a loose morphology record into a validated Morphology bundle: keep only
+ * known features whose value is in that feature's enum; anything else (a stray
+ * key, a mis-spelled value) is preserved under `extra` so nothing is silently
+ * lost. Returns undefined when there is nothing usable.
+ */
+function asMorphology(m?: Record<string, string>): Morphology | undefined {
+  if (!m || typeof m !== 'object') return undefined;
+  const out: Record<string, string> = {};
+  const extra: Record<string, string> = {};
+  for (const [key, valRaw] of Object.entries(m)) {
+    if (typeof valRaw !== 'string' || !valRaw) continue;
+    const val = valRaw.toLowerCase();
+    const allowed = (MORPH_FEATURES as Record<string, readonly string[]>)[key];
+    if (allowed && allowed.includes(val)) out[key] = val;
+    else extra[key] = valRaw;
+  }
+  if (Object.keys(extra).length) out.extra = extra as never;
+  const parsed = MorphologySchema.safeParse(out);
+  return parsed.success && Object.keys(parsed.data).length ? parsed.data : undefined;
+}
 
 /** Parse JSON, retrying once after relaxing code fences / smart quotes. */
 function parseJsonLoose(text: string): { ok: true; raw: unknown } | { ok: false; error: string } {
@@ -246,16 +313,20 @@ function hydrateDiagram(raw: unknown, opts: { title?: string } = {}): ImportResu
     ? (d.language as Language)
     : 'en';
 
-  const tokens: Token[] = d.tokens.map((t, i) => ({
-    id: t.id,
-    index: i,
-    surface: t.surface,
-    language,
-    ...(asPos(t.pos) ? { pos: asPos(t.pos) } : {}),
-    ...(t.lemma ? { lemma: t.lemma } : {}),
-    ...(t.gloss ? { gloss: t.gloss } : {}),
-    provenance: GIVEN,
-  }));
+  const tokens: Token[] = d.tokens.map((t, i) => {
+    const morphology = asMorphology(t.morphology);
+    return {
+      id: t.id,
+      index: i,
+      surface: t.surface,
+      language,
+      ...(asPos(t.pos) ? { pos: asPos(t.pos) } : {}),
+      ...(t.lemma ? { lemma: t.lemma } : {}),
+      ...(t.gloss ? { gloss: t.gloss } : {}),
+      ...(morphology ? { morphology } : {}),
+      provenance: GIVEN,
+    };
+  });
   const tokenIds = new Set(tokens.map((t) => t.id));
 
   const nodes: SyntaxNode[] = d.nodes.map((n) => ({

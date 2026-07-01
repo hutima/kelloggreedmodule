@@ -444,6 +444,80 @@ function coordinatorTexts(
 }
 
 /**
+ * Vertical breathing room a coordinator riding a coordination bar needs between
+ * the two members it joins: its own upright length (it is written rotated, so its
+ * text WIDTH becomes a vertical extent) plus a small pad above and below, and the
+ * lower member's text rises a line above its baseline — so reserve that too. Used
+ * both to size the inter-member gap and (via `coordinatorMarks`) to place the word
+ * dead-centre in the resulting clear band.
+ */
+const COORD_PAD = 5;
+function coordinatorSpan(text: string): number {
+  return measureText(text, SMALL_FONT) + LAYOUT.fontSize + COORD_PAD * 2;
+}
+
+/**
+ * Place the coordinator words that ride a vertical coordination bar at `barX`.
+ * `baselines` are the member baseline y's (ascending) in the bar's own coordinate
+ * space. Two shapes:
+ *
+ *   - CORRELATIVE (one coordinator per member — μέν…δέ, οὐ…ἀλλά): each rides the
+ *     bar at its OWN member's baseline, top-with-top, marking the intensified union.
+ *   - PER-JOIN ("A οὐδέ B ἀλλά C" — one coordinator per join, or a lone "and" in
+ *     "A, B and C"): each marks the JOIN between two consecutive members and rides
+ *     the VISUAL middle of the gap — centred between the upper member's baseline
+ *     (the line) and the lower member's text top, NOT the raw baseline midpoint —
+ *     so it sits in the clear band and never overlaps either word.
+ *
+ * Coordinators map to the LAST joins when there are fewer of them than joins, so a
+ * single conjunction in an asyndetic list ("A, B and C") lands in the final gap.
+ */
+function coordinatorMarks(
+  coords: { text: string; nodeId: string }[],
+  baselines: number[],
+  barX: number,
+): TextElement[] {
+  const n = baselines.length;
+  const mark = (y: number, text: string, nodeId?: string): TextElement => ({
+    kind: 'text', id: eid(), x: barX, y, text, anchor: 'middle', small: true, rotate: -90, nodeId,
+  });
+  if (coords.length >= 2 && coords.length === n) {
+    // Correlative: top-with-top at each member's own baseline.
+    return coords.map((c, i) => mark(baselines[Math.min(i, n - 1)]!, c.text, c.nodeId));
+  }
+  const joins = Math.max(1, n - 1);
+  return coords.map((c, i) => {
+    const j = Math.max(0, Math.min(joins - 1, joins - coords.length + i));
+    const upper = baselines[j]!;
+    const lower = baselines[Math.min(j + 1, n - 1)]!;
+    // Visual middle of the gap: between the upper member's baseline (the line) and
+    // the top of the lower member's text (a font-size above its baseline).
+    return mark((upper + lower - LAYOUT.fontSize) / 2, c.text, c.nodeId);
+  });
+}
+
+/**
+ * Per-join vertical clearance the coordinators need between consecutive members,
+ * indexed by join (member i → i+1). A correlative set rides member baselines and
+ * needs none. Callers Math.max this into their inter-member gap so a long
+ * conjunction sits clear of the words above and below instead of overlapping them.
+ */
+function reserveJoinSpans(
+  coords: { text: string }[],
+  memberCount: number,
+  correlative: boolean,
+): number[] {
+  const spans = new Array(Math.max(0, memberCount - 1)).fill(0);
+  if (correlative || memberCount < 2) return spans;
+  const joins = memberCount - 1;
+  coords.forEach((c, i) => {
+    const j = Math.max(0, Math.min(joins - 1, joins - coords.length + i));
+    spans[j] = Math.max(spans[j], coordinatorSpan(c.text));
+  });
+  return spans;
+}
+
+/**
  * Leedy's double-vertical mark identifying an infinitive: two short strokes
  * crossing the infinitive's own baseline near its left end and reaching a little
  * below it. `wordW` is the infinitive word's baseline width.
@@ -1129,6 +1203,11 @@ function layoutClauseSpine(
   const laid = memberRels.map((r) => ({ r, block: layoutNode(ctx, r.dependentId, seen) }));
   const vxOf = (b: Block) => b.verbX ?? b.wordLeft;
   const verbAlignX = laid.length ? Math.max(...laid.map(({ block }) => vxOf(block))) : 0;
+  // A correlative set (μέν … δέ …) rides the clause baselines; otherwise each
+  // conjunction marks a JOIN and needs clear room in that gap so it never crowds
+  // the verb below it.
+  const spineCorrelative = coordTexts.length === laid.length && laid.length >= 2;
+  const spineJoinSpan = reserveJoinSpans(coordTexts, laid.length, spineCorrelative);
 
   const elements: DiagramElement[] = [];
   const verbYs: number[] = [];
@@ -1176,6 +1255,11 @@ function layoutClauseSpine(
     const next = laid[i + 1]?.block;
     const extra = next ? pedestalRoom(next) : 0;
     cursorTop = y + block.height + (LAYOUT.clauseStackGap * ctx.vScale + extra);
+    // Guarantee the next clause's baseline sits far enough below that the join's
+    // coordinator clears both verbs (its rotated text needs room in the gap).
+    if (next && spineJoinSpan[i]) {
+      cursorTop = Math.max(cursorTop, y + spineJoinSpan[i]! - blockAscent(next));
+    }
   });
 
   const top = verbYs[0] ?? 0;
@@ -1185,29 +1269,11 @@ function layoutClauseSpine(
   // (see the renderer) keeps them legible, so the bar stays a single clean line.
   elements.unshift(line(eid(), verbAlignX, top, verbAlignX, last, 'dashed', 'coordination', clause.id));
   // One coordinator per JOIN: the conjunction between clauses k and k+1 rides the
-  // dashed bar in the gap between them (so three clauses joined by "καὶ … καὶ"
-  // get a καὶ in each gap, not "καὶ καὶ" stacked in the first). It is centred on
-  // the midpoint of the two VERB baselines — the bar runs down the clear verb
-  // column (modifiers hang off to the right), so the join reads visually centred
-  // between the two main lines rather than sinking toward the lower clause.
-  if (coordTexts.length === laid.length && laid.length >= 2) {
-    // A correlative set spanning the clauses (μέν … δέ …): each conjunction rides
-    // the bar at its OWN clause's baseline, top-with-top, rather than one per gap.
-    for (let i = 0; i < laid.length; i++) {
-      elements.push({
-        kind: 'text', id: eid(), x: verbAlignX, y: verbYs[i]!, text: coordTexts[i]!.text,
-        anchor: 'middle', small: true, rotate: -90, nodeId: coordTexts[i]!.nodeId,
-      });
-    }
-  } else {
-    for (let k = 0; k < laid.length - 1 && k < coordTexts.length; k++) {
-      const midY = (verbYs[k]! + verbYs[k + 1]!) / 2;
-      elements.push({
-        kind: 'text', id: eid(), x: verbAlignX, y: midY, text: coordTexts[k]!.text,
-        anchor: 'middle', small: true, rotate: -90, nodeId: coordTexts[k]!.nodeId,
-      });
-    }
-  }
+  // dashed bar in the gap between them (so three clauses joined by "καὶ … καὶ" get
+  // a καὶ in each gap, not "καὶ καὶ" stacked in the first), at the visual middle of
+  // that gap — the bar runs down the clear verb column (modifiers hang off to the
+  // right), so the join reads centred in the clear band between the two main lines.
+  elements.push(...coordinatorMarks(coordTexts, verbYs, verbAlignX));
 
   // Introductory words (a sentence-initial particle, a stray conjunction) lead
   // the construction on a short horizontal stub above the top of the spine,
@@ -1344,16 +1410,23 @@ function layoutCoordination(
   // Τιμόθεος in Phil 1:1) must drop far enough that its platform/genitives clear
   // the member stacked above it, instead of riding up into it. (Same clearance the
   // stacked-clause spine already applies via `pedestalRoom`.)
+  // A CORRELATIVE set (one coordinator per member — μέν…δέ, οὐ…ἀλλά) rides the
+  // members' own baselines; otherwise each coordinator marks a JOIN between two
+  // members and needs clear vertical room in that gap so a long conjunction (οὐδέ,
+  // ἀλλά) never crowds the words above or below it.
+  const correlative = coords.length >= 2 && coords.length === members.length;
+  const joinSpan = reserveJoinSpans(coords, members.length, correlative);
   const baselines: number[] = [];
   let y = 0;
   members.forEach((m, i) => {
     baselines.push(y);
     if (i < members.length - 1) {
-      y +=
+      const base =
         m.height +
         LAYOUT.coordMemberGap * ctx.vScale +
         LAYOUT.dividerUp +
         pedestalRoom(members[i + 1]!);
+      y += Math.max(base, joinSpan[i] ?? 0);
     }
   });
   const lastBaseline = baselines[baselines.length - 1]!;
@@ -1415,22 +1488,9 @@ function layoutCoordination(
   const dashX = openLeft ? junctionX - prong : prong;
   elements.push(line(eid(), dashX, topY, dashX, botY, 'dashed', 'coordination', node.id));
   const coordTx = dashX + (openLeft ? 8 : -8);
-  if (coords.length >= 2) {
-    // Correlative pairing (μέν…δέ, οὐ…ἀλλά, both…and): stack the conjunctions in
-    // the slot, each riding the bar at its OWN conjunct's baseline — top-with-top.
-    coords.forEach((c, i) => {
-      const idx = Math.min(i, baselines.length - 1);
-      elements.push({
-        kind: 'text', id: eid(), x: coordTx, y: baselines[idx]! - centerY,
-        text: c.text, anchor: 'middle', small: true, rotate: -90, nodeId: c.nodeId,
-      });
-    });
-  } else if (coords.length === 1) {
-    elements.push({
-      kind: 'text', id: eid(), x: coordTx, y: (topY + botY) / 2,
-      text: coords[0]!.text, anchor: 'middle', small: true, rotate: -90, nodeId: coords[0]!.nodeId,
-    });
-  }
+  // Correlative pairs ride the members' baselines; every other conjunction rides
+  // the visual middle of the gap between the two members it joins.
+  elements.push(...coordinatorMarks(coords, baselines.map((b) => b - centerY), coordTx));
 
   // A summary apposition hangs on its own platform off the bar that joins the
   // conjuncts, centred below the fork ("τὰ τρία ταῦτα" under faith/hope/love).
@@ -1611,12 +1671,14 @@ function layoutOpenPredicateFork(
   const memberNodes = [verbNode, ...conjunctRels.map((r) => getNode(ctx.doc.syntax, r.dependentId)!)];
   const arms = memberNodes.map((n) => layoutPredicateArm(ctx, n, seen));
   const gap = LAYOUT.coordMemberGap * ctx.vScale + LAYOUT.dividerUp;
+  const correlative = coords.length >= 2 && coords.length === arms.length;
+  const joinSpan = reserveJoinSpans(coords, arms.length, correlative);
   const baselines: number[] = [];
   let cursorTop = 0;
-  arms.forEach((m) => {
+  arms.forEach((m, i) => {
     const by = cursorTop + blockAscent(m);
     baselines.push(by);
-    cursorTop = by + m.height + gap;
+    cursorTop = by + m.height + Math.max(gap, (joinSpan[i] ?? 0) - m.height);
   });
   const centerY = (baselines[0]! + baselines[baselines.length - 1]!) / 2;
   const prong = LAYOUT.coordProngRun;
@@ -1631,20 +1693,7 @@ function layoutOpenPredicateFork(
   const topY = baselines[0]! - centerY;
   const botY = baselines[baselines.length - 1]! - centerY;
   elements.push(line(eid(), prong, topY, prong, botY, 'dashed', 'coordination', verbNode.id));
-  if (coords.length >= 2) {
-    coords.forEach((c, i) => {
-      const idx = Math.min(i, baselines.length - 1);
-      elements.push({
-        kind: 'text', id: eid(), x: prong - 7, y: baselines[idx]! - centerY,
-        text: c.text, anchor: 'middle', small: true, rotate: -90, nodeId: c.nodeId,
-      });
-    });
-  } else if (coords.length === 1) {
-    elements.push({
-      kind: 'text', id: eid(), x: prong - 7, y: (topY + botY) / 2, text: coords[0]!.text,
-      anchor: 'middle', small: true, rotate: -90, nodeId: coords[0]!.nodeId,
-    });
-  }
+  elements.push(...coordinatorMarks(coords, baselines.map((b) => b - centerY), prong - 7));
   return {
     width,
     height: botY + arms[arms.length - 1]!.height,
@@ -1675,11 +1724,13 @@ function layoutCompoundPredicate(ctx: Ctx, verbNode: SyntaxNode, seen: Set<strin
   const members = memberNodes.map((n) => layoutHead(ctx, n, seen, true));
 
   const gap = LAYOUT.coordMemberGap * ctx.vScale + LAYOUT.dividerUp;
+  const correlative = coords.length >= 2 && coords.length === members.length;
+  const joinSpan = reserveJoinSpans(coords, members.length, correlative);
   const ys: number[] = [];
   let yy = 0;
   members.forEach((m, i) => {
     ys.push(yy);
-    if (i < members.length - 1) yy += m.height + gap;
+    if (i < members.length - 1) yy += m.height + Math.max(gap, (joinSpan[i] ?? 0) - m.height);
   });
   const centerY = yy / 2;
   const prong = LAYOUT.coordProngRun;
@@ -1706,22 +1757,9 @@ function layoutCompoundPredicate(ctx: Ctx, verbNode: SyntaxNode, seen: Set<strin
   const topY = ys[0]! - centerY;
   const botY = ys[ys.length - 1]! - centerY;
   elements.push(line(eid(), prong, topY, prong, botY, 'dashed', 'coordination', verbNode.id));
-  if (coords.length >= 2) {
-    // Correlative pairing (οὐ … ἀλλά, μέν … δέ): stack the conjunctions on the bar,
-    // each at its own member's corner — top-with-top.
-    coords.forEach((c, i) => {
-      const idx = Math.min(i, ys.length - 1);
-      elements.push({
-        kind: 'text', id: eid(), x: prong - 7, y: ys[idx]! - centerY,
-        text: c.text, anchor: 'middle', small: true, rotate: -90, nodeId: c.nodeId,
-      });
-    });
-  } else if (coords.length === 1) {
-    elements.push({
-      kind: 'text', id: eid(), x: prong - 7, y: (topY + botY) / 2, text: coords[0]!.text,
-      anchor: 'middle', small: true, rotate: -90, nodeId: coords[0]!.nodeId,
-    });
-  }
+  // Correlative pairs sit at their members' corners; every other conjunction rides
+  // the visual middle of the gap between the two members it joins.
+  elements.push(...coordinatorMarks(coords, ys.map((yv) => yv - centerY), prong - 7));
 
   const lastBottom = botY + members[members.length - 1]!.height;
   return { width: rightX, height: lastBottom, elements, wordLeft: 0, wordRight: rightX };
