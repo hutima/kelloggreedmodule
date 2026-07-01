@@ -19,7 +19,7 @@ import { helpFor } from './help';
 
 /**
  * The four visualization edit adapters, each defining its OWN Basic and Advanced
- * behavior. Basic is visual-first and plain-English (mostly chips and clicks);
+ * behaviour. Basic is visual-first and plain-English (mostly chips and clicks);
  * Advanced is technical and modal-rich (full role lists, morphology). Both tiers
  * funnel semantic edits to the same shared syntax graph — the modes are lenses,
  * not separate models.

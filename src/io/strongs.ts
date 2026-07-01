@@ -5,7 +5,7 @@ import { foldAccents } from '@/domain/model';
  * new word for a textual variant can be given a Strong's lemma without a book
  * being loaded. Derived from James Strong's Exhaustive Concordance (1890, public
  * domain) via the Open Scriptures machine-readable edition (CC BY-SA), the same
- * license family as the OpenText / macula corpora already bundled here. The
+ * licence family as the OpenText / macula corpora already bundled here. The
  * compact form keeps only what the add-a-word search needs: lemma, transliteration,
  * a short gloss (from the Strong's definition) and the KJV renderings (for search).
  *

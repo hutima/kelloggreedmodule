@@ -927,7 +927,7 @@ textarea.code,
   font-family: var(--ui);
   font-size: 15px;
 }
-/* Small "dock to side panel / back to center" toggle in the source bar (desktop).
+/* Small "dock to side panel / back to centre" toggle in the source bar (desktop).
    `margin-left: auto` groups it (and the collapse caret, when present) at the
    right end of the bar. */
 .verses-place-btn {
@@ -948,7 +948,7 @@ textarea.code,
   color: var(--accent, #2f6f9f);
 }
 /* Verses docked into the right panel: the strip fills its tab body and scrolls
-   internally, rather than the center strip's fixed / resizable height band. */
+   internally, rather than the centre strip's fixed / resizable height band. */
 .verses-tab-host {
   flex: 1;
   min-height: 0;
