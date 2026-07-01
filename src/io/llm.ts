@@ -407,8 +407,9 @@ export function importLlmDiagram(text: string, opts: { title?: string } = {}): I
 /**
  * Import possibly-SEVERAL diagrams — one per sentence. A multi-sentence reply is a
  * JSON array (or a `{ "diagrams": [...] }` wrapper) of diagram objects; a single
- * sentence is one object. Each becomes its own document, so separate sentences are
- * separate diagrams instead of being wrongly linked into one clause.
+ * sentence is one object. Each parses to its own document — never joined into one
+ * clause here. The caller decides presentation: stack them into one passage
+ * (`combinePassage`) or open each as a separate, navigable diagram.
  */
 export function importLlmDiagrams(text: string, opts: { title?: string } = {}): MultiImportResult {
   const parsed0 = parseJsonLoose(text);
@@ -483,8 +484,13 @@ function hydrateFields(
           };
         })
       : (opts.fallbackTokens ?? []);
-  const tokenIds = new Set(tokens.map((t) => t.id));
   if (!tokens.length) return { ok: false, error: 'No tokens in the imported diagram.' };
+  // Ids must be unique — a reply reusing an id would silently merge/drop words.
+  const tokenIds = new Set<string>();
+  for (const t of tokens) {
+    if (tokenIds.has(t.id)) return { ok: false, error: `Duplicate token id: ${t.id}.` };
+    tokenIds.add(t.id);
+  }
 
   let nodes: SyntaxNode[] = d.nodes.map((n) => ({
     id: n.id,
@@ -496,16 +502,24 @@ function hydrateFields(
     ...(n.label ? { label: n.label } : {}),
     provenance: FROM_LLM,
   }));
-  const nodeIds = new Set(nodes.map((n) => n.id));
   if (!nodes.length) return { ok: false, error: 'No nodes in the imported diagram.' };
+  const nodeIds = new Set<string>();
+  for (const n of nodes) {
+    if (nodeIds.has(n.id)) return { ok: false, error: `Duplicate node id: ${n.id}.` };
+    nodeIds.add(n.id);
+  }
 
   let relations: Relation[] = [];
+  const relIds = new Set<string>();
   for (const r of d.relations) {
     if (!nodeIds.has(r.head) || !nodeIds.has(r.dependent)) {
       return { ok: false, error: `Relation references an unknown node: ${r.head} → ${r.dependent}.` };
     }
+    const relId = r.id ?? makeId('rel');
+    if (relIds.has(relId)) return { ok: false, error: `Duplicate relation id: ${relId}.` };
+    relIds.add(relId);
     relations.push({
-      id: r.id ?? makeId('rel'),
+      id: relId,
       type: asRole(r.type) ?? 'unknown',
       headId: r.head,
       dependentId: r.dependent,

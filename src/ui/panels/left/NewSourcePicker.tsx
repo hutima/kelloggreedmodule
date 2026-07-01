@@ -13,11 +13,28 @@ import { useViewport } from '@/ui/responsive';
 import { Modal } from '@/ui/components/common/Modal';
 import type { KrDocument, Language } from '@/domain/schema';
 
+/** Friendly names for every code `detectLanguage` can return; an unlisted code
+ *  falls back to the code itself at the point of use. */
 const LANG_LABEL: Record<Language, string> = {
   en: 'English',
   grc: 'Greek (Koine)',
   hbo: 'Hebrew (Biblical)',
+  zh: 'Chinese',
+  ja: 'Japanese',
 };
+
+/**
+ * What the post-import notice modal reports:
+ *   - `unmatched` — variant readings that WERE attached, but could not be aligned
+ *     to the base sentence, so they carry no difference analysis;
+ *   - `dropped` — per-sentence alternate readings that were NOT imported at all,
+ *     because the sentences were stacked into one combined diagram (readings
+ *     attach to a single source sentence, which a combined tree is not).
+ */
+interface ImportNotice {
+  kind: 'unmatched' | 'dropped';
+  labels: string[];
+}
 
 interface ParsedDiagrams {
   ok: boolean;
@@ -73,18 +90,18 @@ export function NewSourcePicker() {
   const currentDoc = useEditorStore((s) => s.doc);
   const importAsVariants = useEditorStore((s) => s.importAsVariants);
   const saveWithVariants = useEditorStore((s) => s.saveWithVariants);
-  // Re-derive the imported-reading count when the contested selection changes
-  // (import / delete both update it), so the Save-with-readings button stays live.
-  const contestedTick = useEditorStore((s) => s.contested.selectedContestedIssueId);
+  // How many imported readings the current passage carries (drives the
+  // Save-with-readings button). The readings live in the NON-reactive runtime
+  // registry, but every registry mutation (import, delete, doc switch) is followed
+  // by a store update — so derive the count in a selector: it re-runs against the
+  // freshly re-registered registry and re-renders only when the count changes.
+  const variantCount = useEditorStore((s) => getAlternateReadings(userIssueId(s.doc.id)).length);
   const docId = currentDoc.id;
   const vp = useViewport();
 
   // A variant attaches to a SINGLE loaded source sentence; block it while a
   // combined (multi-sentence) passage is open, and when nothing real is loaded.
   const canAttachVariant = currentDoc.tokens.length > 0 && !isCombinedPassage(currentDoc);
-  // How many imported readings the current passage carries (drives Save-with-readings).
-  void contestedTick;
-  const variantCount = getAlternateReadings(userIssueId(currentDoc.id)).length;
 
   const [saved, setSaved] = useState(false);
   useEffect(() => setSaved(false), [docId]); // a different doc hasn't been saved yet
@@ -100,7 +117,7 @@ export function NewSourcePicker() {
   const [ignorePunctuation, setIgnorePunctuation] = useState(false);
   const [askVariants, setAskVariants] = useState(false);
   const [outputAsFile, setOutputAsFile] = useState(false);
-  const [matchWarning, setMatchWarning] = useState<string[] | null>(null);
+  const [importNotice, setImportNotice] = useState<ImportNotice | null>(null);
 
   const ready = text.trim().length > 0;
   // Language is auto-detected from the script (Greek / Hebrew / English), so there
@@ -166,7 +183,7 @@ export function NewSourcePicker() {
       const unmatched = variants
         .filter((v) => !alignedDiff(currentDoc, v.doc, v.diffWords).matched)
         .map((v) => v.label);
-      if (unmatched.length) setMatchWarning(unmatched);
+      if (unmatched.length) setImportNotice({ kind: 'unmatched', labels: unmatched });
       if (vp.isDesktop) setAppMode('explore');
       collapseIfNarrow();
       return;
@@ -175,10 +192,11 @@ export function NewSourcePicker() {
     if (combine && documents.length > 1) {
       // Stack every sentence into one diagram (each clause on its own baseline,
       // one above the next). Per-sentence alternate readings don't map onto the
-      // combined tree, so note any that are dropped rather than losing them silently.
+      // combined tree, so they are NOT imported — say so honestly rather than
+      // losing them silently.
       loadDocument(combinePassage(documents), { corpus: 'custom' });
       const dropped = variantsByDoc.flat().map((v) => v.label);
-      if (dropped.length) setMatchWarning(dropped);
+      if (dropped.length) setImportNotice({ kind: 'dropped', labels: dropped });
       if (vp.isDesktop) setAppMode('edit');
       collapseIfNarrow();
       return;
@@ -193,7 +211,7 @@ export function NewSourcePicker() {
       if (vs.length) importAsVariants(vs, { targetDoc: d });
       for (const v of vs) if (!alignedDiff(d, v.doc, v.diffWords).matched) unmatched.push(v.label);
     });
-    if (unmatched.length) setMatchWarning(unmatched);
+    if (unmatched.length) setImportNotice({ kind: 'unmatched', labels: unmatched });
     if (vp.isDesktop) setAppMode('edit');
     collapseIfNarrow();
   };
@@ -205,7 +223,7 @@ export function NewSourcePicker() {
           Sentence{' '}
           {ready && (
             <span className="lang-detected" style={{ color: 'var(--muted, #667)', fontWeight: 400 }}>
-              · {LANG_LABEL[language]} (auto-detected)
+              · {LANG_LABEL[language] ?? language} (auto-detected)
             </span>
           )}
         </span>
@@ -331,24 +349,41 @@ export function NewSourcePicker() {
         </div>
       )}
 
-      {matchWarning && (
+      {importNotice && (
         <Modal
-          title="Variant loaded without analysis"
-          onClose={() => setMatchWarning(null)}
+          title={
+            importNotice.kind === 'dropped'
+              ? 'Alternate readings not imported'
+              : 'Variant loaded without analysis'
+          }
+          onClose={() => setImportNotice(null)}
           footer={
-            <button className="btn primary" onClick={() => setMatchWarning(null)}>
+            <button className="btn primary" onClick={() => setImportNotice(null)}>
               Got it
             </button>
           }
         >
-          <p>
-            {matchWarning.length === 1 ? 'This reading' : 'These readings'} could not be matched to
-            the base sentence, so {matchWarning.length === 1 ? 'it was' : 'they were'} loaded{' '}
-            <strong>without difference analysis</strong>. You can still switch between the base and{' '}
-            {matchWarning.length === 1 ? 'the reading' : 'each reading'} in the readings panel.
-          </p>
+          {importNotice.kind === 'dropped' ? (
+            <p>
+              {importNotice.labels.length === 1
+                ? 'This alternate reading was'
+                : 'These alternate readings were'}{' '}
+              <strong>not imported</strong>: a reading belongs to a single sentence, and the
+              sentences were stacked into one combined diagram. To keep the readings, import
+              again with “Stack multiple sentences in one diagram” unchecked.
+            </p>
+          ) : (
+            <p>
+              {importNotice.labels.length === 1 ? 'This reading' : 'These readings'} could not be
+              matched to the base sentence, so{' '}
+              {importNotice.labels.length === 1 ? 'it was' : 'they were'} loaded{' '}
+              <strong>without difference analysis</strong>. You can still switch between the base
+              and {importNotice.labels.length === 1 ? 'the reading' : 'each reading'} in the
+              readings panel.
+            </p>
+          )}
           <ul>
-            {matchWarning.map((label, i) => (
+            {importNotice.labels.map((label, i) => (
               <li key={i}>{label}</li>
             ))}
           </ul>

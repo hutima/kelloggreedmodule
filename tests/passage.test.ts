@@ -112,6 +112,32 @@ describe('combinePassage', () => {
     expect(doc.title).toBe('Marley was dead');
   });
 
+  it('re-indexes stacked tokens into one monotonic surface stream', () => {
+    // Every ordering consumer sorts by token index; without renumbering the
+    // stacked path would emit [0,1,0,1] and survive only via sort stability.
+    const doc = combinePassage([a, b]);
+    expect(doc.tokens.map((t) => t.index)).toEqual(doc.tokens.map((_, i) => i));
+  });
+
+  it('derives the combined id from ALL member ids, not just the first + count', () => {
+    const c = sentence('gnt_c', 'Romans 5:3', 'Ἰωάννης', 'βλέπει');
+    // Same first member and count, different selections → different ids —
+    // patches/notes/sermon key on the doc id, so a collision cross-contaminates.
+    expect(combinePassage([a, b]).id).not.toBe(combinePassage([a, c]).id);
+    // The same selection is deterministic and stable across calls.
+    expect(combinePassage([a, b]).id).toBe(combinePassage([a, b]).id);
+    // The coordinate path is keyed by its members too.
+    const s1 = sentence('ot_a', 'Php 2:9', 'Θεός', 'ὑπερύψωσεν');
+    const s2 = sentenceWithLead('ot_b', 'Php 2:10', 'καὶ', 'καί', 'γλῶσσα', 'ἐξομολογήσηται');
+    const s3 = sentenceWithLead('ot_c', 'Php 2:11', 'δὲ', 'δέ', 'γόνυ', 'κάμψῃ');
+    expect(combinePassage([s1, s2], { coordinate: true }).id).not.toBe(
+      combinePassage([s1, s3], { coordinate: true }).id,
+    );
+    expect(combinePassage([s1, s2], { coordinate: true }).id).toBe(
+      combinePassage([s1, s2], { coordinate: true }).id,
+    );
+  });
+
   it('lays out both sentences stacked (each its own baseline)', () => {
     const layout = layoutDocument(combinePassage([a, b]));
     const yOf = (t: string) =>
