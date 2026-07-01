@@ -17,9 +17,10 @@ import { ReadingChoiceControl } from './ReadingChoiceControl';
 /**
  * Shared body of the alternate-readings panel — used by the desktop drawer and
  * the mobile sheet. It explains the issue, lets the user pick a reading (Base or
- * an alternate, previewed not saved), shows what differs, and — on desktop, for a
- * structural alternate — offers "Use this parse as my custom reading". Copy stays
- * neutral: "the base tree shows", "this alternate reads".
+ * an alternate, previewed not saved), shows what differs, and — for a structural
+ * alternate — offers "Use this parse as my custom reading" (promotes the preview
+ * to the saved patch) on both desktop and mobile. Copy stays neutral: "the base
+ * tree shows", "this alternate reads".
  */
 const TYPE_LABEL: Record<AlternateSourceType, string> = {
   'review-only': 'Review only',
@@ -239,7 +240,7 @@ export function AlternateReadingPanel({ variant }: { variant: 'mobile' | 'deskto
                     Delete reading
                   </button>
                 )}
-                {variant === 'desktop' && canAdoptAlternateReading(previewReading) && !isMergeIssue(issue) && (
+                {canAdoptAlternateReading(previewReading) && !isMergeIssue(issue) && (
                   <button
                     className="btn primary"
                     title="Save this parse as your custom reading"

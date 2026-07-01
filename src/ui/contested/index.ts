@@ -1,5 +1,6 @@
 export { ContestedBadge } from './ContestedBadge';
 export { MobileContestedBar } from './MobileContestedBar';
+export { MultiSentenceContestedNotice } from './MultiSentenceContestedNotice';
 export { MobileAlternateReadingSheet } from './MobileAlternateReadingSheet';
 export { DesktopAlternateReadingDrawer } from './DesktopAlternateReadingDrawer';
 export { SinglePreviewView } from './SinglePreviewView';
