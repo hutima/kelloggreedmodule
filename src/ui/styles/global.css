@@ -1577,7 +1577,7 @@ textarea.code,
   /* In Sermon mode the prep sheet is fixed over the lower half of the screen.
      Give the scrollable diagram extra room at the bottom so its last rows can
      scroll ABOVE the sheet instead of staying hidden behind it. */
-  .app.mobile.sermon-open .canvas-viewport.html-mode {
+  .app.mobile.sermon-open .html-scroll {
     padding-bottom: 54vh;
   }
 
@@ -1599,10 +1599,18 @@ textarea.code,
    export still uses the geometric layout. The shared scroll container.
    ============================================================================ */
 .canvas-viewport.html-mode {
-  overflow: auto;
+  /* Do NOT scroll here — the inner `.html-scroll` scrolls. This element is the
+     positioning context for the detail card, so it must stay put (an absolute
+     card inside a scroll container is carried off-screen when the user scrolls
+     down to a word). Inherits `overflow: hidden` from `.canvas-viewport`. */
   cursor: default;
   touch-action: auto;
   background: var(--paper);
+}
+.html-scroll {
+  height: 100%;
+  overflow: auto;
+  touch-action: auto;
   padding: 12px 14px 20px;
 }
 

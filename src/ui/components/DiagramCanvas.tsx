@@ -1059,11 +1059,18 @@ export function DiagramCanvas() {
         </div>
       ) : htmlMode ? (
         <div className="canvas-viewport html-mode">
-          {diagramMode === 'phrase-block' ? (
-            <PhraseBlockView hovered={hover.nodes} onHover={hoverDiagram} />
-          ) : (
-            <MorphologyView hovered={hover.nodes} onHover={hoverDiagram} />
-          )}
+          {/* The content scrolls in its own wrapper; the detail card sits OUTSIDE
+              it so it stays pinned to the visible diagram area. (When the card was
+              an absolute child of the scroll container, scrolling down to a word
+              "later in the passage" carried the card off the top of the screen —
+              so tapping later words appeared to do nothing.) */}
+          <div className="html-scroll">
+            {diagramMode === 'phrase-block' ? (
+              <PhraseBlockView hovered={hover.nodes} onHover={hoverDiagram} />
+            ) : (
+              <MorphologyView hovered={hover.nodes} onHover={hoverDiagram} />
+            )}
+          </div>
           {htmlReveal && detailCard(htmlReveal)}
         </div>
       ) : (
