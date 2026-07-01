@@ -72,6 +72,17 @@ describe('buildLlmPrompt', () => {
     expect(prompt).toMatch(/MODAL or matrix verb/);
     expect(prompt).toMatch(/the second verb is a COMPLEMENT/);
   });
+
+  it('coordinates FULL clauses via a headless "coordinate" wrapper, not first-as-root', () => {
+    // Two main clauses joined by "and" must hang off a headless "coordinate" clause
+    // (which draws as the compound-sentence spine), NOT off the first clause (which
+    // renders as subordination and strands the conjunction as a stray slant).
+    expect(prompt).toMatch(/COORDINATION OF WORDS/);
+    expect(prompt).toMatch(/COORDINATION OF CLAUSES/);
+    expect(prompt).toMatch(/HEADLESS parent/);
+    expect(prompt).toMatch(/"clauseType":"coordinate"/);
+    expect(prompt).toMatch(/Do NOT instead make the first clause the root/);
+  });
 });
 
 describe('importLlmDiagram', () => {
@@ -359,6 +370,67 @@ describe('importLlmDiagrams (multiple sentences)', () => {
   });
 });
 
+describe('compound sentence — clause coordination', () => {
+  it('a headless "coordinate" clause joins two full clauses and lays out as a spine', () => {
+    // The encoding the refined prompt asks for: a headless "coordinate" root holds
+    // both full clauses as conjuncts, with "and" as its coordinator. It must import
+    // and lay out as two stacked clause baselines (not one clause subordinated to
+    // the other) with the conjunction drawn.
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'en',
+      text: 'The court acted and they tried him',
+      tokens: [
+        { id: 't_court', surface: 'court', pos: 'noun' },
+        { id: 't_acted', surface: 'acted', pos: 'verb' },
+        { id: 't_and', surface: 'and', pos: 'conjunction' },
+        { id: 't_they', surface: 'they', pos: 'pronoun' },
+        { id: 't_tried', surface: 'tried', pos: 'verb' },
+        { id: 't_him', surface: 'him', pos: 'pronoun' },
+      ],
+      nodes: [
+        { id: 'cc', kind: 'clause', clauseType: 'coordinate', tokens: [] },
+        { id: 'a', kind: 'clause', clauseType: 'independent', tokens: [] },
+        { id: 'b', kind: 'clause', clauseType: 'independent', tokens: [] },
+        { id: 'n_and', kind: 'word', role: 'coordinator', tokens: ['t_and'] },
+        { id: 'n_court', kind: 'word', role: 'subject', tokens: ['t_court'] },
+        { id: 'n_acted', kind: 'word', role: 'predicate', tokens: ['t_acted'] },
+        { id: 'n_they', kind: 'word', role: 'subject', tokens: ['t_they'] },
+        { id: 'n_tried', kind: 'word', role: 'predicate', tokens: ['t_tried'] },
+        { id: 'n_him', kind: 'word', role: 'directObject', tokens: ['t_him'] },
+      ],
+      relations: [
+        { type: 'conjunct', head: 'cc', dependent: 'a' },
+        { type: 'conjunct', head: 'cc', dependent: 'b' },
+        { type: 'coordinator', head: 'cc', dependent: 'n_and' },
+        { type: 'subject', head: 'a', dependent: 'n_court' },
+        { type: 'predicate', head: 'a', dependent: 'n_acted' },
+        { type: 'subject', head: 'b', dependent: 'n_they' },
+        { type: 'predicate', head: 'b', dependent: 'n_tried' },
+        { type: 'directObject', head: 'n_tried', dependent: 'n_him' },
+      ],
+      rootId: 'cc',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    const doc = res.document!;
+    // The root is the headless coordinate clause.
+    const root = doc.syntax.nodes.find((n) => n.id === doc.syntax.rootId)!;
+    expect(root.clauseType).toBe('coordinate');
+    expect(root.tokenIds).toEqual([]);
+    const layout = layoutDocument(doc);
+    const yOf = (t: string) =>
+      (layout.elements.find((e) => e.kind === 'text' && (e as { text: string }).text === t) as
+        | { y: number }
+        | undefined)?.y;
+    // Two clause baselines, stacked (different rows), with the conjunction drawn.
+    expect(yOf('acted')).toBeDefined();
+    expect(yOf('tried')).toBeDefined();
+    expect(yOf('acted')).not.toEqual(yOf('tried'));
+    expect(layout.elements.some((e) => e.kind === 'text' && (e as { text: string }).text === 'and')).toBe(true);
+  });
+});
+
 describe('LLM alternate readings (variants)', () => {
   it('asks for variants (with an impact note) only when the option is set', () => {
     const text = 'faith of Christ';
@@ -368,6 +440,9 @@ describe('LLM alternate readings (variants)', () => {
     expect(withVar).toMatch(/ALTERNATE READINGS/);
     expect(withVar).toMatch(/"variants"/);
     expect(withVar).toMatch(/impact/i);
+    // The variant NAME must be short + descriptive, not the sentence text.
+    expect(withVar).toMatch(/descriptive NAME for the reading/);
+    expect(withVar).toMatch(/NOT the sentence text/);
   });
 
   it('imports variants as full parses that reuse the primary tokens', () => {

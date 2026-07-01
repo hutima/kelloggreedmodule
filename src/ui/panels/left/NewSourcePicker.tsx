@@ -27,6 +27,18 @@ interface ParsedDiagrams {
   error?: string;
 }
 
+/**
+ * A SHORT reading label from a diagram title (the sentence's opening words). When
+ * several parses are imported as readings they read as a list, so prefix a number
+ * and trim to a few words — a full sentence makes an unwieldy variant name.
+ */
+function shortReadingLabel(title: string, index?: number): string {
+  const words = title.trim().replace(/…$/, '').split(/\s+/).filter(Boolean);
+  const head = words.slice(0, 4).join(' ') + (words.length > 4 ? '…' : '');
+  const base = head || 'Imported reading';
+  return index ? `${index}. ${base}` : base;
+}
+
 /** Parse pasted/loaded text as the compact LLM format (one OR several sentences,
  *  possibly with alternate readings) or a full KrDocument — always a list of docs. */
 function parseDiagrams(raw: string): ParsedDiagrams {
@@ -143,7 +155,10 @@ export function NewSourcePicker() {
       // its own alternates come along too (labelled under it).
       const variants: VariantInput[] = [];
       documents.forEach((d, i) => {
-        variants.push({ label: d.title || 'Imported reading', doc: d });
+        // Keep the reading name short: several imported parses read as a list, so
+        // a few opening words (or a number) beats the whole sentence as a label.
+        const short = shortReadingLabel(d.title, documents.length > 1 ? i + 1 : undefined);
+        variants.push({ label: short, doc: d });
         for (const v of variantsByDoc[i] ?? []) variants.push(v);
       });
       importAsVariants(variants, { targetDoc: currentDoc });
