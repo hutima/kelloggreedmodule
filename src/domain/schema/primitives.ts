@@ -9,8 +9,20 @@ import { z } from 'zod';
  * yet handle. Never assume the set is closed.
  */
 
-export const LanguageSchema = z.enum(['en', 'grc', 'hbo']);
-export type Language = z.infer<typeof LanguageSchema>;
+/**
+ * A language code. The three with FIRST-CLASS treatment — `en` (English), `grc`
+ * (Koine Greek, polytonic font stack), `hbo` (Biblical Hebrew, right-to-left) —
+ * are the built-in base-data languages, but the schema accepts ANY code so a
+ * user's custom / LLM-imported sentence can be in any language (Chinese, Arabic,
+ * …). Unknown codes get sensible neutral defaults (left-to-right, default font).
+ */
+export const KNOWN_LANGUAGES = ['en', 'grc', 'hbo'] as const;
+export const LanguageSchema = z.string().min(1);
+export type Language = 'en' | 'grc' | 'hbo' | (string & {});
+
+/** Text/layout direction. RTL scripts (Hebrew, Arabic, …) lay out right-to-left. */
+export const DirectionSchema = z.enum(['ltr', 'rtl']);
+export type Direction = z.infer<typeof DirectionSchema>;
 
 /**
  * Where an analytical assertion came from and how much to trust it.

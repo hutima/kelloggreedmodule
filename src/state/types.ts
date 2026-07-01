@@ -205,6 +205,15 @@ export interface EditorState {
   /** Desktop side-by-side comparison of two syntax sources. */
   sourceCompare: SourceCompareState;
   /**
+   * Flip the Kellogg-Reed and Phrase/Block diagrams horizontally. A right-to-left
+   * document (Hebrew, Arabic…) lays its baseline out right-to-left to match the
+   * reading direction; turning this on mirrors it back to left-to-right so the
+   * structure reads in English word order. Only meaningful for RTL documents — the
+   * effective direction is `docDirection(doc) === 'rtl' && !flipDiagram`, so it is
+   * a no-op on left-to-right texts. Persisted (a global view preference).
+   */
+  flipDiagram: boolean;
+  /**
    * Show English glosses instead of the Greek/Hebrew words in the structural
    * diagrams (Kellogg-Reed / Phrase-Block / Dependency). The PARSE stays the
    * Greek one — only the displayed words change — so non-Greek readers can follow

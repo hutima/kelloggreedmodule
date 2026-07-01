@@ -121,6 +121,18 @@ function registerUserVariants(passageId: string): void {
 }
 
 /**
+ * A reading label for a base parse being DEMOTED (when another reading is promoted
+ * to base). A primary parse's title is just the opening words of the sentence,
+ * which reads poorly as a reading label — so fall back to a clear generic name.
+ */
+function demotedBaseLabel(doc: KrDocument): string {
+  const title = doc.title?.trim();
+  const stem = title?.replace(/…$/, '').trim();
+  if (!title || (stem && doc.text.trim().startsWith(stem))) return 'Previous base parse';
+  return title;
+}
+
+/**
  * The id of the last document the user was viewing/editing, so a refresh (or an
  * iOS Safari pinch-zoom that blanks the page) restores it instead of dropping to
  * a blank doc. The document itself lives in IndexedDB (autosaved); this is just
@@ -160,6 +172,25 @@ function saveTreeOrientation(value: TreeOrientation): void {
     // 'horizontal' is the default, so store only the override.
     if (value === 'vertical') localStorage.setItem(TREE_ORIENTATION_KEY, 'vertical');
     else localStorage.removeItem(TREE_ORIENTATION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+const FLIP_DIAGRAM_KEY = 'kr:flipDiagram';
+function loadFlipDiagram(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    return localStorage.getItem(FLIP_DIAGRAM_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function saveFlipDiagram(value: boolean): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    if (value) localStorage.setItem(FLIP_DIAGRAM_KEY, '1');
+    else localStorage.removeItem(FLIP_DIAGRAM_KEY);
   } catch {
     /* ignore */
   }
@@ -425,6 +456,8 @@ export interface EditorActions {
   setVersesInPanel: (value: boolean) => void;
   /** Register (or clear) the right-panel element that hosts the verses strip. */
   setVersesHost: (el: HTMLElement | null) => void;
+  /** Flip the KR / Phrase-Block diagram horizontally (mirror an RTL doc to LTR). */
+  setFlipDiagram: (value: boolean) => void;
   /** Toggle English-gloss display in the structural diagrams. */
   setGlossMode: (value: boolean) => void;
   /** Toggle grammar-colour tinting in the Kellogg-Reed / Phrase-Block diagrams. */
@@ -482,6 +515,13 @@ export interface EditorActions {
   importAsVariants: (variants: VariantInput[], opts?: { targetDoc?: KrDocument }) => void;
   /** Delete one imported variant reading of the current passage (persisted). */
   deleteImportedVariant: (readingId: string) => void;
+  /**
+   * Promote an imported variant reading to BE the base parse. The chosen reading
+   * becomes the new base (a fresh custom sentence), the outgoing base is demoted to
+   * a reading, and the remaining readings carry over — so every reading now diffs
+   * against a consistent (LLM-tokenized) base and difference analysis is coherent.
+   */
+  promoteReadingToBase: (readingId: string) => void;
   // click-to-relink
   startRelink: (relationId: string, end: 'head' | 'dependent') => void;
   cancelRelink: () => void;
@@ -673,6 +713,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     versesInPanel: loadVersesInPanel(),
     versesHost: null,
     sourceCompare: { on: false, source: 'opentext' },
+    flipDiagram: loadFlipDiagram(),
     glossMode: false,
     colorMode: true,
     preferAppDiff: false,
@@ -1513,6 +1554,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       set(value ? { versesInPanel: value } : { versesInPanel: value, versesHost: null });
     },
     setVersesHost: (el) => set({ versesHost: el }),
+    setFlipDiagram: (value) => {
+      saveFlipDiagram(value);
+      set({ flipDiagram: value });
+    },
     setGlossMode: (value) => set({ glossMode: value }),
     setColorMode: (value) => set({ colorMode: value }),
     setPreferAppDiff: (value) => set({ preferAppDiff: value }),
@@ -1704,6 +1749,49 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           },
         };
       });
+    },
+
+    promoteReadingToBase: (readingId) => {
+      const src = get().doc;
+      const bundle = loadUserVariants(src.id);
+      if (!bundle) return;
+      const reading = bundle.readings.find((r) => r.id === readingId);
+      if (!reading?.fullDoc) return;
+
+      // The chosen reading becomes the new base. A fresh id gives it a clean patch /
+      // notes space, so it never inherits the outgoing base's stored edits.
+      const newBase = touch({ ...reading.fullDoc, id: makeId('doc'), title: reading.label });
+
+      // Rebuild the readings for the new base: the OUTGOING base is demoted to a
+      // reading (so nothing is lost and it can be re-promoted), plus every other
+      // reading except the promoted one. buildUserVariants re-keys them to the new id.
+      const variants: VariantInput[] = [
+        { label: demotedBaseLabel(src), doc: src },
+        ...bundle.readings
+          .filter((r) => r.id !== readingId && r.fullDoc)
+          .map((r) => ({
+            label: r.label,
+            ...(r.impact ? { impact: r.impact } : {}),
+            ...(r.diffWords?.length ? { diffWords: r.diffWords } : {}),
+            doc: r.fullDoc!,
+          })),
+      ];
+      saveUserVariants(newBase.id, buildUserVariants(newBase.id, newBase.title, variants));
+      deleteUserVariants(src.id);
+      // Persist the promoted base as a custom sentence so it (and its re-keyed
+      // readings) survive navigation — the outgoing base's id no longer holds them.
+      void saveCustomParse(newBase)
+        .then(() => get().refreshCustomParses())
+        .catch(() => {});
+      get().loadDocument(newBase, { corpus: 'custom' });
+      // Reveal the readings panel on the new base.
+      set((s) => ({
+        contested: {
+          ...s.contested,
+          showAlternateParsePanel: true,
+          selectedContestedIssueId: userIssueId(newBase.id),
+        },
+      }));
     },
 
     startRelink: (relationId, end) => set({ linking: { relationId, end }, selection: { relationId } }),

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { lowfatToDocuments } from '@/io/lowfat';
-import { layoutForMode, DIAGRAM_MODES, DEFAULT_MODE } from '@/domain/layout';
-import { lookupGloss, createDocument } from '@/domain/model';
+import { layoutForMode, mirrorLayout, DIAGRAM_MODES, DEFAULT_MODE } from '@/domain/layout';
+import { lookupGloss, createDocument, docDirection } from '@/domain/model';
 import { buildSvg } from '@/io';
 import type { KrDocument } from '@/domain/schema';
 
@@ -274,6 +274,55 @@ describe('tree orientation', () => {
     const root = texts.find((t) => t.text === '[ROOT]')!;
     const verb = texts.find((t) => t.text === 'was')!;
     expect(root.y).toBeLessThan(verb.y);
+  });
+});
+
+describe('right-to-left layout + horizontal flip', () => {
+  // x of the first text element with this surface, in a laid-out diagram.
+  const xOf = (layout: { elements: readonly unknown[] }, text: string) =>
+    (layout.elements.find(
+      (e) => (e as { kind: string; text?: string }).kind === 'text' && (e as { text?: string }).text === text,
+    ) as { x: number }).x;
+
+  it('docDirection: Hebrew is RTL, Greek/English LTR, and an explicit flag wins', () => {
+    expect(docDirection({ language: 'hbo' })).toBe('rtl');
+    expect(docDirection({ language: 'grc' })).toBe('ltr');
+    expect(docDirection({ language: 'en' })).toBe('ltr');
+    // explicit direction overrides the language guess (e.g. an Arabic custom doc)
+    expect(docDirection({ language: 'ar', direction: 'ltr' })).toBe('ltr');
+    expect(docDirection({ language: 'en', direction: 'rtl' })).toBe('rtl');
+  });
+
+  it('mirrors the Kellogg-Reed baseline about the diagram width when RTL', () => {
+    const ltr = layoutForMode('kellogg-reed', doc(), {}, { rtl: false });
+    const rtl = layoutForMode('kellogg-reed', doc(), {}, { rtl: true });
+    expect(rtl.width).toBeCloseTo(ltr.width);
+    // Every word's x is reflected across the diagram width (x → width − x).
+    expect(xOf(rtl, 'ἠγάπησεν')).toBeCloseTo(ltr.width - xOf(ltr, 'ἠγάπησεν'));
+    expect(xOf(rtl, 'θεός')).toBeCloseTo(ltr.width - xOf(ltr, 'θεός'));
+  });
+
+  it('mirrors the Phrase/Block diagram too (via mirrorLayout)', () => {
+    const ltr = layoutForMode('phrase-block', doc(), {}, { rtl: false });
+    const rtl = layoutForMode('phrase-block', doc(), {}, { rtl: true });
+    expect(xOf(rtl, 'θεός')).toBeCloseTo(ltr.width - xOf(ltr, 'θεός'));
+    // Mirroring the LTR layout directly reproduces the RTL one.
+    expect(xOf(mirrorLayout(ltr), 'θεός')).toBeCloseTo(xOf(rtl, 'θεός'));
+  });
+
+  it('auto-mirrors when the document itself is RTL, and the flip toggle un-mirrors it', () => {
+    const rtlDoc = { ...doc(), language: 'hbo', direction: 'rtl' as const };
+    // No explicit option: an RTL document lays out right-to-left by default.
+    const auto = layoutForMode('kellogg-reed', rtlDoc, {}, {});
+    // The flip toggle forces rtl:false (read left-to-right, English word order).
+    const flipped = layoutForMode('kellogg-reed', rtlDoc, {}, { rtl: false });
+    expect(xOf(auto, 'ἠγάπησεν')).toBeCloseTo(flipped.width - xOf(flipped, 'ἠγάπησεν'));
+  });
+
+  it('leaves an LTR (Greek) document unmirrored by default', () => {
+    const auto = layoutForMode('kellogg-reed', doc(), {}, {});
+    const forcedLtr = layoutForMode('kellogg-reed', doc(), {}, { rtl: false });
+    expect(xOf(auto, 'ἠγάπησεν')).toBeCloseTo(xOf(forcedLtr, 'ἠγάπησεν'));
   });
 });
 
