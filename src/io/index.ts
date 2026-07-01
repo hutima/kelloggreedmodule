@@ -3,6 +3,14 @@ export * from './export';
 export { lowfatToDocuments, type LowfatDocOptions } from './lowfat';
 export { loadGntBook, cacheGntBook, evictGntBook, GNT_BOOKS, BUNDLED_BOOKS, type GntBook } from './gnt';
 export { loadOtChapter, loadOtBook, cacheOtChapter, chapterFile, OT_BOOKS, type OtBook } from './ot';
+export {
+  downloadCorpus,
+  requestPersistentStorage,
+  storageEstimate,
+  clearCorpusCache,
+  type OfflineCorpus,
+  type WarmProgress,
+} from './offline';
 export { maculaHebrewToDocuments, type MaculaHebrewDocOptions } from './macula-hebrew';
 export { openTextToDocuments, type OpenTextDocOptions } from './opentext';
 export { buildSurfaceIndex, alignOpenTextSurface, type AlignResult } from './opentext-align';
