@@ -49,8 +49,10 @@ export {
 export {
   buildLlmPrompt,
   importLlmDiagram,
+  importLlmDiagrams,
   titleFromText,
   LLM_DIAGRAM_KIND,
   LlmDiagramSchema,
   type LlmDiagram,
+  type MultiImportResult,
 } from './llm';

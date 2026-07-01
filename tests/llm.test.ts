@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildLlmPrompt, importLlmDiagram, LLM_DIAGRAM_KIND } from '@/io';
+import { buildLlmPrompt, importLlmDiagram, importLlmDiagrams, LLM_DIAGRAM_KIND } from '@/io';
 import { tokenize } from '@/domain/model';
 import { layoutDocument } from '@/domain/layout';
 
@@ -23,6 +23,12 @@ describe('buildLlmPrompt', () => {
     expect(prompt).toContain('subject');
     expect(prompt).toContain('independent');
     expect(prompt).toContain('article');
+  });
+
+  it('tells the model to diagram multiple sentences as SEPARATE objects in an array', () => {
+    expect(prompt).toMatch(/MULTIPLE SENTENCES/i);
+    expect(prompt).toMatch(/array/i);
+    expect(prompt).toMatch(/separate diagrams|SEPARATELY/i);
   });
 
   it('steers away from empty wrapper nodes and toward head-based coordination', () => {
@@ -196,5 +202,60 @@ describe('importLlmDiagram', () => {
     const res = importLlmDiagram('not json at all');
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/invalid json/i);
+  });
+});
+
+describe('importLlmDiagrams (multiple sentences)', () => {
+  const oneSentence = (id: string, subj: string, verb: string) => ({
+    kind: LLM_DIAGRAM_KIND,
+    language: 'en',
+    text: `${subj} ${verb}.`,
+    tokens: [
+      { id: `${id}s`, surface: subj, pos: 'noun' },
+      { id: `${id}v`, surface: `${verb}.`, pos: 'verb' },
+    ],
+    nodes: [
+      { id: `${id}c`, kind: 'clause', clauseType: 'independent' },
+      { id: `${id}ns`, kind: 'word', role: 'subject', tokens: [`${id}s`] },
+      { id: `${id}nv`, kind: 'word', role: 'predicate', tokens: [`${id}v`] },
+    ],
+    relations: [
+      { type: 'subject', head: `${id}c`, dependent: `${id}ns` },
+      { type: 'predicate', head: `${id}c`, dependent: `${id}nv` },
+    ],
+    rootId: `${id}c`,
+  });
+
+  it('makes ONE document per sentence from a top-level array', () => {
+    const res = importLlmDiagrams(JSON.stringify([oneSentence('a', 'Boys', 'run'), oneSentence('b', 'Girls', 'walk')]));
+    expect(res.ok).toBe(true);
+    expect(res.documents).toHaveLength(2);
+    // Distinct documents, each its own single-clause tree — NOT linked together.
+    expect(res.documents![0]!.id).not.toBe(res.documents![1]!.id);
+    expect(res.documents![0]!.tokens.map((t) => t.surface)).toEqual(['Boys', 'run.']);
+    expect(res.documents![1]!.tokens.map((t) => t.surface)).toEqual(['Girls', 'walk.']);
+    for (const d of res.documents!) {
+      // no cross-sentence conjunct/clause link — each is a standalone diagram
+      expect(d.syntax.relations.some((r) => r.type === 'conjunct')).toBe(false);
+    }
+  });
+
+  it('accepts a { diagrams: [...] } wrapper too', () => {
+    const res = importLlmDiagrams(JSON.stringify({ diagrams: [oneSentence('a', 'Boys', 'run')] }));
+    expect(res.ok).toBe(true);
+    expect(res.documents).toHaveLength(1);
+  });
+
+  it('still handles a SINGLE object (one sentence) as one document', () => {
+    const res = importLlmDiagrams(JSON.stringify(oneSentence('a', 'Boys', 'run')));
+    expect(res.ok).toBe(true);
+    expect(res.documents).toHaveLength(1);
+  });
+
+  it('reports which sentence failed in a multi-sentence import', () => {
+    const bad = { ...oneSentence('b', 'Girls', 'walk'), relations: [{ type: 'subject', head: 'bc', dependent: 'ghost' }] };
+    const res = importLlmDiagrams(JSON.stringify([oneSentence('a', 'Boys', 'run'), bad]));
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/sentence 2/i);
   });
 });

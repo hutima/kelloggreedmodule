@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { tokenize } from '@/domain/model';
-import { buildLlmPrompt, importLlmDiagram, importJson, copyText, downloadText, slugify } from '@/io';
+import { buildLlmPrompt, importLlmDiagrams, importJson, copyText, downloadText, slugify } from '@/io';
 import { useViewport } from '@/ui/responsive';
 import { Modal } from '@/ui/components/common/Modal';
 import type { KrDocument, Language } from '@/domain/schema';
 
-/** Parse pasted/loaded text as either the compact LLM format or a full KrDocument. */
-function parseDiagram(raw: string): { ok: boolean; document?: KrDocument; error?: string } {
-  const llm = importLlmDiagram(raw);
+/** Parse pasted/loaded text as the compact LLM format (one OR several sentences)
+ *  or a full KrDocument — always returning a list of documents. */
+function parseDiagrams(raw: string): { ok: boolean; documents?: KrDocument[]; error?: string } {
+  const llm = importLlmDiagrams(raw);
   if (llm.ok) return llm;
   const full = importJson(raw);
-  if (full.ok) return full;
+  if (full.ok && full.document) return { ok: true, documents: [full.document] };
   // Surface the friendlier of the two messages (LLM-format parse first).
   return { ok: false, error: llm.error ?? full.error ?? 'Could not read that diagram.' };
 }
@@ -28,6 +29,7 @@ function parseDiagram(raw: string): { ok: boolean; document?: KrDocument; error?
 export function NewSourcePicker() {
   const createFromText = useEditorStore((s) => s.createFromText);
   const loadDocument = useEditorStore((s) => s.loadDocument);
+  const setGntContext = useEditorStore((s) => s.setGntContext);
   const setAppMode = useEditorStore((s) => s.setAppMode);
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
   const customParses = useEditorStore((s) => s.customParses);
@@ -73,9 +75,13 @@ export function NewSourcePicker() {
     setPromptText(buildLlmPrompt(text.trim(), tokens, language));
   };
 
-  /** Load a parsed diagram document as a new custom document. */
-  const acceptDocument = (document: KrDocument) => {
-    loadDocument(document, { corpus: 'custom' });
+  /** Load parsed diagram document(s) — several when the import was multi-sentence.
+   *  The first opens; the rest become a prev/next context so each sentence is its
+   *  own diagram you can step through. */
+  const acceptDocuments = (documents: KrDocument[]) => {
+    if (!documents.length) return;
+    loadDocument(documents[0]!, { corpus: 'custom' });
+    if (documents.length > 1) setGntContext(documents, 0);
     if (vp.isDesktop) setAppMode('edit');
     collapseIfNarrow();
   };
@@ -184,8 +190,8 @@ export function NewSourcePicker() {
       {importOpen && (
         <ImportDiagramModal
           onClose={() => setImportOpen(false)}
-          onImport={(doc) => {
-            acceptDocument(doc);
+          onImport={(docs) => {
+            acceptDocuments(docs);
             setImportOpen(false);
           }}
         />
@@ -200,19 +206,19 @@ function ImportDiagramModal({
   onImport,
 }: {
   onClose: () => void;
-  onImport: (doc: KrDocument) => void;
+  onImport: (docs: KrDocument[]) => void;
 }) {
   const [raw, setRaw] = useState('');
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const confirm = () => {
-    const res = parseDiagram(raw);
-    if (!res.ok || !res.document) {
+    const res = parseDiagrams(raw);
+    if (!res.ok || !res.documents?.length) {
       setError(res.error ?? 'Could not read that diagram.');
       return;
     }
-    onImport(res.document);
+    onImport(res.documents);
   };
 
   const loadFile = async (file: File) => {
@@ -324,7 +330,10 @@ function LlmWorkflowModal({ onClose }: { onClose: () => void }) {
           the sentence, the tokens to reference, the exact output format, and the allowed
           grammatical labels.
         </li>
-        <li>The model replies with one JSON object. Save it as a <code>.json</code> file (or paste it into one).</li>
+        <li>
+          The model replies with one JSON object (or an array of them, one per sentence, for a
+          multi-sentence paste). Save it as a <code>.json</code> file (or paste it into one).
+        </li>
         <li>
           Press <strong>Import</strong> and choose that file. The diagram loads as a new document,
           ready to refine by hand.
