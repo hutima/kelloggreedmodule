@@ -630,7 +630,6 @@ export function DiagramCanvas() {
         >
           {strong ? `${searchLang === 'grc' ? 'G' : 'H'}${strong}` : `Find “${lemma}” everywhere`}
         </button>
-        {strong && <> · find this lemma everywhere</>}
       </div>
     );
   };
