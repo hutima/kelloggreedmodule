@@ -696,6 +696,203 @@ const RAW = {
       alternateReadingIds: ['alt_matt_5_22_eike'],
       bibliography: ['Metzger, Textual Commentary, Matthew 5:22; NET note on Matthew 5:22.'],
     },
+
+    // ───────────────────── Jude 5 (Lord / Jesus / God) ─────────────────────
+    {
+      id: 'iss_jude_5_variant',
+      passageId: 'gnt_jude_4',
+      verseRef: 'Jude 5',
+      kind: 'textual',
+      sourceType: 'textual-variant',
+      severity: 'major',
+      label: 'κύριος / Ἰησοῦς / θεός — who “saved a people out of Egypt”',
+      shortLabel: 'κύριος / Ἰησοῦς',
+      summary:
+        'The base reads (ὁ) κύριος (“[the] Lord”) as the one who saved a people out of Egypt. Weighty witnesses (A B 33 81) read Ἰησοῦς (“Jesus”), which NA28 adopted into its main text; a few read (ὁ) θεός. A striking Christological variant; base tokens unchanged.',
+      affectedTokenIds: ['t_650010050090010'],
+      affectedNodeIds: ['w_650010050090010'],
+      defaultReading: {
+        label: 'κύριος (“the Lord”)',
+        description: 'The base reads κύριος as the subject of σώσας … ἀπώλεσεν — “the Lord, having saved a people, afterward destroyed…”.',
+        parseSummary: 'subject κύριος → σώσας / ἀπώλεσεν',
+      },
+      alternateReadingIds: ['alt_jude_5_jesus', 'alt_jude_5_god'],
+      bibliography: ['Metzger, Textual Commentary, Jude 5; NA28 (main text Ἰησοῦς).'],
+    },
+
+    // ─────────────── 2 Peter 3:10 (will be found / burned up) ───────────────
+    {
+      id: 'iss_2pet_3_10_variant',
+      passageId: 'gnt_2-peter_37',
+      verseRef: '2 Peter 3:10',
+      kind: 'textual',
+      sourceType: 'textual-variant',
+      severity: 'major',
+      label: 'εὑρεθήσεται / κατακαήσεται — the earth “will be found” or “burned up”',
+      shortLabel: 'found / burned up',
+      summary:
+        'The base reads εὑρεθήσεται (“will be found”, ℵ B K P) — a famously difficult reading (found by whom? for judgment?). The Byzantine/TR reads κατακαήσεται (“will be burned up”), and some witnesses add οὐχ (“will NOT be found”). A textual variant; base tokens unchanged.',
+      affectedTokenIds: ['t_610030100240010'],
+      affectedNodeIds: ['w_610030100240010'],
+      defaultReading: {
+        label: 'εὑρεθήσεται (“will be found”)',
+        description: 'The base reads the future passive εὑρεθήσεται — “the earth and the works in it will be found”.',
+        parseSummary: 'predicate εὑρεθήσεται',
+      },
+      alternateReadingIds: ['alt_2pet_3_10_burned'],
+      bibliography: ['Metzger, Textual Commentary, 2 Peter 3:10; NET note on 2 Peter 3:10.'],
+    },
+
+    // ─────────────── John 3:13 (“who is in heaven” added?) ───────────────
+    {
+      id: 'iss_john_3_13_variant',
+      passageId: 'gnt_john_93',
+      verseRef: 'John 3:13',
+      kind: 'textual',
+      sourceType: 'textual-variant',
+      severity: 'major',
+      label: 'ὁ Υἱὸς τοῦ ἀνθρώπου (+ ὁ ὢν ἐν τῷ οὐρανῷ?) — “who is in heaven”',
+      shortLabel: '+ ὁ ὢν ἐν τῷ οὐρανῷ',
+      summary:
+        'The base ends “…the Son of Man”, with the earliest witnesses (𝔓66 𝔓75 ℵ B). Many witnesses add ὁ ὢν ἐν τῷ οὐρανῷ (“who is in heaven”, A Θ Ψ 𝔐) — a phrase with strong Christological force. A textual variant: the added clause is not merged into the base tokens.',
+      affectedTokenIds: ['t_430030130170010'],
+      affectedNodeIds: ['w_430030130170010'],
+      defaultReading: {
+        label: 'without “who is in heaven” (base)',
+        description: 'The base ends ὁ Υἱὸς τοῦ ἀνθρώπου, with no further qualifier.',
+        parseSummary: 'ends: ὁ Υἱὸς τοῦ ἀνθρώπου',
+      },
+      alternateReadingIds: ['alt_john_3_13_in_heaven'],
+      bibliography: ['Metzger, Textual Commentary, John 3:13; NET note on John 3:13.'],
+    },
+
+    // ─────────────── Romans 8:28 (explicit “God” as subject?) ───────────────
+    {
+      id: 'iss_rom_8_28_variant',
+      passageId: 'gnt_romans_216',
+      verseRef: 'Romans 8:28',
+      kind: 'textual',
+      sourceType: 'textual-variant',
+      severity: 'major',
+      label: 'πάντα συνεργεῖ (+ ὁ θεός?) — “all things work together” or “God works all things”',
+      shortLabel: '+ ὁ θεός',
+      summary:
+        'The base reads πάντα συνεργεῖ εἰς ἀγαθόν (“all things work together for good”), with no explicit subject. Weighty witnesses (𝔓46 A B) add ὁ θεός, making God the explicit subject: “God works all things together for good”. A textual variant; base tokens unchanged.',
+      affectedTokenIds: ['t_450080280090010'],
+      affectedNodeIds: ['w_450080280090010'],
+      defaultReading: {
+        label: 'without explicit “God” (base)',
+        description: 'The base reads συνεργεῖ with πάντα (“all things”) as subject — “all things work together for good”.',
+        parseSummary: 'πάντα → συνεργεῖ (no explicit θεός)',
+      },
+      alternateReadingIds: ['alt_rom_8_28_god_subject'],
+      bibliography: ['Metzger, Textual Commentary, Romans 8:28; NET note on Romans 8:28.'],
+    },
+
+    // ─────────────── Mark 16:9–20 (Longer Ending inclusion) ───────────────
+    {
+      id: 'iss_mark_16_9_inclusion',
+      passageId: 'gnt_mark_714',
+      verseRef: 'Mark 16:9–20',
+      kind: 'textual',
+      sourceType: 'passage-inclusion',
+      severity: 'major',
+      label: 'The Longer Ending of Mark — included or omitted',
+      shortLabel: 'Longer Ending',
+      summary:
+        'The base includes the Longer Ending (16:9–20; printed in double brackets). The two oldest complete manuscripts (ℵ B), and other witnesses, end at 16:8; still others carry a Shorter Ending. One of the most significant inclusion questions in the Gospels. The base keeps the words.',
+      affectedTokenIds: [
+        't_410160090010010', // Ἀναστὰς
+        't_410160090020010', // δὲ
+        't_410160090030010', // πρωῒ
+        't_410160090060010', // ἐφάνη
+        't_410160090080010', // Μαρίᾳ
+      ],
+      defaultReading: {
+        label: 'Included (base)',
+        description: 'The base prints Mark 16:9–20, beginning “Having risen early on the first day of the week, he appeared first to Mary Magdalene…”.',
+        parseSummary: 'ends with 16:9–20',
+      },
+      alternateReadingIds: ['alt_mark_16_9_omit'],
+      bibliography: ['Metzger, Textual Commentary, Mark 16:9–20; NET note on Mark 16.'],
+    },
+
+    // ─────────────── John 7:53–8:11 (Pericope Adulterae) ───────────────
+    {
+      id: 'iss_john_7_53_inclusion',
+      passageId: 'gnt_john_366',
+      verseRef: 'John 7:53–8:11',
+      kind: 'textual',
+      sourceType: 'passage-inclusion',
+      severity: 'major',
+      label: 'The woman caught in adultery — included or omitted',
+      shortLabel: 'Pericope Adulterae',
+      summary:
+        'The base includes the Pericope Adulterae (7:53–8:11; printed in single brackets). The earliest witnesses (𝔓66 𝔓75 ℵ B) omit it, and others mark it or place it elsewhere. Its vocabulary is un-Johannine, yet it is widely regarded as an authentic tradition. The base keeps the words.',
+      affectedTokenIds: [
+        't_430070530010010', // Καὶ
+        't_430070530020010', // ἐπορεύθη
+        't_430070530030010', // ἕκαστος
+        't_430070530060010', // οἶκον
+      ],
+      defaultReading: {
+        label: 'Included (base)',
+        description: 'The base prints 7:53–8:11, beginning “And each went to his own house…”.',
+        parseSummary: 'includes 7:53–8:11',
+      },
+      alternateReadingIds: ['alt_john_7_53_omit'],
+      bibliography: ['Metzger, Textual Commentary, John 7:53–8:11; NET note on the Pericope Adulterae.'],
+    },
+
+    // ─────────────── Luke 22:43–44 (angel and sweat) ───────────────
+    {
+      id: 'iss_luke_22_43_inclusion',
+      passageId: 'gnt_luke_1017',
+      verseRef: 'Luke 22:43–44',
+      kind: 'textual',
+      sourceType: 'passage-inclusion',
+      severity: 'major',
+      label: 'The angel strengthening Jesus (and the bloody sweat) — included or omitted',
+      shortLabel: 'angel / sweat',
+      summary:
+        'The base includes the angel strengthening Jesus and his sweat “like drops of blood” (22:43–44; printed in double brackets). Early witnesses (𝔓75 ℵ¹ A B W) omit the verses, while others include them. The base keeps the words.',
+      affectedTokenIds: [
+        't_420220430010010', // ὤφθη
+        't_420220430030010', // αὐτῷ
+        't_420220430040010', // ἄγγελος
+        't_420220430070010', // ἐνισχύων
+      ],
+      defaultReading: {
+        label: 'Included (base)',
+        description: 'The base prints 22:43–44 — “And an angel from heaven appeared to him, strengthening him…”.',
+        parseSummary: 'includes 22:43–44',
+      },
+      alternateReadingIds: ['alt_luke_22_43_omit'],
+      bibliography: ['Metzger, Textual Commentary, Luke 22:43–44; NET note on Luke 22:43–44.'],
+    },
+
+    // ─────────────── 1 John 5:7–8 (Comma Johanneum) ───────────────
+    {
+      id: 'iss_1john_5_7_comma',
+      passageId: 'gnt_1-john_124',
+      verseRef: '1 John 5:7–8',
+      kind: 'textual',
+      sourceType: 'passage-inclusion',
+      severity: 'major',
+      label: 'The Comma Johanneum — the Trinitarian clause included or omitted',
+      shortLabel: 'Comma Johanneum',
+      summary:
+        'The base reads the short text: “there are three that testify: the Spirit and the water and the blood.” The Textus Receptus adds the Trinitarian Comma (“in heaven: the Father, the Word, and the Holy Spirit… and there are three that testify on earth”), absent from every Greek manuscript before the 14th century. The base does not merge in the added clause.',
+      affectedTokenIds: ['t_620050070050010'],
+      affectedNodeIds: ['w_620050070050010'],
+      defaultReading: {
+        label: 'without the Comma (base)',
+        description: 'The base reads “τρεῖς εἰσιν οἱ μαρτυροῦντες, τὸ Πνεῦμα καὶ τὸ ὕδωρ καὶ τὸ αἷμα”.',
+        parseSummary: 'three witnesses: Spirit, water, blood',
+      },
+      alternateReadingIds: ['alt_1john_5_7_comma'],
+      bibliography: ['Metzger, Textual Commentary, 1 John 5:7–8; NET note on the Comma Johanneum.'],
+    },
   ],
 
   readings: [
@@ -1439,6 +1636,220 @@ const RAW = {
         affectedBaseTokenIds: ['t_400050220080010'],
         variantTokens: [{ surface: 'εἰκῇ', lemma: 'εἰκῇ', gloss: 'without cause' }],
         note: 'Byzantine and many witnesses add εἰκῇ; the earliest (𝔓64vid ℵ* B) omit it.',
+      },
+    },
+
+    // Jude 5 — Ἰησοῦς ("Jesus") and θεός ("God")
+    {
+      id: 'alt_jude_5_jesus',
+      issueId: 'iss_jude_5_variant',
+      passageId: 'gnt_jude_4',
+      label: 'Ἰησοῦς — “Jesus saved a people”',
+      shortLabel: 'Ἰησοῦς',
+      interpretation: 'Jesus is named as the one who saved and judged Israel.',
+      description:
+        'A B 33 81 and other witnesses read Ἰησοῦς; NA28 adopted it into the main text — a remarkable statement of Christ’s work in the Exodus. Shown as a textual variant.',
+      sourceType: 'textual-variant',
+      confidence: 'medium',
+      textualVariant: {
+        label: 'Ἰησοῦς',
+        greekText: 'ὅτι Ἰησοῦς ἅπαξ λαὸν ἐκ γῆς Αἰγύπτου σώσας',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_650010050090010'],
+        variantTokens: [{ surface: 'Ἰησοῦς', lemma: 'Ἰησοῦς', gloss: 'Jesus' }],
+        note: 'Adopted by NA28; the base prints κύριος.',
+      },
+    },
+    {
+      id: 'alt_jude_5_god',
+      issueId: 'iss_jude_5_variant',
+      passageId: 'gnt_jude_4',
+      label: 'θεός — “God saved a people”',
+      shortLabel: 'θεός',
+      interpretation: 'God is named as the subject.',
+      description: 'A few witnesses read (ὁ) θεός. Shown as a textual variant.',
+      sourceType: 'textual-variant',
+      confidence: 'low',
+      textualVariant: {
+        label: 'θεός',
+        greekText: 'ὅτι θεὸς ἅπαξ λαὸν ἐκ γῆς Αἰγύπτου σώσας',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_650010050090010'],
+        variantTokens: [{ surface: 'θεός', lemma: 'θεός', gloss: 'God' }],
+        note: 'Minority reading alongside κύριος / Ἰησοῦς.',
+      },
+    },
+
+    // 2 Peter 3:10 — κατακαήσεται ("will be burned up")
+    {
+      id: 'alt_2pet_3_10_burned',
+      issueId: 'iss_2pet_3_10_variant',
+      passageId: 'gnt_2-peter_37',
+      label: 'κατακαήσεται — “will be burned up”',
+      shortLabel: 'κατακαήσεται',
+      interpretation: 'The earth and its works are consumed by fire.',
+      description:
+        'The Byzantine text and Textus Receptus read κατακαήσεται (“will be burned up”), smoothing the difficult εὑρεθήσεται. Shown as a textual variant.',
+      sourceType: 'textual-variant',
+      confidence: 'low',
+      textualVariant: {
+        label: 'κατακαήσεται',
+        greekText: 'γῆ καὶ τὰ ἐν αὐτῇ ἔργα κατακαήσεται',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_610030100240010'],
+        variantTokens: [{ surface: 'κατακαήσεται', lemma: 'κατακαίω', gloss: 'will be burned up' }],
+        note: 'Byzantine / Textus Receptus; the base prints the harder εὑρεθήσεται.',
+      },
+    },
+
+    // John 3:13 — the added clause ὁ ὢν ἐν τῷ οὐρανῷ
+    {
+      id: 'alt_john_3_13_in_heaven',
+      issueId: 'iss_john_3_13_variant',
+      passageId: 'gnt_john_93',
+      label: '+ ὁ ὢν ἐν τῷ οὐρανῷ — “who is in heaven”',
+      shortLabel: '+ ἐν τῷ οὐρανῷ',
+      interpretation: 'The Son of Man is described as even now “in heaven”.',
+      description:
+        'A Θ Ψ 𝔐 and many witnesses add ὁ ὢν ἐν τῷ οὐρανῷ after “the Son of Man”. Shown as a textual variant; the clause is not merged into the base tokens.',
+      sourceType: 'textual-variant',
+      confidence: 'low',
+      textualVariant: {
+        label: 'ὁ ὢν ἐν τῷ οὐρανῷ',
+        greekText: 'ὁ Υἱὸς τοῦ ἀνθρώπου ὁ ὢν ἐν τῷ οὐρανῷ',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_430030130170010'],
+        variantTokens: [
+          { surface: 'ὁ', lemma: 'ὁ', gloss: 'the [One]' },
+          { surface: 'ὢν', lemma: 'εἰμί', gloss: 'being' },
+          { surface: 'ἐν', lemma: 'ἐν', gloss: 'in' },
+          { surface: 'τῷ', lemma: 'ὁ', gloss: 'the' },
+          { surface: 'οὐρανῷ', lemma: 'οὐρανός', gloss: 'heaven' },
+        ],
+        note: 'Added in the Byzantine and much of the tradition; the earliest witnesses omit it.',
+      },
+    },
+
+    // Romans 8:28 — the explicit subject ὁ θεός
+    {
+      id: 'alt_rom_8_28_god_subject',
+      issueId: 'iss_rom_8_28_variant',
+      passageId: 'gnt_romans_216',
+      label: '+ ὁ θεός — “God works all things together”',
+      shortLabel: '+ ὁ θεός',
+      interpretation: 'God is the explicit subject who works all things for good.',
+      description:
+        '𝔓46 A B and other witnesses add ὁ θεός as the subject of συνεργεῖ, so that “God works all things together for good.” Shown as a textual variant.',
+      sourceType: 'textual-variant',
+      confidence: 'medium',
+      textualVariant: {
+        label: 'ὁ θεός',
+        greekText: 'πάντα συνεργεῖ ὁ θεὸς εἰς ἀγαθόν',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_450080280090010'],
+        variantTokens: [
+          { surface: 'ὁ', lemma: 'ὁ', gloss: 'the' },
+          { surface: 'θεός', lemma: 'θεός', gloss: 'God' },
+        ],
+        note: 'The explicit subject is added in 𝔓46 A B; the base leaves πάντα as subject.',
+      },
+    },
+
+    // Mark 16:9–20 — omission (end at 16:8)
+    {
+      id: 'alt_mark_16_9_omit',
+      issueId: 'iss_mark_16_9_inclusion',
+      passageId: 'gnt_mark_714',
+      label: 'Omitted — the Gospel ends at 16:8',
+      shortLabel: 'ends at 16:8',
+      interpretation: 'Mark ends abruptly at “for they were afraid.”',
+      description:
+        'ℵ B and other witnesses end the Gospel at 16:8; some carry only a Shorter Ending. Shown as a question of inclusion; the base retains 16:9–20.',
+      sourceType: 'passage-inclusion',
+      confidence: 'low',
+      textualVariant: {
+        label: 'omit',
+        differsFromBase: true,
+        affectedBaseTokenIds: [
+          't_410160090010010',
+          't_410160090020010',
+          't_410160090030010',
+          't_410160090060010',
+          't_410160090080010',
+        ],
+        note: 'The two oldest complete manuscripts (ℵ B) end at 16:8; NA prints 16:9–20 in double brackets.',
+      },
+    },
+
+    // John 7:53–8:11 — omission of the Pericope Adulterae
+    {
+      id: 'alt_john_7_53_omit',
+      issueId: 'iss_john_7_53_inclusion',
+      passageId: 'gnt_john_366',
+      label: 'Omitted — the passage is absent',
+      shortLabel: 'omitted',
+      interpretation: 'The earliest witnesses lack the woman-caught-in-adultery account.',
+      description:
+        '𝔓66 𝔓75 ℵ B and others omit 7:53–8:11; some manuscripts place it elsewhere. Shown as a question of inclusion; the base retains the passage.',
+      sourceType: 'passage-inclusion',
+      confidence: 'low',
+      textualVariant: {
+        label: 'omit',
+        differsFromBase: true,
+        affectedBaseTokenIds: [
+          't_430070530010010',
+          't_430070530020010',
+          't_430070530030010',
+          't_430070530060010',
+        ],
+        note: 'Absent from the earliest witnesses; NA prints it in brackets.',
+      },
+    },
+
+    // Luke 22:43–44 — omission of the angel and sweat
+    {
+      id: 'alt_luke_22_43_omit',
+      issueId: 'iss_luke_22_43_inclusion',
+      passageId: 'gnt_luke_1017',
+      label: 'Omitted — the verses are absent',
+      shortLabel: 'omitted',
+      interpretation: 'Early witnesses lack the angel and the bloody sweat.',
+      description:
+        '𝔓75 ℵ¹ A B W T and others omit 22:43–44; NA prints the verses in double brackets. Shown as a question of inclusion; the base retains them.',
+      sourceType: 'passage-inclusion',
+      confidence: 'low',
+      textualVariant: {
+        label: 'omit',
+        differsFromBase: true,
+        affectedBaseTokenIds: [
+          't_420220430010010',
+          't_420220430030010',
+          't_420220430040010',
+          't_420220430070010',
+        ],
+        note: 'Omitted by several early witnesses; NA prints 22:43–44 in double brackets.',
+      },
+    },
+
+    // 1 John 5:7–8 — the Comma Johanneum (added Trinitarian clause)
+    {
+      id: 'alt_1john_5_7_comma',
+      issueId: 'iss_1john_5_7_comma',
+      passageId: 'gnt_1-john_124',
+      label: '+ the Comma Johanneum — “the Father, the Word, and the Holy Spirit”',
+      shortLabel: '+ Comma',
+      interpretation: 'An explicit Trinitarian witness “in heaven” is added.',
+      description:
+        'The Textus Receptus adds “in heaven: the Father, the Word, and the Holy Spirit; and these three are one. And there are three that testify on earth” — a clause with no Greek manuscript support before the 14th century. Shown as a textual variant; not merged into the base.',
+      sourceType: 'passage-inclusion',
+      confidence: 'low',
+      textualVariant: {
+        label: 'Comma Johanneum',
+        greekText:
+          'ἐν τῷ οὐρανῷ, ὁ Πατήρ, ὁ Λόγος, καὶ τὸ Ἅγιον Πνεῦμα· καὶ οὗτοι οἱ τρεῖς ἕν εἰσι. καὶ τρεῖς εἰσιν οἱ μαρτυροῦντες ἐν τῇ γῇ',
+        differsFromBase: true,
+        affectedBaseTokenIds: ['t_620050070050010'],
+        note: 'Added in the Textus Receptus; absent from every Greek manuscript before the 14th century.',
       },
     },
   ],

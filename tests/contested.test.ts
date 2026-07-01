@@ -87,10 +87,20 @@ describe('contested registry — major NT textual variants', () => {
     'iss_luke_23_34_inclusion',
     'iss_1cor_13_3_variant',
     'iss_matt_5_22_variant',
+    'iss_jude_5_variant',
+    'iss_2pet_3_10_variant',
+    'iss_john_3_13_variant',
+    'iss_rom_8_28_variant',
+    'iss_mark_16_9_inclusion',
+    'iss_john_7_53_inclusion',
+    'iss_luke_22_43_inclusion',
+    'iss_1john_5_7_comma',
   ];
 
-  it('registers all seven curated textual variants', () => {
+  it('registers all curated textual variants', () => {
     for (const id of IDS) expect(getIssueById(id), id).toBeTruthy();
+    // A solid library of the most-impactful variants (15+ and counting).
+    expect(IDS.length).toBeGreaterThanOrEqual(15);
   });
 
   it('each variant reading carries a differing wording and never mutates the base', () => {
