@@ -117,3 +117,49 @@ describe('searchPassages', () => {
     expect(res.capped).toBe(false);
   });
 });
+
+/** A minimal Hebrew sentence: the search is language-agnostic, so the OT source
+ *  (person / number / gender morphology, no Greek case/tense) works the same. */
+function hebrewSentence(id: string, title: string): KrDocument {
+  return KrDocumentSchema.parse({
+    schemaVersion: 1,
+    id,
+    title,
+    language: 'hbo',
+    text: 'בָּרָא אֱלֹהִים',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    layoutHints: {},
+    tokens: [
+      { id: `${id}-t0`, index: 0, surface: 'בָּרָא', lemma: 'ברא', language: 'hbo', pos: 'verb',
+        gloss: 'created', morphology: { person: 'third', number: 'singular', gender: 'masculine', extra: { stem: 'qal' } } },
+      { id: `${id}-t1`, index: 1, surface: 'אֱלֹהִים', lemma: 'אלהים', language: 'hbo', pos: 'noun',
+        gloss: 'God', morphology: { number: 'plural', gender: 'masculine' } },
+    ],
+    syntax: {
+      rootId: `${id}-c`,
+      nodes: [
+        { id: `${id}-c`, kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: `${id}-V`, kind: 'word', role: 'predicate', tokenIds: [`${id}-t0`] },
+        { id: `${id}-S`, kind: 'word', role: 'subject', tokenIds: [`${id}-t1`] },
+      ],
+      relations: [
+        { id: `${id}-r1`, type: 'predicate', headId: `${id}-c`, dependentId: `${id}-V` },
+        { id: `${id}-r2`, type: 'subject', headId: `${id}-c`, dependentId: `${id}-S` },
+      ],
+    },
+  });
+}
+
+describe('searchPassages (Hebrew / OT source)', () => {
+  const chapter = [hebrewSentence('h1', 'Genesis 1:1')];
+
+  it('matches Hebrew words by gloss and by person/number/gender morphology', () => {
+    expect(searchPassages(chapter, { text: 'God' }).total).toBe(1); // gloss
+    const verbs = searchPassages(chapter, { pos: 'verb', person: 'third', number: 'singular' });
+    expect(verbs.total).toBe(1);
+    expect(verbs.hits[0]!.nodeId).toBe('h1-V');
+    // Greek-only criteria simply never match Hebrew tokens.
+    expect(searchPassages(chapter, { case: 'nominative' }).total).toBe(0);
+  });
+});
