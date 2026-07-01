@@ -257,12 +257,12 @@ function AddWord() {
       </div>
       <div className="row" style={{ marginTop: 6 }}>
         <button className="mini" style={{ width: '100%' }} onClick={addBlankWord}>
-          ＋ Add a word (word + gloss, with lookup)…
+          ＋ Add a word (with Strong’s lookup)…
         </button>
       </div>
       <p className="hint" style={{ margin: '6px 0 0' }}>
-        Quick-add a surface above, or use “Add a word” to enter the word and an optional gloss
-        — with a Greek/Hebrew Strong’s lookup — for a textual variant. Select any added word to
+        Quick-add a surface above, or use “Add a word” to enter the word with a Greek/Hebrew
+        Strong’s lookup (or a plain English word) for a textual variant. Select any added word to
         set its role or re-link it.
       </p>
     </div>
@@ -319,7 +319,7 @@ function TokenInspector({
       </label>
       {onSearchLexeme && blank && (
         <button type="button" className="mini accept lex-fill-btn" onClick={onSearchLexeme}>
-          ＋ Fill this word (word + gloss)…
+          ＋ Fill this word…
         </button>
       )}
       <div className="row">

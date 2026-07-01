@@ -61,6 +61,9 @@ and `src/domain/contested/`.
 - **Gold-standard data** — GNT (Nestle1904 LowFat, macula-greek) and OT (WLC
   LowFat, macula-hebrew), fetched on demand and cached; Philippians is bundled
   for offline/first-run. Hand-tagged sample documents are bundled too.
+- **Strong's lexicon** — the whole Greek + Hebrew Strong's dictionary (Open
+  Scriptures, public-domain Strong's 1890), bundled under `public/lexicon/` and
+  loaded on demand for the add-a-word lemma search.
 - **Legacy inference engine** — Parsed / Assisted / Manual working modes; every
   inference carries `source` / `confidence` / `reason` and is accept/rejectable.
 - **Separation of concerns** — surface word order, syntactic relationships, and
