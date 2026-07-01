@@ -141,4 +141,34 @@ describe('store — imported variant readings', () => {
     store.getState().loadDocument(cloneSample('doc_sample_fox')!, { corpus: 'custom' });
     expect(getAlternateReadings(userIssueId(base.id))).toHaveLength(1);
   });
+
+  it('deletes one imported variant, and drops the issue when the last is removed', () => {
+    const base = store.getState().doc;
+    store.getState().importAsVariants([
+      { label: 'A', doc: { ...cloneSample('doc_sample_fox')!, id: 'doc_a', title: 'A' } },
+      { label: 'B', doc: { ...cloneSample('doc_sample_fox')!, id: 'doc_b', title: 'B' } },
+    ]);
+    const ids = getAlternateReadings(userIssueId(base.id)).map((r) => r.id);
+    expect(ids).toHaveLength(2);
+
+    store.getState().deleteImportedVariant(ids[0]!);
+    expect(getAlternateReadings(userIssueId(base.id)).map((r) => r.id)).toEqual([ids[1]]);
+    expect(loadUserVariants(base.id)?.readings).toHaveLength(1);
+
+    store.getState().deleteImportedVariant(ids[1]!);
+    expect(getAlternateReadings(userIssueId(base.id))).toHaveLength(0);
+    expect(loadUserVariants(base.id)).toBeNull(); // whole bundle removed
+    expect(getIssuesForPassage(base).some((i) => i.id === userIssueId(base.id))).toBe(false);
+  });
+
+  it('deleting the previewed variant returns to the base view', () => {
+    const base = store.getState().doc;
+    store.getState().importAsVariants([{ label: 'A', doc: { ...cloneSample('doc_sample_fox')!, id: 'doc_c', title: 'A' } }]);
+    const id = getAlternateReadings(userIssueId(base.id))[0]!.id;
+    store.getState().previewAlternateReading(id);
+    expect(store.getState().previewDoc).not.toBeNull();
+    store.getState().deleteImportedVariant(id);
+    expect(store.getState().previewDoc).toBeNull();
+    expect(store.getState().contested.previewAlternateReadingId).toBeUndefined();
+  });
 });

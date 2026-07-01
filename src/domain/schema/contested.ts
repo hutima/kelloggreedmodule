@@ -119,6 +119,8 @@ export const AlternateReadingSchema = z.object({
   fullDoc: z.custom<KrDocument>().optional(),
   /** A short exegetical / interpretive impact note for an imported variant. */
   impact: z.string().optional(),
+  /** LLM-supplied surface words that differ from the base (drives highlighting). */
+  diffWords: z.array(z.string()).optional(),
   /** Where this reading came from — curated registry vs. a user/LLM import. */
   origin: z.enum(['curated', 'user']).optional(),
 

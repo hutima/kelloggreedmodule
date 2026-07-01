@@ -20,6 +20,8 @@ export interface VariantInput {
   label: string;
   /** A short exegetical / interpretive impact note. */
   impact?: string;
+  /** LLM-supplied surface words that differ from the base (optional). */
+  diffWords?: string[];
   /** The full parse for this reading. */
   doc: KrDocument;
 }
@@ -61,6 +63,7 @@ export function buildUserVariants(
     confidence: 'medium',
     fullDoc: v.doc,
     ...(v.impact ? { impact: v.impact } : {}),
+    ...(v.diffWords?.length ? { diffWords: v.diffWords } : {}),
   }));
   const issue: ContestedSyntaxIssue = {
     id: issueId,
@@ -76,7 +79,7 @@ export function buildUserVariants(
     affectedTokenIds: [],
     defaultReading: {
       label: 'Base parse',
-      description: 'The source parse this passage loaded with.',
+      description: 'The parse this sentence loaded with.',
     },
     alternateReadingIds: readings.map((r) => r.id),
   };

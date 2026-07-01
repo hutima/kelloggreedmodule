@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { detectLanguage, stripPunctuation, tokenize } from '@/domain/model';
 import { buildLlmPrompt, importLlmDiagrams, importJson, copyText, downloadText, slugify } from '@/io';
-import { isCombinedPassage, type VariantInput } from '@/domain/contested';
+import {
+  isCombinedPassage,
+  getAlternateReadings,
+  userIssueId,
+  alignedDiff,
+  type VariantInput,
+} from '@/domain/contested';
 import { useViewport } from '@/ui/responsive';
 import { Modal } from '@/ui/components/common/Modal';
 import type { KrDocument, Language } from '@/domain/schema';
@@ -54,12 +60,19 @@ export function NewSourcePicker() {
   const isCustomDoc = useEditorStore((s) => s.corpus === 'custom' && s.baseDoc === null);
   const currentDoc = useEditorStore((s) => s.doc);
   const importAsVariants = useEditorStore((s) => s.importAsVariants);
+  const saveWithVariants = useEditorStore((s) => s.saveWithVariants);
+  // Re-derive the imported-reading count when the contested selection changes
+  // (import / delete both update it), so the Save-with-readings button stays live.
+  const contestedTick = useEditorStore((s) => s.contested.selectedContestedIssueId);
   const docId = currentDoc.id;
   const vp = useViewport();
 
   // A variant attaches to a SINGLE loaded source sentence; block it while a
   // combined (multi-sentence) passage is open, and when nothing real is loaded.
   const canAttachVariant = currentDoc.tokens.length > 0 && !isCombinedPassage(currentDoc);
+  // How many imported readings the current passage carries (drives Save-with-readings).
+  void contestedTick;
+  const variantCount = getAlternateReadings(userIssueId(currentDoc.id)).length;
 
   const [saved, setSaved] = useState(false);
   useEffect(() => setSaved(false), [docId]); // a different doc hasn't been saved yet
@@ -74,6 +87,8 @@ export function NewSourcePicker() {
   const [importOpen, setImportOpen] = useState(false);
   const [ignorePunctuation, setIgnorePunctuation] = useState(false);
   const [askVariants, setAskVariants] = useState(false);
+  const [outputAsFile, setOutputAsFile] = useState(false);
+  const [matchWarning, setMatchWarning] = useState<string[] | null>(null);
 
   const ready = text.trim().length > 0;
   // Language is auto-detected from the script (Greek / Hebrew / English), so there
@@ -104,6 +119,7 @@ export function NewSourcePicker() {
       buildLlmPrompt(source, tokens, language, {
         inferPunctuation: ignorePunctuation,
         variants: askVariants,
+        outputFile: outputAsFile,
       }),
     );
   };
@@ -128,6 +144,11 @@ export function NewSourcePicker() {
         for (const v of variantsByDoc[i] ?? []) variants.push(v);
       });
       importAsVariants(variants, { targetDoc: currentDoc });
+      // Warn about any reading that couldn't be aligned to the base for diffing.
+      const unmatched = variants
+        .filter((v) => !alignedDiff(currentDoc, v.doc, v.diffWords).matched)
+        .map((v) => v.label);
+      if (unmatched.length) setMatchWarning(unmatched);
       if (vp.isDesktop) setAppMode('explore');
       collapseIfNarrow();
       return;
@@ -136,9 +157,13 @@ export function NewSourcePicker() {
     loadDocument(documents[0]!, { corpus: 'custom' });
     if (documents.length > 1) setGntContext(documents, 0);
     // Attach each sentence's alternate readings to that sentence's own diagram.
+    const unmatched: string[] = [];
     documents.forEach((d, i) => {
-      if (variantsByDoc[i]?.length) importAsVariants(variantsByDoc[i]!, { targetDoc: d });
+      const vs = variantsByDoc[i] ?? [];
+      if (vs.length) importAsVariants(vs, { targetDoc: d });
+      for (const v of vs) if (!alignedDiff(d, v.doc, v.diffWords).matched) unmatched.push(v.label);
     });
+    if (unmatched.length) setMatchWarning(unmatched);
     if (vp.isDesktop) setAppMode('edit');
     collapseIfNarrow();
   };
@@ -167,9 +192,21 @@ export function NewSourcePicker() {
         <button className="mini accept" disabled={!ready} onClick={create}>
           Create diagram
         </button>
-        {isCustomDoc && (
+        {isCustomDoc && variantCount === 0 && (
           <button className="mini" title="Save this diagram to your sentences" onClick={saveCurrent}>
             {saved ? 'Saved ✓' : 'Save'}
+          </button>
+        )}
+        {variantCount > 0 && (
+          <button
+            className="mini"
+            title="Save this sentence with all its imported readings to your sentences"
+            onClick={() => {
+              saveWithVariants();
+              setSaved(true);
+            }}
+          >
+            {saved ? 'Saved ✓' : `Save with readings (${variantCount})`}
           </button>
         )}
       </div>
@@ -189,6 +226,14 @@ export function NewSourcePicker() {
           onChange={(e) => setAskVariants(e.target.checked)}
         />
         <span>Include alternate readings (variants)</span>
+      </label>
+      <label className="check-row" title="Ask the LLM to return a downloadable .json file instead of pasting the JSON into the chat">
+        <input
+          type="checkbox"
+          checked={outputAsFile}
+          onChange={(e) => setOutputAsFile(e.target.checked)}
+        />
+        <span>Ask for a downloadable file (not chat text)</span>
       </label>
 
       <div className="row new-actions">
@@ -256,6 +301,29 @@ export function NewSourcePicker() {
         </div>
       )}
 
+      {matchWarning && (
+        <Modal
+          title="Variant loaded without analysis"
+          onClose={() => setMatchWarning(null)}
+          footer={
+            <button className="btn primary" onClick={() => setMatchWarning(null)}>
+              Got it
+            </button>
+          }
+        >
+          <p>
+            {matchWarning.length === 1 ? 'This reading' : 'These readings'} could not be matched to
+            the base sentence, so {matchWarning.length === 1 ? 'it was' : 'they were'} loaded{' '}
+            <strong>without difference analysis</strong>. You can still switch between the base and{' '}
+            {matchWarning.length === 1 ? 'the reading' : 'each reading'} in the readings panel.
+          </p>
+          <ul>
+            {matchWarning.map((label, i) => (
+              <li key={i}>{label}</li>
+            ))}
+          </ul>
+        </Modal>
+      )}
       {promptText !== null && (
         <LlmExportModal text={promptText} title={text} onClose={() => setPromptText(null)} />
       )}

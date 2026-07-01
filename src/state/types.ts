@@ -218,6 +218,8 @@ export interface EditorState {
    * Morphology is always coloured (it's a form study), so this flag never affects it.
    */
   colorMode: boolean;
+  /** Prefer the app's own difference detection over LLM-supplied diff words. */
+  preferAppDiff: boolean;
   /** Current provisional inferences awaiting accept/reject. */
   inferences: Inference[];
   status: SaveStatus;

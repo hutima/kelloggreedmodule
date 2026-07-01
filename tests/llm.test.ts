@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildLlmPrompt, importLlmDiagram, importLlmDiagrams, LLM_DIAGRAM_KIND } from '@/io';
 import { detectLanguage, stripPunctuation, tokenize } from '@/domain/model';
 import { layoutDocument } from '@/domain/layout';
+import { alignedDiff } from '@/domain/contested';
 
 /**
  * LLM-assisted diagramming: the prompt builder and the importer that hydrates an
@@ -316,6 +317,70 @@ describe('LLM alternate readings (variants)', () => {
     // the variant reused the primary's 4 tokens and lays out
     expect(variants[0]!.doc.tokens).toHaveLength(4);
     expect(variants[0]!.doc.syntax.relations.some((r) => r.type === 'genitive')).toBe(true);
+  });
+
+  it('Romans 9:5-style: a punctuation-driven reply parses to an array and the diff is detectable', () => {
+    // Punctuation decides whether θεὸς is predicated of Christ or heads its own
+    // doxology. The reply returns the primary parse + a variant that re-attaches
+    // θεὸς; importing yields the array, and aligning base↔variant flags θεὸς.
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'grc',
+      text: 'Χριστὸς ὁ ὢν ἐπὶ πάντων θεὸς εὐλογητός',
+      tokens: [
+        { id: 't0', surface: 'Χριστὸς', pos: 'propernoun' },
+        { id: 't1', surface: 'ὢν', pos: 'participle' },
+        { id: 't2', surface: 'θεὸς', pos: 'noun' },
+        { id: 't3', surface: 'εὐλογητός', pos: 'adjective' },
+      ],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'nc', kind: 'word', role: 'subject', tokens: ['t0'] },
+        { id: 'np', kind: 'word', role: 'adjectival', tokens: ['t1'] },
+        { id: 'ng', kind: 'word', role: 'predicateNominative', tokens: ['t2'] },
+        { id: 'nb', kind: 'word', role: 'predicateAdjective', tokens: ['t3'] },
+      ],
+      relations: [
+        { type: 'subject', head: 'c0', dependent: 'nc' },
+        { type: 'adjectival', head: 'nc', dependent: 'np' },
+        { type: 'predicateNominative', head: 'nc', dependent: 'ng' }, // God OF Christ
+        { type: 'predicateAdjective', head: 'c0', dependent: 'nb' },
+      ],
+      variants: [
+        {
+          label: 'Independent doxology',
+          impact: 'θεὸς heads its own clause: “God … be blessed”.',
+          diff: ['θεὸς'],
+          nodes: [
+            { id: 'c0', kind: 'clause', clauseType: 'independent' },
+            { id: 'nc', kind: 'word', role: 'subject', tokens: ['t0'] },
+            { id: 'np', kind: 'word', role: 'adjectival', tokens: ['t1'] },
+            { id: 'ng', kind: 'word', role: 'subject', tokens: ['t2'] },
+            { id: 'nb', kind: 'word', role: 'predicateAdjective', tokens: ['t3'] },
+          ],
+          relations: [
+            { type: 'subject', head: 'c0', dependent: 'nc' },
+            { type: 'adjectival', head: 'nc', dependent: 'np' },
+            { type: 'subject', head: 'nb', dependent: 'ng' }, // God heads the doxology
+            { type: 'predicateAdjective', head: 'c0', dependent: 'nb' },
+          ],
+        },
+      ],
+    };
+    const res = importLlmDiagrams(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    const base = res.documents![0]!;
+    const variant = res.variantsByDoc![0]![0]!;
+    expect(variant.diffWords).toEqual(['θεὸς']);
+
+    // App auto-detection over the aligned overlap flags exactly θεὸς.
+    const auto = alignedDiff(base, variant.doc);
+    expect(auto.matched).toBe(true);
+    const godBase = base.tokens.find((t) => t.surface === 'θεὸς')!.id;
+    expect(auto.diff.changedTokenIds).toContain(godBase);
+    // and the LLM-supplied diff words agree.
+    const llm = alignedDiff(base, variant.doc, variant.diffWords);
+    expect(llm.diff.changedTokenIds).toContain(godBase);
   });
 
   it('skips a malformed variant without failing the primary import', () => {
