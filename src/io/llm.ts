@@ -249,7 +249,9 @@ RULES
 - MORPHOLOGY: fill "morphology" for every inflected token with the features that APPLY to it — nominals (noun/adjective/article/participle/pronoun): case, gender, number; finite verbs: person, number, tense, voice, mood (e.g. "1st person singular present active indicative"); infinitives/participles: tense, voice (+ case/gender/number for a participle); adjective/adverb comparison: degree. Omit features that do not apply, and use "morphology": {} for an uninflected word (English preposition, particle). English uses only the subset that applies (person/number/tense/degree).
 - MULTIPLE SENTENCES: diagram each sentence SEPARATELY as its own object in the array, each with its own "nodes"/"relations"/"rootId" and referencing only that sentence's tokens. NEVER join two sentences into one clause or link them with a "conjunct"/"clause" relation — separate sentences are separate diagrams. Reply with a single object only when there is exactly one sentence.
 - A relation reads "dependent functions as <type> of head"; "head" and "dependent" are NODE ids.
-- EVERY node must OWN at least one token in "tokens" — the ONLY exception is an implied/elided element ("tokens": [], "implied": true, "label": "(he)"). NEVER create an empty grouping node (a node with no tokens that only holds other nodes) — empty wrappers are dropped and their contents lose their role.
+- TOKEN OWNERSHIP (the most important rule — most bad parses break it): each token is owned by EXACTLY ONE node, and owners are "word" nodes. A "clause" node is STRUCTURAL — its "tokens" is ALWAYS [] — it groups the word nodes through relations and NEVER lists their tokens. Never repeat a token across two nodes (e.g. in both a phrase and its word), and never copy a clause's or phrase's words up into that node's "tokens". The only token-less WORD node is an implied/elided element ("tokens": [], "implied": true, "label": "(he)").
+- ONE WORD NODE PER WORD — NO WRAPPERS: make exactly one "word" node per word (or per fixed multi-word unit such as a verb phrase). Do NOT create a "phrase" node that merely repeats its children's tokens, and do NOT wrap a compound in an empty role node — put the role on the HEAD word and attach the rest to it (see COORDINATION). You rarely need a "phrase" node at all.
+- PUNCTUATION IS NOT DIAGRAMMED: a token that is only punctuation (， 。 、 ； ： ！ ？ . , ; : ! ? — … « » " " ( ) …) gets NO node and appears in NO relation. Leave it in the "tokens" list (pos "unknown") but out of "nodes" and "relations" entirely — never make it its own "unknown" node.
 - COORDINATION ("X and Y" — compound subjects, objects, verbs, or clauses): do NOT wrap the parts in a parent node. Make the FIRST part the head that carries the role (e.g. "subject"); attach each other part to that head with a "conjunct" relation and each conjunction word with a "coordinator" relation.
 - A VERB PHRASE (auxiliary + main verb, e.g. "have lighted"): make ONE "predicate" node and list BOTH verb token ids in its "tokens". Do not invent roles like "auxiliary" or "head".
 - A PREPOSITIONAL PHRASE: the node for the PREPOSITION word (holding the preposition's token) governs its object via "prepositionObject" and attaches to what it modifies via "prepositionalPhrase" or "adverbial". Do not make a separate empty phrase node for it.
@@ -260,6 +262,12 @@ RULES
 EXAMPLE — a compound subject "Dogs and cats sleep" (note: the FIRST conjunct carries "subject"; no wrapper node):
   nodes:  { "id":"s1","kind":"word","role":"subject","tokens":["dogs"] }, { "id":"cc","kind":"word","role":"coordinator","tokens":["and"] }, { "id":"s2","kind":"word","role":"conjunct","tokens":["cats"] }, { "id":"v","kind":"word","role":"predicate","tokens":["sleep"] }
   relations:  { "type":"subject","head":"c0","dependent":"s1" }, { "type":"conjunct","head":"s1","dependent":"s2" }, { "type":"coordinator","head":"s1","dependent":"cc" }, { "type":"predicate","head":"c0","dependent":"v" }
+
+BEFORE YOU REPLY, check each of these and FIX any that fail (this is where parses usually go wrong — dropped or duplicated words):
+  1. COUNT — every NON-punctuation token in the TOKENS list appears in EXACTLY ONE node's "tokens": none dropped, none in two nodes.
+  2. Every "clause" node has "tokens": [] (its words live in their own word nodes, not on the clause).
+  3. No punctuation token has a node or a relation.
+  4. Every relation "head"/"dependent" is a node id that exists, and "rootId" is your top clause.
 
 ALLOWED VALUES
 - pos: ${list(POS)}
@@ -310,6 +318,14 @@ function normalizeStrong(v?: string): string | undefined {
   if (!v) return undefined;
   const s = v.trim().replace(/^[gh]/i, '');
   return /^\d/.test(s) ? s : undefined;
+}
+
+/** A surface that is ONLY punctuation / whitespace, in any script (Latin `.,;:`,
+ *  CJK `，。、！？：；「」（）`, dashes, ellipses, quotes …). Such a token is never
+ *  diagrammed, so any node the model built for one is dropped on import. */
+const PUNCT_ONLY = /^[\p{P}\s]+$/u;
+function isPunctuationSurface(s: string): boolean {
+  return !!s && PUNCT_ONLY.test(s);
 }
 
 /**
@@ -459,7 +475,7 @@ function hydrateFields(
   const tokenIds = new Set(tokens.map((t) => t.id));
   if (!tokens.length) return { ok: false, error: 'No tokens in the imported diagram.' };
 
-  const nodes: SyntaxNode[] = d.nodes.map((n) => ({
+  let nodes: SyntaxNode[] = d.nodes.map((n) => ({
     id: n.id,
     kind: asKind(n.kind ?? (n.clauseType ? 'clause' : n.tokens.length ? 'word' : undefined)),
     ...(asRole(n.role) ? { role: asRole(n.role) } : {}),
@@ -472,7 +488,7 @@ function hydrateFields(
   const nodeIds = new Set(nodes.map((n) => n.id));
   if (!nodes.length) return { ok: false, error: 'No nodes in the imported diagram.' };
 
-  const relations: Relation[] = [];
+  let relations: Relation[] = [];
   for (const r of d.relations) {
     if (!nodeIds.has(r.head) || !nodeIds.has(r.dependent)) {
       return { ok: false, error: `Relation references an unknown node: ${r.head} → ${r.dependent}.` };
@@ -490,6 +506,27 @@ function hydrateFields(
   const rootId =
     d.rootId && nodeIds.has(d.rootId) ? d.rootId : nodes.find((n) => n.kind === 'clause')?.id;
   if (!rootId) return { ok: false, error: 'No root clause node (need a node with kind "clause").' };
+
+  // Punctuation is NOT diagrammed. Strip punctuation-only tokens from every node
+  // (so a clause can't carry a stray comma either), then drop any leaf node the
+  // model built purely for punctuation, plus its relations — belt-and-braces for
+  // the prompt rule, since such a node uniquely owns its token and would survive
+  // normalization and clutter the diagram as an "unknown" tick.
+  const punctTokenIds = new Set(tokens.filter((t) => isPunctuationSurface(t.surface)).map((t) => t.id));
+  if (punctTokenIds.size) {
+    for (const n of nodes) n.tokenIds = n.tokenIds.filter((id) => !punctTokenIds.has(id));
+    const heads = new Set(relations.map((r) => r.headId));
+    const drop = new Set(
+      nodes
+        .filter((n) => n.id !== rootId && n.kind !== 'clause' && !n.implied && !n.label)
+        .filter((n) => n.tokenIds.length === 0 && !heads.has(n.id))
+        .map((n) => n.id),
+    );
+    if (drop.size) {
+      nodes = nodes.filter((n) => !drop.has(n.id));
+      relations = relations.filter((r) => !drop.has(r.headId) && !drop.has(r.dependentId));
+    }
+  }
 
   const text = d.text ?? opts.fallbackText ?? tokens.map((t) => t.surface).join(' ');
   const title = opts.title ?? titleFromText(text);
