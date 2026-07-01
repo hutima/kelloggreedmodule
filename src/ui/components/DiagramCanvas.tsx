@@ -644,6 +644,9 @@ export function DiagramCanvas() {
       </button>
       <div className="kr-reveal-word">
         {summary.word}
+        {summary.lemma && summary.lemma !== summary.word && (
+          <span className="kr-reveal-lemma"> · {summary.lemma}</span>
+        )}
         {summary.gloss && <span className="kr-reveal-gloss"> · {summary.gloss}</span>}
       </div>
       {summary.translit && <div className="kr-reveal-translit">{summary.translit}</div>}
@@ -1273,6 +1276,9 @@ export function DiagramCanvas() {
             </button>
             <div className="kr-reveal-word">
               {reveal.summary.word}
+              {reveal.summary.lemma && reveal.summary.lemma !== reveal.summary.word && (
+                <span className="kr-reveal-lemma"> · {reveal.summary.lemma}</span>
+              )}
               {reveal.summary.gloss && <span className="kr-reveal-gloss"> · {reveal.summary.gloss}</span>}
             </div>
             {reveal.summary.translit && (
