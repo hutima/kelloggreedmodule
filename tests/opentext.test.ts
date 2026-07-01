@@ -114,6 +114,26 @@ describe('OpenText surface alignment', () => {
     expect(nfc(aligned.text).startsWith(nfc('χάρις ὑμῖν καὶ εἰρήνη ἀπὸ Θεοῦ'))).toBe(true);
   });
 
+  it('aligns across a Nestle1904 homograph disambiguator suffix', () => {
+    // Nestle1904 spells lexemes that share a form with a homograph index, e.g.
+    // Phil 1:1 δοῦλοι carries lemma "δοῦλος (II)", while OpenText's lemma is bare
+    // ("δοῦλος"). The suffix must not block the lemma check, or the word stays
+    // stuck in its lemma form (the reported δοῦλοι → δοῦλος bug). Exercised here on
+    // Philemon 1:3 θεός, given a disambiguated "θεός (I)".
+    const doc = philemonDocs()[1]!;
+    const index = buildSurfaceIndex([
+      nestle('Phlm.1.3', 1, 'χάρις', 'χάρις'),
+      nestle('Phlm.1.3', 2, 'ὑμῖν', 'σύ'),
+      nestle('Phlm.1.3', 3, 'καὶ', 'καί'),
+      nestle('Phlm.1.3', 4, 'εἰρήνη', 'εἰρήνη'),
+      nestle('Phlm.1.3', 5, 'ἀπὸ', 'ἀπό'),
+      nestle('Phlm.1.3', 6, 'Θεοῦ', 'θεός (I)'),
+    ]);
+    const { doc: aligned } = alignOpenTextSurface(doc, index);
+    expect(surfaces(aligned)).toContain(nfc('Θεοῦ'));
+    expect(surfaces(aligned)).not.toContain(nfc('θεός'));
+  });
+
   it('keeps the lemma form when no aligned surface is found', () => {
     const doc = philemonDocs()[1]!;
     const { doc: aligned, aligned: n, total } = alignOpenTextSurface(doc, buildSurfaceIndex([]));

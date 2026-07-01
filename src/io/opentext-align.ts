@@ -17,6 +17,11 @@ import type { KrDocument, Token } from '@/domain/schema';
 /** Accent/case-insensitive Greek key for comparing lemmas across editions. */
 function bareLemma(s: string | undefined): string {
   return (s ?? '')
+    // Drop a homograph disambiguator suffix — Nestle1904 spells distinct lexemes
+    // that share a form as "δοῦλος (II)" / "ἄπειμι (I)", while OpenText's lemma is
+    // bare ("δοῦλος"). Without this the lemma check fails and the word (e.g.
+    // Phil 1:1 δοῦλοι) never aligns, so it stays stuck in its lemma form.
+    .replace(/\s*\([^)]*\)\s*$/, '')
     .normalize('NFD')
     .replace(/[̀-ͯ᷀-᷿ͅ]/g, '')
     .toLowerCase()
