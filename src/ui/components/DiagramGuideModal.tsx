@@ -208,6 +208,26 @@ export function DiagramGuideModal({ open, onClose }: { open: boolean; onClose: (
           ))}
         </ul>
 
+        <h3 style={{ margin: '16px 0 6px', fontSize: 14 }}>Colour code (morphology)</h3>
+        <p className="hint" style={{ margin: '0 0 8px' }}>
+          Words are tinted by grammatical category — finite verb / participle by form, otherwise by case — in every view
+          that shows the words. The colour is always paired with the word itself, so it is never the only cue.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '6px 12px', fontSize: 13 }}>
+          {TONE_LEGEND.map((t) => (
+            <div key={t.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span
+                aria-hidden="true"
+                style={{ flex: 'none', width: 12, height: 12, borderRadius: 3, background: TONE_COLORS[t.key], transform: 'translateY(1px)' }}
+              />
+              <span>
+                <strong style={{ color: TONE_COLORS[t.key] }}>{t.label}</strong>
+                <span style={{ color: 'var(--ink-soft, #667)' }}> — {t.meaning}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+
         <h3 style={{ margin: '16px 0 6px', fontSize: 14 }}>Kellogg-Reed marks</h3>
         <div
           style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '10px 12px', alignItems: 'center', fontSize: 13 }}
@@ -228,26 +248,6 @@ export function DiagramGuideModal({ open, onClose }: { open: boolean; onClose: (
                 <div style={{ color: 'var(--ink-soft, #667)', lineHeight: 1.4 }}>{mk.meaning}</div>
               </div>
             </Fragment>
-          ))}
-        </div>
-
-        <h3 style={{ margin: '16px 0 6px', fontSize: 14 }}>Colour code (morphology)</h3>
-        <p className="hint" style={{ margin: '0 0 8px' }}>
-          Words are tinted by grammatical category — finite verb / participle by form, otherwise by case. The colour is
-          always paired with the word itself, so it is never the only cue.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '6px 12px', fontSize: 13 }}>
-          {TONE_LEGEND.map((t) => (
-            <div key={t.key} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span
-                aria-hidden="true"
-                style={{ flex: 'none', width: 12, height: 12, borderRadius: 3, background: TONE_COLORS[t.key], transform: 'translateY(1px)' }}
-              />
-              <span>
-                <strong style={{ color: TONE_COLORS[t.key] }}>{t.label}</strong>
-                <span style={{ color: 'var(--ink-soft, #667)' }}> — {t.meaning}</span>
-              </span>
-            </div>
           ))}
         </div>
 

@@ -372,13 +372,13 @@ textarea.code,
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: var(--muted);
+  color: var(--accent);
   font-size: 15px;
   line-height: 1;
   cursor: pointer;
 }
 .diagram-guide-btn:hover {
-  background: rgba(31, 41, 51, 0.08);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 .diagram-guide-btn:focus-visible {
