@@ -482,6 +482,12 @@ textarea.code,
   font-size: 15px;
   font-weight: 600;
 }
+/* The lexical (dictionary) form, between the inflected form and the English
+   gloss: form · lemma · gloss. Greek/Hebrew script, lighter than the headword. */
+.kr-reveal-lemma {
+  font-weight: 400;
+  color: #c7d0d9;
+}
 .kr-reveal-gloss {
   font-weight: 400;
   color: #a9b6c2;
