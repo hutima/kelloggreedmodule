@@ -92,6 +92,20 @@ describe('OpenText surface alignment', () => {
     expect(god?.gloss).toBe('[the] God');
   });
 
+  it('glosses an UNALIGNED word from any book-wide occurrence of its lemma', () => {
+    // A word whose inflected surface can't be positionally aligned (a textual
+    // variant, an embedded copula) still reads in English: the lemma → gloss table
+    // supplies a gloss from any occurrence of that lemma. Here καί never matches by
+    // position/verse (the index sits in a bogus verse), yet gets its gloss.
+    const doc = philemonDocs()[1]!; // …καί… in lemma form
+    const index = buildSurfaceIndex([nestle('Phlm.9.99', 1, 'καὶ', 'καί', 'and')]);
+    const { doc: aligned, aligned: n } = alignOpenTextSurface(doc, index);
+    const kai = aligned.tokens.find((t) => nfc(t.lemma ?? '') === nfc('καί'));
+    expect(n).toBe(0); // nothing surface-aligned (the verse doesn't match)
+    expect(kai?.gloss).toBe('and'); // but the gloss came from the lemma table
+    expect(nfc(kai!.surface)).toBe(nfc('καί')); // surface stays the lemma form
+  });
+
   it('replaces lemma forms with inflected surfaces by (verse, position), validated by lemma', () => {
     const doc = philemonDocs()[1]!; // χάρις ὑμῖν καὶ εἰρήνη ἀπὸ θεός … (lemma forms)
     // Build a tiny index covering the first verse-3 words with inflected forms. The
