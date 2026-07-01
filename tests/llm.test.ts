@@ -634,6 +634,102 @@ describe('LLM transliteration for non-Latin scripts', () => {
   });
 });
 
+describe("LLM Strong's numbers (Biblical Greek & Hebrew only)", () => {
+  it("asks for Strong's numbers, templates the field, and scopes them to grc/hbo", () => {
+    const text = 'ἀγαπῶμεν ἀλλήλους';
+    const prompt = buildLlmPrompt(text, tokenize(text));
+    expect(prompt).toMatch(/STRONG.S NUMBERS/i);
+    expect(prompt).toContain('"strong"');
+    expect(prompt).toMatch(/"grc".*"hbo"/);
+    expect(prompt).toMatch(/BARE DIGITS/);
+    expect(prompt).toMatch(/OMIT "strong".*EVERY OTHER language/i);
+  });
+
+  it("routes a Strong's number into extra.strong for a Greek document (prefix stripped)", () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'grc',
+      text: 'ὁ λόγος',
+      tokens: [
+        { id: 't0', surface: 'ὁ', pos: 'article', strong: '3588' },
+        { id: 't1', surface: 'λόγος', pos: 'noun', strong: 'G3056' }, // a G prefix is normalized away
+      ],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t1'] },
+        { id: 'na', kind: 'word', role: 'determiner', tokens: ['t0'] },
+      ],
+      relations: [
+        { type: 'subject', head: 'c0', dependent: 'ns' },
+        { type: 'determiner', head: 'ns', dependent: 'na' },
+      ],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    const logos = res.document!.tokens.find((t) => t.surface === 'λόγος')!;
+    expect(logos.morphology?.extra?.strong).toBe('3056');
+    expect(res.document!.tokens.find((t) => t.surface === 'ὁ')!.morphology?.extra?.strong).toBe('3588');
+  });
+
+  it('carries a Hebrew Strong\'s number (with an occasional letter suffix)', () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'hbo',
+      direction: 'rtl',
+      text: 'אֱלֹהִים',
+      tokens: [{ id: 't0', surface: 'אֱלֹהִים', pos: 'noun', strong: 'H430' }],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+      ],
+      relations: [{ type: 'subject', head: 'c0', dependent: 'ns' }],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    expect(res.document!.tokens[0]!.morphology?.extra?.strong).toBe('430');
+  });
+
+  it("DROPS a Strong's number on a non-Greek/Hebrew language even if supplied", () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'zh',
+      text: '道',
+      tokens: [{ id: 't0', surface: '道', pos: 'noun', strong: '3056', transliteration: 'dào' }],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+      ],
+      relations: [{ type: 'subject', head: 'c0', dependent: 'ns' }],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    const tok = res.document!.tokens[0]!;
+    expect(tok.morphology?.extra?.strong).toBeUndefined(); // not for Chinese
+    expect(tok.morphology?.extra?.translit).toBe('dào'); // transliteration still applies
+  });
+
+  it("also drops a Strong's NESTED in morphology for a non-Greek/Hebrew language", () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'en',
+      text: 'Word',
+      tokens: [{ id: 't0', surface: 'Word', pos: 'noun', morphology: { strong: '3056' } }],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+      ],
+      relations: [{ type: 'subject', head: 'c0', dependent: 'ns' }],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    expect(res.document!.tokens[0]!.morphology?.extra?.strong).toBeUndefined();
+  });
+});
+
 describe('importLlmDiagram carries the morphological parse through', () => {
   const base = {
     kind: LLM_DIAGRAM_KIND,
