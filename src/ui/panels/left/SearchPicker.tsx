@@ -34,6 +34,7 @@ import {
   type SearchQuery,
   type SearchResult,
 } from '@/domain/model';
+import { OfflineDownload } from './OfflineDownload';
 
 /**
  * Morphological search picker (Accordance-style). Pick a source and book — it
@@ -521,6 +522,10 @@ export function SearchPicker() {
               : ''}
         </p>
       )}
+
+      {/* Offline download of the whole testament (the OpenText alt source isn't
+          warmed yet, so it's offered for the two default corpora). */}
+      {source !== 'opentext' && <OfflineDownload corpus={isOt ? 'ot' : 'nt'} testament={testament} />}
     </div>
   );
 }

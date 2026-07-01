@@ -19,13 +19,22 @@ precacheAndRoute(self.__WB_MANIFEST);
 // Drop precaches that are no longer in the current manifest.
 cleanupOutdatedCaches();
 
-// Greek New Testament books are fetched on demand (they are too large — ~80 MB
-// for the whole GNT — to precache). Cache-first with a runtime cache so a book
-// opened once stays available offline. These XML trees are immutable.
+// Corpus syntax trees (GNT · Hebrew OT · OpenText) are fetched on demand — they
+// are far too large to precache (the GNT alone is ~80 MB) — and cache-first in a
+// runtime cache so a book opened once (or an offline download, see io/offline.ts)
+// stays available with no network. These XML trees are immutable. The cache name
+// is kept as 'gnt-books-v1' for continuity, though it now holds every corpus.
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  const isGnt = url.pathname.endsWith('.xml') && (url.pathname.includes('/gnt/') || url.pathname.includes('nestle1904-lowfat'));
-  if (event.request.method !== 'GET' || !isGnt) return;
+  const p = new URL(event.request.url).pathname;
+  const isCorpus =
+    p.endsWith('.xml') &&
+    (p.includes('/gnt/') ||
+      p.includes('nestle1904-lowfat') ||
+      p.includes('/ot/') ||
+      p.includes('macula-hebrew') ||
+      p.includes('/opentext/') ||
+      p.includes('OpenText-org'));
+  if (event.request.method !== 'GET' || !isCorpus) return;
   event.respondWith(
     caches.open('gnt-books-v1').then(async (cache) => {
       const hit = await cache.match(event.request);
