@@ -29,6 +29,10 @@ function SelectionEditor() {
   const startRelink = useEditorStore((s) => s.startRelink);
   const linking = useEditorStore((s) => s.linking);
   const setSearchPrefill = useEditorStore((s) => s.setSearchPrefill);
+  const openEditModal = useEditorStore((s) => s.openEditModal);
+
+  // Open the lexeme search to fill a word with a Greek/Hebrew Strong's lemma.
+  const searchLexemeFor = (nodeId: string) => () => openEditModal({ type: 'lexeme', nodeId });
 
   // Queue a whole-corpus lemma search from the inspector (a word's Strong's /
   // lemma); the Search tab consumes it. Only the two Greek/Hebrew corpora are
@@ -41,8 +45,15 @@ function SelectionEditor() {
   if (sel.tokenId) {
     const t = doc.tokens.find((x) => x.id === sel.tokenId);
     if (!t) return <Empty />;
+    const wordNode = doc.syntax.nodes.find((nd) => nd.tokenIds.includes(t.id));
     return (
-      <TokenInspector token={t} grc={doc.language === 'grc'} onChange={(p) => updateToken(t.id, p)} onSearchLemma={searchLemma} />
+      <TokenInspector
+        token={t}
+        grc={doc.language === 'grc'}
+        onChange={(p) => updateToken(t.id, p)}
+        onSearchLemma={searchLemma}
+        onSearchLexeme={wordNode ? searchLexemeFor(wordNode.id) : undefined}
+      />
     );
   }
 
@@ -197,7 +208,13 @@ function SelectionEditor() {
         {(() => {
           const t = n.tokenIds[0] ? doc.tokens.find((x) => x.id === n.tokenIds[0]) : undefined;
           return t ? (
-            <TokenInspector token={t} grc={doc.language === 'grc'} onChange={(p) => updateToken(t.id, p)} onSearchLemma={searchLemma} />
+            <TokenInspector
+              token={t}
+              grc={doc.language === 'grc'}
+              onChange={(p) => updateToken(t.id, p)}
+              onSearchLemma={searchLemma}
+              onSearchLexeme={searchLexemeFor(n.id)}
+            />
           ) : null;
         })()}
         {n.id !== doc.syntax.rootId && (
@@ -215,6 +232,7 @@ function SelectionEditor() {
 /** Always-available control to add a word (e.g. for a variant reading). */
 function AddWord() {
   const addWord = useEditorStore((s) => s.addWord);
+  const addBlankWord = useEditorStore((s) => s.addBlankWord);
   const [surface, setSurface] = useState('');
   const submit = () => {
     if (!surface.trim()) return;
@@ -228,7 +246,7 @@ function AddWord() {
         <input
           type="text"
           aria-label="New word"
-          placeholder="word…"
+          placeholder="type a word…"
           value={surface}
           onChange={(e) => setSurface(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
@@ -237,8 +255,14 @@ function AddWord() {
           Add
         </button>
       </div>
+      <div className="row" style={{ marginTop: 6 }}>
+        <button className="mini" style={{ width: '100%' }} onClick={addBlankWord}>
+          🔍 Search a Strong’s lemma…
+        </button>
+      </div>
       <p className="hint" style={{ margin: '6px 0 0' }}>
-        Adds a word attached to the sentence; select it to set its role or re-link it.
+        Type a word, or search a Greek/Hebrew Strong’s lemma to add a blank word and fill it
+        (for a textual variant). Select any added word to set its role or re-link it.
       </p>
     </div>
   );
@@ -258,13 +282,17 @@ function TokenInspector({
   grc,
   onChange,
   onSearchLemma,
+  onSearchLexeme,
 }: {
   token: Token;
   grc: boolean;
   onChange: (patch: Partial<Token>) => void;
   /** Prefill a whole-corpus search for this word's lemma (from the Strong's link). */
   onSearchLemma?: (lemma: string) => void;
+  /** Open the lexeme search to fill a blank word with a Greek/Hebrew Strong's lemma. */
+  onSearchLexeme?: () => void;
 }) {
+  const blank = !token.surface.trim();
   const morph = token.morphology ?? {};
   const strong = morph.extra?.strong;
   const lemma = token.lemma?.trim() || token.surface.trim();
@@ -284,9 +312,15 @@ function TokenInspector({
           type="text"
           className={grc ? 'greek' : undefined}
           value={token.surface}
+          placeholder={blank ? '(blank — search a lemma below)' : undefined}
           onChange={(e) => onChange({ surface: e.target.value })}
         />
       </label>
+      {onSearchLexeme && blank && (
+        <button type="button" className="mini accept lex-fill-btn" onClick={onSearchLexeme}>
+          🔍 Search Strong’s / lemma / gloss…
+        </button>
+      )}
       <div className="row">
         <label className="field">
           <span>Lemma</span>

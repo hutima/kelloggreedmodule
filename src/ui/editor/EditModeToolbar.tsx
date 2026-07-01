@@ -31,6 +31,9 @@ export function EditModeToolbar() {
   const redo = useEditorStore((s) => s.redo);
   // Define a brand-new clause (empty subject + verb slots to fill from the bank).
   const addClause = useEditorStore((s) => s.addClause);
+  // Add a brand-new blank word (author a textual variant) and open the lexeme
+  // search to give it a Greek/Hebrew Strong's lemma.
+  const addBlankWord = useEditorStore((s) => s.addBlankWord);
   const canUndo = useEditorStore(selectCanUndo);
   const canRedo = useEditorStore(selectCanRedo);
   // "Clean up" re-flows the Kellogg-Reed diagram from the parse by clearing all
@@ -83,6 +86,20 @@ export function EditModeToolbar() {
             ＋
           </span>
           <span className="tool-label">Add clause</span>
+        </button>
+      )}
+
+      {editTier === 'basic' && diagramMode !== 'morphology' && (
+        <button
+          type="button"
+          className="tool-btn add-word-btn"
+          title="Add a new word — search a Greek/Hebrew Strong's lemma to fill it (author a textual variant)"
+          onClick={addBlankWord}
+        >
+          <span className="tool-icon" aria-hidden="true">
+            ＋
+          </span>
+          <span className="tool-label">Add word</span>
         </button>
       )}
 

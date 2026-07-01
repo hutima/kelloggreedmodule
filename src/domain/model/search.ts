@@ -105,7 +105,14 @@ export function matchToken(token: Token, q: SearchQuery): boolean {
   if (text) {
     const needle = foldAccents(text);
     const fields = [token.surface, token.lemma, token.gloss];
-    if (!fields.some((f) => f && foldAccents(f).includes(needle))) return false;
+    const textHit = fields.some((f) => f && foldAccents(f).includes(needle));
+    // A numeric query (optionally G/H-prefixed, the way the inspector prints a
+    // Strong's number) also matches the token's Strong's number by prefix — so a
+    // word can be found by its Strong's, not just its spelling or gloss.
+    const digits = text.replace(/^[gh]/i, '');
+    const strong = token.morphology?.extra?.strong;
+    const strongHit = /^\d+$/.test(digits) && !!strong && strong.startsWith(digits);
+    if (!textHit && !strongHit) return false;
   }
   if (q.pos && token.pos !== q.pos) return false;
   const m = token.morphology ?? {};
@@ -145,6 +152,52 @@ export function searchPassages(passages: KrDocument[], q: SearchQuery): SearchRe
     }
   }
   return { hits, total, capped: total > hits.length };
+}
+
+/** A distinct lexeme gathered from a corpus search, for the add-a-word lexicon
+ *  picker (authoring a textual variant). Keyed by Strong's number when present,
+ *  else the folded lemma, so inflected occurrences collapse to one entry. */
+export interface LexemeEntry {
+  key: string;
+  strong?: string;
+  lemma: string;
+  gloss?: string;
+  pos?: PartOfSpeech;
+  /** Corpus occurrences folded into this entry, for ranking. */
+  count: number;
+}
+
+/** Cap on distinct lexemes returned to the picker. */
+export const LEXEME_RESULT_CAP = 80;
+
+/**
+ * Collapse the query-matching tokens of some passages into DISTINCT lexemes
+ * (by Strong's, else folded lemma), most-frequent first — the "search Strong's /
+ * lemma / gloss, pick a word to assign" list behind adding a new word. Pure.
+ */
+export function searchLexemes(
+  passages: KrDocument[],
+  q: SearchQuery,
+  cap = LEXEME_RESULT_CAP,
+): LexemeEntry[] {
+  const by = new Map<string, LexemeEntry>();
+  for (const doc of passages) {
+    for (const token of doc.tokens) {
+      if (!matchToken(token, q)) continue;
+      const lemma = (token.lemma ?? token.surface).trim();
+      if (!lemma) continue;
+      const strong = token.morphology?.extra?.strong;
+      const key = strong ? `s:${strong}` : `l:${foldAccents(lemma)}`;
+      const existing = by.get(key);
+      if (existing) {
+        existing.count += 1;
+        if (!existing.gloss && token.gloss) existing.gloss = token.gloss;
+        continue;
+      }
+      by.set(key, { key, strong, lemma, gloss: token.gloss, pos: token.pos, count: 1 });
+    }
+  }
+  return [...by.values()].sort((a, b) => b.count - a.count).slice(0, cap);
 }
 
 /** One book of a corpus, with a loader to fetch+parse it on demand. */

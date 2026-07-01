@@ -6,6 +6,7 @@ import {
   isEmptyQuery,
   matchToken,
   searchCorpus,
+  searchLexemes,
   searchPassages,
   SEARCH_RESULT_CAP,
   type CorpusProgress,
@@ -245,3 +246,43 @@ describe('searchPassages (Hebrew / OT source)', () => {
     expect(searchPassages(chapter, { text: 'בָּרָא' }).total).toBe(1);
   });
 });
+
+describe('Strong’s-number search + lexeme picker', () => {
+  // A tiny corpus with Strong's numbers in morphology.extra, and repeated lemmas.
+  const corpus: KrDocument[] = [
+    KrDocumentSchema.parse({
+      schemaVersion: 1, id: 'lx', title: 'Phil 1:1', language: 'grc', text: 'δοῦλοι δοῦλος καί',
+      createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z', layoutHints: {},
+      tokens: [
+        { id: 'lx0', index: 0, surface: 'δοῦλοι', lemma: 'δοῦλος', language: 'grc', pos: 'noun',
+          gloss: 'servants', morphology: { number: 'plural', extra: { strong: '1401' } } },
+        { id: 'lx1', index: 1, surface: 'δοῦλος', lemma: 'δοῦλος', language: 'grc', pos: 'noun',
+          gloss: 'servant', morphology: { number: 'singular', extra: { strong: '1401' } } },
+        { id: 'lx2', index: 2, surface: 'καί', lemma: 'καί', language: 'grc', pos: 'conjunction',
+          gloss: 'and', morphology: { extra: { strong: '2532' } } },
+      ],
+      syntax: { rootId: 'lx-c', nodes: [{ id: 'lx-c', kind: 'clause', clauseType: 'independent', tokenIds: [] }], relations: [] },
+    }),
+  ];
+
+  it('matchToken finds a word by its Strong’s number (bare or G/H-prefixed, by prefix)', () => {
+    const douloi = corpus[0]!.tokens[0]!;
+    expect(matchToken(douloi, { text: '1401' })).toBe(true);
+    expect(matchToken(douloi, { text: 'G1401' })).toBe(true);
+    expect(matchToken(douloi, { text: '140' })).toBe(true); // prefix
+    expect(matchToken(douloi, { text: '2532' })).toBe(false); // a different lexeme
+    expect(matchToken(douloi, { text: 'servant' })).toBe(true); // gloss still works
+  });
+
+  it('searchLexemes collapses inflected occurrences into one entry, most-frequent first', () => {
+    const byStrong = searchLexemes(corpus, { text: '1401' });
+    expect(byStrong).toHaveLength(1);
+    expect(byStrong[0]!.strong).toBe('1401');
+    expect(byStrong[0]!.lemma).toBe('δοῦλος');
+    expect(byStrong[0]!.count).toBe(2); // δοῦλοι + δοῦλος folded together
+
+    const byGloss = searchLexemes(corpus, { text: 'servant' }); // matches both glosses
+    expect(byGloss).toHaveLength(1);
+    expect(byGloss[0]!.gloss).toBeTruthy();
+  });
+})

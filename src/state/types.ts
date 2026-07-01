@@ -72,6 +72,7 @@ export type ActiveEditModal =
   | { type: 'block'; nodeId: string }
   | { type: 'wordDetails'; nodeId: string }
   | { type: 'quickGloss'; nodeId: string }
+  | { type: 'lexeme'; nodeId: string }
   | { type: 'note'; anchor: SermonAnchor }
   | null;
 

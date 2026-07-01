@@ -320,6 +320,10 @@ export interface EditorActions {
   /** Add a new word (token + word node, attached to the root) for a variant
    *  reading; selects it so it can be re-roled/relinked. */
   addWord: (surface: string) => void;
+  /** Add a BLANK new word (empty token, drawn as a "＋" placeholder) and open the
+   *  lexeme search so the user assigns it a Greek/Hebrew Strong's lemma — the way
+   *  to author a brand-new word for a textual variant. */
+  addBlankWord: () => void;
   /** Place an existing-but-unassigned token on the diagram: make a word node for
    *  it, attach it to the currently-selected clause (or the root), and select it
    *  so it can be re-roled / relinked. */
@@ -929,6 +933,49 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         };
       });
       set({ selection: { nodeId } });
+    },
+
+    addBlankWord: () => {
+      const tokenId = makeId('tok');
+      const nodeId = makeId('node');
+      const manual = { source: 'manual', confidence: 'high' } as const;
+      commit((d) => {
+        // A blank token — no surface/lemma/gloss yet. The node carries a "＋"
+        // label so the empty word still draws (and is tappable) on the diagram
+        // until a lexeme is assigned; nodeText prefers the surface once it's set.
+        const token: Token = {
+          id: tokenId,
+          index: d.tokens.length,
+          surface: '',
+          language: d.language,
+          provenance: manual,
+        };
+        const node: SyntaxNode = {
+          id: nodeId,
+          kind: 'word',
+          tokenIds: [tokenId],
+          label: '＋',
+          provenance: manual,
+        };
+        const relation: Relation = {
+          id: makeId('rel'),
+          type: 'adjunct',
+          headId: d.syntax.rootId,
+          dependentId: nodeId,
+          provenance: manual,
+        };
+        return {
+          ...d,
+          tokens: reindex([...d.tokens, token]),
+          syntax: {
+            ...d.syntax,
+            nodes: [...d.syntax.nodes, node],
+            relations: [...d.syntax.relations, relation],
+          },
+        };
+      });
+      // Select it and open the lexeme search so the user fills it straight away.
+      set({ selection: { nodeId }, editModal: { type: 'lexeme', nodeId } });
     },
 
     placeToken: (tokenId) => {
