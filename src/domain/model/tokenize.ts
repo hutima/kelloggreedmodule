@@ -181,12 +181,17 @@ export function docDirection(doc: { direction?: Direction; language?: string; te
 
 /**
  * Sentence punctuation the editions add editorially — periods, commas, colons,
- * the Greek ano teleia (·) and question mark (;), dashes, quotes, brackets. A
+ * the Greek ano teleia (U+0387; the look-alike middle dot U+00B7 too) and Greek
+ * question mark (U+037E, a look-alike of ;), dashes, quotes, brackets — plus
+ * the CJK equivalents: ideographic stops and commas, corner and lenticular
+ * brackets, angle quotes, middle dot, wave dashes, and the fullwidth forms of
+ * ASCII punctuation, so Chinese/Japanese text is genuinely stripped too. A
  * word-internal ELISION apostrophe (ἀλλ') is deliberately NOT stripped: it is
  * part of the word, not sentence punctuation. Used by the "infer punctuation"
  * export option so the model proposes its own breaks/attachments.
  */
-const SENTENCE_PUNCT = /[.,:;!?·…—–‑―«»"“”„‟()[\]{}··;‐]/g;
+const SENTENCE_PUNCT =
+  /[.,:;!?·…—–‑―‐«»"“”„‟()[\]{}·;、。〃〈〉《》「」『』【】〔〕〖〗・〜～，．：；！？（）［］｛｝＂＇｟｠｡｢｣､･]/g;
 
 /** Strip editorial sentence punctuation from `text`, collapsing whitespace. */
 export function stripPunctuation(text: string): string {

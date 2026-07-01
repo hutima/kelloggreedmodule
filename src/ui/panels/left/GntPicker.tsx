@@ -15,8 +15,7 @@ import {
 } from '@/io';
 import { useViewport } from '@/ui/responsive';
 import type { KrDocument } from '@/domain/schema';
-import { loadPatch } from '@/persistence';
-import { applyPatch } from '@/domain/patch';
+import { applyStoredPatch } from '@/persistence';
 import { getIssuesForPassage } from '@/domain/contested';
 
 /**
@@ -94,6 +93,9 @@ export function GntPicker() {
   useEffect(() => {
     if (doc.id === lastSyncedDocId.current) return;
     lastSyncedDocId.current = doc.id;
+    // A non-GNT doc (Hebrew, a typed custom sentence…) doesn't drive the GNT
+    // picker — following it would reset the source/book and refetch the list.
+    if (doc.language !== 'grc' || !currentBook) return;
     const docSource = sourceOfDoc(doc);
     const bookChanged = !!currentBook && currentBook.num !== bookNum;
     const sourceChanged = docSource !== source;
@@ -112,18 +114,26 @@ export function GntPicker() {
   // OpenText's bundled Philemon is always offline-ready; the GNT bundles Php only.
   const bundled = source === 'opentext' || BUNDLED_BOOKS.has(book.num);
 
+  // Requests can finish out of order (switching book/source mid-fetch); only
+  // the LATEST request may publish its list or clear the spinner, or a slow
+  // stale response would clobber the newer one.
+  const loadSeq = useRef(0);
   const loadBook = async (num: number) => {
+    const seq = ++loadSeq.current;
     setLoading(true);
     setError(null);
     setPassages(null);
     setChecked(new Set());
     setCacheState('idle');
     try {
-      setPassages(await loadBookDocs(source, num));
+      const docs = await loadBookDocs(source, num);
+      if (seq !== loadSeq.current) return;
+      setPassages(docs);
     } catch (e) {
+      if (seq !== loadSeq.current) return;
       setError((e as Error).message);
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
   };
 
@@ -174,11 +184,9 @@ export function GntPicker() {
     if (!selected.length) return;
     // Fold in each sentence's saved patch (e.g. a promoted/adopted alternate
     // reading) BEFORE combining, so a multi-sentence selection shows it instead
-    // of silently reverting that sentence to its untouched base.
-    const patched = selected.map((p) => {
-      const patch = loadPatch(p.id);
-      return patch ? applyPatch(p, patch) : p;
-    });
+    // of silently reverting that sentence to its untouched base. The apply is
+    // baseHash-guarded: a patch made against a different base is skipped.
+    const patched = selected.map((p) => applyStoredPatch(p));
     // OpenText carries an explicit clause-connector layer, so chained sentences
     // (καί / δέ / διό …) join on one coordinate spine rather than stacking.
     loadDocument(combinePassage(patched, { coordinate: source === 'opentext' }), { corpus: 'gnt' });

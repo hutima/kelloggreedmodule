@@ -1,18 +1,32 @@
-import type { DiagramLayout, DiagramElement } from '@/domain/layout';
+import type { DiagramLayout, DiagramElement, TextElement } from '@/domain/layout';
 import { measureText, SMALL_FONT, BASE_FONT } from '@/domain/layout/measure';
 import { THEME, dashFor, toneColor } from './theme';
 
 /**
- * Pure SVG string serializer. Used by the export layer (SVG/PNG/print) and by
- * tests. The on-screen React canvas draws the same primitives but adds
- * interaction; both consume the layout engine's output, so what you see is what
- * you export.
+ * Pure SVG string serializer. Used by the export layer (SVG/PNG) and by tests.
+ * The on-screen React canvas draws the same primitives but adds interaction;
+ * both consume the layout engine's output, so what you see is what you export.
+ * Sermon highlights and contested washes are canvas overlays keyed by app
+ * state, so the caller passes them in as {@link SvgHighlights} (plain id →
+ * colour lookups) — the renderer never reads the store.
  */
+export interface SvgHighlights {
+  /**
+   * nodeId → fill for the highlighter swash behind a word (sermon category
+   * colour, or the soft amber contested wash).
+   */
+  nodeFills?: ReadonlyMap<string, string>;
+  /** relationId → colour of the soft swash along the relation's connector. */
+  relationFills?: ReadonlyMap<string, string>;
+}
+
 export interface SvgOptions {
   padding?: number;
   background?: boolean;
   /** Embed font-family inline so standalone .svg files render correctly. */
   standalone?: boolean;
+  /** Sermon-highlight / contested washes to paint, matching the canvas. */
+  highlights?: SvgHighlights;
 }
 
 function escapeXml(s: string): string {
@@ -81,6 +95,36 @@ function arrowheadPath(cx: number, cy: number, x2: number, y2: number, color: st
   return `<path d="M ${r(x2)} ${r(y2)} L ${p1} L ${p2} Z" fill="${color}" stroke="none" />`;
 }
 
+/**
+ * A highlighter swash behind a sermon-tagged (or contested) word, matching the
+ * canvas's geometry exactly: a rounded rect sized to the measured text,
+ * rotated with a diagonal word so the swash lies along its slant.
+ */
+function highlightRectSvg(el: TextElement, fill: string): string {
+  const size = el.small ? THEME.smallFontSize : THEME.fontSize;
+  const w = measureText(el.text, el.small ? SMALL_FONT : BASE_FONT);
+  const padX = 3;
+  const padY = 1.5;
+  const bw = w + padX * 2;
+  const bh = size * 0.95 + padY * 2;
+  const bx =
+    el.anchor === 'middle' ? el.x - bw / 2 : el.anchor === 'end' ? el.x - bw + padX : el.x - padX;
+  const by = el.y - size * 0.72 - padY;
+  const transform = el.rotate ? ` transform="rotate(${r(el.rotate)} ${r(el.x)} ${r(el.y)})"` : '';
+  return `<rect x="${r(bx)}" y="${r(by)}" width="${r(bw)}" height="${r(bh)}" rx="3" fill="${fill}"${transform} />`;
+}
+
+/** A soft swash along a highlighted relation's connector line or curve. */
+function relationSwashSvg(el: DiagramElement, color: string): string {
+  if (el.kind === 'line') {
+    return `<line x1="${r(el.x1)}" y1="${r(el.y1)}" x2="${r(el.x2)}" y2="${r(el.y2)}" stroke="${color}" stroke-width="7" stroke-linecap="round" opacity="0.55" />`;
+  }
+  if (el.kind === 'curve') {
+    return `<path d="M ${r(el.x1)} ${r(el.y1)} Q ${r(el.cx)} ${r(el.cy)} ${r(el.x2)} ${r(el.y2)}" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" opacity="0.55" />`;
+  }
+  return '';
+}
+
 export function layoutToSvg(layout: DiagramLayout, opts: SvgOptions = {}): string {
   const pad = opts.padding ?? 0;
   const width = layout.width + pad * 2;
@@ -89,15 +133,29 @@ export function layoutToSvg(layout: DiagramLayout, opts: SvgOptions = {}): strin
     ? `<rect width="${r(width)}" height="${r(height)}" fill="${THEME.paper}" />`
     : '';
   const fontAttr = opts.standalone ? ` font-family="${THEME.fontFamily}"` : '';
+  const hl = opts.highlights;
+  // Word-highlight swashes go FIRST (behind everything), matching the canvas:
+  // the rect sits under the word and under crossing lines. Chip labels draw
+  // their own box, so they take no swash (same rule as the canvas).
+  const marks = layout.elements
+    .filter(
+      (e): e is TextElement =>
+        e.kind === 'text' && !e.box && !!e.nodeId && !!hl?.nodeFills?.get(e.nodeId),
+    )
+    .map((e) => highlightRectSvg(e, hl!.nodeFills!.get(e.nodeId!)!));
   // Draw all structural lines/curves first, then every word on top, so a word's
   // paper-coloured halo masks ANY line crossing it — not only lines that happened
   // to be emitted before it (e.g. an apposition stem the layout pushes after its
   // word). Stable partition keeps the relative order within each layer intact.
-  const ordered = [
-    ...layout.elements.filter((e) => e.kind !== 'text'),
-    ...layout.elements.filter((e) => e.kind === 'text'),
-  ];
-  const body = ordered.map(elementToSvg).join('\n  ');
+  // A highlighted relation gets its swash immediately under its own stroke.
+  const strokes = layout.elements
+    .filter((e) => e.kind !== 'text')
+    .map((e) => {
+      const swash = e.relationId ? hl?.relationFills?.get(e.relationId) : undefined;
+      return (swash ? relationSwashSvg(e, swash) : '') + elementToSvg(e);
+    });
+  const words = layout.elements.filter((e) => e.kind === 'text').map(elementToSvg);
+  const body = [...marks, ...strokes, ...words].join('\n  ');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${r(width)}" height="${r(height)}" viewBox="0 0 ${r(width)} ${r(height)}"${fontAttr}>
   ${bg}
   <g transform="translate(${pad},${pad})">

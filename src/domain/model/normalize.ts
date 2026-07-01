@@ -139,13 +139,21 @@ export function normalizeSyntax(doc: KrDocument): KrDocument {
   );
   if (splice.length) {
     const spliceIds = new Set(splice.map((n) => n.id));
+    // A wrapper's own parent can be ANOTHER wrapper being spliced (chained empty
+    // wrappers), so walk parentOf transitively until a surviving node — otherwise
+    // the reparented relation would point at a removed node, orphaning the subtree.
+    const survivingHead = (id: string): string => {
+      const seen = new Set<string>();
+      let cur: string | undefined = id;
+      while (cur && spliceIds.has(cur) && !seen.has(cur)) {
+        seen.add(cur);
+        cur = parentOf.get(cur);
+      }
+      return cur && !spliceIds.has(cur) ? cur : doc.syntax.rootId;
+    };
     relations = relations
       .filter((r) => !spliceIds.has(r.dependentId)) // drop the wrapper's own up-link
-      .map((r) =>
-        spliceIds.has(r.headId)
-          ? { ...r, headId: parentOf.get(r.headId) ?? doc.syntax.rootId }
-          : r,
-      );
+      .map((r) => (spliceIds.has(r.headId) ? { ...r, headId: survivingHead(r.headId) } : r));
     const keptNodes = nodes.filter((n) => !spliceIds.has(n.id));
     return { ...doc, syntax: { ...doc.syntax, nodes: keptNodes, relations } };
   }

@@ -223,6 +223,91 @@ describe('importLlmDiagram', () => {
     expect(rels.some((r) => r.type === 'subject')).toBe(false);
   });
 
+  it('imports CHAINED empty wrappers without orphaning the word behind them', () => {
+    // Regression: clause → phrase → phrase → word, every layer holding the same
+    // token. Both wrappers are spliced on normalize; the word must be reparented
+    // past BOTH to the clause — not left hanging off a removed wrapper.
+    const chained = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'en',
+      text: 'Word runs.',
+      tokens: [
+        { id: 't1', surface: 'Word', pos: 'noun' },
+        { id: 't2', surface: 'runs.', pos: 'verb' },
+      ],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'pA', kind: 'phrase', role: 'subject', tokens: ['t1'] },
+        { id: 'pB', kind: 'phrase', role: 'subject', tokens: ['t1'] },
+        { id: 'w1', kind: 'word', role: 'subject', tokens: ['t1'] },
+        { id: 'w2', kind: 'word', role: 'predicate', tokens: ['t2'] },
+      ],
+      relations: [
+        { type: 'subject', head: 'c0', dependent: 'pA' },
+        { type: 'subject', head: 'pA', dependent: 'pB' },
+        { type: 'subject', head: 'pB', dependent: 'w1' },
+        { type: 'predicate', head: 'c0', dependent: 'w2' },
+      ],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(chained));
+    expect(res.ok).toBe(true);
+    const doc = res.document!;
+    // The word node survives and every relation references an existing node.
+    expect(doc.syntax.nodes.some((n) => n.id === 'w1')).toBe(true);
+    const ids = new Set(doc.syntax.nodes.map((n) => n.id));
+    for (const r of doc.syntax.relations) {
+      expect(ids.has(r.headId)).toBe(true);
+      expect(ids.has(r.dependentId)).toBe(true);
+    }
+    // and the word is drawn (attached under the clause, not unreachable).
+    const texts = layoutDocument(doc).elements
+      .filter((e) => e.kind === 'text')
+      .map((e) => (e as { text: string }).text);
+    expect(texts).toContain('Word');
+  });
+
+  it('rejects duplicate token ids with a readable error', () => {
+    const dup = {
+      ...valid,
+      tokens: [
+        { id: 't1', surface: 'Word', pos: 'noun' },
+        { id: 't1', surface: 'flesh', pos: 'noun' }, // same id twice → merged/dropped words
+      ],
+    };
+    const res = importLlmDiagram(JSON.stringify(dup));
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/duplicate token id: t1/i);
+  });
+
+  it('rejects duplicate node ids with a readable error', () => {
+    const dup = {
+      ...valid,
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'n_subj', kind: 'word', role: 'subject', tokens: ['t1'] },
+        { id: 'n_subj', kind: 'word', role: 'predicate', tokens: ['t2'] },
+      ],
+      relations: [],
+    };
+    const res = importLlmDiagram(JSON.stringify(dup));
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/duplicate node id: n_subj/i);
+  });
+
+  it('rejects duplicate relation ids with a readable error', () => {
+    const dup = {
+      ...valid,
+      relations: [
+        { id: 'r1', type: 'subject', head: 'c0', dependent: 'n_subj' },
+        { id: 'r1', type: 'predicate', head: 'c0', dependent: 'n_verb' },
+      ],
+    };
+    const res = importLlmDiagram(JSON.stringify(dup));
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/duplicate relation id: r1/i);
+  });
+
   it('rejects a relation pointing at a missing node', () => {
     const broken = { ...valid, relations: [{ type: 'subject', head: 'c0', dependent: 'ghost' }] };
     const res = importLlmDiagram(JSON.stringify(broken));

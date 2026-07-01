@@ -82,18 +82,16 @@ export function layoutDependencyTree(
     addChild(depTok, labelTok, role, rel.id);
   }
 
-  // Top-level children of the virtual ROOT: each sentence's main verb, plus any
-  // token that ended up with no head (a disconnected fragment), so nothing is
-  // dropped. Mark the genuine sentence roots so they read as the predicate.
+  // Top-level children of the virtual ROOT: EVERY token that ended up with no
+  // head — each sentence's main verb, a disconnected fragment's own head, and a
+  // bare unattached leaf alike — so nothing is dropped. A token that anchors a
+  // subtree (or is a genuine sentence root) reads as a predicate; a lone leaf
+  // gets no role chip.
   const isRoot = new Set(rootTokens(doc).filter((t) => surface.has(t)));
   for (const t of doc.tokens) {
-    if (!parent.has(t.id) && (isRoot.has(t.id) || (children.get(t.id)?.length ?? 0) > 0)) {
-      addChild(VROOT, t.id, 'predicate', '');
-    }
-  }
-  // Nothing connected at all → fall back to laying the words out as bare roots.
-  if (!(children.get(VROOT)?.length)) {
-    for (const t of doc.tokens) if (!parent.has(t.id)) addChild(VROOT, t.id, 'unknown', '');
+    if (parent.has(t.id)) continue;
+    const anchors = isRoot.has(t.id) || (children.get(t.id)?.length ?? 0) > 0;
+    addChild(VROOT, t.id, anchors ? 'predicate' : 'unknown', '');
   }
 
   for (const list of children.values()) {

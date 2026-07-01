@@ -41,6 +41,40 @@ describe('SVG renderer', () => {
     expect(firstText).toBeGreaterThan(Math.max(lastLine, lastPath));
   });
 
+  it('paints a word-highlight swash behind the text, under all lines', () => {
+    const doc = cloneSample('doc_sample_fox')!;
+    const layout = layoutDocument(doc);
+    const word = layout.elements.find((e) => e.kind === 'text' && e.nodeId && !e.box);
+    expect(word).toBeDefined();
+    const svg = layoutToSvg(layout, {
+      highlights: { nodeFills: new Map([[word!.nodeId!, '#fde047']]) },
+    });
+    // The swash rect exists and is emitted BEFORE every line/path/text so it
+    // sits behind the whole diagram, exactly like the canvas.
+    const rect = svg.indexOf('fill="#fde047"');
+    expect(rect).toBeGreaterThan(-1);
+    expect(rect).toBeLessThan(svg.indexOf('<line'));
+    expect(rect).toBeLessThan(svg.indexOf('<text'));
+  });
+
+  it('paints a soft swash along a highlighted relation connector', () => {
+    const doc = cloneSample('doc_sample_fox')!;
+    const layout = layoutDocument(doc);
+    const stroke = layout.elements.find((e) => e.kind !== 'text' && e.relationId);
+    expect(stroke).toBeDefined();
+    const svg = layoutToSvg(layout, {
+      highlights: { relationFills: new Map([[stroke!.relationId!, '#a7f3d0']]) },
+    });
+    expect(svg).toContain('stroke="#a7f3d0" stroke-width="7" stroke-linecap="round" opacity="0.55"');
+  });
+
+  it('emits no swashes when no highlights are passed', () => {
+    const doc = cloneSample('doc_sample_fox')!;
+    const svg = layoutToSvg(layoutDocument(doc), { highlights: {} });
+    expect(svg).not.toContain('opacity="0.55"');
+    expect(svg).toBe(layoutToSvg(layoutDocument(doc)));
+  });
+
   it('marks low-confidence relations as tentative for ambiguity colouring', () => {
     const doc = cloneSample('doc_sample_fox')!;
     const rel = doc.syntax.relations[0]!;

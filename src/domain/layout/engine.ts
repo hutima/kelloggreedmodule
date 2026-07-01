@@ -239,14 +239,18 @@ function drawInfinitive(
   const endX = objX + block.wordLeft;
   out.push(...translate(block, objX, oTop));
   out.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, rel.id));
-  return { right: objX + block.width, bottom: Math.max(oTop + block.height, oTop) };
+  return { right: objX + block.width, bottom: oTop + block.height };
 }
 
 /**
  * Draw ONE prepositional phrase hanging from (`attachX`, 0): the preposition
  * written along a standard-angle slant down to its object's own horizontal
- * baseline. Returns the rightmost x reached, the lowest y, and the slant's
- * bottom (`oTop`, the object baseline) so callers can align a coordinator bar.
+ * baseline. A BARE conjunct on the preposition node (one with no preposition of
+ * its own — "in heaven and earth" as one shared preposition) is a coordinated
+ * OBJECT: each further object forks off the slant's foot onto its own baseline
+ * below, the coordinator riding the dashed bar between them. Returns the
+ * rightmost x reached, the lowest y, and the slant's bottom (`oTop`, the head
+ * object's baseline) so callers can align a coordinator bar.
  */
 function drawPp(
   ctx: Ctx,
@@ -273,11 +277,54 @@ function drawPp(
   out.push(...translate(block, objX, oTop));
   out.push(line(eid(), attachX, 0, endX, oTop, 'solid', 'slant', undefined, relId));
   out.push(diagonalText(prep, attachX, 0, endX, oTop, relId, prepNodeId));
-  return {
-    right: objX + block.width,
-    bottom: Math.max(oTop + block.height, diagonalDepth(attachX, 0, endX, oTop, prep)),
-    oTop,
-  };
+  let right = objX + block.width;
+  let bottom = Math.max(oTop + block.height, diagonalDepth(attachX, 0, endX, oTop, prep));
+
+  // Bare-noun conjuncts on the preposition node: coordinated objects sharing the
+  // one preposition. (A conjunct carrying its OWN preposition is a coordinate PP
+  // and is drawn by drawPpCoordination instead — see `ppConjunctRels`.)
+  const bareConjRels = wordConjunctRels(ctx, prepNodeId)
+    .filter((r) => !prepObjectOf(ctx, r.dependentId))
+    .sort((a, b) => subtreeMinIndex(ctx, a.dependentId) - subtreeMinIndex(ctx, b.dependentId));
+  if (bareConjRels.length) {
+    // The prep node's own coordinators join this object fork — unless the node
+    // is itself a member of a PP-level coordination, whose joins consume them.
+    // A coordinator parsed onto a conjunct is hoisted, as everywhere else.
+    const coords = [
+      ...(ppConjunctRels(ctx, prepNodeId).length ? [] : coordinatorTexts(ctx, prepNodeId)),
+      ...bareConjRels.flatMap((r) => coordinatorTexts(ctx, r.dependentId)),
+    ];
+    const others = bareConjRels.map((r) => ({ rel: r, block: layoutNode(ctx, r.dependentId, seen) }));
+    // Stack the object baselines below the head object, reserving each member's
+    // own depth plus the join's coordinator room — the same spacing rule the
+    // word-coordination fork applies.
+    const joinSpan = reserveJoinSpans(coords, others.length + 1, false);
+    const baselines = [oTop];
+    let y = oTop;
+    let prev = block;
+    others.forEach(({ block: mb }, i) => {
+      const base =
+        prev.height + LAYOUT.coordMemberGap * ctx.vScale + LAYOUT.dividerUp + pedestalRoom(mb);
+      y += Math.max(base, joinSpan[i] ?? 0);
+      baselines.push(y);
+      prev = mb;
+    });
+    // Junction at the slant's foot: the head object's baseline runs on from it;
+    // each further object hangs off a prong, all tied by the dashed bar at the
+    // corner column (the shape the infinitive fork draws).
+    const prong = LAYOUT.coordProngRun;
+    others.forEach(({ rel, block: mb }, i) => {
+      const by = baselines[i + 1]!;
+      out.push(...translate(mb, endX + prong, by));
+      out.push(line(eid(), endX, oTop, endX + prong + mb.wordLeft, by, 'solid', 'coordination', undefined, rel.id));
+      right = Math.max(right, endX + prong + mb.width);
+      bottom = Math.max(bottom, by + mb.height);
+    });
+    out.push(line(eid(), endX + prong, oTop, endX + prong, baselines[baselines.length - 1]!, 'dashed', 'coordination', prepNodeId));
+    out.push(...coordinatorMarks(coords, baselines, endX + prong + 9));
+  }
+
+  return { right, bottom, oTop };
 }
 
 /**
@@ -346,17 +393,19 @@ function drawPpCoordination(
   const between = coords.filter((c) => c.idx > firstIdx);
   const lead = coords.filter((c) => c.idx < firstIdx);
 
-  // One dashed bar per join, partway down where both slants are still above their
-  // object baselines; the join's conjunction rides it.
-  for (let i = 0; i < slants.length - 1; i++) {
-    const c = between[i];
-    if (!c) continue;
+  // One dashed bar per join, partway down where both slants are still above
+  // their object baselines; the join's conjunction rides it. Fewer conjunctions
+  // than joins map to the LAST joins ("A, B and C" puts the lone conjunction in
+  // the final gap) — the same convention `coordinatorMarks` uses.
+  const joins = slants.length - 1;
+  between.forEach((c, k) => {
+    const i = Math.max(0, Math.min(joins - 1, joins - between.length + k));
     const d = Math.min(slants[i]!.oTop, slants[i + 1]!.oTop) * 0.55;
     const x0 = slants[i]!.x + slantRun(d);
     const x1 = slants[i + 1]!.x + slantRun(d);
     out.push(line(eid(), x0, d, x1, d, 'dashed', 'coordination', headId));
     out.push(smallText(eid(), (x0 + x1) / 2, d - 4, c.text, 'middle', c.id));
-  }
+  });
 
   // A leading negator (οὐκ / μή) rides the top of the first member's slant.
   if (lead.length) {
@@ -865,7 +914,7 @@ function layoutHead(
   seen: Set<string>,
   collapsed = false,
   excludeCoordination = false,
-  excludeApposition = false,
+  excludeApposIds?: ReadonlySet<string>,
 ): Block {
   const text = nodeText(ctx.doc, node) || node.label || (node.implied ? ELISION_MARK : '∅');
   const wordW = measureText(text) + LAYOUT.wordPadX * 2;
@@ -890,9 +939,12 @@ function layoutHead(
     (r) => !isClauseChild(ctx, r.dependentId) || isInfinitival(ctx, r.dependentId),
   );
   // Appositives continue on the head's own baseline; everything else cascades
-  // below as a modifier. (A coordination may instead hoist its summary apposition
-  // onto a platform off the fork, so it can ask to exclude them here.)
-  const apposRels = excludeApposition ? [] : allWordRels.filter((r) => r.type === 'apposition');
+  // below as a modifier. (A coordination may instead hoist its SUMMARY
+  // appositions onto a platform off the fork, so it passes those relation ids to
+  // exclude here — a pre-member inline appositive still rides the head member.)
+  const apposRels = allWordRels.filter(
+    (r) => r.type === 'apposition' && !excludeApposIds?.has(r.id),
+  );
   // Light closed-class leaves (article, adjective, possessive) tuck in CLOSEST to
   // the head; heavy sub-baseline modifiers (a genitive NP, a prepositional
   // phrase) cascade out to the right after them. Without this an article ends up
@@ -1256,6 +1308,9 @@ function layoutClauseSpine(
   let cursorTop = 0;
   let right = 0;
   let bottom = 0;
+  // Top of the first member's connector-label stub (if one is drawn), so the
+  // lead-word row placed later can clear it instead of landing in the same band.
+  let firstStubTop = Infinity;
 
   laid.forEach(({ r, block }, i) => {
     const blockX = verbAlignX - vxOf(block); // ≥ 0; verbs line up at verbAlignX
@@ -1281,9 +1336,13 @@ function layoutClauseSpine(
         });
       } else {
         const stubW = measureText(r.label!, SMALL_FONT) + 12;
-        const stubY = y - LAYOUT.fontSize - 14;
+        // Sit above the member's TOP — a tall member (a compound-predicate fork)
+        // raises content above its baseline, so the stub must clear the ascent,
+        // the same clearance the lead-word block below takes.
+        const stubY = y - blockAscent(block) - LAYOUT.fontSize - 14;
         elements.push(smallText(eid(), blockX + stubW / 2, stubY - 4, r.label!, 'middle', r.id, r.labelNodeId));
         elements.push(line(eid(), blockX, stubY, blockX + stubW, stubY, 'solid', 'baseline'));
+        firstStubTop = stubY - LAYOUT.smallFontSize - 8;
       }
     }
     verbYs.push(y);
@@ -1327,10 +1386,11 @@ function layoutClauseSpine(
     const totalW = blocks.reduce((s, b) => s + b.width, 0) + GAPW * Math.max(0, blocks.length - 1);
     // Sit ABOVE the first member's full height (a tall member — e.g. a compound
     // predicate whose upper verb rises well above its baseline — would otherwise
-    // put the lead word in the MIDDLE of the fork). The stem then drops from the
-    // lead down to the top of the spine bar.
+    // put the lead word in the MIDDLE of the fork) AND above the first member's
+    // connector-label stub, which occupies that same band. The stem then drops
+    // from the lead down to the top of the spine bar.
     const ascent0 = laid[0] ? blockAscent(laid[0].block) : 0;
-    const leadY = top - ascent0 - LAYOUT.fontSize - 14;
+    const leadY = Math.min(top - ascent0, firstStubTop) - LAYOUT.fontSize - 14;
     let x = Math.max(0, verbAlignX - GAPW - totalW);
     const leadStart = x;
     for (const b of blocks) {
@@ -1441,8 +1501,10 @@ function layoutCoordination(
 
   // Member 0 is the head word with its own (non-coordination) modifiers — keeping
   // its inline head-conjunct appositive; the rest are the conjunct subtrees.
+  // Only the SUMMARY appositions are excluded (they are drawn on the platform
+  // below), so an inline appositive on the head still lays out with its member.
   const members: Block[] = [
-    layoutHead(ctx, node, seen, false, true, summaryApposRels.length > 0),
+    layoutHead(ctx, node, seen, false, true, new Set(summaryApposRels.map((r) => r.id))),
     ...conjunctRels.map((r) => layoutNode(ctx, r.dependentId, seen)),
   ];
 
@@ -1487,11 +1549,6 @@ function layoutCoordination(
     // a member that carries right-cascading modifiers (e.g. an appositive with a
     // genitive) stays inside the fork instead of overflowing past the junction.
     const maxWidth = Math.max(...members.map((m) => m.width));
-    // Members right-align to `maxWidth` (their content edge); the dashed
-    // coordinator bar then sits CLEAR px FURTHER right, so it — and the
-    // conjunction riding it — never land flush on a member's content. Without this
-    // a member whose right edge is a genitive chain's baseline (e.g. Τιμόθεος,
-    // δοῦλος Χριστοῦ Ἰησοῦ in Phil 1:1) collides with the bar at that exact x.
     const CLEAR = LAYOUT.wordPadX;
     // Members right-align to `maxWidth` (their content edge). The fork ARMS and the
     // dashed coordinator bar both meet at `attachX`, CLEAR px further right, so the
@@ -1822,6 +1879,8 @@ function collectInfinitiveFork(
   if (!ok || members.length < 2) return null;
   members.sort((a, b) => a.idx - b.idx);
   coords.sort((a, b) => a.idx - b.idx);
+  // Lead words read left-to-right as written, like the spine's lead stub.
+  leadRels.sort((a, b) => subtreeMinIndex(ctx, a.dependentId) - subtreeMinIndex(ctx, b.dependentId));
   return {
     members: members.map((m) => m.id),
     coords: coords.map((c) => ({ text: c.text, nodeId: c.nodeId })),
@@ -1911,7 +1970,15 @@ function layoutInfinitiveFork(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): 
 
 function layoutCompoundPredicate(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): Block {
   const conjunctRels = wordConjunctRels(ctx, verbNode.id);
-  const coords = coordinatorTexts(ctx, verbNode.id);
+  // Coordinators of the HEAD verb plus any parsed onto a CONJUNCT verb ("ran but
+  // walked" often carries the conjunction on the second verb) — hoisted onto the
+  // fork bar exactly as layoutCoordination does, since the fork members never
+  // draw their own coordinator children (layoutPredicateArm filters them out and
+  // a collapsed member drops all children).
+  const coords = [
+    ...coordinatorTexts(ctx, verbNode.id),
+    ...conjunctRels.flatMap((r) => coordinatorTexts(ctx, r.dependentId)),
+  ];
 
   // When the conjunct verbs carry their own objects, draw an open fork of full
   // predicate arms instead of the collapsed shared-object fork below.
@@ -2291,10 +2358,11 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // long adverbial PP hanging under the verb (ὑπὲρ τοῦ σώματος…) overlaps the
   // direct object's own genitive chain hanging below it on the baseline.
   let vModRight = x;
-  // Hang the first modifier from the middle of the verb, but never so far left
-  // that its diagonal text runs back over a SHORT verb (a one-word implied
-  // copula like "(ἐστίν)"): keep the attach point past the verb word's right edge.
-  let vCursor = Math.max(verbMidX, verbX0 + (predBlock.wordRight || predBlock.width) - LAYOUT.wordPadX);
+  // Hang the first modifier just inside the verb word's right edge — unlike
+  // layoutHead/layoutPredicateArm, which attach from the word's middle. Attaching
+  // past the word keeps a modifier's diagonal text from running back over a
+  // SHORT verb (a one-word implied copula like "(ἐστίν)").
+  let vCursor = verbX0 + (predBlock.wordRight || predBlock.width) - LAYOUT.wordPadX;
   verbMods.forEach((r) => {
     const { right, next } = drawHanging(r, vCursor);
     vCursor = next;
@@ -2562,7 +2630,10 @@ function wordText(
     y,
     text,
     anchor,
+    // An implied/elided element reads as a muted ITALIC label — the same
+    // treatment `impliedBlock` gives the auto-generated placeholders.
     muted: node.implied,
+    italic: node.implied,
     nodeId: node.id,
     tone,
   };

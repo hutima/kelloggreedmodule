@@ -715,11 +715,11 @@ export function DiagramCanvas() {
     const placeToggle = viewport.isDesktop ? (
       <button
         className="verses-place-btn"
-        title={inPanel ? 'Move verses back to the center' : 'Move verses into the side panel'}
-        aria-label={inPanel ? 'Move verses to center' : 'Move verses to side panel'}
+        title={inPanel ? 'Move verses back to the centre' : 'Move verses into the side panel'}
+        aria-label={inPanel ? 'Move verses to centre' : 'Move verses to side panel'}
         onClick={() => setVersesInPanel(!inPanel)}
       >
-        {inPanel ? '◂ Center' : 'Panel ▸'}
+        {inPanel ? '◂ Centre' : 'Panel ▸'}
       </button>
     ) : null;
     return (

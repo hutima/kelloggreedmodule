@@ -16,6 +16,19 @@ import { KrDocumentSchema, SCHEMA_VERSION } from '@/domain/schema';
 
 const TS = '2024-01-01T00:00:00.000Z';
 
+/**
+ * A compact deterministic fingerprint of the member SELECTION (djb2, as in
+ * `hashBase`). The combined document's id keys its patches / notes / sermon prep,
+ * so it must differ whenever the selected sentences differ — the first member and
+ * the count alone collide (e.g. 1:1+1:2 vs 1:1+1:3 share both).
+ */
+function selectionHash(docs: KrDocument[]): string {
+  const s = docs.map((d) => d.id).join('|');
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
 /** Strip the book name from a title like "Romans 5:1" → "5:1". */
 function verseOf(title: string): string {
   const m = title.match(/(\d+:\d+(?:[–-]\d+)?)\s*$/);
@@ -121,7 +134,7 @@ function coordinatePassage(valid: KrDocument[]): KrDocument | null {
 
   return KrDocumentSchema.parse({
     schemaVersion: SCHEMA_VERSION,
-    id: `coord_${valid[0]!.id}_${valid.length}`,
+    id: `coord_${valid[0]!.id}_${valid.length}_${selectionHash(valid)}`,
     title: passageTitle(valid),
     language: valid[0]!.language,
     text: valid.map((d, i) => `[${memberLabel(d, i)}] ${d.text}`).join('  '),
@@ -170,10 +183,12 @@ export function combinePassage(
     { id: rootId, kind: 'clause', clauseType: 'discourse', tokenIds: [], provenance: { source: 'given', confidence: 'high' } },
   ];
   const relations: Relation[] = [];
+  let nextIndex = 0; // GLOBAL surface index, so ordering consumers see one stream
 
   valid.forEach((doc, i) => {
     const pre = prefixDoc(doc, `s${i}_`);
-    tokens.push(...pre.tokens);
+    // Re-index tokens into one monotonic surface stream across all sentences.
+    for (const t of pre.tokens) tokens.push({ ...t, index: nextIndex++ });
     for (const n of pre.nodes) {
       if (n.id === pre.rootId) n.label = memberLabel(doc, i); // shown above the sentence
       nodes.push(n);
@@ -192,7 +207,7 @@ export function combinePassage(
 
   return KrDocumentSchema.parse({
     schemaVersion: SCHEMA_VERSION,
-    id: `passage_${first.id}_${valid.length}`,
+    id: `passage_${first.id}_${valid.length}_${selectionHash(valid)}`,
     title: passageTitle(valid),
     language: first.language,
     text: valid.map((d, i) => `[${memberLabel(d, i)}] ${d.text}`).join('  '),

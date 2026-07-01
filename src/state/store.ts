@@ -52,8 +52,8 @@ import {
   saveBase,
   getBase,
   savePatch,
-  loadPatch,
   deletePatch,
+  applyStoredPatch,
   saveSermonPrep,
   loadSermonPrep,
   deleteSermonPrep,
@@ -65,7 +65,7 @@ import {
   saveUserVariants,
   deleteUserVariants,
 } from '@/persistence';
-import { applyPatch, diffDocuments, hashBase } from '@/domain/patch';
+import { diffDocuments, hashBase } from '@/domain/patch';
 import { isEmptySyntaxPatch } from '@/domain/schema';
 import { cloneSample } from '@/fixtures';
 import { DEFAULT_MODE, type DiagramMode, type TreeOrientation } from '@/domain/layout';
@@ -83,7 +83,17 @@ import {
   userIssueId,
   type VariantInput,
 } from '@/domain/contested';
-import { combinePassage, loadGntBook, loadOtChapter, GNT_BOOKS, OT_BOOKS, sourceOfDoc, type SyntaxSourceId } from '@/io';
+import {
+  combinePassage,
+  loadGntBook,
+  loadOpenTextBook,
+  loadOtChapter,
+  GNT_BOOKS,
+  OPENTEXT_BOOKS,
+  OT_BOOKS,
+  sourceOfDoc,
+  type SyntaxSourceId,
+} from '@/io';
 import type { ContestedSyntaxIssue } from '@/domain/schema';
 import type {
   ActiveEditModal,
@@ -604,8 +614,16 @@ async function restoreNavContext(
   try {
     let passages: KrDocument[] | null = null;
     if (corpus === 'gnt') {
-      const book = GNT_BOOKS.find((b) => doc.title.startsWith(b.name));
-      if (book) passages = await loadGntBook(book);
+      // A GNT passage can come from either syntax source (the document id says
+      // which); the siblings must be reloaded from the SAME source, or prev/next
+      // would silently step through the other analysis.
+      if (sourceOfDoc(doc) === 'opentext') {
+        const book = OPENTEXT_BOOKS.find((b) => doc.title.startsWith(b.name));
+        if (book) passages = await loadOpenTextBook(book);
+      } else {
+        const book = GNT_BOOKS.find((b) => doc.title.startsWith(b.name));
+        if (book) passages = await loadGntBook(book);
+      }
     } else if (corpus === 'ot') {
       const book = OT_BOOKS.find((b) => doc.title.startsWith(b.name));
       const ch = doc.title.match(/(\d+):\d+/);
@@ -734,6 +752,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     firstRun: isFirstRun(),
     forceDesktop: loadForceDesktop(),
     multiSentenceContested: [],
+    variantsVersion: 0,
 
     setGntContext: (passages, index) => set({ gntPassages: passages, gntIndex: index }),
     setMultiSentenceContested: (issues) => set({ multiSentenceContested: issues }),
@@ -753,8 +772,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const next = gntIndex + delta;
       if (next < 0 || next >= gntPassages.length) return;
       const base = gntPassages[next]!;
-      const stored = loadPatch(base.id);
-      const live0 = stored ? applyPatch(base, stored) : base;
+      const live0 = applyStoredPatch(base);
       const saved = loadPassageNotes(base.id);
       const live = saved != null ? { ...live0, notes: saved } : live0;
       set({
@@ -847,10 +865,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
     saveWithVariants: () => {
       const src = get().doc;
-      const isCustom = get().corpus === 'custom' && get().baseDoc === null;
-      // An already-standalone custom sentence keeps its id, so its variants (keyed
-      // by that id) come back on reopen — just persist the doc.
-      if (isCustom) {
+      // A custom sentence — fresh OR reopened (reopening sets `baseDoc` to the
+      // standalone doc itself, so `baseDoc` can't discriminate) — keeps its id,
+      // so its variants (keyed by that id) come back on reopen: just persist the
+      // doc, updating any existing "My sentences" entry in place.
+      if (get().corpus === 'custom') {
         get().saveCurrentAsCustom();
         return;
       }
@@ -860,10 +879,18 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const variants: VariantInput[] = bundle
         ? bundle.readings
             .filter((r) => r.fullDoc)
-            .map((r) => ({ label: r.label, impact: r.impact, doc: r.fullDoc! }))
+            .map((r) => ({
+              label: r.label,
+              ...(r.impact ? { impact: r.impact } : {}),
+              ...(r.diffWords?.length ? { diffWords: r.diffWords } : {}),
+              doc: r.fullDoc!,
+            }))
         : [];
       const doc = touch({ ...src, id: makeId('doc') });
-      if (variants.length) saveUserVariants(doc.id, buildUserVariants(doc.id, doc.title, variants));
+      if (variants.length) {
+        saveUserVariants(doc.id, buildUserVariants(doc.id, doc.title, variants));
+        set((s) => ({ variantsVersion: s.variantsVersion + 1 }));
+      }
       void saveCustomParse(doc)
         .then(() => get().refreshCustomParses())
         .catch(() => {});
@@ -896,8 +923,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     loadDocument: (doc, opts) => {
       // The given doc is the pristine BASE; user edits are reconstructed on top.
       const base = doc;
-      const stored = loadPatch(base.id);
-      const live0 = stored ? applyPatch(base, stored) : base;
+      const live0 = applyStoredPatch(base);
       const saved = loadPassageNotes(base.id);
       const live = saved != null ? { ...live0, notes: saved } : live0;
       set({
@@ -914,6 +940,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         contestedBaseDoc: null,
         contested: { ...FRESH_CONTESTED },
         multiSentenceContested: [],
+        // The prev/next reading context belongs to the book the previous passage
+        // came from; a caller that opens FROM a book (the pickers, search) sets
+        // it again right after loading, so a plain load must not keep it.
+        gntPassages: [],
+        gntIndex: -1,
         status: 'saved',
       });
       registerUserVariants(base.id);
@@ -976,8 +1007,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const id = baseDoc?.id ?? doc.id;
       const sermon = loadSermonPrep(id) ?? emptySermonPrep(id, systemClock());
       if (baseDoc) {
-        const stored = loadPatch(baseDoc.id);
-        const live0 = stored ? applyPatch(baseDoc, stored) : baseDoc;
+        const live0 = applyStoredPatch(baseDoc);
         const saved = loadPassageNotes(baseDoc.id);
         const live = saved != null ? { ...live0, notes: saved } : live0;
         set({ doc: live, sermon, past: [], future: [], selection: {}, linking: null, previewDoc: null, contestedBaseDoc: null, contested: { ...FRESH_CONTESTED }, status: 'saved' });
@@ -1713,6 +1743,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const built = buildUserVariants(passageId, target.title, variants);
       const merged = mergeUserVariants(loadUserVariants(passageId), built);
       saveUserVariants(passageId, merged);
+      set((s) => ({ variantsVersion: s.variantsVersion + 1 }));
       if (get().doc.id === passageId) {
         registerUserVariants(passageId);
         set((s) => ({
@@ -1747,6 +1778,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       set((s) => {
         const wasPreviewing = s.contested.previewAlternateReadingId === readingId;
         return {
+          variantsVersion: s.variantsVersion + 1,
           previewDoc: wasPreviewing ? null : s.previewDoc,
           contested: {
             ...s.contested,
@@ -1800,6 +1832,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       get().loadDocument(newBase, { corpus: 'custom' });
       // Reveal the readings panel on the new base.
       set((s) => ({
+        variantsVersion: s.variantsVersion + 1,
         contested: {
           ...s.contested,
           showAlternateParsePanel: true,
@@ -1933,6 +1966,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       if (!prev) return;
       set({ doc: prev, past: past.slice(0, -1), future: [doc, ...future], status: 'saving' });
       scheduleAutosave(prev, (status) => set({ status }));
+      // Notes ALSO persist per passage outside the doc (see setNotes); the
+      // restored value must be written back there too, or the next load would
+      // resurrect the undone notes over the restored doc.
+      savePassageNotes(prev.id, prev.notes ?? '');
       persistEdits(prev);
     },
 
@@ -1942,6 +1979,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       if (!next) return;
       set({ doc: next, future: future.slice(1), past: [...past, doc], status: 'saving' });
       scheduleAutosave(next, (status) => set({ status }));
+      savePassageNotes(next.id, next.notes ?? '');
       persistEdits(next);
     },
 

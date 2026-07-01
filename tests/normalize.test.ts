@@ -86,6 +86,45 @@ describe('normalizeSyntax — no word is drawn twice', () => {
     expect(texts).not.toContain('∅');
   });
 
+  it('splices CHAINED empty wrappers without orphaning the word beneath them', () => {
+    // Two nested empty phrase wrappers around one word: reparenting the inner
+    // wrapper's child to its immediate parent would target the OTHER wrapper —
+    // also spliced — leaving a relation to a missing node and an unreachable word.
+    // The walk must pass every spliced wrapper up to the surviving clause.
+    const doc = build(
+      [
+        { id: 'c0', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'pA', kind: 'phrase', role: 'subject', tokenIds: ['t1'] },
+        { id: 'pB', kind: 'phrase', role: 'subject', tokenIds: ['t1'] },
+        { id: 'w1', kind: 'word', role: 'subject', tokenIds: ['t1'] },
+        { id: 'w2', kind: 'word', role: 'predicate', tokenIds: ['t2'] },
+      ],
+      [
+        { id: 'r1', type: 'subject', headId: 'c0', dependentId: 'pA' },
+        { id: 'r2', type: 'subject', headId: 'pA', dependentId: 'pB' },
+        { id: 'r3', type: 'subject', headId: 'pB', dependentId: 'w1' },
+        { id: 'r4', type: 'predicate', headId: 'c0', dependentId: 'w2' },
+      ],
+      [
+        { id: 't1', index: 0, surface: 'Word', pos: 'noun' },
+        { id: 't2', index: 1, surface: 'runs', pos: 'verb' },
+      ],
+    );
+    const n = normalizeSyntax(doc);
+    // Both wrappers are spliced; the word survives, reparented to the clause.
+    expect(n.syntax.nodes.some((nd) => nd.id === 'pA' || nd.id === 'pB')).toBe(false);
+    expect(n.syntax.nodes.some((nd) => nd.id === 'w1')).toBe(true);
+    expect(n.syntax.relations.find((r) => r.dependentId === 'w1')!.headId).toBe('c0');
+    // No relation references a missing node.
+    const ids = new Set(n.syntax.nodes.map((nd) => nd.id));
+    for (const r of n.syntax.relations) {
+      expect(ids.has(r.headId)).toBe(true);
+      expect(ids.has(r.dependentId)).toBe(true);
+    }
+    // The word is actually drawn (not stranded in an unreachable subtree).
+    expect(renderedTexts(n)).toContain('Word');
+  });
+
   it('drops an implied subject once a real subject fills the same slot', () => {
     const doc = build(
       [

@@ -97,14 +97,15 @@ export function layoutMorphology(doc: KrDocument): DiagramLayout {
   });
 
   const cell = new Map<string, { x: number; bottom: number }>(); // token id → centre x + row bottom
+  // The faint dividers between clauses span the measured table width, so their
+  // y's are collected here and the lines drawn once every row has been sized.
+  const dividerYs: number[] = [];
+  let tableRight = 0;
   let yTop = 0;
   orderedClauses.forEach((cl, ci) => {
     const toks = byClause.get(cl) ?? [];
     if (!toks.length) return;
-    if (ci > 0) {
-      // a faint divider between clauses
-      elements.push(line(-10, yTop - CLAUSE_GAP * 0.5, 600, yTop - CLAUSE_GAP * 0.5, 'baseline', 'dotted'));
-    }
+    if (ci > 0) dividerYs.push(yTop - CLAUSE_GAP * 0.5);
     let cx = 0;
     for (const tok of toks) {
       const morph = morphLine(tok);
@@ -117,8 +118,12 @@ export function layoutMorphology(doc: KrDocument): DiagramLayout {
       cell.set(tok.id, { x: centre, bottom: yTop + GLOSS_Y + 6 });
       cx += w + COL_GAP;
     }
+    tableRight = Math.max(tableRight, cx - COL_GAP);
     yTop += GLOSS_Y + CLAUSE_GAP;
   });
+  for (const dy of dividerYs) {
+    elements.push(line(-10, dy, tableRight + 10, dy, 'baseline', 'dotted'));
+  }
 
   // Agreement / government links between tokens in the SAME clause row.
   const firstTok = (nodeId: string): string | undefined => getNode(doc.syntax, nodeId)?.tokenIds[0];

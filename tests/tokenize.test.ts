@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { tokenize, detectLanguage } from '@/domain/model';
+import { tokenize, detectLanguage, stripPunctuation } from '@/domain/model';
 
 describe('tokenize', () => {
   it('splits space-delimited text on whitespace, keeping trailing punctuation', () => {
@@ -41,6 +41,30 @@ describe('tokenize', () => {
 
   it('returns no tokens for blank input', () => {
     expect(tokenize('   ')).toEqual([]);
+  });
+});
+
+describe('stripPunctuation', () => {
+  it('strips Latin and Greek editorial punctuation (both look-alike codepoints)', () => {
+    expect(stripPunctuation('The Word, became flesh.')).toBe('The Word became flesh');
+    // Greek ano teleia U+0387 and question mark U+037E, plus their visually
+    // identical Latin counterparts U+00B7 and U+003B, are all sentence punctuation.
+    expect(stripPunctuation('ἐπιτρέπω· λέγει;')).toBe('ἐπιτρέπω λέγει');
+    expect(stripPunctuation('ἐπιτρέπω· λέγει;')).toBe('ἐπιτρέπω λέγει');
+  });
+
+  it('strips CJK punctuation, so the "infer punctuation" export works for zh/ja', () => {
+    // Ideographic comma/stop and enumeration comma.
+    expect(stripPunctuation('道成了，肉身。')).toBe('道成了 肉身');
+    expect(stripPunctuation('枪、杆子')).toBe('枪 杆子');
+    // Corner/lenticular/angle brackets, middle dot, wave dashes.
+    expect(stripPunctuation('「道」『成』【了】《肉》〈身〉・〜～')).toBe('道 成 了 肉 身');
+    // Fullwidth ASCII punctuation.
+    expect(stripPunctuation('道！成？了：肉；身（了）')).toBe('道 成 了 肉 身 了');
+  });
+
+  it('keeps word-internal elision apostrophes (not sentence punctuation)', () => {
+    expect(stripPunctuation('ἀλλ’ εἶναι')).toBe('ἀλλ’ εἶναι');
   });
 });
 
