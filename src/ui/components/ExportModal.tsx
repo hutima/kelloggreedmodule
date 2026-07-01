@@ -23,6 +23,7 @@ export function ExportModal({
   verticalScale,
   treeOrientation,
   rtl,
+  colorMode,
   mode,
   onClose,
 }: {
@@ -32,16 +33,18 @@ export function ExportModal({
   treeOrientation?: TreeOrientation;
   /** Effective right-to-left flag (RTL doc, unless the flip toggle un-mirrors it). */
   rtl?: boolean;
+  /** Tint words by grammatical category — the on-screen grammar-colour toggle. */
+  colorMode?: boolean;
   mode: DiagramMode;
   onClose: () => void;
 }) {
   const jsonDoc = sourceDoc ?? doc;
   // Carry the on-screen options so the export matches the canvas exactly.
-  const opts = { verticalScale, treeOrientation, rtl };
+  const opts = { verticalScale, treeOrientation, rtl, colorMode };
   const natural = useMemo(
     () => documentNaturalSize(doc, opts, mode),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [doc, verticalScale, treeOrientation, rtl, mode],
+    [doc, verticalScale, treeOrientation, rtl, colorMode, mode],
   );
   const aspect = natural.height / natural.width;
 

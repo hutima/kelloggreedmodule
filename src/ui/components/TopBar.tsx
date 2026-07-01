@@ -22,6 +22,7 @@ export function TopBar() {
   const diagramMode = useEditorStore((s) => s.diagramMode);
   const treeOrientation = useEditorStore((s) => s.treeOrientation);
   const glossMode = useEditorStore((s) => s.glossMode);
+  const colorMode = useEditorStore((s) => s.colorMode);
   const flipDiagram = useEditorStore((s) => s.flipDiagram);
   const status = useEditorStore((s) => s.status);
 
@@ -165,7 +166,7 @@ export function TopBar() {
       </div>
 
       {exportOpen && (
-        <ExportModal doc={exportDoc} sourceDoc={doc} verticalScale={verticalScale} treeOrientation={treeOrientation} rtl={rtl} mode={diagramMode} onClose={() => setExportOpen(false)} />
+        <ExportModal doc={exportDoc} sourceDoc={doc} verticalScale={verticalScale} treeOrientation={treeOrientation} rtl={rtl} colorMode={colorMode} mode={diagramMode} onClose={() => setExportOpen(false)} />
       )}
       {dataOpen && <ImportExportModal onClose={() => setDataOpen(false)} />}
       {resetOpen && <ResetPassageModal onClose={() => setResetOpen(false)} />}
