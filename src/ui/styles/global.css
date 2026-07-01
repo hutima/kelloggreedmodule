@@ -362,6 +362,28 @@ textarea.code,
   color: var(--muted);
   font-weight: 600;
 }
+.diagram-guide-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.diagram-guide-btn:hover {
+  background: rgba(31, 41, 51, 0.08);
+  color: var(--accent);
+}
+.diagram-guide-btn:focus-visible {
+  outline: 2px solid var(--accent-soft);
+}
 .collapse-btn {
   display: none; /* shown only on narrow screens (see media query) */
   align-items: center;

@@ -35,6 +35,7 @@ import {
   useContestedAffectedNodes,
 } from '@/ui/contested';
 import { SourceCompareView } from './SourceCompareView';
+import { DiagramGuideModal } from './DiagramGuideModal';
 import { useViewport } from '@/ui/responsive';
 
 const TENTATIVE = '#c2410c';
@@ -104,6 +105,7 @@ export function DiagramCanvas() {
   const hasBase = useEditorStore((s) => s.baseDoc !== null);
   const editCompare = appMode === 'edit' && compareToBase && hasBase && !viewport.isMobile;
   const [collapsed, setCollapsed] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   // Which label element anchors the glossary popover (so it opens at the exact
   // tag tapped, even when several arcs share a label/colour).
   const [glossAnchorId, setGlossAnchorId] = useState<string | null>(null);
@@ -829,7 +831,17 @@ export function DiagramCanvas() {
 
   return (
     <div className={`canvas${collapsed ? ' collapsed' : ''}${appMode === 'edit' ? ' editing' : ''}`}>
+      <DiagramGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
       <div className="panel-head">
+        <button
+          type="button"
+          className="diagram-guide-btn"
+          aria-label="How to read the diagram"
+          title="How to read the diagram"
+          onClick={() => setGuideOpen(true)}
+        >
+          ⓘ
+        </button>
         <span className="panel-head-title">Diagram</span>
         <div className="canvas-tools">
           <label className="mode-select" title={DIAGRAM_MODES.find((m) => m.id === diagramMode)?.description}>
