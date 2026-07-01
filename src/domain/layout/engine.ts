@@ -1708,6 +1708,145 @@ function layoutOpenPredicateFork(
   };
 }
 
+/**
+ * A headless coordinate clause: a clause node with no subject/predicate of its
+ * own that only ties conjunct members together (the wrapper the Lowfat converter
+ * emits for "A καί B"). It routes to a spine — or, for infinitives, a fork.
+ */
+function isHeadlessCoordinateClause(ctx: Ctx, nodeId: string): boolean {
+  const node = getNode(ctx.doc.syntax, nodeId);
+  if (!node || node.kind !== 'clause') return false;
+  const rels = childRelations(ctx.doc.syntax, nodeId);
+  const hasSubject = rels.some(
+    (r) => r.type === 'subject' && !getNode(ctx.doc.syntax, r.dependentId)?.implied,
+  );
+  const hasPredicate = rels.some((r) => r.type === 'predicate' || r.type === 'copula');
+  return !hasSubject && !hasPredicate && rels.some((r) => r.type === 'conjunct');
+}
+
+/**
+ * Flatten a coordinate clause whose members are all INFINITIVES into a single
+ * fork: gather every leaf infinitival member (descending through nested
+ * coordinate wrappers — "(A οὐδέ B) ἀλλά C" becomes one three-arm fork), every
+ * coordinator, and any lead words (a negator/particle), in surface order.
+ * Returns null the moment a member is NOT an infinitive — a coordination of
+ * finite clauses stays a compound-sentence spine.
+ */
+function collectInfinitiveFork(
+  ctx: Ctx,
+  clauseId: string,
+): { members: string[]; coords: { text: string; nodeId: string }[]; leadRels: Relation[] } | null {
+  const members: { id: string; idx: number }[] = [];
+  const coords: { text: string; nodeId: string; idx: number }[] = [];
+  const leadRels: Relation[] = [];
+  let ok = true;
+  const visit = (nodeId: string) => {
+    for (const r of childRelations(ctx.doc.syntax, nodeId)) {
+      if (!ok) return;
+      if (r.type === 'coordinator') {
+        const text = nodeText(ctx.doc, getNode(ctx.doc.syntax, r.dependentId)!) || '';
+        if (text) coords.push({ text, nodeId: r.dependentId, idx: subtreeMinIndex(ctx, r.dependentId) });
+      } else if (r.type === 'conjunct') {
+        if (isHeadlessCoordinateClause(ctx, r.dependentId)) visit(r.dependentId);
+        else if (isInfinitival(ctx, r.dependentId))
+          members.push({ id: r.dependentId, idx: subtreeMinIndex(ctx, r.dependentId) });
+        else ok = false; // a non-infinitive member → not a fork
+      } else {
+        leadRels.push(r);
+      }
+    }
+  };
+  visit(clauseId);
+  if (!ok || members.length < 2) return null;
+  members.sort((a, b) => a.idx - b.idx);
+  coords.sort((a, b) => a.idx - b.idx);
+  return {
+    members: members.map((m) => m.id),
+    coords: coords.map((c) => ({ text: c.text, nodeId: c.nodeId })),
+    leadRels,
+  };
+}
+
+/** A member tall/heavy enough that a fork would be cramped — fall back to the spine. */
+const FORK_MEMBER_MAX = 190;
+
+/**
+ * Draw a coordination of INFINITIVES as a Reed-Kellogg fork: each infinitive on
+ * its own baseline arm fanning right from a single junction, the coordinators
+ * riding the dashed bar in the gaps between arms ("διδάσκειν οὐδὲ αὐθεντεῖν ἀλλ'
+ * εἶναι"). This is the standard shape for a compound infinitive object; a
+ * word-coordination of infinitives already renders this way, and this brings the
+ * Lowfat converter's nested coordinate-clause encoding to the same picture.
+ * Returns null when a member is too heavy to fork cleanly, so the caller falls
+ * back to the vertical spine.
+ */
+function layoutInfinitiveFork(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block | null {
+  const collected = collectInfinitiveFork(ctx, clause.id);
+  if (!collected) return null;
+  const { members, coords, leadRels } = collected;
+  const arms = members.map((id) => layoutNode(ctx, id, seen));
+  if (arms.some((m) => m.height + blockAscent(m) > FORK_MEMBER_MAX)) return null;
+
+  const gap = LAYOUT.coordMemberGap * ctx.vScale + LAYOUT.dividerUp;
+  const correlative = coords.length >= 2 && coords.length === arms.length;
+  const joinSpan = reserveJoinSpans(coords, arms.length, correlative);
+  const baselines: number[] = [];
+  let cursorTop = 0;
+  arms.forEach((m, i) => {
+    const by = cursorTop + blockAscent(m);
+    baselines.push(by);
+    cursorTop = by + m.height + Math.max(gap, (joinSpan[i] ?? 0) - m.height);
+  });
+  const centerY = (baselines[0]! + baselines[baselines.length - 1]!) / 2;
+  const prong = LAYOUT.coordProngRun;
+  const elements: DiagramElement[] = [];
+  let width: number = prong;
+  arms.forEach((m, i) => {
+    const by = baselines[i]! - centerY;
+    elements.push(...translate(m, prong, by));
+    elements.push(line(eid(), 0, 0, prong + m.wordLeft, by, 'solid', 'coordination')); // junction → arm
+    width = Math.max(width, prong + m.width);
+  });
+  const topY = baselines[0]! - centerY;
+  const botY = baselines[baselines.length - 1]! - centerY;
+  elements.push(line(eid(), prong, topY, prong, botY, 'dashed', 'coordination', clause.id));
+  // The conjunction rides just to the RIGHT of the bar, in the open wedge between
+  // the two arm baselines — clear of the diagonal prongs converging on the
+  // junction to its left, which would otherwise cross through it.
+  elements.push(...coordinatorMarks(coords, baselines.map((b) => b - centerY), prong + 9));
+
+  // Lead words (a negator like οὐκ, an introductory particle) sit above the top
+  // arm on a short stub joined down to the top of the bar — the same home the
+  // spine gives them.
+  if (leadRels.length) {
+    const GAPW = 10;
+    const blocks = leadRels.map((r) => layoutNode(ctx, r.dependentId, seen));
+    const totalW = blocks.reduce((s, b) => s + b.width, 0) + GAPW * Math.max(0, blocks.length - 1);
+    const leadY = topY - LAYOUT.fontSize - 14;
+    let x = Math.max(0, prong - GAPW - totalW);
+    const leadStart = x;
+    for (const b of blocks) {
+      elements.push(...translate(b, x, leadY));
+      width = Math.max(width, x + b.width);
+      x += b.width + GAPW;
+    }
+    const lineY = leadY + 4;
+    elements.push(line(eid(), leadStart, lineY, prong, lineY, 'solid', 'baseline'));
+    elements.push(line(eid(), prong, lineY, prong, topY, 'dashed', 'stem'));
+  }
+
+  return {
+    width,
+    height: botY + arms[arms.length - 1]!.height,
+    elements,
+    // The parent stem connects to the junction (apex) at x = 0; the bar (where an
+    // outer coordination would attach) is exposed as verbX.
+    wordLeft: 0,
+    wordRight: 0,
+    verbX: prong,
+  };
+}
+
 function layoutCompoundPredicate(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): Block {
   const conjunctRels = wordConjunctRels(ctx, verbNode.id);
   const coords = coordinatorTexts(ctx, verbNode.id);
@@ -1800,7 +1939,11 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // when there ARE clause members (else fall through to the implied baseline,
   // which legitimately shows pro-drop / an elided copula).
   if (!subjectRel && !predicateRel && rels.some((r) => isClauseChild(ctx, r.dependentId))) {
-    return layoutClauseSpine(ctx, clause, seen, rels);
+    // A coordination whose members are all INFINITIVES is a compound infinitive
+    // object/complement — draw it as the classic Reed-Kellogg fork (arms fanning
+    // right, conjunctions in the gaps). Only a genuinely heavy/finite coordination
+    // falls back to the verb-to-verb spine.
+    return layoutInfinitiveFork(ctx, clause, seen) ?? layoutClauseSpine(ctx, clause, seen, rels);
   }
 
   // The verb is rendered as a bare word; the CLAUSE owns the verb's complements
