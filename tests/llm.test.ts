@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildLlmPrompt, importLlmDiagram, importLlmDiagrams, LLM_DIAGRAM_KIND } from '@/io';
+import { buildLlmPrompt, importLlmDiagram, importLlmDiagrams, combinePassage, LLM_DIAGRAM_KIND } from '@/io';
 import { detectLanguage, stripPunctuation, tokenize } from '@/domain/model';
 import { transliterationOf } from '@/domain/model/transliterate';
 import { layoutDocument } from '@/domain/layout';
@@ -288,6 +288,74 @@ describe('importLlmDiagrams (multiple sentences)', () => {
     const res = importLlmDiagrams(JSON.stringify([oneSentence('a', 'Boys', 'run'), bad]));
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/sentence 2/i);
+  });
+
+  it('combinePassage stacks the sentences into ONE diagram even when both use rootId "c0"', () => {
+    // The reported case: a real reply gives each sentence its OWN object, and the
+    // model reuses "c0" as every clause id. The importer keeps them as separate
+    // documents; combining stacks them as one discourse passage (a clause per
+    // baseline) with prefixed ids, so nothing collides.
+    const two = [
+      {
+        kind: LLM_DIAGRAM_KIND, language: 'en', text: 'Marley was dead.',
+        tokens: [
+          { id: 'm', surface: 'Marley', pos: 'propernoun' },
+          { id: 'w', surface: 'was', pos: 'verb' },
+          { id: 'd', surface: 'dead.', pos: 'adjective' },
+        ],
+        nodes: [
+          { id: 'c0', kind: 'clause', clauseType: 'independent' },
+          { id: 'ns', kind: 'word', role: 'subject', tokens: ['m'] },
+          { id: 'nv', kind: 'word', role: 'copula', tokens: ['w'] },
+          { id: 'na', kind: 'word', role: 'predicateAdjective', tokens: ['d'] },
+        ],
+        relations: [
+          { type: 'subject', head: 'c0', dependent: 'ns' },
+          { type: 'copula', head: 'c0', dependent: 'nv' },
+          { type: 'predicateAdjective', head: 'c0', dependent: 'na' },
+        ],
+        rootId: 'c0',
+      },
+      {
+        kind: LLM_DIAGRAM_KIND, language: 'en', text: 'There is no doubt.',
+        tokens: [
+          { id: 'th', surface: 'There', pos: 'adverb' },
+          { id: 'is', surface: 'is', pos: 'verb' },
+          { id: 'db', surface: 'doubt.', pos: 'noun' },
+        ],
+        nodes: [
+          { id: 'c0', kind: 'clause', clauseType: 'independent' },
+          { id: 'nv', kind: 'word', role: 'predicate', tokens: ['is'] },
+          { id: 'nd', kind: 'word', role: 'subject', tokens: ['db'] },
+        ],
+        relations: [
+          { type: 'predicate', head: 'c0', dependent: 'nv' },
+          { type: 'subject', head: 'c0', dependent: 'nd' },
+        ],
+        rootId: 'c0',
+      },
+    ];
+    const res = importLlmDiagrams(JSON.stringify(two));
+    expect(res.ok).toBe(true);
+    expect(res.documents).toHaveLength(2);
+
+    const combined = combinePassage(res.documents!);
+    // One discourse passage holding both full sentences as stacked members.
+    const root = combined.syntax.nodes.find((n) => n.id === combined.syntax.rootId)!;
+    expect(root.clauseType).toBe('discourse');
+    expect(combined.syntax.relations.filter((r) => r.headId === root.id)).toHaveLength(2);
+    // No id collision though both sentences used "c0".
+    const ids = combined.syntax.nodes.map((n) => n.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    // Both sentences render, on clearly different rows (stacked).
+    const layout = layoutDocument(combined);
+    const yOf = (t: string) =>
+      (layout.elements.find((e) => e.kind === 'text' && (e as { text: string }).text === t) as
+        | { y: number }
+        | undefined)?.y;
+    expect(yOf('Marley')).toBeDefined();
+    expect(yOf('doubt.')).toBeDefined();
+    expect(Math.abs((yOf('doubt.') as number) - (yOf('Marley') as number))).toBeGreaterThan(20);
   });
 });
 

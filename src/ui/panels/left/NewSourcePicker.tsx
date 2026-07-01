@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '@/state';
 import { detectLanguage, stripPunctuation, tokenize } from '@/domain/model';
-import { buildLlmPrompt, importLlmDiagrams, importJson, copyText, downloadText, slugify } from '@/io';
+import { buildLlmPrompt, importLlmDiagrams, importJson, combinePassage, copyText, downloadText, slugify } from '@/io';
 import {
   isCombinedPassage,
   getAlternateReadings,
@@ -125,12 +125,15 @@ export function NewSourcePicker() {
   };
 
   /**
-   * Load parsed diagram document(s). Normally the first opens as a new canvas (the
-   * rest become a prev/next context), and each sentence's alternate readings are
-   * attached to it. When `asVariants` is set, NOTHING opens: every imported parse
-   * (and its own alternates) attaches to the CURRENT passage as a variant reading.
+   * Load parsed diagram document(s). When `asVariants` is set, NOTHING opens:
+   * every imported parse (and its own alternates) attaches to the CURRENT passage
+   * as a variant reading. Otherwise the sentences open as a new canvas — `combine`
+   * chooses HOW several sentences are shown: `true` stacks them in ONE diagram (a
+   * discourse passage, one clause above the next), `false` keeps each as its own
+   * diagram with the rest as a prev/next context (and attaches per-sentence
+   * alternates). Combining shares the passage stacking used for multi-verse GNT/OT.
    */
-  const acceptDocuments = (parsed: ParsedDiagrams, asVariants: boolean) => {
+  const acceptDocuments = (parsed: ParsedDiagrams, asVariants: boolean, combine: boolean) => {
     const documents = parsed.documents ?? [];
     if (!documents.length) return;
     const variantsByDoc = parsed.variantsByDoc ?? [];
@@ -150,6 +153,18 @@ export function NewSourcePicker() {
         .map((v) => v.label);
       if (unmatched.length) setMatchWarning(unmatched);
       if (vp.isDesktop) setAppMode('explore');
+      collapseIfNarrow();
+      return;
+    }
+
+    if (combine && documents.length > 1) {
+      // Stack every sentence into one diagram (each clause on its own baseline,
+      // one above the next). Per-sentence alternate readings don't map onto the
+      // combined tree, so note any that are dropped rather than losing them silently.
+      loadDocument(combinePassage(documents), { corpus: 'custom' });
+      const dropped = variantsByDoc.flat().map((v) => v.label);
+      if (dropped.length) setMatchWarning(dropped);
+      if (vp.isDesktop) setAppMode('edit');
       collapseIfNarrow();
       return;
     }
@@ -333,8 +348,8 @@ export function NewSourcePicker() {
           canAttachVariant={canAttachVariant}
           attachTitle={currentDoc.title}
           onClose={() => setImportOpen(false)}
-          onImport={(parsed, asVariants) => {
-            acceptDocuments(parsed, asVariants);
+          onImport={(parsed, asVariants, combine) => {
+            acceptDocuments(parsed, asVariants, combine);
             setImportOpen(false);
           }}
         />
@@ -352,13 +367,16 @@ function ImportDiagramModal({
   attachTitle,
 }: {
   onClose: () => void;
-  onImport: (parsed: ParsedDiagrams, asVariants: boolean) => void;
+  onImport: (parsed: ParsedDiagrams, asVariants: boolean, combine: boolean) => void;
   canAttachVariant: boolean;
   attachTitle: string;
 }) {
   const [raw, setRaw] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [asVariants, setAsVariants] = useState(false);
+  // When the paste holds several sentences, stack them in one diagram by default
+  // (one sentence per baseline) rather than opening them as separate diagrams.
+  const [combine, setCombine] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const confirm = () => {
@@ -367,7 +385,7 @@ function ImportDiagramModal({
       setError(res.error ?? 'Could not read that diagram.');
       return;
     }
-    onImport(res, asVariants && canAttachVariant);
+    onImport(res, asVariants && canAttachVariant, combine);
   };
 
   const loadFile = async (file: File) => {
@@ -418,6 +436,15 @@ function ImportDiagramModal({
         <p style={{ fontSize: 12, color: 'var(--muted, #667)' }}>
           Open a single source sentence to attach this as a variant reading of it.
         </p>
+      )}
+      {!asVariants && (
+        <label
+          className="check-row"
+          title="When the paste holds several sentences, stack them in ONE diagram — each full sentence on its own baseline, one above the next (like a multi-verse passage) — instead of opening each sentence as a separate, navigable diagram"
+        >
+          <input type="checkbox" checked={combine} onChange={(e) => setCombine(e.target.checked)} />
+          <span>Stack multiple sentences in one diagram (instead of separate diagrams)</span>
+        </label>
       )}
       <input
         ref={fileRef}
