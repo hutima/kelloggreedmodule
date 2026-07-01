@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildLlmPrompt, importLlmDiagram, importLlmDiagrams, LLM_DIAGRAM_KIND } from '@/io';
 import { detectLanguage, stripPunctuation, tokenize } from '@/domain/model';
+import { transliterationOf } from '@/domain/model/transliterate';
 import { layoutDocument } from '@/domain/layout';
 import { alignedDiff } from '@/domain/contested';
 
@@ -547,6 +548,185 @@ describe('buildLlmPrompt is language-agnostic and asks for morphology', () => {
     expect(prompt).toContain('indicative');
     expect(prompt).toContain('genitive');
     expect(prompt).toContain('aorist');
+  });
+});
+
+describe('LLM transliteration for non-Latin scripts', () => {
+  it('asks the model to romanize non-Latin words and templates the field', () => {
+    const text = '道成了肉身';
+    const prompt = buildLlmPrompt(text, tokenize(text));
+    expect(prompt).toMatch(/TRANSLITERATION/);
+    expect(prompt).toContain('"transliteration"');
+    expect(prompt).toMatch(/romaniz/i);
+    // and it hints Chinese (not "English") from the detected script.
+    expect(prompt).toMatch(/looks like Chinese/);
+  });
+
+  it('routes a token transliteration into extra.translit so the popover shows it', () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'zh',
+      text: '道成了肉身',
+      tokens: [
+        { id: 't0', surface: '道', pos: 'noun', gloss: 'word', transliteration: 'dào' },
+        { id: 't1', surface: '成', pos: 'verb', transliteration: 'chéng' },
+        { id: 't2', surface: '肉身', pos: 'noun', transliteration: 'ròushēn' },
+      ],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+        { id: 'nv', kind: 'word', role: 'predicate', tokens: ['t1'] },
+        { id: 'no', kind: 'word', role: 'directObject', tokens: ['t2'] },
+      ],
+      relations: [
+        { type: 'subject', head: 'c0', dependent: 'ns' },
+        { type: 'predicate', head: 'c0', dependent: 'nv' },
+        { type: 'directObject', head: 'nv', dependent: 'no' },
+      ],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    const dao = res.document!.tokens.find((t) => t.surface === '道')!;
+    expect(dao.morphology?.extra?.translit).toBe('dào');
+    // Surfaces through the shared romanization helper (the word-detail popover).
+    expect(transliterationOf(dao)).toBe('dào');
+  });
+
+  it('also accepts a transliteration nested inside the morphology bundle', () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'zh',
+      text: '道',
+      tokens: [{ id: 't0', surface: '道', pos: 'noun', morphology: { transliteration: 'dào' } }],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+      ],
+      relations: [{ type: 'subject', head: 'c0', dependent: 'ns' }],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    const m = res.document!.tokens[0]!.morphology!;
+    expect(m.extra?.translit).toBe('dào');
+    // The raw "transliteration" key is not left dangling in extra.
+    expect((m.extra as Record<string, string>)?.transliteration).toBeUndefined();
+  });
+
+  it('leaves Latin-script tokens with no transliteration', () => {
+    const res = importLlmDiagram(
+      JSON.stringify({
+        kind: LLM_DIAGRAM_KIND,
+        language: 'en',
+        text: 'Word',
+        tokens: [{ id: 't0', surface: 'Word', pos: 'noun' }],
+        nodes: [
+          { id: 'c0', kind: 'clause', clauseType: 'independent' },
+          { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+        ],
+        relations: [{ type: 'subject', head: 'c0', dependent: 'ns' }],
+        rootId: 'c0',
+      }),
+    );
+    expect(res.ok).toBe(true);
+    expect(transliterationOf(res.document!.tokens[0]!)).toBeUndefined();
+  });
+});
+
+describe("LLM Strong's numbers (Biblical Greek & Hebrew only)", () => {
+  it("asks for Strong's numbers, templates the field, and scopes them to grc/hbo", () => {
+    const text = 'ἀγαπῶμεν ἀλλήλους';
+    const prompt = buildLlmPrompt(text, tokenize(text));
+    expect(prompt).toMatch(/STRONG.S NUMBERS/i);
+    expect(prompt).toContain('"strong"');
+    expect(prompt).toMatch(/"grc".*"hbo"/);
+    expect(prompt).toMatch(/BARE DIGITS/);
+    expect(prompt).toMatch(/OMIT "strong".*EVERY OTHER language/i);
+  });
+
+  it("routes a Strong's number into extra.strong for a Greek document (prefix stripped)", () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'grc',
+      text: 'ὁ λόγος',
+      tokens: [
+        { id: 't0', surface: 'ὁ', pos: 'article', strong: '3588' },
+        { id: 't1', surface: 'λόγος', pos: 'noun', strong: 'G3056' }, // a G prefix is normalized away
+      ],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t1'] },
+        { id: 'na', kind: 'word', role: 'determiner', tokens: ['t0'] },
+      ],
+      relations: [
+        { type: 'subject', head: 'c0', dependent: 'ns' },
+        { type: 'determiner', head: 'ns', dependent: 'na' },
+      ],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    const logos = res.document!.tokens.find((t) => t.surface === 'λόγος')!;
+    expect(logos.morphology?.extra?.strong).toBe('3056');
+    expect(res.document!.tokens.find((t) => t.surface === 'ὁ')!.morphology?.extra?.strong).toBe('3588');
+  });
+
+  it('carries a Hebrew Strong\'s number (with an occasional letter suffix)', () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'hbo',
+      direction: 'rtl',
+      text: 'אֱלֹהִים',
+      tokens: [{ id: 't0', surface: 'אֱלֹהִים', pos: 'noun', strong: 'H430' }],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+      ],
+      relations: [{ type: 'subject', head: 'c0', dependent: 'ns' }],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    expect(res.document!.tokens[0]!.morphology?.extra?.strong).toBe('430');
+  });
+
+  it("DROPS a Strong's number on a non-Greek/Hebrew language even if supplied", () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'zh',
+      text: '道',
+      tokens: [{ id: 't0', surface: '道', pos: 'noun', strong: '3056', transliteration: 'dào' }],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+      ],
+      relations: [{ type: 'subject', head: 'c0', dependent: 'ns' }],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    const tok = res.document!.tokens[0]!;
+    expect(tok.morphology?.extra?.strong).toBeUndefined(); // not for Chinese
+    expect(tok.morphology?.extra?.translit).toBe('dào'); // transliteration still applies
+  });
+
+  it("also drops a Strong's NESTED in morphology for a non-Greek/Hebrew language", () => {
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'en',
+      text: 'Word',
+      tokens: [{ id: 't0', surface: 'Word', pos: 'noun', morphology: { strong: '3056' } }],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent' },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+      ],
+      relations: [{ type: 'subject', head: 'c0', dependent: 'ns' }],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    expect(res.document!.tokens[0]!.morphology?.extra?.strong).toBeUndefined();
   });
 });
 
