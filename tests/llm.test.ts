@@ -36,12 +36,30 @@ describe('buildLlmPrompt', () => {
   it('steers away from empty wrapper nodes and toward head-based coordination', () => {
     // The reported bug: an LLM wrapped a compound subject in an empty "phrase"
     // node, which is spliced on import — dropping the subject role. The prompt now
-    // forbids empty grouping nodes and gives the head-based coordination pattern.
-    expect(prompt).toMatch(/empty grouping node/i);
+    // forbids wrapper nodes and gives the head-based coordination pattern.
+    expect(prompt).toMatch(/no wrappers/i);
+    expect(prompt).toMatch(/empty role node/i);
     expect(prompt).toMatch(/COORDINATION/);
     expect(prompt).toMatch(/FIRST (part|conjunct) .*(carries|subject)/i);
     expect(prompt).toMatch(/conjunct/);
     expect(prompt).toMatch(/coordinator/);
+  });
+
+  it('makes token ownership unambiguous: clause carries no tokens, one node per word', () => {
+    // The Chinese-parse failure mode: the model, told "every node must own a token"
+    // AND "no empty grouping nodes", dumped ALL tokens onto the clause node (and
+    // duplicated words across phrase + word nodes). The rules now say clauses are
+    // structural (tokens: []) and each token is owned by exactly one word node.
+    expect(prompt).toMatch(/TOKEN OWNERSHIP/);
+    expect(prompt).toMatch(/EXACTLY ONE node/);
+    expect(prompt).toMatch(/"tokens" is ALWAYS \[\]/);
+    expect(prompt).toMatch(/ONE WORD NODE PER WORD/);
+  });
+
+  it('tells the model NOT to diagram punctuation and self-check before replying', () => {
+    expect(prompt).toMatch(/PUNCTUATION IS NOT DIAGRAMMED/);
+    expect(prompt).toMatch(/gets NO node and appears in NO relation/);
+    expect(prompt).toMatch(/BEFORE YOU REPLY/);
   });
 });
 
@@ -727,6 +745,61 @@ describe("LLM Strong's numbers (Biblical Greek & Hebrew only)", () => {
     const res = importLlmDiagram(JSON.stringify(reply));
     expect(res.ok).toBe(true);
     expect(res.document!.tokens[0]!.morphology?.extra?.strong).toBeUndefined();
+  });
+});
+
+describe('LLM import strips undiagrammed punctuation and de-duplicates', () => {
+  it('drops stray comma/period nodes and never lets any node own punctuation', () => {
+    // Reproduces the reported Chinese-parse failure: the clause node wrongly owns
+    // ALL tokens (duplication), and the model gave the comma and period their own
+    // "unknown" nodes. Import must yield a clean tree: punctuation drawn nowhere,
+    // the clause structural (no tokens), each real word owned exactly once.
+    const reply = {
+      kind: LLM_DIAGRAM_KIND,
+      language: 'zh',
+      text: '道成，肉身。',
+      tokens: [
+        { id: 't0', surface: '道', pos: 'noun', transliteration: 'dào' },
+        { id: 't1', surface: '成', pos: 'verb', transliteration: 'chéng' },
+        { id: 't2', surface: '，', pos: 'unknown' },
+        { id: 't3', surface: '肉身', pos: 'noun', transliteration: 'ròushēn' },
+        { id: 't4', surface: '。', pos: 'unknown' },
+      ],
+      nodes: [
+        { id: 'c0', kind: 'clause', clauseType: 'independent', tokens: ['t0', 't1', 't2', 't3', 't4'] },
+        { id: 'ns', kind: 'word', role: 'subject', tokens: ['t0'] },
+        { id: 'nv', kind: 'word', role: 'predicate', tokens: ['t1'] },
+        { id: 'no', kind: 'word', role: 'directObject', tokens: ['t3'] },
+        { id: 'n_comma', kind: 'word', role: 'unknown', tokens: ['t2'] },
+        { id: 'n_period', kind: 'word', role: 'unknown', tokens: ['t4'] },
+      ],
+      relations: [
+        { type: 'subject', head: 'c0', dependent: 'ns' },
+        { type: 'predicate', head: 'c0', dependent: 'nv' },
+        { type: 'directObject', head: 'nv', dependent: 'no' },
+        { type: 'unknown', head: 'c0', dependent: 'n_comma' },
+        { type: 'unknown', head: 'c0', dependent: 'n_period' },
+      ],
+      rootId: 'c0',
+    };
+    const res = importLlmDiagram(JSON.stringify(reply));
+    expect(res.ok).toBe(true);
+    const doc = res.document!;
+    // The punctuation nodes (and their relations) are gone.
+    expect(doc.syntax.nodes.some((n) => n.id === 'n_comma' || n.id === 'n_period')).toBe(false);
+    expect(doc.syntax.relations.some((r) => r.type === 'unknown')).toBe(false);
+    // No node owns a punctuation token — not even the clause.
+    const punctIds = new Set(doc.tokens.filter((t) => t.surface === '，' || t.surface === '。').map((t) => t.id));
+    for (const n of doc.syntax.nodes) {
+      expect(n.tokenIds.some((id) => punctIds.has(id))).toBe(false);
+    }
+    // The three real words survive, owned once each, and the diagram lays out.
+    expect(
+      doc.syntax.nodes.filter((n) => n.kind === 'word').map((n) => n.tokenIds[0]).sort(),
+    ).toEqual(['t0', 't1', 't3']);
+    expect(layoutDocument(doc).elements.length).toBeGreaterThan(0);
+    // Punctuation tokens remain in the token list — the surface text is intact.
+    expect(doc.tokens).toHaveLength(5);
   });
 });
 
