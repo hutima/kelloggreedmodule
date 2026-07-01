@@ -82,6 +82,9 @@ const LlmTokenSchema = z.object({
   pos: z.string().optional(),
   lemma: z.string().optional(),
   gloss: z.string().optional(),
+  /** Latin-alphabet romanization for a non-Latin-script surface (Greek, Hebrew,
+   *  Chinese, Arabic, …). Routed into `morphology.extra.translit` on hydrate. */
+  transliteration: z.string().optional(),
   // A forgiving morphology bundle: any subset of the feature keys, each a free
   // string coerced/validated on hydrate (unknown values are dropped, never fatal).
   morphology: z.record(z.string()).optional(),
@@ -153,6 +156,16 @@ const morphList = Object.entries(MORPH_FEATURES)
  * voice/mood for verbs; degree for adjective/adverbs), the parse the Morphology
  * view and agreement-based inference rely on.
  */
+/** A friendly name for the detected-language HINT in the prompt (the model still
+ *  re-detects and is authoritative); unknown codes fall back to the code itself. */
+const LANG_HINT_NAMES: Record<string, string> = {
+  en: 'English',
+  grc: 'Koine Greek',
+  hbo: 'Biblical Hebrew',
+  zh: 'Chinese',
+  ja: 'Japanese',
+};
+
 export interface LlmPromptOptions {
   /** The source has had punctuation removed — ask the model to infer its own. */
   inferPunctuation?: boolean;
@@ -169,8 +182,7 @@ export function buildLlmPrompt(
   opts: LlmPromptOptions = {},
 ): string {
   const detected = language ?? detectLanguage(text);
-  const langName =
-    detected === 'grc' ? 'Koine Greek' : detected === 'hbo' ? 'Biblical Hebrew' : 'English';
+  const langName = LANG_HINT_NAMES[detected] ?? detected;
   const punctuationRule = opts.inferPunctuation
     ? `\n- PUNCTUATION: the source has had its punctuation REMOVED. Infer the most likely punctuation yourself — sentence breaks, commas, clause boundaries — and let that guide the parse; write the punctuated form into each diagram's "text" field. Where a different punctuation would give a materially different parse, prefer the reading you judge most likely.`
     : '';
@@ -187,7 +199,7 @@ export function buildLlmPrompt(
   const tokenJson = tokens
     .map(
       (t) =>
-        `    { "id": ${JSON.stringify(t.id)}, "surface": ${JSON.stringify(t.surface)}, "pos": "", "lemma": "", "gloss": "", "morphology": {} }`,
+        `    { "id": ${JSON.stringify(t.id)}, "surface": ${JSON.stringify(t.surface)}, "pos": "", "lemma": "", "gloss": "", "transliteration": "", "morphology": {} }`,
     )
     .join(',\n');
   return `You are a grammarian helping build a Reed-Kellogg sentence diagram. Work in whatever language the sentence is written in — ANY language, not only English/Greek/Hebrew.
@@ -228,6 +240,7 @@ RULES
 - DETECT THE LANGUAGE and set "language" to its code — "en"/"grc"/"hbo" for English/Koine Greek/Biblical Hebrew, otherwise a short BCP-47 code (e.g. "zh" Chinese, "ar" Arabic, "la" Latin). Also set "direction" to "rtl" for right-to-left scripts (Hebrew, Arabic, Syriac, …), else "ltr". Do not rely on the hint above; the sentence is authoritative.
 - IF YOU CANNOT confidently analyse this language's grammar, DO NOT GUESS a parse — just TOKENIZE: emit one "clause" node (rootId) and attach each word as its own "word" node (role "unknown", pos "unknown" if unsure) so the sentence still renders as a labelled token list. A faithful token list beats a wrong tree.${punctuationRule}${variantsRule}
 - Fill a "pos" for every token, plus "lemma" and a short English "gloss".
+- TRANSLITERATION: for every token whose surface is NOT written in the Latin/Roman alphabet (Greek, Hebrew, Chinese, Japanese, Arabic, Cyrillic, Devanagari, …), also fill "transliteration" with a readable Latin-alphabet romanization of how the word is pronounced, using the standard scheme for that language (pinyin for Chinese, Hepburn for Japanese, academic transliteration for Greek/Hebrew, etc.). OMIT "transliteration" (or leave it "") for words already in the Latin alphabet (English, Latin, Spanish, …).
 - MORPHOLOGY: fill "morphology" for every inflected token with the features that APPLY to it — nominals (noun/adjective/article/participle/pronoun): case, gender, number; finite verbs: person, number, tense, voice, mood (e.g. "1st person singular present active indicative"); infinitives/participles: tense, voice (+ case/gender/number for a participle); adjective/adverb comparison: degree. Omit features that do not apply, and use "morphology": {} for an uninflected word (English preposition, particle). English uses only the subset that applies (person/number/tense/degree).
 - MULTIPLE SENTENCES: diagram each sentence SEPARATELY as its own object in the array, each with its own "nodes"/"relations"/"rootId" and referencing only that sentence's tokens. NEVER join two sentences into one clause or link them with a "conjunct"/"clause" relation — separate sentences are separate diagrams. Reply with a single object only when there is exactly one sentence.
 - A relation reads "dependent functions as <type> of head"; "head" and "dependent" are NODE ids.
@@ -290,19 +303,28 @@ const asKind = (k?: string): SyntaxNode['kind'] => (k && KINDS.has(k) ? (k as Sy
  * Coerce a loose morphology record into a validated Morphology bundle: keep only
  * known features whose value is in that feature's enum; anything else (a stray
  * key, a mis-spelled value) is preserved under `extra` so nothing is silently
- * lost. Returns undefined when there is nothing usable.
+ * lost. A provided `translit` (the LLM's romanization of a non-Latin word) rides
+ * in `extra.translit` — the SAME channel the Hebrew source uses — so
+ * `transliterationOf` surfaces it in the word-detail popover with no UI change.
+ * Returns undefined when there is nothing usable.
  */
-function asMorphology(m?: Record<string, string>): Morphology | undefined {
-  if (!m || typeof m !== 'object') return undefined;
+function asMorphology(m?: Record<string, string>, translit?: string): Morphology | undefined {
   const out: Record<string, string> = {};
   const extra: Record<string, string> = {};
-  for (const [key, valRaw] of Object.entries(m)) {
-    if (typeof valRaw !== 'string' || !valRaw) continue;
-    const val = valRaw.toLowerCase();
-    const allowed = (MORPH_FEATURES as Record<string, readonly string[]>)[key];
-    if (allowed && allowed.includes(val)) out[key] = val;
-    else extra[key] = valRaw;
+  if (m && typeof m === 'object') {
+    for (const [key, valRaw] of Object.entries(m)) {
+      if (typeof valRaw !== 'string' || !valRaw) continue;
+      const val = valRaw.toLowerCase();
+      const allowed = (MORPH_FEATURES as Record<string, readonly string[]>)[key];
+      if (allowed && allowed.includes(val)) out[key] = val;
+      else extra[key] = valRaw;
+    }
   }
+  // The model may also nest "translit"/"transliteration" inside morphology; the
+  // explicit top-level field wins, but either way it lands in extra.translit.
+  const roman = translit?.trim() || extra.transliteration;
+  if (roman) extra.translit = roman;
+  delete extra.transliteration;
   if (Object.keys(extra).length) out.extra = extra as never;
   const parsed = MorphologySchema.safeParse(out);
   return parsed.success && Object.keys(parsed.data).length ? parsed.data : undefined;
@@ -392,7 +414,7 @@ function hydrateFields(
   const tokens: Token[] =
     d.tokens && d.tokens.length
       ? d.tokens.map((t, i) => {
-          const morphology = asMorphology(t.morphology);
+          const morphology = asMorphology(t.morphology, t.transliteration);
           return {
             id: t.id,
             index: i,
