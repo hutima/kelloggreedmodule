@@ -250,7 +250,15 @@ export function parseWordGroups(xml: string): WordGroups {
 // --- conversion ---------------------------------------------------------------
 
 const GIVEN = { source: 'given', confidence: 'high' } as const;
-const COPULA_LEMMAS = new Set(['εἰμί', 'γίνομαι', 'ὑπάρχω']);
+
+/**
+ * NFC-normalize a Greek lemma before comparing it to a literal. The OpenText base
+ * layer spells accents with polytonic OXIA codepoints (ί = U+1F77), while the
+ * literals here use the canonically-equivalent monotonic TONOS (ί = U+03AF); the
+ * two are equal only after NFC, so a raw `Set.has` would miss εἰμί and friends.
+ */
+const nfc = (s: string): string => s.normalize('NFC');
+const COPULA_LEMMAS = new Set(['εἰμί', 'γίνομαι', 'ὑπάρχω'].map(nfc));
 
 /** Map a clause component element tag to its argument role. */
 const COMPONENT_TAG = new Set(['cl.s', 'cl.p', 'cl.c', 'cl.a', 'cl.add', 'pl.conj']);
@@ -435,12 +443,48 @@ class OpenTextConverter {
     return head;
   }
 
+  /**
+   * Components realized inside another component but belonging to `clauseEl`
+   * (OpenText `type="embed" parent="<clause xml:id>"`), collected wherever they are
+   * nested within the clause. `parent` fixes ownership, so an embedded component of
+   * a deeper clause is never mis-claimed.
+   */
+  private embeddedComponents(clauseEl: Element, xmlId: string | null): Element[] {
+    if (!xmlId) return [];
+    const out: Element[] = [];
+    const walk = (el: Element) => {
+      for (const c of kids(el)) {
+        if (
+          COMPONENT_TAG.has(tag(c)) &&
+          c.getAttribute('type') === 'embed' &&
+          c.getAttribute('parent') === xmlId
+        ) {
+          out.push(c);
+        }
+        walk(c);
+      }
+    };
+    walk(clauseEl);
+    return out;
+  }
+
   /** Build a clause node (primary or embedded) and return its id. */
   buildClause(clauseEl: Element, seen: Set<string>): string {
-    const clauseId = `cl_${clauseEl.getAttribute('xml:id') ?? `g${this.seq++}`}`;
+    const xmlId = clauseEl.getAttribute('xml:id');
+    const clauseId = `cl_${xmlId ?? `g${this.seq++}`}`;
     this.nodes.push({ id: clauseId, kind: 'clause', clauseType: clauseTypeOf(clauseEl), tokenIds: [], provenance: GIVEN });
 
-    const comps = kids(clauseEl).filter((c) => COMPONENT_TAG.has(tag(c)));
+    // A clause's components are its DIRECT children plus any realized elsewhere and
+    // pointed back here by `type="embed" parent="<this clause>"`. OpenText uses that
+    // embedding for a discontinuous / periphrastic component — most visibly the
+    // finite copula of a periphrastic verb: in "ὅτι ἐν Θεῷ ἐστιν εἰργασμένα" the
+    // participle heads an embedded clause inside the complement, while ἐστιν (the
+    // clause's real predicate) is an embedded <cl.P> nested within that complement.
+    // Collecting these keeps the copula from being dropped and a phantom "(ἐστίν)"
+    // synthesized in its place.
+    const direct = kids(clauseEl).filter((c) => COMPONENT_TAG.has(tag(c)));
+    const embedded = this.embeddedComponents(clauseEl, xmlId).filter((c) => !direct.includes(c));
+    const comps = [...direct, ...embedded];
     const predEl = comps.find((c) => tag(c) === 'cl.p');
 
     // Predicate first, so complements/adjuncts can attach to the verb.
@@ -453,7 +497,7 @@ class OpenTextConverter {
     }
     this.rel('predicate', clauseId, verbId);
     const verbLemma = verbWord ? this.base.get(verbWord)?.lemma : undefined;
-    const copula = !predEl || (verbLemma ? COPULA_LEMMAS.has(verbLemma) : false);
+    const copula = !predEl || (verbLemma ? COPULA_LEMMAS.has(nfc(verbLemma)) : false);
 
     for (const comp of comps) {
       if (comp === predEl) continue;

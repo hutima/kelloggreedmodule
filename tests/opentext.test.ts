@@ -93,22 +93,25 @@ describe('OpenText surface alignment', () => {
   });
 
   it('replaces lemma forms with inflected surfaces by (verse, position), validated by lemma', () => {
-    const doc = philemonDocs()[1]!; // χάρις καὶ εἰρήνη ἀπὸ θεός … (lemma forms)
-    // Build a tiny index covering the first verse-3 words with inflected forms.
+    const doc = philemonDocs()[1]!; // χάρις ὑμῖν καὶ εἰρήνη ἀπὸ θεός … (lemma forms)
+    // Build a tiny index covering the first verse-3 words with inflected forms. The
+    // dative ὑμῖν (σύ) is an embedded complement of this clause; it sits at
+    // within-verse position 2, so the later words shift down one from there.
     const index = buildSurfaceIndex([
       nestle('Phlm.1.3', 1, 'χάρις', 'χάρις'),
-      nestle('Phlm.1.3', 2, 'καὶ', 'καί'),
-      nestle('Phlm.1.3', 3, 'εἰρήνη', 'εἰρήνη'),
-      nestle('Phlm.1.3', 4, 'ἀπὸ', 'ἀπό'),
-      nestle('Phlm.1.3', 5, 'Θεοῦ', 'θεός'),
+      nestle('Phlm.1.3', 2, 'ὑμῖν', 'σύ'),
+      nestle('Phlm.1.3', 3, 'καὶ', 'καί'),
+      nestle('Phlm.1.3', 4, 'εἰρήνη', 'εἰρήνη'),
+      nestle('Phlm.1.3', 5, 'ἀπὸ', 'ἀπό'),
+      nestle('Phlm.1.3', 6, 'Θεοῦ', 'θεός'),
     ]);
     const { doc: aligned, aligned: n } = alignOpenTextSurface(doc, index);
-    expect(n).toBeGreaterThanOrEqual(5);
+    expect(n).toBeGreaterThanOrEqual(6);
     // The genitive Θεοῦ replaces the lemma θεός.
     expect(surfaces(aligned)).toContain(nfc('Θεοῦ'));
     expect(surfaces(aligned)).not.toContain(nfc('θεός'));
     // doc.text is rebuilt from the aligned surfaces in reading order.
-    expect(nfc(aligned.text).startsWith(nfc('χάρις καὶ εἰρήνη ἀπὸ Θεοῦ'))).toBe(true);
+    expect(nfc(aligned.text).startsWith(nfc('χάρις ὑμῖν καὶ εἰρήνη ἀπὸ Θεοῦ'))).toBe(true);
   });
 
   it('keeps the lemma form when no aligned surface is found', () => {
@@ -128,5 +131,61 @@ describe('OpenText surface alignment', () => {
     ]);
     const { doc: aligned } = alignOpenTextSurface(doc, index);
     expect(surfaces(aligned)).toContain(nfc('εἰρήνην'));
+  });
+});
+
+describe('OpenText periphrastic verb (embedded copula predicate)', () => {
+  // John 3:21 shape: "ὅτι ἐν Θεῷ ἐστιν εἰργασμένα". OpenText marks the participle
+  // as the head of an embedded clause inside the complement, while the finite
+  // copula ἐστιν is its own <cl.P type="embed"> nested within that complement
+  // (structure "…-(P)"). The copula must be surfaced as the clause's real
+  // predicate — not dropped with a phantom "(ἐστίν)" synthesized in its place.
+  // The base lex spells εἰμί with polytonic OXIA (ί = U+1F77), so this also guards
+  // the NFC-normalized copula match.
+  const EIMI_OXIA = 'εἰμί'; // εἰμί with U+1F77, as OpenText's base layer spells it
+  const base = `<book>
+    <w xml:id="NT.Tst.w1" ref="NT.Tst.1.1"><pos><NON num="plur" cas="nom" gen="neu"/></pos><wf lex="ἔργον"/></w>
+    <w xml:id="NT.Tst.w2" ref="NT.Tst.1.1"><pos><PRP/></pos><wf lex="ἐν"/></w>
+    <w xml:id="NT.Tst.w3" ref="NT.Tst.1.1"><pos><NON num="sing" cas="dat" gen="mas"/></pos><wf lex="θεός"/></w>
+    <w xml:id="NT.Tst.w4" ref="NT.Tst.1.1"><pos><VBF num="sing" per="3rd" mod="ind"/></pos><wf lex="${EIMI_OXIA}"/></w>
+    <w xml:id="NT.Tst.w5" ref="NT.Tst.1.1"><pos><VBP num="plur" cas="nom" gen="neu" tf="per"/></pos><wf lex="ἐργάζομαι"/></w>
+  </book>`;
+  const wg = `<wordgroups/>`;
+  const clause = `<chapter book="Test" num="1">
+    <cl.clause xml:id="NT.Tst.1_c1" level="primary" structure="S-C-(P)">
+      <cl.S><w xlink:href="NT.Tst.w1"/></cl.S>
+      <cl.C>
+        <cl.clause xml:id="NT.Tst.1_c2" level="embedded" structure="A-P">
+          <cl.A><w xlink:href="NT.Tst.w2"/><w xlink:href="NT.Tst.w3"/></cl.A>
+          <cl.P><w xlink:href="NT.Tst.w5"/></cl.P>
+        </cl.clause>
+        <cl.P type="embed" parent="NT.Tst.1_c1"><w xlink:href="NT.Tst.w4"/></cl.P>
+      </cl.C>
+    </cl.clause>
+  </chapter>`;
+
+  const doc = openTextToDocuments(base, wg, clause, { book: 'Test' })[0]!;
+  const roleOf = (lemma: string) => {
+    const node = doc.syntax.nodes.find((n) =>
+      n.tokenIds.some((t) => nfc(doc.tokens.find((x) => x.id === t)?.lemma ?? '') === nfc(lemma)),
+    );
+    return doc.syntax.relations.find((r) => r.dependentId === node?.id)?.type;
+  };
+
+  it('surfaces the embedded finite copula instead of dropping it', () => {
+    expect(doc.tokens.some((t) => nfc(t.lemma ?? '') === nfc('εἰμί'))).toBe(true);
+    // The copula is the clause's predicate; no phantom implied "(ἐστίν)" is minted.
+    expect(roleOf('εἰμί')).toBe('predicate');
+    expect(doc.syntax.nodes.some((n) => n.implied && n.label === '(ἐστίν)')).toBe(false);
+  });
+
+  it('treats εἰμί as a copula (NFC match) so its complement is a predicate nominative', () => {
+    // The participial clause complement rides a back-slant as a predicate nominal,
+    // NOT a direct object — the copula match must see through the oxia/tonos spelling.
+    const copulaChildren = doc.syntax.relations.filter(
+      (r) => r.type === 'predicateNominative' || r.type === 'directObject',
+    );
+    expect(copulaChildren.map((r) => r.type)).toContain('predicateNominative');
+    expect(copulaChildren.map((r) => r.type)).not.toContain('directObject');
   });
 });

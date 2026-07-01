@@ -229,12 +229,9 @@ export class SentenceConverter {
     return constituents(el).some((c) => this.isClauseLike(c));
   }
 
-  /** Create (once) the token + word node for a `<w>` leaf, return the node id. */
-  private wordNode(w: Element): string {
-    const existing = this.wordNodeId.get(w);
-    if (existing) return existing;
-    const k = this.key(w);
-    const tokenId = `t_${k}`;
+  /** Create the TOKEN for a `<w>` leaf (idempotent), without minting a node. */
+  private makeToken(w: Element, tokenId: string): void {
+    if (this.tokens.some((t) => t.id === tokenId)) return;
     this.tokens.push({
       id: tokenId,
       index: this.tokens.length,
@@ -246,9 +243,54 @@ export class SentenceConverter {
       morphology: this.dialect.morphOf(w),
       provenance: { source: 'given', confidence: 'high' },
     });
+  }
+
+  /** Create (once) the token + word node for a `<w>` leaf, return the node id. */
+  private wordNode(w: Element): string {
+    const existing = this.wordNodeId.get(w);
+    if (existing) return existing;
+    const k = this.key(w);
+    const tokenId = `t_${k}`;
+    this.makeToken(w, tokenId);
     const nodeId = `w_${k}`;
     this.nodes.push({ id: nodeId, kind: 'word', tokenIds: [tokenId], provenance: { source: 'given', confidence: 'high' } });
     this.wordNodeId.set(w, nodeId);
+    return nodeId;
+  }
+
+  /**
+   * Realize a periphrastic verb phrase — a finite copula plus a participle
+   * (ἐστιν εἰργασμένα "have been wrought", ἦν βαπτίζων "was baptizing") — as ONE
+   * compound predicate node spanning all its verb words, so the whole periphrasis
+   * sits together on the baseline (Reed-Kellogg treats it as a single verb, not a
+   * participle head with a demoted auxiliary hanging beneath it). The finite verb
+   * is listed FIRST so the clause reads as finite — the layout keys the
+   * subject/omit-subject decision off the predicate's first token — while the drawn
+   * word order is recovered from token indices, so this ordering never reshuffles
+   * the visible text.
+   */
+  private periphrasticPredicate(el: Element): string {
+    const ws = Array.from(el.querySelectorAll('w'));
+    const finite = ws.filter(
+      (w) => w.getAttribute('class') === 'verb' && w.getAttribute('mood') !== 'participle',
+    );
+    const ordered = [...finite, ...ws.filter((w) => !finite.includes(w))];
+    const tokenIds = ordered.map((w) => {
+      const tokenId = `t_${this.key(w)}`;
+      this.makeToken(w, tokenId);
+      return tokenId;
+    });
+    const nodeId = `w_${this.key(el)}`;
+    this.nodes.push({
+      id: nodeId,
+      kind: 'word',
+      tokenIds,
+      provenance: { source: 'given', confidence: 'high' },
+    });
+    // Any later reference to one of these verb words (a word-group modifier, the
+    // orphan rescue) resolves to the compound node, so no verb word is drawn twice
+    // or dropped.
+    for (const w of ordered) this.wordNodeId.set(w, nodeId);
     return nodeId;
   }
 
@@ -410,7 +452,7 @@ export class SentenceConverter {
 
     let verbId: string;
     if (verbEl) {
-      verbId = this.convert(verbEl);
+      verbId = isPeriphrasticVp(verbEl) ? this.periphrasticPredicate(verbEl) : this.convert(verbEl);
     } else {
       // Verbless predication (a greeting: nominative + dative, no verb): supply
       // an implied copula to anchor the subject and complement.
@@ -532,6 +574,27 @@ export class SentenceConverter {
     if (this.isAdjective(child)) return 'adjectival';
     return child.getAttribute('case') === 'genitive' ? 'genitive' : 'apposition';
   }
+}
+
+/**
+ * A Lowfat `<wg class="vp" rule="BeVerb">` that is a PERIPHRASTIC verb form: a
+ * finite copula (εἰμί) plus a participle carrying the lexical content — ἐστιν
+ * εἰργασμένα ("have been wrought"), ἦν βαπτίζων ("was baptizing"). Lowfat marks
+ * the participle as the phrase head, which would make the participle the clause
+ * predicate and leave the finite verb hanging beneath it as a stray apposition.
+ * Reed-Kellogg instead writes the whole periphrasis on the baseline as one
+ * compound verb, so the converter realizes it as a single multi-token predicate.
+ * Guarded by the presence of BOTH a participle and a finite verb, so any
+ * non-periphrastic BeVerb phrase is left to the ordinary head-percolation path.
+ */
+function isPeriphrasticVp(el: Element): boolean {
+  if (tag(el) !== 'wg' || (el.getAttribute('rule') ?? '').toLowerCase() !== 'beverb') return false;
+  const ws = Array.from(el.querySelectorAll('w'));
+  const hasParticiple = ws.some((w) => w.getAttribute('mood') === 'participle');
+  const hasFinite = ws.some(
+    (w) => w.getAttribute('class') === 'verb' && w.getAttribute('mood') !== 'participle',
+  );
+  return hasParticiple && hasFinite;
 }
 
 /**
