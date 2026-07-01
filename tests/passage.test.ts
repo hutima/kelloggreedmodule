@@ -95,6 +95,23 @@ describe('combinePassage', () => {
     expect(doc.title).toBe('Romans 5:1–2');
   });
 
+  it('numbers stacked sentences that carry no verse reference (typed passages)', () => {
+    // Custom/LLM passages have no verse ref — each stacked sentence should be
+    // labelled with a plain number, not its (long) opening words.
+    const s1 = sentence('cust_a', 'Marley was dead', 'Marley', 'died');
+    const s2 = sentence('cust_b', 'There is no doubt', 'doubt', 'remains');
+    const doc = combinePassage([s1, s2]);
+    const root = doc.syntax.nodes.find((n) => n.id === doc.syntax.rootId)!;
+    const labels = doc.syntax.relations
+      .filter((r) => r.headId === root.id)
+      .map((r) => doc.syntax.nodes.find((n) => n.id === r.dependentId)?.label);
+    expect(labels).toEqual(['1', '2']);
+    expect(doc.text).toContain('[1]');
+    expect(doc.text).toContain('[2]');
+    // The combined title is the first sentence's, not both spliced together.
+    expect(doc.title).toBe('Marley was dead');
+  });
+
   it('lays out both sentences stacked (each its own baseline)', () => {
     const layout = layoutDocument(combinePassage([a, b]));
     const yOf = (t: string) =>

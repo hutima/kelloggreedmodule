@@ -368,6 +368,9 @@ describe('LLM alternate readings (variants)', () => {
     expect(withVar).toMatch(/ALTERNATE READINGS/);
     expect(withVar).toMatch(/"variants"/);
     expect(withVar).toMatch(/impact/i);
+    // The variant NAME must be short + descriptive, not the sentence text.
+    expect(withVar).toMatch(/descriptive NAME for the reading/);
+    expect(withVar).toMatch(/NOT the sentence text/);
   });
 
   it('imports variants as full parses that reuse the primary tokens', () => {

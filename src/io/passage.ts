@@ -22,6 +22,16 @@ function verseOf(title: string): string {
   return m ? m[1]! : title;
 }
 
+/**
+ * The marker shown above each stacked passage member: its verse reference when
+ * the title carries one (scripture — "Romans 5:1" → "5:1"), otherwise a plain
+ * 1-based SENTENCE NUMBER. Typed/LLM passages have no verse reference, so a
+ * number reads far better than repeating each sentence's opening words.
+ */
+function memberLabel(doc: KrDocument, index: number): string {
+  return /\d+:\d+/.test(doc.title) ? verseOf(doc.title) : String(index + 1);
+}
+
 function prefixDoc(doc: KrDocument, p: string) {
   const id = (s: string) => `${p}${s}`;
   const tokens: Token[] = doc.tokens.map((t) => ({ ...t, id: id(t.id) }));
@@ -114,7 +124,7 @@ function coordinatePassage(valid: KrDocument[]): KrDocument | null {
     id: `coord_${valid[0]!.id}_${valid.length}`,
     title: passageTitle(valid),
     language: valid[0]!.language,
-    text: valid.map((d) => `[${verseOf(d.title)}] ${d.text}`).join('  '),
+    text: valid.map((d, i) => `[${memberLabel(d, i)}] ${d.text}`).join('  '),
     notes: '',
     createdAt: TS,
     updatedAt: TS,
@@ -127,6 +137,9 @@ function coordinatePassage(valid: KrDocument[]): KrDocument | null {
 /** The book + verse-range title for a set of consecutive sentence documents. */
 function passageTitle(valid: KrDocument[]): string {
   const first = valid[0]!;
+  // Typed/LLM passages carry no verse reference — title after the opening
+  // sentence rather than splicing every sentence's first words together.
+  if (!/\d+:\d+/.test(first.title)) return first.title;
   const last = valid[valid.length - 1]!;
   const book = first.title.replace(/\s*\d+:\d+.*$/, '').trim();
   const firstRef = verseOf(first.title);
@@ -162,7 +175,7 @@ export function combinePassage(
     const pre = prefixDoc(doc, `s${i}_`);
     tokens.push(...pre.tokens);
     for (const n of pre.nodes) {
-      if (n.id === pre.rootId) n.label = verseOf(doc.title); // shown above the sentence
+      if (n.id === pre.rootId) n.label = memberLabel(doc, i); // shown above the sentence
       nodes.push(n);
     }
     relations.push(...pre.relations);
@@ -182,7 +195,7 @@ export function combinePassage(
     id: `passage_${first.id}_${valid.length}`,
     title: passageTitle(valid),
     language: first.language,
-    text: valid.map((d) => `[${verseOf(d.title)}] ${d.text}`).join('  '),
+    text: valid.map((d, i) => `[${memberLabel(d, i)}] ${d.text}`).join('  '),
     notes: '',
     createdAt: TS,
     updatedAt: TS,
