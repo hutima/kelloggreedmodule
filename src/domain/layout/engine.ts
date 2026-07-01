@@ -1757,8 +1757,13 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   let pedestalSubject = false;
   if (subjectIsClause) {
     const probe = layoutNode(ctx, subjectRel!.dependentId, new Set(seen));
-    pedestalSubject =
-      probe.elements.length > 0 && probe.height + blockAscent(probe) <= LAYOUT.pedestalMaxHeight;
+    // A clausal subject rides a pedestal in the subject slot. Unlike a clause
+    // COMPLEMENT (which can fall back to a dotted stem below when tall), a subject
+    // has no such fallback — laid out inline, a compound subject clause leaves the
+    // subject|predicate divider (and the predicate) stranded past the gap where its
+    // baseline stops. So pedestal it regardless of height, keeping the main line
+    // continuous through to the verb.
+    pedestalSubject = probe.elements.length > 0;
   }
   const subjectBlock = !subjectRel
     ? impliedBlock(subjectFillerLabel(ctx, verbNode))

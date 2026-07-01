@@ -46,6 +46,7 @@ export function layoutDependencyTree(
   const surface = new Map(doc.tokens.map((t) => [t.id, t.surface]));
   const gloss = new Map(doc.tokens.map((t) => [t.id, t.gloss]));
   const order = new Map(doc.tokens.map((t) => [t.id, t.index]));
+  const posOf = new Map(doc.tokens.map((t) => [t.id, t.pos]));
   const nodeOfTok = new Map<string, string>();
   for (const n of doc.syntax.nodes) for (const t of n.tokenIds) nodeOfTok.set(t, n.id);
 
@@ -63,6 +64,22 @@ export function layoutDependencyTree(
     if (parent.has(depTok)) continue; // first head wins — a tree, not a DAG
     parent.set(depTok, { head: headTok, type: rel.type, relId: rel.id });
     addChild(headTok, depTok, rel.type, rel.id);
+  }
+
+  // Connector / subordinator words (ἐάν, ὅτι, ἵνα…) that the parse carries as a
+  // relation LABEL rather than a tree node would otherwise be dropped. Hang each
+  // off the clause it introduces (the relation's dependent) so EVERY word of the
+  // sentence still appears in the tree.
+  for (const rel of doc.syntax.relations) {
+    if (!rel.labelNodeId) continue;
+    const labelTok = repTokenId(doc, rel.labelNodeId);
+    if (!labelTok || !surface.has(labelTok) || parent.has(labelTok)) continue;
+    const depTok = repTokenId(doc, rel.dependentId);
+    if (!depTok || depTok === labelTok) continue;
+    const pos = posOf.get(labelTok);
+    const role: SyntacticRole = pos === 'conjunction' ? 'conjunction' : pos === 'particle' ? 'particle' : 'adjunct';
+    parent.set(labelTok, { head: depTok, type: role, relId: rel.id });
+    addChild(depTok, labelTok, role, rel.id);
   }
 
   // Top-level children of the virtual ROOT: each sentence's main verb, plus any

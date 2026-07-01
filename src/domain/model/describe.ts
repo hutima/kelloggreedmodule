@@ -85,6 +85,18 @@ export function describeFunction(doc: KrDocument, nodeId: string): FunctionSumma
       role = up.type;
       detail = `${up.type} of “${headText}”.`;
     }
+  } else if (node.kind !== 'clause') {
+    // No upward relation of its own, but the word may be a CONNECTOR / subordinator
+    // whose text the parse carries as a relation's LABEL rather than a drawn node —
+    // e.g. ἐάν on a conditional clause. Describe that job instead of calling it
+    // unattached (which would be misleading).
+    const labels = doc.syntax.relations.find((r) => r.labelNodeId === nodeId);
+    if (labels) {
+      const pos = node.tokenIds.length ? doc.tokens.find((t) => t.id === node.tokenIds[0])?.pos : undefined;
+      role = pos === 'particle' ? 'Particle' : pos === 'conjunction' ? 'Conjunction' : 'Connective';
+      const clause = ROLE_PHRASES[labels.type]?.role.toLowerCase() ?? String(labels.type);
+      detail = `Connecting word — introduces the ${clause} clause.`;
+    }
   }
   if (node.implied) detail = `Implied / elided. ${detail}`;
 
