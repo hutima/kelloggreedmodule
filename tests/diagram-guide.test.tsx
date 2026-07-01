@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DiagramGuideModal } from '@/ui/components/DiagramGuideModal';
 import { DIAGRAM_MODES } from '@/domain/layout';
+import { TONE_COLORS } from '@/domain/render';
 
 /**
  * The "how to read the diagram" reference is presentation-only, so we just pin
@@ -41,5 +42,16 @@ describe('DiagramGuideModal', () => {
     }
     // The marks are drawn, not just described.
     expect(html).toContain('<svg');
+  });
+
+  it('shows the morphology colour code with each category and its real colour', () => {
+    const html = markup(true);
+    for (const label of ['Finite verb', 'Participle', 'Nominative', 'Accusative', 'Genitive', 'Dative', 'Vocative']) {
+      expect(html, `colour code should list "${label}"`).toContain(label);
+    }
+    // The swatches use the renderer's actual tone colours (so the legend can't drift).
+    for (const color of Object.values(TONE_COLORS)) {
+      expect(html, `colour code should use ${color}`).toContain(color);
+    }
   });
 });
