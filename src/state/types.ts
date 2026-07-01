@@ -1,4 +1,4 @@
-import type { KrDocument, SermonPrepData, SermonAnchor } from '@/domain/schema';
+import type { KrDocument, Language, SermonPrepData, SermonAnchor } from '@/domain/schema';
 import type { Inference } from '@/domain/inference';
 import type { DiagramMode, TreeOrientation } from '@/domain/layout';
 import type { SyntaxSourceId } from '@/io/sources';
@@ -117,6 +117,14 @@ export interface ContestedUiState {
   linkedScrolling: boolean;
 }
 
+/** A ready-to-run search queued from the inspector (a word's lemma / Strong's). */
+export interface SearchPrefill {
+  /** The lemma (or surface) to search for. */
+  text: string;
+  /** The word's language, so the Search tab opens the matching corpus. */
+  language: Language;
+}
+
 export interface EditorState {
   doc: KrDocument;
   /**
@@ -221,6 +229,13 @@ export interface EditorState {
   gntIndex: number;
   /** Whether the left (sources) panel is collapsed to a thin strip. */
   leftCollapsed: boolean;
+  /**
+   * A pending search to drop into the Search tab, set by clicking a word's
+   * Strong's number / lemma in the inspector. The Search panel consumes it (fills
+   * the query, picks the matching corpus, scopes to the whole testament) and
+   * clears it; the user just hits the search button. Null when nothing is queued.
+   */
+  searchPrefill: SearchPrefill | null;
   /** Saved custom parses ("my sentences"), most-recent first. Drives the New tab. */
   customParses: DocumentSummary[];
   /** Edit-mode before/after: show the original parse beside the current edits. */

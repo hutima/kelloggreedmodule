@@ -28,11 +28,22 @@ function SelectionEditor() {
   const removeWord = useEditorStore((s) => s.removeWord);
   const startRelink = useEditorStore((s) => s.startRelink);
   const linking = useEditorStore((s) => s.linking);
+  const setSearchPrefill = useEditorStore((s) => s.setSearchPrefill);
+
+  // Queue a whole-corpus lemma search from the inspector (a word's Strong's /
+  // lemma); the Search tab consumes it. Only the two Greek/Hebrew corpora are
+  // searchable, so an English custom doc gets no link.
+  const searchLemma =
+    doc.language === 'grc' || doc.language === 'hbo'
+      ? (lemma: string) => setSearchPrefill({ text: lemma, language: doc.language })
+      : undefined;
 
   if (sel.tokenId) {
     const t = doc.tokens.find((x) => x.id === sel.tokenId);
     if (!t) return <Empty />;
-    return <TokenInspector token={t} grc={doc.language === 'grc'} onChange={(p) => updateToken(t.id, p)} />;
+    return (
+      <TokenInspector token={t} grc={doc.language === 'grc'} onChange={(p) => updateToken(t.id, p)} onSearchLemma={searchLemma} />
+    );
   }
 
   if (sel.relationId) {
@@ -186,7 +197,7 @@ function SelectionEditor() {
         {(() => {
           const t = n.tokenIds[0] ? doc.tokens.find((x) => x.id === n.tokenIds[0]) : undefined;
           return t ? (
-            <TokenInspector token={t} grc={doc.language === 'grc'} onChange={(p) => updateToken(t.id, p)} />
+            <TokenInspector token={t} grc={doc.language === 'grc'} onChange={(p) => updateToken(t.id, p)} onSearchLemma={searchLemma} />
           ) : null;
         })()}
         {n.id !== doc.syntax.rootId && (
@@ -246,12 +257,17 @@ function TokenInspector({
   token,
   grc,
   onChange,
+  onSearchLemma,
 }: {
   token: Token;
   grc: boolean;
   onChange: (patch: Partial<Token>) => void;
+  /** Prefill a whole-corpus search for this word's lemma (from the Strong's link). */
+  onSearchLemma?: (lemma: string) => void;
 }) {
   const morph = token.morphology ?? {};
+  const strong = morph.extra?.strong;
+  const lemma = token.lemma?.trim() || token.surface.trim();
   const setMorph = (key: keyof Morphology, value: string) => {
     const next: Morphology = { ...morph };
     if (value) (next[key] as string) = value;
@@ -281,6 +297,20 @@ function TokenInspector({
           <input type="text" value={token.gloss ?? ''} onChange={(e) => onChange({ gloss: e.target.value })} />
         </label>
       </div>
+      {onSearchLemma && (
+        <p className="strongs-row" style={{ margin: '2px 0 6px', fontSize: 12, color: 'var(--ink-soft, #667)' }}>
+          {strong && <>Strong’s </>}
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => onSearchLemma(lemma)}
+            title={`Search every book for “${lemma}” (fills the Search tab; then hit search)`}
+          >
+            {strong ? `${grc ? 'G' : 'H'}${strong}` : `Find “${lemma}” everywhere`}
+          </button>
+          {strong && <> · find this lemma everywhere</>}
+        </p>
+      )}
       <label className="field">
         <span>Part of speech</span>
         <select

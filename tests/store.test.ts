@@ -134,4 +134,12 @@ describe('editor store', () => {
     expect(node).toBeDefined();
     expect(store.getState().selection.nodeId).toBe(node!.id);
   });
+
+  it('queues and clears a search prefill (Strong’s / lemma → Search tab)', () => {
+    expect(store.getState().searchPrefill).toBeNull();
+    store.getState().setSearchPrefill({ text: 'λόγος', language: 'grc' });
+    expect(store.getState().searchPrefill).toEqual({ text: 'λόγος', language: 'grc' });
+    store.getState().setSearchPrefill(null); // the Search panel consumes it once
+    expect(store.getState().searchPrefill).toBeNull();
+  });
 });

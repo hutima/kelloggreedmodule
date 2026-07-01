@@ -85,6 +85,7 @@ import type {
   Corpus,
   EditorState,
   EditTier,
+  SearchPrefill,
   Selection,
   WorkMode,
 } from './types';
@@ -291,6 +292,9 @@ export interface EditorActions {
   setGntContext: (passages: KrDocument[], index: number) => void;
   /** Collapse/expand the left (sources) panel. */
   setLeftCollapsed: (collapsed: boolean) => void;
+  /** Queue (or clear) a search to run from the Search tab — a word's lemma /
+   *  Strong's clicked in the inspector. The Search panel consumes and clears it. */
+  setSearchPrefill: (prefill: SearchPrefill | null) => void;
   /** Load the sentence `delta` away in the current GNT book (prev/next). */
   stepGnt: (delta: number) => void;
   // saved custom parses ("my sentences")
@@ -645,6 +649,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     gntPassages: [],
     gntIndex: -1,
     leftCollapsed: false,
+    searchPrefill: null,
     customParses: [],
     compareToBase: false,
     firstRun: isFirstRun(),
@@ -652,6 +657,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
     setGntContext: (passages, index) => set({ gntPassages: passages, gntIndex: index }),
     setLeftCollapsed: (collapsed) => set({ leftCollapsed: collapsed }),
+    setSearchPrefill: (prefill) => set({ searchPrefill: prefill }),
     setAppMode: (appMode) => set({ appMode }),
     setForceDesktop: (value) => {
       saveForceDesktop(value);
