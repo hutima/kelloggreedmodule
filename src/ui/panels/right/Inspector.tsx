@@ -308,7 +308,6 @@ function TokenInspector({
           >
             {strong ? `${grc ? 'G' : 'H'}${strong}` : `Find “${lemma}” everywhere`}
           </button>
-          {strong && <> · find this lemma everywhere</>}
         </p>
       )}
       <label className="field">
