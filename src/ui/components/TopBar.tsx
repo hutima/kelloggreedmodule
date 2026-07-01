@@ -69,11 +69,25 @@ export function TopBar() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return;
+      // Typing surfaces (the title input, note fields, …) keep the browser's
+      // native text undo/redo; hijacking the combo there would revert diagram
+      // edits while the user is trying to fix their typing. `closest` catches
+      // targets nested inside a contentEditable region too.
+      const t = e.target;
+      if (
+        t instanceof HTMLElement &&
+        (t.tagName === 'INPUT' ||
+          t.tagName === 'TEXTAREA' ||
+          t.tagName === 'SELECT' ||
+          t.isContentEditable ||
+          t.closest('[contenteditable=""], [contenteditable="true"]'))
+      ) {
+        return;
       }
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

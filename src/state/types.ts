@@ -37,7 +37,7 @@ export type Corpus = 'gnt' | 'ot' | 'custom';
  * Edit tier. The whole editing surface is split in two: BASIC is visual-first,
  * sermon-prep-first, plain-English and mostly click/tap; ADVANCED is technical
  * (full role lists, morphology, manual relation building). Orthogonal to the
- * diagram mode — each visualization offers its own basic and advanced behavior.
+ * diagram mode — each visualization offers its own basic and advanced behaviour.
  */
 export type EditTier = 'basic' | 'advanced';
 
@@ -270,4 +270,11 @@ export interface EditorState {
    * an ordinary single-sentence passage.
    */
   multiSentenceContested: ContestedSyntaxIssue[];
+  /**
+   * Bumped whenever the persisted imported-variant registry changes (import /
+   * delete / promote / save-with-variants). The registry itself lives in
+   * localStorage, which React can't observe — components that derive from it
+   * (variant counts, reading lists) subscribe to this counter to re-read it.
+   */
+  variantsVersion: number;
 }

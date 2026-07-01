@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useEditorStore } from '@/state';
 import { importLlmDiagram, LLM_DIAGRAM_KIND } from '@/io';
 import { alignedDiff, getAlternateReadings, userIssueId } from '@/domain/contested';
-import { loadUserVariants } from '@/persistence';
+import { listCustomParses, loadUserVariants } from '@/persistence';
 import type { KrDocument } from '@/domain/schema';
 
 const store = useEditorStore;
@@ -130,10 +130,46 @@ describe('John 1:18 variant reading (θεός vs υἱός)', () => {
   it('can be saved as a standalone sentence that owns its variant reading', () => {
     const base = store.getState().doc;
     store.getState().importAsVariants([{ label: 'only Son', doc: j118('υἱὸς') }], { targetDoc: base });
-    // Save the base + its readings as one custom sentence (re-keyed to a new id).
+    // Save the base + its readings as one custom sentence (in place: a custom
+    // sentence keeps its id, so the readings keyed by it stay attached).
     store.getState().saveWithVariants();
     const savedId = store.getState().doc.id;
     expect(getAlternateReadings(userIssueId(savedId)).some((r) => r.label === 'only Son')).toBe(true);
     expect(loadUserVariants(savedId)?.readings).toHaveLength(1);
+  });
+
+  it('saves a REOPENED custom sentence in place — one "My sentences" entry, same id', async () => {
+    // `loadDocument` (the reopen path) sets `baseDoc` to the custom doc itself,
+    // so `baseDoc === null` cannot discriminate custom from source passages;
+    // saving must still update the SAME entry rather than fork a copy.
+    const base = store.getState().doc;
+    expect(store.getState().baseDoc?.id).toBe(base.id); // the reopened state
+    store.getState().importAsVariants([{ label: 'only Son', doc: j118('υἱὸς') }], { targetDoc: base });
+
+    store.getState().saveWithVariants();
+    expect(store.getState().doc.id).toBe(base.id); // id kept → readings stay attached
+    store.getState().saveWithVariants(); // saving again must not fork either
+    await vi.waitFor(async () => {
+      const list = await listCustomParses();
+      expect(list.filter((c) => c.id === base.id)).toHaveLength(1);
+    });
+    expect(loadUserVariants(base.id)?.readings).toHaveLength(1);
+  });
+
+  it('preserves diff words when a SOURCE passage is saved with its variants', () => {
+    // A source (GNT-corpus) passage is copied to a new custom sentence and its
+    // readings re-keyed; the LLM-supplied diff words must survive the re-key or
+    // the saved sentence loses its precise difference highlighting.
+    const base = j118('θεὸς');
+    store.getState().loadDocument(base, { corpus: 'gnt' });
+    store.getState().importAsVariants([
+      { label: 'only Son', impact: 'Reads “Son” for “God”.', diffWords: ['θεός', 'υἱός'], doc: j118('υἱὸς') },
+    ]);
+    store.getState().saveWithVariants();
+    const savedId = store.getState().doc.id;
+    expect(savedId).not.toBe(base.id); // copied, not hijacking the source id
+    const saved = loadUserVariants(savedId)?.readings[0];
+    expect(saved?.diffWords).toEqual(['θεός', 'υἱός']);
+    expect(saved?.impact).toBe('Reads “Son” for “God”.');
   });
 });

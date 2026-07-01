@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useEditorStore } from '@/state';
 import { glossDoc } from '@/domain/model';
-import { getReadingById, diffBaseAndAlternate } from '@/domain/contested';
+import { getReadingById, diffBaseAndAlternate, alignedDiff } from '@/domain/contested';
 import { StaticDiagramFrame } from './StaticDiagramFrame';
 import { BlockOutlineFrame } from './BlockOutlineFrame';
 
@@ -20,12 +20,19 @@ export function SinglePreviewView() {
   const glossMode = useEditorStore((s) => s.glossMode);
   const readingId = useEditorStore((s) => s.contested.previewAlternateReadingId);
   const returnToBase = useEditorStore((s) => s.returnToBaseReading);
+  const preferAppDiff = useEditorStore((s) => s.preferAppDiff);
 
   const reading = readingId ? getReadingById(readingId) : undefined;
-  const diff = useMemo(
-    () => (reading && previewDoc ? diffBaseAndAlternate(baseDoc, previewDoc, reading) : null),
-    [reading, previewDoc, baseDoc],
-  );
+  const diff = useMemo(() => {
+    if (!reading || !previewDoc) return null;
+    // A full-doc (imported) variant has its own ids — align by surface. Otherwise
+    // the curated overlay shares base ids, so diff by id.
+    if (reading.fullDoc) {
+      const res = alignedDiff(baseDoc, previewDoc, preferAppDiff ? undefined : reading.diffWords);
+      return res.matched ? res.diff : null; // unmatched → show the variant without highlighting
+    }
+    return diffBaseAndAlternate(baseDoc, previewDoc, reading);
+  }, [reading, previewDoc, baseDoc, preferAppDiff]);
 
   const gloss = glossMode && diagramMode !== 'morphology';
   const baseShow = useMemo(() => (gloss ? glossDoc(baseDoc) : baseDoc), [gloss, baseDoc]);

@@ -156,6 +156,26 @@ describe('editor store', () => {
     expect(store.getState().doc.tokens.find((t) => t.id === tok.id)!.surface).toBe('δοῦλος');
   });
 
+  it('keeps the per-passage notes store in sync through undo/redo', () => {
+    // Notes persist BOTH on the doc and in a per-passage localStorage record
+    // that wins on the next load — so undoing a note edit must roll that record
+    // back too, or the undone notes resurrect on reload.
+    const id = store.getState().doc.id;
+    store.getState().setNotes('first draft');
+    store.getState().setNotes('second draft');
+    expect(localStorage.getItem(`kr:notes:${id}`)).toBe('second draft');
+
+    store.getState().undo();
+    expect(store.getState().doc.notes).toBe('first draft');
+    expect(localStorage.getItem(`kr:notes:${id}`)).toBe('first draft');
+
+    store.getState().undo(); // back to no notes → the record is removed
+    expect(localStorage.getItem(`kr:notes:${id}`)).toBeNull();
+
+    store.getState().redo();
+    expect(localStorage.getItem(`kr:notes:${id}`)).toBe('first draft');
+  });
+
   it('queues and clears a search prefill (Strong’s / lemma → Search tab)', () => {
     expect(store.getState().searchPrefill).toBeNull();
     store.getState().setSearchPrefill({ text: 'λόγος', language: 'grc' });

@@ -7,8 +7,10 @@ import {
   type AlternateReading,
   type ContestedSyntaxIssue,
   type CustomAssignmentPatch,
+  type KrDocument,
   type SermonPrepData,
 } from '@/domain/schema';
+import { applyPatch, hashBase } from '@/domain/patch';
 
 /**
  * USER-DATA PERSISTENCE — compact per-passage records stored separately from the
@@ -68,6 +70,27 @@ export function loadPatch(passageId: string): CustomAssignmentPatch | null {
 
 export function deletePatch(passageId: string): void {
   safeRemove(PATCH_PREFIX + passageId);
+}
+
+/**
+ * Reconstruct the live (edited) document for a base: load its stored patch and
+ * apply it — but ONLY when the patch was authored against THIS base (its
+ * `baseHash` fingerprint matches). A base can legitimately change under a stored
+ * patch (a combined passage's base shifts whenever an included sentence's own
+ * patch changes), and applying the stale diff would corrupt the new base. On a
+ * mismatch the patch is SKIPPED, never deleted — the user's edits stay in
+ * storage for the base they belong to — and a warning is logged.
+ */
+export function applyStoredPatch(base: KrDocument): KrDocument {
+  const patch = loadPatch(base.id);
+  if (!patch) return base;
+  if (patch.base.baseHash && patch.base.baseHash !== hashBase(base)) {
+    console.warn(
+      `Stored edits for ${base.id} were made against a different base version; showing the base unedited.`,
+    );
+    return base;
+  }
+  return applyPatch(base, patch);
 }
 
 // --- sermon prep --------------------------------------------------------------
