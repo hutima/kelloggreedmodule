@@ -135,6 +135,27 @@ describe('editor store', () => {
     expect(store.getState().selection.nodeId).toBe(node!.id);
   });
 
+  it('adds a BLANK word (drawn as a placeholder) and opens the lexeme search', () => {
+    store.getState().newDocument('grc', 'Variant');
+    const before = store.getState().doc.tokens.length;
+    store.getState().addBlankWord();
+    const s = store.getState();
+    // A new blank token + word node exist, attached and selected.
+    expect(s.doc.tokens.length).toBe(before + 1);
+    const node = s.doc.syntax.nodes.find((n) => n.id === s.selection.nodeId)!;
+    expect(node.kind).toBe('word');
+    expect(node.label).toBe('＋'); // placeholder until filled
+    const tok = s.doc.tokens.find((t) => t.id === node.tokenIds[0])!;
+    expect(tok.surface).toBe(''); // blank
+    expect(tok.provenance?.source).toBe('manual');
+    expect(s.doc.syntax.relations.some((r) => r.dependentId === node.id)).toBe(true); // attached
+    // The lexeme search modal is open for the new word.
+    expect(s.editModal).toEqual({ type: 'lexeme', nodeId: node.id });
+    // Filling it (as the modal does) turns it into a real word.
+    store.getState().updateToken(tok.id, { surface: 'δοῦλος', lemma: 'δοῦλος', gloss: 'servant' });
+    expect(store.getState().doc.tokens.find((t) => t.id === tok.id)!.surface).toBe('δοῦλος');
+  });
+
   it('queues and clears a search prefill (Strong’s / lemma → Search tab)', () => {
     expect(store.getState().searchPrefill).toBeNull();
     store.getState().setSearchPrefill({ text: 'λόγος', language: 'grc' });

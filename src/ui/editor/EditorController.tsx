@@ -11,6 +11,7 @@ import { RoleEditorModal } from './modals/RoleEditorModal';
 import { BlockEditorModal } from './modals/BlockEditorModal';
 import { AdvancedWordDetailsModal } from './modals/AdvancedWordDetailsModal';
 import { QuickGlossModal } from './modals/QuickGlossModal';
+import { LexemeSearchModal } from './modals/LexemeSearchModal';
 import { NoteModal } from './modals/NoteModal';
 
 /**
@@ -105,6 +106,9 @@ export function EditorController() {
       )}
       {editModal?.type === 'quickGloss' && (
         <QuickGlossModal nodeId={editModal.nodeId} onClose={closeEditModal} />
+      )}
+      {editModal?.type === 'lexeme' && (
+        <LexemeSearchModal nodeId={editModal.nodeId} onClose={closeEditModal} />
       )}
       {editModal?.type === 'note' && (
         <NoteModal anchor={editModal.anchor} onClose={closeEditModal} />
