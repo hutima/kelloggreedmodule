@@ -732,7 +732,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
     setGntContext: (passages, index) => set({ gntPassages: passages, gntIndex: index }),
     setLeftCollapsed: (collapsed) => set({ leftCollapsed: collapsed }),
-    setSearchPrefill: (prefill) => set({ searchPrefill: prefill }),
+    // Also un-collapses the left panel: on mobile it's the sources drawer, which
+    // only mounts (and can only react to the prefill) once it's open — so this
+    // has to open it directly rather than rely on LeftPanel's own effect.
+    setSearchPrefill: (prefill) => set(prefill ? { searchPrefill: prefill, leftCollapsed: false } : { searchPrefill: prefill }),
     setAppMode: (appMode) => set({ appMode }),
     setForceDesktop: (value) => {
       saveForceDesktop(value);
