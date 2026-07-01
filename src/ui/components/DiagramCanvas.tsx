@@ -575,6 +575,22 @@ export function DiagramCanvas() {
     return describeFunction(doc, selection.nodeId);
   }, [htmlMode, editing, linking, selection.nodeId, doc]);
 
+  // A word can be selected (e.g. tapped in the source-text strip) yet have NO
+  // geometry in the current SVG diagram — a subordinating conjunction like ἐάν,
+  // whose parse carries its text as a connector label rather than a drawn node,
+  // is never placed on a Kellogg-Reed / tree baseline. The positioned reveal
+  // popover needs a text anchor, so without one it shows nothing. Detect that case
+  // and fall back to the same fixed detail card the HTML modes use, so EVERY word
+  // still opens its parsing.
+  const hasTextAnchor = useMemo(
+    () => !!selection.nodeId && layout.elements.some((e) => e.kind === 'text' && e.nodeId === selection.nodeId),
+    [layout, selection.nodeId],
+  );
+  const undrawnReveal = useMemo(() => {
+    if (htmlMode || editing || linking || !selection.nodeId || hasTextAnchor) return null;
+    return describeFunction(doc, selection.nodeId);
+  }, [htmlMode, editing, linking, selection.nodeId, hasTextAnchor, doc]);
+
   // On a phone in Study mode the highlight palette lives here, in the tapped
   // word's detail card, instead of crowding the bottom sheet — so the sheet can
   // stay a short notes pad. Highlighting always needs a selected word anyway,
@@ -589,6 +605,25 @@ export function DiagramCanvas() {
         />
       </div>
     ) : null;
+
+  // The fixed detail card shared by the HTML modes and the SVG "undrawn word"
+  // fallback (a word with no geometry to anchor a positioned popover to).
+  const detailCard = (summary: NonNullable<ReturnType<typeof describeFunction>>) => (
+    <div className="kr-reveal html-reveal" role="status">
+      <button className="kr-reveal-close" title="Close (Esc)" aria-label="Close" onClick={() => select({})}>
+        ✕
+      </button>
+      <div className="kr-reveal-word">
+        {summary.word}
+        {summary.gloss && <span className="kr-reveal-gloss"> · {summary.gloss}</span>}
+      </div>
+      {summary.translit && <div className="kr-reveal-translit">{summary.translit}</div>}
+      <div className="kr-reveal-role">{summary.role}</div>
+      <div className="kr-reveal-detail">{summary.detail}</div>
+      {summary.grammar && <div className="kr-reveal-grammar">{summary.grammar}</div>}
+      {sermonHighlight}
+    </div>
+  );
 
   // ---- glossary popover (tap a label, e.g. "agr") ------------------------
   const gloss = useMemo(() => {
@@ -953,27 +988,7 @@ export function DiagramCanvas() {
           ) : (
             <MorphologyView hovered={hover.nodes} onHover={hoverDiagram} />
           )}
-          {htmlReveal && (
-            <div className="kr-reveal html-reveal" role="status">
-              <button
-                className="kr-reveal-close"
-                title="Close (Esc)"
-                aria-label="Close"
-                onClick={() => select({})}
-              >
-                ✕
-              </button>
-              <div className="kr-reveal-word">
-                {htmlReveal.word}
-                {htmlReveal.gloss && <span className="kr-reveal-gloss"> · {htmlReveal.gloss}</span>}
-              </div>
-              {htmlReveal.translit && <div className="kr-reveal-translit">{htmlReveal.translit}</div>}
-              <div className="kr-reveal-role">{htmlReveal.role}</div>
-              <div className="kr-reveal-detail">{htmlReveal.detail}</div>
-              {htmlReveal.grammar && <div className="kr-reveal-grammar">{htmlReveal.grammar}</div>}
-              {sermonHighlight}
-            </div>
-          )}
+          {htmlReveal && detailCard(htmlReveal)}
         </div>
       ) : (
       <div
@@ -1246,6 +1261,9 @@ export function DiagramCanvas() {
             <div className="kr-reveal-detail">{gloss.entry.detail}</div>
           </div>
         )}
+        {/* Selected word with no geometry in this diagram (e.g. ἐάν, drawn only as
+            a connector label) — still show its parsing in the fixed detail card. */}
+        {undrawnReveal && detailCard(undrawnReveal)}
       </div>
       )}
     </div>

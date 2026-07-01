@@ -1,4 +1,5 @@
-import type { KrDocument, LayoutHints } from '@/domain/schema';
+import type { KrDocument, LayoutHints, Relation } from '@/domain/schema';
+import { childRelations, getNode } from '@/domain/model';
 import type { DiagramLayout } from '../types';
 import { layoutDocument, type LayoutOptions } from '../engine';
 import { layoutDependency } from './dependency';
@@ -64,12 +65,49 @@ export function isEditableMode(mode: DiagramMode): boolean {
   return EDITABLE_MODES.includes(mode);
 }
 
+/**
+ * Attach a subject clause's PARTICLE subordinator (ἄν / ἐάν in "ὃς ἐάν …" =
+ * "whoever") to that clause's subject word, so it slants beneath the relative
+ * pronoun as an ordinary modifier in EVERY visualization — instead of being an
+ * orphan the parse carries only as the relation's label (which no diagram draws).
+ * Scoped to particles on a subject relation, so conjunction subordinators (ὅτι /
+ * ἵνα on complement clauses) keep their connector-label treatment untouched.
+ */
+function attachSubjectParticles(doc: KrDocument): KrDocument {
+  const posOf = new Map(doc.tokens.map((t) => [t.id, t.pos]));
+  const attached = new Set(doc.syntax.relations.map((r) => r.dependentId));
+  const added: Relation[] = [];
+  for (const r of doc.syntax.relations) {
+    if (r.type !== 'subject' || !r.labelNodeId || attached.has(r.labelNodeId)) continue;
+    const labelNode = getNode(doc.syntax, r.labelNodeId);
+    const tid = labelNode?.tokenIds[0];
+    if (!tid || posOf.get(tid) !== 'particle') continue;
+    const subj = childRelations(doc.syntax, r.dependentId).find((c) => c.type === 'subject');
+    if (!subj) continue;
+    added.push({
+      id: `r_relpart_${r.id}`,
+      type: 'adjunct',
+      headId: subj.dependentId,
+      dependentId: r.labelNodeId,
+      provenance: {
+        source: 'inferred',
+        confidence: 'medium',
+        reason: 'Indefinite-relative particle attached to its pronoun (ὃς + ἄν/ἐάν).',
+      },
+    });
+  }
+  return added.length
+    ? { ...doc, syntax: { ...doc.syntax, relations: [...doc.syntax.relations, ...added] } }
+    : doc;
+}
+
 export function layoutForMode(
   mode: DiagramMode,
   doc: KrDocument,
   hints: LayoutHints = {},
   options: LayoutOptions = {},
 ): DiagramLayout {
+  doc = attachSubjectParticles(doc);
   switch (mode) {
     case 'dependency':
       return layoutDependency(doc);

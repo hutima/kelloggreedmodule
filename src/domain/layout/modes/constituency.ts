@@ -109,6 +109,9 @@ export function layoutConstituency(
 
   const tokenById = new Map(doc.tokens.map((t) => [t.id, t]));
   const order = new Map(doc.tokens.map((t) => [t.id, t.index]));
+  // Nodes already attached as a real dependent — so a label word that a
+  // normalization step promoted to a real edge isn't ALSO added as a leaf.
+  const attachedElsewhere = new Set(doc.syntax.relations.map((r) => r.dependentId));
 
   const subtreeOrder = (nodeId: string, seen: Set<string>): number => {
     if (seen.has(nodeId)) return Infinity;
@@ -140,6 +143,13 @@ export function layoutConstituency(
   const glossOf = (node: SyntaxNode): string | undefined =>
     node.tokenIds.length ? tokenById.get(node.tokenIds[0]!)?.gloss : undefined;
 
+  // The role a connector/subordinator word (carried as a relation LABEL) reads as.
+  const labelRole = (id: string): SyntacticRole => {
+    const n = getNode(doc.syntax, id);
+    const pos = n?.tokenIds.length ? tokenById.get(n.tokenIds[0]!)?.pos : undefined;
+    return pos === 'conjunction' ? 'conjunction' : pos === 'particle' ? 'particle' : 'adjunct';
+  };
+
   const build = (nodeId: string, role: SyntacticRole | undefined, seen: Set<string>): ConsNode | undefined => {
     if (seen.has(nodeId)) return undefined;
     const next = new Set(seen).add(nodeId);
@@ -148,8 +158,18 @@ export function layoutConstituency(
     const ord = subtreeOrder(nodeId, new Set());
     const kids = childRelations(doc.syntax, nodeId)
       .map((r) => ({ child: build(r.dependentId, r.type, next), o: subtreeOrder(r.dependentId, new Set()) }))
-      .filter((k): k is { child: ConsNode; o: number } => Boolean(k.child))
-      .sort((a, b) => a.o - b.o);
+      .filter((k): k is { child: ConsNode; o: number } => Boolean(k.child));
+    // Connector / subordinator words (ἐάν, ὅτι…) the parse carries as the LABEL on
+    // an edge INTO this node would otherwise be dropped; add each as a leaf so
+    // every word of the sentence appears in the tree. Skip any that a normalization
+    // step already attached as a real dependent (so they aren't drawn twice).
+    for (const r of doc.syntax.relations) {
+      if (r.dependentId !== nodeId || !r.labelNodeId || next.has(r.labelNodeId)) continue;
+      if (attachedElsewhere.has(r.labelNodeId)) continue;
+      const child = build(r.labelNodeId, labelRole(r.labelNodeId), next);
+      if (child) kids.push({ child, o: subtreeOrder(r.labelNodeId, new Set()) });
+    }
+    kids.sort((a, b) => a.o - b.o);
 
     if (node.kind === 'clause') {
       // A clause is an S node; its members ARE its children (subject, VP, …).
