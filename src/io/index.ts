@@ -1,7 +1,7 @@
 export * from './json';
 export * from './export';
 export { lowfatToDocuments, type LowfatDocOptions } from './lowfat';
-export { loadGntBook, cacheGntBook, GNT_BOOKS, BUNDLED_BOOKS, type GntBook } from './gnt';
+export { loadGntBook, cacheGntBook, evictGntBook, GNT_BOOKS, BUNDLED_BOOKS, type GntBook } from './gnt';
 export { loadOtChapter, loadOtBook, cacheOtChapter, chapterFile, OT_BOOKS, type OtBook } from './ot';
 export { maculaHebrewToDocuments, type MaculaHebrewDocOptions } from './macula-hebrew';
 export { openTextToDocuments, type OpenTextDocOptions } from './opentext';
