@@ -124,7 +124,10 @@ function phraseFunctionChips(doc: KrDocument, nodeId: string): EditorAction[] {
 export const phraseBlockAdapter: EditorViewAdapter = {
   mode: 'phrase-block',
   label: 'Phrase / Block',
-  basicInteraction: { tools: ['move', 'group'], rowReparent: true, grouping: true },
+  // The 'move' (tap-to-reparent) TOOL is dropped from the toolbar — drag-and-drop
+  // covers reparenting now. The underlying tool + the row menus' "Move under…"
+  // chips still use it; only the redundant toolbar button is gone.
+  basicInteraction: { tools: ['group'], rowReparent: true, grouping: true },
   describeTarget(doc, selection) {
     const t = resolveTarget(doc, selection);
     if (t.kind === 'node') return describeNode(doc, t.id);
