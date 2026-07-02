@@ -91,7 +91,7 @@ Guiding rule: **prefer less misleading labels over falsely precise labels.**
 | 6. Source model | Done | `SyntaxSourceId` is now explicit + edition-aware (`macula-greek-sblgnt-lowfat` · `macula-greek-nestle1904-lowfat` · `opentext` · `macula-hebrew-wlc-lowfat`); new `ALL_SYNTAX_SOURCES` registry carries corpus/edition/availability (SBLGNT registered, `available: false` until phase 7). Patch bases now stamp `sourceId` via `sourceIdForCorpus`. Safe rename: the old short ids were never persisted anywhere. |
 | 7. SBLGNT loader | Done | `src/io/gnt-sblgnt.ts` (Clear-Bible/macula-greek `SBLGNT/lowfat`, CC BY 4.0) + `sblgntDialect` in `lowfat.ts`: ids on `xml:id`/`ref`, "MRK 5:25" milestones, and — the big one — head INFERENCE by class/role because SBLGNT Lowfat carries no `head="true"` at all. Docs get `sblgnt_` id prefix. Selectable in GntPicker + source compare; SW caches it; Nestle1904 loader untouched. Mark 5:26 regression verified under SBLGNT via bundled fixture (`tests/fixtures-sblgnt-lowfat-mark-5-25-34.xml`). Textual note: SBLGNT reads ἀκούσασα περὶ τοῦ Ἰησοῦ (no τά) — one substantival PP in that sentence, not two. |
 | 8. Default switch | Done | `DEFAULT_GNT_SOURCE = macula-greek-sblgnt-lowfat` (per Tim: after loader + Mark 5 tests pass, which they do). GntPicker defaults new/non-GNT sessions to SBLGNT and lists it first (Nestle labelled "legacy"); SearchPicker defaults to SBLGNT; SBLGNT Philippians bundled under `public/sblgnt/` so the default edition works offline first-run; contested-reading base label now names the actual edition via `sourceLabel`. Open passages keep their own edition (pickerSource follows the doc id), and patches are keyed by edition-prefixed passage ids + `sourceId`, so nothing crosses editions. |
-| 9. Alignment cleanup | Not started | BSB alignment is already SBLGNT-based; direct alignment becomes possible. |
+| 9. Alignment cleanup | Done | `src/io/parallel.ts`: found + fixed a phase-8 gap — `parseRef` only read Nestle osisIds, so SBLGNT docs got NO English alignment; it now reads both spellings. SBLGNT docs align DIRECTLY by position (the alignment's own base text, Strong's-verified), Nestle1904 keeps Strong's-nearest + positional fallback. Every token records its `AlignMethod` (`direct`/`strongs`/`position`/`unmatched`) plus aggregate `stats` for debugging. Hebrew aligner reports `direct` by construction — unchanged behavior. Mark 5:26 alignment covered by tests. |
 | 10. Source constituency | Not started | Preserve Lowfat `<wg>` hierarchy as optional layer. |
 | 11. Constituency UI | Not started | Improve existing mode; source vs reconstructed toggle. |
 | 12. Migration guards/tests | Not started | Patch base source/edition guard; Hebrew/OpenText smoke tests. |
@@ -130,6 +130,13 @@ Hebrew (must not regress): Genesis 1:1–3, Psalm 1:1–2, Deuteronomy 6:4.
 ## Bugs discovered
 
 *Add bugs here immediately, with whether they block the current phase.*
+
+- 2026-07-02 (found during phase 9, introduced by phase 8's default switch,
+  fixed in phase 9 before shipping): `parseRef` in `src/io/parallel.ts` only
+  recognized Nestle1904 osisIds ("Phil.1.1!3"), so an SBLGNT passage rendered
+  NO parallel English at all. Fixed by teaching `parseRef` the SBLGNT ref
+  spelling ("PHP 1:1!3") and adding the direct alignment path + method stats
+  that make this class of silent failure visible.
 
 ### Confirmed converter behavior behind the Mark 5:26 regression (Phase 2 audit)
 
@@ -245,7 +252,15 @@ Still open:
 
 ## Resume instructions if interrupted
 
-Current phase: 8 complete; next is 9 (BSB alignment cleanup).
+Current phase: 9 complete; next is 10 (source constituency preservation).
+Changed files (phase 9): `src/io/parallel.ts`, `tests/parallel.test.ts`.
+Build/test: typecheck + lint clean; 645 tests pass.
+Next smallest safe task: Phase 10 — optional `sourceConstituency` layer on
+`KrDocument` (additive schema), captured from the Lowfat `<wg>` hierarchy in
+the converter; then phase 11 renders it in the existing Constituency Tree
+mode with a source/reconstructed toggle.
+
+Superseded status notes from phase 8:
 Changed files (phase 8): `src/io/sources.ts` (`DEFAULT_GNT_SOURCE`),
 `src/io/gnt-sblgnt.ts` (Philippians bundled), `public/sblgnt/
 11-philippians.xml` (new), `src/ui/panels/left/GntPicker.tsx` (default +
