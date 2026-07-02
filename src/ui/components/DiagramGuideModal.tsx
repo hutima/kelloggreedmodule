@@ -167,6 +167,8 @@ const MODE_NOTES: Record<string, string> = {
   'dependency-tree': 'The same head→dependent links as a top-down tree (Perseus style).',
   constituency: 'A phrase-structure tree (S → NP VP) with the grammatical category on each branch.',
   morphology: 'The Greek/Hebrew forms with their parsing and agreement, kept in the source language.',
+  discourse:
+    'The exception to the rule above: a multi-verse OUTLINE of discourse units with your labels, indentation, and relation arcs — an interpretive layer over the passage, not a rendering of the sentence parse.',
 };
 
 export function DiagramGuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {

@@ -130,9 +130,22 @@ export function TopBar() {
             Sources
           </button>
         )}
-        <button className="btn primary" onClick={() => setExportOpen(true)} title="Export diagram">
-          Export diagram
-        </button>
+        {diagramMode === 'discourse' ? (
+          // The SVG/PNG diagram export renders syntax layout geometry, which
+          // Discourse mode doesn't use. Discourse JSON/Markdown export lands
+          // with the discourse export work; until then, say so honestly.
+          <button
+            className="btn"
+            disabled
+            title="Diagram export applies to the syntax visualizations. Discourse export (JSON / Markdown outline) is coming — switch to a syntax view to export its diagram."
+          >
+            Export diagram
+          </button>
+        ) : (
+          <button className="btn primary" onClick={() => setExportOpen(true)} title="Export diagram">
+            Export diagram
+          </button>
+        )}
         <div className="menu-wrap">
           <button className="btn" onClick={() => setMenuOpen((v) => !v)} aria-haspopup="menu" aria-expanded={menuOpen}>
             ⋯

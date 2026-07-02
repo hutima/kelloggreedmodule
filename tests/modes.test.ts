@@ -60,6 +60,7 @@ describe('diagram mode registry', () => {
       'dependency-tree',
       'constituency',
       'morphology',
+      'discourse',
     ]);
     expect(DIAGRAM_MODES.every((m) => m.label && m.description)).toBe(true);
   });

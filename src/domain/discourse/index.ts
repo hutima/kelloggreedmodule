@@ -9,3 +9,4 @@ export * from './build';
 export * from './mutations';
 export * from './suggest';
 export * from './patch';
+export * from './layout';
