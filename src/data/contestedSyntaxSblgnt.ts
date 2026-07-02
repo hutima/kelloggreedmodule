@@ -227,7 +227,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
         "t_n51002018010",
       ],
       "affectedRelationIds": [
-        "r_s17_12",
+        "r_s17_8",
       ],
       "defaultReading": {
         "label": "Genitive (unspecified force)",
@@ -596,7 +596,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
         "w_n50001001014",
       ],
       "affectedRelationIds": [
-        "r_s0_27",
+        "r_s0_19",
       ],
       "defaultReading": {
         "label": "Attaches to οὖσιν",
@@ -656,7 +656,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
         "t_n50003009016",
       ],
       "affectedRelationIds": [
-        "r_s43_51",
+        "r_s43_49",
       ],
       "defaultReading": {
         "label": "Genitive (unspecified force)",
@@ -686,7 +686,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
         "t_n45003022007",
       ],
       "affectedRelationIds": [
-        "r_s65_26",
+        "r_s65_22",
       ],
       "defaultReading": {
         "label": "Genitive (unspecified force)",
@@ -1037,7 +1037,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
       "description": "Reads θρησκείᾳ τῶν ἀγγέλων as veneration offered TO angels.",
       "sourceType": "semantic-only",
       "semanticOverlay": {
-        "relationId": "r_s17_12",
+        "relationId": "r_s17_8",
         "semanticLabel": "objective genitive",
         "explanation": "Angels are the object — worship directed to angels.",
       },
@@ -1054,7 +1054,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
       "description": "Reads θρησκείᾳ τῶν ἀγγέλων as the heavenly worship that angels OFFER, entered through visionary ascent.",
       "sourceType": "semantic-only",
       "semanticOverlay": {
-        "relationId": "r_s17_12",
+        "relationId": "r_s17_8",
         "semanticLabel": "subjective genitive",
         "explanation": "Angels are the worshippers — participation in angelic worship.",
       },
@@ -1416,7 +1416,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
       "syntaxPatch": {
         "relations": {
           "update": {
-            "r_s0_27": {
+            "r_s0_19": {
               "headId": "w_n50001001009",
             },
           },
@@ -1471,7 +1471,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
       "description": "Reads πίστεως Χριστοῦ as “faith directed toward Christ”.",
       "sourceType": "semantic-only",
       "semanticOverlay": {
-        "relationId": "r_s43_51",
+        "relationId": "r_s43_49",
         "semanticLabel": "objective genitive",
         "explanation": "Christ is the object of faith — “faith in Christ”.",
       },
@@ -1488,7 +1488,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
       "description": "Reads πίστεως Χριστοῦ as “the faithfulness of Christ”.",
       "sourceType": "semantic-only",
       "semanticOverlay": {
-        "relationId": "r_s43_51",
+        "relationId": "r_s43_49",
         "semanticLabel": "subjective genitive",
         "explanation": "Christ is the subject — his own faithfulness.",
       },
@@ -1505,7 +1505,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
       "description": "Reads the genitive broadly, holding both the believer’s faith and Christ’s faithfulness.",
       "sourceType": "semantic-only",
       "semanticOverlay": {
-        "relationId": "r_s43_51",
+        "relationId": "r_s43_49",
         "semanticLabel": "plenary genitive",
         "explanation": "A deliberately broad construal that does not force a single direction.",
       },
@@ -1522,7 +1522,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
       "description": "Reads πίστεως Ἰησοῦ Χριστοῦ as “faith directed toward Jesus Christ”.",
       "sourceType": "semantic-only",
       "semanticOverlay": {
-        "relationId": "r_s65_26",
+        "relationId": "r_s65_22",
         "semanticLabel": "objective genitive",
         "explanation": "Christ is the object of faith — “faith in Christ”.",
       },
@@ -1539,7 +1539,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
       "description": "Reads πίστεως Ἰησοῦ Χριστοῦ as “the faithfulness of Jesus Christ”.",
       "sourceType": "semantic-only",
       "semanticOverlay": {
-        "relationId": "r_s65_26",
+        "relationId": "r_s65_22",
         "semanticLabel": "subjective genitive",
         "explanation": "Christ is the subject — his own faithfulness.",
       },
@@ -1556,7 +1556,7 @@ const RAW: { issues: unknown[]; readings: unknown[] } = {
       "description": "Reads the genitive broadly, holding both the believer’s faith and Christ’s faithfulness.",
       "sourceType": "semantic-only",
       "semanticOverlay": {
-        "relationId": "r_s65_26",
+        "relationId": "r_s65_22",
         "semanticLabel": "plenary genitive",
         "explanation": "A deliberately broad construal that does not force a single direction.",
       },
