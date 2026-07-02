@@ -201,13 +201,55 @@ const SBLGNT_CLASS_RANK: Record<string, number> = {
   pp: 1, prep: 1,
 };
 
+/**
+ * Memoization for the scored head inference, keyed by ELEMENT — per-parse by
+ * construction (a document's elements are GC'd together, WeakMap and all),
+ * so nothing leaks across conversions. Without these caches the mutual
+ * recursion between `sblgntHead`, `sblgntRankOf`, and `sblgntUltimateWord`
+ * recomputes every descendant's head twice per ancestor level — EXPONENTIAL
+ * on deeply nested chains (Luke 3's 76-generation genealogy sentence made
+ * whole-book conversion hang). Pure caching: behavior is unchanged.
+ */
+const SBLGNT_HEAD_CACHE = new WeakMap<Element, Element | undefined>();
+const SBLGNT_ULT_CACHE = new WeakMap<Element, Element | undefined>();
+const SBLGNT_RANK_CACHE = new WeakMap<Element, number>();
+
+/** A group's head: explicit `head="true"` when present, else inferred. */
+function sblgntHeadOf(el: Element): Element | undefined {
+  if (SBLGNT_HEAD_CACHE.has(el)) return SBLGNT_HEAD_CACHE.get(el);
+  const kids = constituents(el);
+  const head = kids.find((c) => c.getAttribute('head') === 'true') ?? sblgntHead(kids, el);
+  SBLGNT_HEAD_CACHE.set(el, head);
+  return head;
+}
+
 /** The ultimate head WORD an SBLGNT constituent would resolve to (following
  *  explicit head marks where present, inferred heads otherwise). */
 function sblgntUltimateWord(el: Element): Element | undefined {
   if (tag(el) === 'w') return el;
-  const kids = constituents(el);
-  const head = kids.find((c) => c.getAttribute('head') === 'true') ?? sblgntHead(kids);
-  return head ? sblgntUltimateWord(head) : undefined;
+  if (SBLGNT_ULT_CACHE.has(el)) return SBLGNT_ULT_CACHE.get(el);
+  const head = sblgntHeadOf(el);
+  const word = head ? sblgntUltimateWord(head) : undefined;
+  SBLGNT_ULT_CACHE.set(el, word);
+  return word;
+}
+
+/**
+ * Effective head-worthiness rank: a node's own class when it has one; a
+ * CLASSLESS wrapper ranks as its inferred head CONSTITUENT, one level at a
+ * time — so a classless coordination of nouns ranks nominal, while a
+ * classless coordination of PPs ranks prepositional, never as the PP's
+ * object noun.
+ */
+function sblgntRankOf(el: Element): number {
+  const c = el.getAttribute('class');
+  if (c) return SBLGNT_CLASS_RANK[c] ?? 0;
+  if (tag(el) === 'w') return 0;
+  if (SBLGNT_RANK_CACHE.has(el)) return SBLGNT_RANK_CACHE.get(el)!;
+  const head = sblgntHeadOf(el);
+  const rank = head ? sblgntRankOf(head) : 0;
+  SBLGNT_RANK_CACHE.set(el, rank);
+  return rank;
 }
 
 /**
@@ -229,42 +271,35 @@ function sblgntUltimateWord(el: Element): Element | undefined {
  *
  * Ties keep document order, matching the original first-match behavior.
  */
-function sblgntHead(kids: Element[]): Element | undefined {
-  if (!kids.length) return undefined;
-  const cls = (el: Element) => el.getAttribute('class') ?? '';
-  const role = (el: Element) => el.getAttribute('role') ?? '';
-  const explicit =
-    kids.find((k) => role(k) === 'v' || role(k) === 'vc') ??
-    kids.find((k) => cls(k) === 'cl');
-  if (explicit) return explicit;
+function sblgntHead(kids: Element[], parent?: Element): Element | undefined {
+  if (parent && SBLGNT_HEAD_CACHE.has(parent)) return SBLGNT_HEAD_CACHE.get(parent);
+  const pick = (): Element | undefined => {
+    if (!kids.length) return undefined;
+    const cls = (el: Element) => el.getAttribute('class') ?? '';
+    const role = (el: Element) => el.getAttribute('role') ?? '';
+    const explicit =
+      kids.find((k) => role(k) === 'v' || role(k) === 'vc') ??
+      kids.find((k) => cls(k) === 'cl');
+    if (explicit) return explicit;
 
-  // Effective rank: a node's own class when it has one; a CLASSLESS wrapper
-  // ranks as its inferred head CONSTITUENT (one level at a time — so a
-  // classless coordination of nouns ranks nominal, while a classless
-  // coordination of PPs ranks prepositional, never as the PP's object noun).
-  const rankOf = (el: Element): number => {
-    const c = el.getAttribute('class');
-    if (c) return SBLGNT_CLASS_RANK[c] ?? 0;
-    if (tag(el) === 'w') return 0;
-    const inner = constituents(el);
-    const head = inner.find((x) => x.getAttribute('head') === 'true') ?? sblgntHead(inner);
-    return head ? rankOf(head) : 0;
+    const contentKids = kids.filter((k) => !SBLGNT_FUNCTION_CLASSES.has(cls(k)));
+    const pool = contentKids.length ? contentKids : kids;
+    const scored = pool.map((k) => {
+      const w = sblgntUltimateWord(k);
+      const kase = w?.getAttribute('case') ?? '';
+      return { k, rank: sblgntRankOf(k), genitive: kase === 'genitive', hasCase: Boolean(kase) };
+    });
+    // Demote genitives only RELATIVE to a non-genitive case-bearing sibling.
+    const hasNonGenitiveCase = scored.some((s) => s.hasCase && !s.genitive);
+    const effective = (s: (typeof scored)[number]) =>
+      s.rank - (s.genitive && hasNonGenitiveCase ? 10 : 0);
+    let best = scored[0]!;
+    for (const s of scored) if (effective(s) > effective(best)) best = s;
+    return best.k;
   };
-
-  const contentKids = kids.filter((k) => !SBLGNT_FUNCTION_CLASSES.has(cls(k)));
-  const pool = contentKids.length ? contentKids : kids;
-  const scored = pool.map((k) => {
-    const w = sblgntUltimateWord(k);
-    const kase = w?.getAttribute('case') ?? '';
-    return { k, rank: rankOf(k), genitive: kase === 'genitive', hasCase: Boolean(kase) };
-  });
-  // Demote genitives only RELATIVE to a non-genitive case-bearing sibling.
-  const hasNonGenitiveCase = scored.some((s) => s.hasCase && !s.genitive);
-  const effective = (s: (typeof scored)[number]) =>
-    s.rank - (s.genitive && hasNonGenitiveCase ? 10 : 0);
-  let best = scored[0]!;
-  for (const s of scored) if (effective(s) > effective(best)) best = s;
-  return best.k;
+  const head = pick();
+  if (parent) SBLGNT_HEAD_CACHE.set(parent, head);
+  return head;
 }
 
 /** macula-greek SBLGNT Lowfat (Clear-Bible/macula-greek): ids on `xml:id`/

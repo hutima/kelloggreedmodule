@@ -99,3 +99,28 @@ describe('Col 1:15 (SBLGNT) — πρωτότοκος heads, κτίσεως is it
     expect(relBetweenLemmas(d, 'εἰκών', 'πρωτότοκος')?.type).toBe('apposition');
   });
 });
+
+describe('head inference performance (Luke-genealogy class of nesting)', () => {
+  it('converts a deeply nested classless chain in linear time, not exponential', () => {
+    // Synthesize the shape that hung whole-book Luke conversion: a genealogy-
+    // style chain of ~80 nested classless wrappers, each adding one genitive
+    // article+noun pair. Without memoized head inference this is 2^80-ish and
+    // never returns; with it, it converts in milliseconds.
+    let inner = `<w class="noun" case="genitive" lemma="Ἀδάμ" n="900">Ἀδάμ</w>`;
+    for (let i = 79; i >= 0; i--) {
+      inner = `<wg rule="NpNp"><w class="det" case="genitive" n="${100 + i * 10}">τοῦ</w><w class="noun" case="genitive" lemma="x${i}" n="${101 + i * 10}">υἱοῦ</w>${inner}</wg>`;
+    }
+    const xml = `<?xml version="1.0"?><book lang="el" id="TST"><sentence><p><milestone unit="verse" id="TST 1:1">TST 1:1</milestone> x</p><wg class="cl" rule="V-S"><w class="verb" role="v" n="10">ἦν</w><wg class="np" role="s" rule="DetNP"><w class="det" case="nominative" n="20">ὁ</w>${inner}</wg></wg></sentence></book>`;
+    const start = Date.now();
+    const docs = lowfatToDocuments(xml, {
+      book: 'Test',
+      dialect: sblgntDialect,
+      docIdPrefix: 'sblgnt',
+      sourceId: 'macula-greek-sblgnt-lowfat',
+    });
+    const elapsed = Date.now() - start;
+    expect(docs).toHaveLength(1);
+    expect(docs[0]!.tokens.length).toBeGreaterThan(160);
+    expect(elapsed, `conversion took ${elapsed}ms`).toBeLessThan(3000);
+  });
+});
