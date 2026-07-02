@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useEditorStore } from '@/state';
+import { useEditorStore, useDiscourseStore } from '@/state';
 import { glossDoc, docDirection } from '@/domain/model';
 import { useViewport } from '@/ui/responsive';
 import { ModeSwitcher } from '@/ui/shell/ModeSwitcher';
@@ -86,6 +86,14 @@ export function TopBar() {
         return;
       }
       e.preventDefault();
+      // Discourse mode has its own document + history: the global shortcut
+      // must undo the DISCOURSE edit stack there, never the syntax one.
+      if (useEditorStore.getState().diagramMode === 'discourse') {
+        const d = useDiscourseStore.getState();
+        if (e.shiftKey) d.redo();
+        else d.undo();
+        return;
+      }
       if (e.shiftKey) redo();
       else undo();
     };

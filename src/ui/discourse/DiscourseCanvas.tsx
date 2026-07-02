@@ -3,6 +3,7 @@ import { useDiscourseStore, useEditorStore } from '@/state';
 import { VisualizationSwitcher } from '@/ui/shell/VisualizationSwitcher';
 
 import { DiscourseView } from './DiscourseView';
+import { DiscourseToolbar } from './DiscourseToolbar';
 
 /**
  * DISCOURSE CANVAS — the center-column replacement for `DiagramCanvas` while
@@ -145,6 +146,8 @@ export function DiscourseCanvas() {
         </div>
       )}
 
+      {doc && appMode === 'edit' && <DiscourseToolbar />}
+
       {doc ? (
         <>
           <div className="discourse-title-row">
@@ -154,7 +157,7 @@ export function DiscourseCanvas() {
               {doc.sourceId === 'opentext' ? 'OpenText' : doc.editionId === 'sblgnt' ? 'SBLGNT' : 'Nestle 1904'}
             </span>
           </div>
-          <DiscourseView doc={doc} />
+          <DiscourseView doc={doc} editing={appMode === 'edit'} />
         </>
       ) : (
         <div className="discourse-empty">

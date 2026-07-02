@@ -8,6 +8,11 @@ import { DiscourseMarkerChip } from './DiscourseMarkerChip';
  * One discourse unit row: ref label, unit label, Greek text (or gloss text),
  * marker chips, indentation by outline depth, and a collapse chevron for
  * container units. Memoized — whole-book documents render hundreds of rows.
+ *
+ * Edit-mode affordances are additive props: `splitPicking` renders the text as
+ * clickable words (pick where the new unit starts), `relateTarget` highlights
+ * the row as a valid relation target, `multiSelected` shows the wrap-group
+ * selection. All of them are inert in Explore mode.
  */
 export const DiscourseUnitBlock = memo(function DiscourseUnitBlock({
   row,
@@ -17,6 +22,10 @@ export const DiscourseUnitBlock = memo(function DiscourseUnitBlock({
   registerEl,
   onSelect,
   onToggleCollapsed,
+  multiSelected = false,
+  splitPicking = false,
+  relateTarget = false,
+  onTokenSplit,
 }: {
   row: DiscourseRow;
   view: DiscourseViewToggles;
@@ -24,8 +33,12 @@ export const DiscourseUnitBlock = memo(function DiscourseUnitBlock({
   /** Relations touching this unit (badge for accessibility / arc-free reading). */
   relationCount: number;
   registerEl: (unitId: string, el: HTMLElement | null) => void;
-  onSelect: (unitId: string) => void;
+  onSelect: (unitId: string, opts: { shift: boolean }) => void;
   onToggleCollapsed?: (unitId: string, collapsed: boolean) => void;
+  multiSelected?: boolean;
+  splitPicking?: boolean;
+  relateTarget?: boolean;
+  onTokenSplit?: (unitId: string, tokenId: string) => void;
 }) {
   const { unit, tokens, markers, hasChildren } = row;
   const refLabel = formatRange(unit.refStart, unit.refEnd);
@@ -39,6 +52,9 @@ export const DiscourseUnitBlock = memo(function DiscourseUnitBlock({
         'discourse-unit',
         isContainer ? 'container' : 'leaf',
         selected ? 'selected' : '',
+        multiSelected && !selected ? 'multi-selected' : '',
+        relateTarget ? 'relate-target' : '',
+        splitPicking ? 'split-picking' : '',
         view.compact ? 'compact' : '',
       ]
         .filter(Boolean)
@@ -50,12 +66,15 @@ export const DiscourseUnitBlock = memo(function DiscourseUnitBlock({
       tabIndex={0}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect(unit.id);
+        onSelect(unit.id, { shift: e.shiftKey });
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect(unit.id);
+          // Plain selection only — the view-level handler owns edit shortcuts.
+          if (e.currentTarget === e.target) {
+            e.preventDefault();
+            onSelect(unit.id, { shift: e.shiftKey });
+          }
         }
       }}
     >
@@ -96,18 +115,42 @@ export const DiscourseUnitBlock = memo(function DiscourseUnitBlock({
             ✎
           </span>
         )}
+        {relateTarget && <span className="discourse-target-hint">← relate here</span>}
       </div>
 
-      {!isContainer && view.showSourceText && (
+      {!isContainer && view.showSourceText && !splitPicking && (
         <p className={`discourse-text greek${view.compact ? ' clamp' : ''}`} lang="grc">
           {tokens.map((t) => t.surface).join(' ')}
         </p>
       )}
-      {!isContainer && view.showEnglish && gloss && (
+      {!isContainer && splitPicking && (
+        <p className="discourse-text greek discourse-split-words" lang="grc">
+          {tokens.map((t, i) => (
+            <button
+              key={t.id}
+              type="button"
+              className="discourse-split-word"
+              disabled={i === 0}
+              title={
+                i === 0
+                  ? 'A unit cannot start empty — pick a later word'
+                  : `Start the new unit at “${t.surface}” (${t.ref})`
+              }
+              onClick={(e) => {
+                e.stopPropagation();
+                onTokenSplit?.(unit.id, t.id);
+              }}
+            >
+              {t.surface}
+            </button>
+          ))}
+        </p>
+      )}
+      {!isContainer && view.showEnglish && gloss && !splitPicking && (
         <p className={`discourse-gloss${view.compact ? ' clamp' : ''}`}>{gloss}</p>
       )}
 
-      {view.showMarkers && markers.length > 0 && (
+      {view.showMarkers && markers.length > 0 && !splitPicking && (
         <div className="discourse-markers" aria-label="Discourse marker hints">
           {markers.map((m) => (
             <DiscourseMarkerChip key={m.id} marker={m} />

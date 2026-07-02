@@ -92,6 +92,21 @@ export interface DiscourseState {
   suggestionsOpen: boolean;
   /** An in-progress "pick the target unit" relation interaction, if any. */
   pendingRelationSource: string | null;
+  /**
+   * A relation whose source AND target are chosen, awaiting its TYPE in the
+   * picker. Confirming flows to `addRelation`; anything else cancels.
+   */
+  relationDraft: { sourceUnitId: string; targetUnitId: string } | null;
+  /**
+   * The unit currently in "pick a split point" mode: its tokens render as
+   * clickable words and the next token tapped becomes the start of a new unit.
+   */
+  splitPickUnitId: string | null;
+  /**
+   * Contiguous multi-selection of sibling units (shift-click), for wrapping
+   * several units in a new parent group.
+   */
+  multiSelectedUnitIds: string[];
   // --- history ---
   past: DiscourseDocument[];
   future: DiscourseDocument[];
@@ -135,6 +150,13 @@ export interface DiscourseActions {
   rejectSuggestion: (suggestionId: string) => void;
   startRelation: (sourceUnitId: string) => void;
   cancelRelation: () => void;
+  /** Both ends picked: stage the draft for the type picker. */
+  setRelationDraft: (draft: { sourceUnitId: string; targetUnitId: string } | null) => void;
+  /** Enter/leave "pick a split point" mode for a unit. */
+  beginSplit: (unitId: string | null) => void;
+  /** Shift-click: extend a contiguous sibling multi-selection to `unitId`. */
+  extendMultiSelect: (unitId: string) => void;
+  clearMultiSelect: () => void;
   undo: () => void;
   redo: () => void;
   /** Discard all discourse edits for the loaded range (syntax edits untouched). */
@@ -192,6 +214,9 @@ export const useDiscourseStore = create<DiscourseStore>((set, get) => {
     view: { ...DEFAULT_VIEW },
     suggestionsOpen: false,
     pendingRelationSource: null,
+    relationDraft: null,
+    splitPickUnitId: null,
+    multiSelectedUnitIds: [],
     past: [],
     future: [],
 
@@ -222,6 +247,9 @@ export const useDiscourseStore = create<DiscourseStore>((set, get) => {
           error: null,
           selection: {},
           pendingRelationSource: null,
+          relationDraft: null,
+          splitPickUnitId: null,
+          multiSelectedUnitIds: [],
           past: [],
           future: [],
         });
@@ -248,7 +276,12 @@ export const useDiscourseStore = create<DiscourseStore>((set, get) => {
       }
     },
 
-    select: (selection) => set({ selection }),
+    select: (selection) =>
+      set({
+        selection,
+        // A plain selection restarts the wrap multi-selection at the new unit.
+        multiSelectedUnitIds: selection.unitId ? [selection.unitId] : [],
+      }),
     setView: (patch) => set((s) => ({ view: { ...s.view, ...patch } })),
     setSuggestionsOpen: (suggestionsOpen) => set({ suggestionsOpen }),
 
@@ -283,8 +316,35 @@ export const useDiscourseStore = create<DiscourseStore>((set, get) => {
     setMarkerScope: (markerId, unitId) => commit((d) => assignMarkerScope(d, markerId, unitId)),
     acceptSuggestion: (suggestionId) => commit((d) => acceptDiscourseSuggestion(d, suggestionId)),
     rejectSuggestion: (suggestionId) => commit((d) => rejectDiscourseSuggestion(d, suggestionId)),
-    startRelation: (sourceUnitId) => set({ pendingRelationSource: sourceUnitId }),
-    cancelRelation: () => set({ pendingRelationSource: null }),
+    startRelation: (sourceUnitId) =>
+      set({ pendingRelationSource: sourceUnitId, relationDraft: null, splitPickUnitId: null }),
+    cancelRelation: () => set({ pendingRelationSource: null, relationDraft: null }),
+    setRelationDraft: (relationDraft) => set({ relationDraft, pendingRelationSource: null }),
+    beginSplit: (splitPickUnitId) =>
+      set({ splitPickUnitId, pendingRelationSource: null, relationDraft: null }),
+
+    extendMultiSelect: (unitId) => {
+      const { doc, selection, multiSelectedUnitIds } = get();
+      if (!doc) return;
+      const anchorId = multiSelectedUnitIds[0] ?? selection.unitId;
+      if (!anchorId || anchorId === unitId) {
+        set({ multiSelectedUnitIds: [unitId], selection: { unitId } });
+        return;
+      }
+      const anchor = doc.units.find((u) => u.id === anchorId);
+      const target = doc.units.find((u) => u.id === unitId);
+      // A wrap group must be contiguous siblings: extend only within one parent.
+      if (!anchor || !target || anchor.parentId !== target.parentId) return;
+      const siblings = doc.units
+        .filter((u) => u.parentId === anchor.parentId)
+        .sort((a, b) => a.order - b.order);
+      const ai = siblings.findIndex((u) => u.id === anchorId);
+      const ti = siblings.findIndex((u) => u.id === unitId);
+      if (ai < 0 || ti < 0) return;
+      const [lo, hi] = ai <= ti ? [ai, ti] : [ti, ai];
+      set({ multiSelectedUnitIds: siblings.slice(lo, hi + 1).map((u) => u.id) });
+    },
+    clearMultiSelect: () => set({ multiSelectedUnitIds: [] }),
 
     undo: () => {
       const { doc, past, future } = get();
@@ -305,7 +365,16 @@ export const useDiscourseStore = create<DiscourseStore>((set, get) => {
       const { baseDoc } = get();
       if (!baseDoc) return;
       deleteDiscoursePatch(baseDoc.id);
-      set({ doc: baseDoc, past: [], future: [], selection: {}, pendingRelationSource: null });
+      set({
+        doc: baseDoc,
+        past: [],
+        future: [],
+        selection: {},
+        pendingRelationSource: null,
+        relationDraft: null,
+        splitPickUnitId: null,
+        multiSelectedUnitIds: [],
+      });
     },
   };
 });
