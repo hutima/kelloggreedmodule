@@ -2986,3 +2986,44 @@ label.field.inline > span { margin-bottom: 0; }
 @media (max-width: 900px) {
   .discourse-suggestions { position: absolute; right: 0; top: 0; bottom: 0; z-index: 20; box-shadow: -6px 0 18px rgba(0,0,0,0.12); }
 }
+
+/* --- Discourse mode: outline nav + large-range rendering --------------------- */
+.discourse-outline {
+  width: 220px;
+  flex: none;
+  border-right: 1px solid var(--line, #d8dce2);
+  padding: 8px;
+  overflow: auto;
+  font-size: 12px;
+  background: var(--bg-soft, #fafbfc);
+}
+.discourse-outline-search {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 12px;
+  padding: 4px 6px;
+  margin-bottom: 6px;
+}
+.discourse-outline-list { list-style: none; margin: 0; padding: 0; }
+.discourse-outline-item {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: inherit;
+}
+.discourse-outline-item:hover { background: var(--bg, #fff); }
+.discourse-outline-item.selected { background: var(--accent-soft, #f3e2e6); }
+.discourse-outline-ref { color: var(--muted, #667); font-variant-numeric: tabular-nums; flex: none; }
+.discourse-outline-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Cheap virtualization: off-screen blocks skip layout/paint entirely. */
+.discourse-unit.leaf {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 96px;
+}

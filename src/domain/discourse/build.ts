@@ -160,6 +160,14 @@ export function splitRangeIntoInitialUnits(
 }
 
 /**
+ * Very large ranges open with their chapter containers COLLAPSED, so a whole
+ * long book (Romans ~580 sentences) mounts a handful of chapter rows instead
+ * of every block at once. Deterministic (part of the generated base);
+ * expanding is an ordinary collapsed=false edit.
+ */
+const COLLAPSE_CHAPTERS_ABOVE = 200;
+
+/**
  * Group leaf units under per-chapter container units when the range spans
  * more than one chapter (so a whole book opens as a navigable outline instead
  * of a hundreds-long flat list). Single-chapter ranges stay flat.
@@ -191,6 +199,7 @@ function groupUnderChapters(leaves: DiscourseUnit[]): DiscourseUnit[] {
         sourceDocIds: [],
         order: containers.size,
         depth: 0,
+        ...(leaves.length > COLLAPSE_CHAPTERS_ABOVE ? { collapsed: true } : {}),
         provenance: GIVEN,
       };
       containers.set(c, container);

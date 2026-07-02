@@ -5,6 +5,7 @@ import { VisualizationSwitcher } from '@/ui/shell/VisualizationSwitcher';
 import { DiscourseView } from './DiscourseView';
 import { DiscourseToolbar } from './DiscourseToolbar';
 import { DiscourseSuggestions } from './DiscourseSuggestions';
+import { DiscourseOutlineNav } from './DiscourseOutlineNav';
 
 /**
  * DISCOURSE CANVAS — the center-column replacement for `DiagramCanvas` while
@@ -30,6 +31,7 @@ export function DiscourseCanvas() {
   const restoreLastRange = useDiscourseStore((s) => s.restoreLastRange);
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [outlineOpen, setOutlineOpen] = useState(false);
 
   // Entering Discourse mode restores the previously loaded range (from the
   // stored pointer) exactly once; an already-loaded document stays put.
@@ -134,6 +136,14 @@ export function DiscourseCanvas() {
                 </div>
               )}
               <button
+                className={`mini${outlineOpen ? ' accept' : ''}`}
+                aria-pressed={outlineOpen}
+                title="Outline / minimap — navigate, search the range, jump to a reference"
+                onClick={() => setOutlineOpen(!outlineOpen)}
+              >
+                Outline
+              </button>
+              <button
                 className={`mini${suggestionsOpen ? ' accept' : ''}`}
                 aria-pressed={suggestionsOpen}
                 title="Possible markers, breaks, and relations suggested by the source — hints, not conclusions"
@@ -172,6 +182,7 @@ export function DiscourseCanvas() {
             </span>
           </div>
           <div className="discourse-body">
+            {outlineOpen && <DiscourseOutlineNav doc={doc} />}
             <DiscourseView doc={doc} editing={appMode === 'edit'} />
             {suggestionsOpen && <DiscourseSuggestions />}
           </div>

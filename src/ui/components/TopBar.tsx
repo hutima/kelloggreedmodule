@@ -5,6 +5,7 @@ import { useViewport } from '@/ui/responsive';
 import { ModeSwitcher } from '@/ui/shell/ModeSwitcher';
 import { ForcedDesktopModeModal } from '@/ui/shell/ForcedDesktopModeModal';
 import { ExportModal } from './ExportModal';
+import { DiscourseExportModal } from '@/ui/discourse/DiscourseExportModal';
 import { AboutModal } from './AboutModal';
 import { GuideModal } from './GuideModal';
 import { ImportExportModal } from './ImportExportModal';
@@ -39,6 +40,7 @@ export function TopBar() {
   );
   const appMode = useEditorStore((s) => s.appMode);
   const setAppMode = useEditorStore((s) => s.setAppMode);
+  const discourseLoaded = useDiscourseStore((s) => !!s.doc);
   const setTitle = useEditorStore((s) => s.setTitle);
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
   const leftCollapsed = useEditorStore((s) => s.leftCollapsed);
@@ -139,15 +141,19 @@ export function TopBar() {
           </button>
         )}
         {diagramMode === 'discourse' ? (
-          // The SVG/PNG diagram export renders syntax layout geometry, which
-          // Discourse mode doesn't use. Discourse JSON/Markdown export lands
-          // with the discourse export work; until then, say so honestly.
+          // Discourse exports TEXT forms (JSON / Markdown outline / relation
+          // table), not the syntax visualizations' SVG/PNG geometry.
           <button
-            className="btn"
-            disabled
-            title="Diagram export applies to the syntax visualizations. Discourse export (JSON / Markdown outline) is coming — switch to a syntax view to export its diagram."
+            className="btn primary"
+            disabled={!discourseLoaded}
+            onClick={() => setExportOpen(true)}
+            title={
+              discourseLoaded
+                ? 'Export the discourse analysis (JSON, Markdown outline, relation table)'
+                : 'Load a discourse range first'
+            }
           >
-            Export diagram
+            Export analysis
           </button>
         ) : (
           <button className="btn primary" onClick={() => setExportOpen(true)} title="Export diagram">
@@ -200,9 +206,12 @@ export function TopBar() {
         {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : status === 'error' ? 'Save error' : ''}
       </div>
 
-      {exportOpen && (
-        <ExportModal doc={exportDoc} sourceDoc={doc} verticalScale={verticalScale} treeOrientation={treeOrientation} rtl={rtl} colorMode={colorMode} mode={diagramMode} onClose={() => setExportOpen(false)} />
-      )}
+      {exportOpen &&
+        (diagramMode === 'discourse' ? (
+          <DiscourseExportModal onClose={() => setExportOpen(false)} />
+        ) : (
+          <ExportModal doc={exportDoc} sourceDoc={doc} verticalScale={verticalScale} treeOrientation={treeOrientation} rtl={rtl} colorMode={colorMode} mode={diagramMode} onClose={() => setExportOpen(false)} />
+        ))}
       {dataOpen && <ImportExportModal onClose={() => setDataOpen(false)} />}
       {resetOpen && <ResetPassageModal onClose={() => setResetOpen(false)} />}
       {resetAllOpen && <ResetAllModal onClose={() => setResetAllOpen(false)} />}
