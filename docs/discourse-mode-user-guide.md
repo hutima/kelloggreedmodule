@@ -150,14 +150,19 @@ notes live in different keys and are unaffected.
 
 **Export analysis** (top bar) offers:
 
+- **Save as PDF** — opens a print-ready outline; choose *"Save as PDF"* in your
+  browser's print dialog (labels, references, optional text/glosses, notes, and
+  relations, laid out for the page);
+- the same outline as a self-contained **vector SVG**;
 - the full discourse **document as JSON** (schema-validated, re-importable);
 - your **edits as a patch** (compact JSON diff);
 - the **outline as Markdown** — labels, references, optional Greek text and
   glosses, notes, and relations;
 - the **relation table** as Markdown or CSV.
 
-SVG/PNG export belongs to the syntax visualizations (they render layout
-geometry); the discourse outline is a text analysis and exports as text.
+The discourse outline is a text analysis, so PDF and SVG render the *outline*
+(not layout geometry — that belongs to the syntax visualizations). The
+include-text / include-glosses checkboxes apply to the PDF and SVG too.
 
 ## What the source data does — and does not — provide
 

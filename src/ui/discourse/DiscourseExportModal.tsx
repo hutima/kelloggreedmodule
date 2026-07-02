@@ -3,19 +3,21 @@ import { useDiscourseStore } from '@/state';
 import {
   diffDiscourseDocuments,
   discourseDocumentJson,
+  discourseOutlineHtml,
   discourseOutlineMarkdown,
+  discourseOutlineSvg,
   discoursePatchJson,
   discourseRelationsCsv,
   discourseRelationsMarkdown,
 } from '@/domain/discourse';
-import { downloadText, slugify, copyText } from '@/io';
+import { downloadText, slugify, copyText, printHtmlDocument } from '@/io';
 
 /**
  * Export options for the discourse analysis. The discourse view is HTML (text
- * blocks, not layout geometry), so the exports are TEXT forms: the full
- * document as JSON, the compact edit patch as JSON, the outline as Markdown,
- * and the relation table as Markdown/CSV. SVG/PNG diagram export stays with
- * the syntax visualizations and is honestly not offered here.
+ * blocks, not layout geometry), so the exports are the outline's faithful
+ * forms: a print-ready HTML document (Save as PDF) and a vector SVG of the
+ * outline, plus the full document / edit patch as JSON, the outline as
+ * Markdown, and the relation table as Markdown/CSV.
  */
 export function DiscourseExportModal({ onClose }: { onClose: () => void }) {
   const doc = useDiscourseStore((s) => s.doc);
@@ -30,6 +32,7 @@ export function DiscourseExportModal({ onClose }: { onClose: () => void }) {
   const relationCount = doc.relations.length;
 
   const outline = () => discourseOutlineMarkdown(doc, { includeText, includeGlosses });
+  const renderOpts = { includeText, includeGlosses };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -75,6 +78,26 @@ export function DiscourseExportModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
+        <h3 style={{ fontSize: 13, margin: '12px 0 4px' }}>Document (PDF / SVG)</h3>
+        <div className="row" style={{ margin: '6px 0 10px' }}>
+          <button
+            className="mini accept"
+            title="Open a print-ready outline — choose “Save as PDF” in the print dialog"
+            onClick={() => printHtmlDocument(discourseOutlineHtml(doc, renderOpts))}
+          >
+            Save as PDF…
+          </button>
+          <button
+            className="mini"
+            title="Download the outline as a self-contained vector SVG"
+            onClick={() =>
+              downloadText(discourseOutlineSvg(doc, renderOpts), `${stem}-outline.svg`, 'image/svg+xml')
+            }
+          >
+            Download .svg
+          </button>
+        </div>
+
         <h3 style={{ fontSize: 13, margin: '12px 0 4px' }}>Data (JSON)</h3>
         <div className="row" style={{ margin: '6px 0 10px' }}>
           <button
@@ -116,9 +139,10 @@ export function DiscourseExportModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <p className="hint" style={{ marginTop: 10 }}>
-          SVG/PNG diagram export applies to the syntax visualizations (they render
-          layout geometry). The discourse outline is a text analysis — these text
-          exports are its faithful forms. Printing the app view also works.
+          The discourse outline is a text analysis. <strong>Save as PDF</strong> opens
+          a print-ready outline (choose “Save as PDF” in your browser’s print dialog);
+          <strong> .svg</strong> is the same outline as a vector file. Markdown, JSON,
+          and the relation table are its other faithful forms.
         </p>
 
         <div className="modal-actions">

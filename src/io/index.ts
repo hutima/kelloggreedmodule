@@ -47,7 +47,7 @@ export {
   type ParallelVerse,
   type ParallelWord,
 } from './parallel';
-export { downloadText, downloadBlob, copyText, slugify } from './download';
+export { downloadText, downloadBlob, copyText, slugify, printHtmlDocument } from './download';
 export {
   buildPatch,
   buildPassagePackage,
