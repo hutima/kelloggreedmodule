@@ -3,8 +3,12 @@ import { useEditorStore } from '@/state';
 import {
   GNT_BOOKS,
   BUNDLED_BOOKS,
+  SBLGNT_BOOKS,
+  SBLGNT_BUNDLED_BOOKS,
   evictGntBook,
+  evictSblgntBook,
   loadGntBook,
+  loadSblgntBook,
   loadOpenTextBook,
   loadOtBook,
   OPENTEXT_BOOKS,
@@ -43,14 +47,14 @@ import { OfflineDownload } from './OfflineDownload';
  * optative verb, or every genitive). The search is a pure in-memory scan of the
  * loaded unit, so it's instant and needs no network once it's in hand.
  *
- * Three sources are selectable, matching the passage pickers: the two Greek New
- * Testament parses (Nestle 1904 and OpenText.org), each of which loads a whole
- * BOOK at once, and the Hebrew Bible (macula-hebrew WLC), which ships one file
- * per CHAPTER — so the Hebrew search adds a chapter selector and is scoped to a
+ * Four sources are selectable, matching the passage pickers: the three Greek
+ * New Testament parses (SBLGNT — the default, Nestle 1904 — legacy, and
+ * OpenText.org), each of which loads a whole BOOK at once, and the Hebrew Bible
+ * (macula-hebrew WLC), which ships one file per CHAPTER — so the Hebrew search adds a chapter selector and is scoped to a
  * chapter. The morphology filters follow the language: the Greek ones (tense /
  * voice / mood / case / degree) are hidden for Hebrew, which has none of them.
  */
-type Source = 'nestle1904' | 'opentext' | 'ot';
+type Source = 'sblgnt' | 'nestle1904' | 'opentext' | 'ot';
 
 /** Sentinel book value for the "whole testament" scope in the book selector. */
 const ALL = -1;
@@ -70,14 +74,14 @@ function applicableQuery(source: Source, q: SearchQuery): SearchQuery {
 function booksFor(source: Source): { num: number; name: string }[] {
   if (source === 'ot') return OT_BOOKS.map((b) => ({ num: b.num, name: b.name }));
   if (source === 'opentext') return OPENTEXT_BOOKS.map((b) => ({ num: b.num, name: b.name }));
-  return GNT_BOOKS.map((b) => ({ num: b.num, name: b.name }));
+  return GNT_BOOKS.map((b) => ({ num: b.num, name: b.name })); // sblgnt + nestle1904 share the canon
 }
 
 /** A sensible default book when switching to a source (bundled where possible). */
 function defaultBook(source: Source): number {
   if (source === 'ot') return 1; // Genesis
   if (source === 'opentext') return OPENTEXT_BOOKS.some((b) => b.num === 57) ? 57 : OPENTEXT_BOOKS[0]!.num;
-  return 11; // Philippians (bundled for Nestle 1904)
+  return 11; // Philippians (bundled for both Lowfat editions)
 }
 
 const POS_OPTIONS: { value: PartOfSpeech; label: string }[] = [
@@ -193,7 +197,7 @@ export function SearchPicker() {
   const searchPrefill = useEditorStore((s) => s.searchPrefill);
   const setSearchPrefill = useEditorStore((s) => s.setSearchPrefill);
 
-  const [source, setSource] = useState<Source>('nestle1904');
+  const [source, setSource] = useState<Source>('sblgnt'); // the default Greek edition
   const [bookNum, setBookNum] = useState(11); // Philippians (bundled offline)
   const [passages, setPassages] = useState<KrDocument[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -216,12 +220,15 @@ export function SearchPicker() {
       ? loadOtBook(OT_BOOKS.find((b) => b.num === num)!)
       : source === 'opentext'
         ? loadOpenTextBook(OPENTEXT_BOOKS.find((b) => b.num === num)!)
-        : loadGntBook(GNT_BOOKS.find((b) => b.num === num)!);
+        : source === 'sblgnt'
+          ? loadSblgntBook(SBLGNT_BOOKS.find((b) => b.num === num)!)
+          : loadGntBook(GNT_BOOKS.find((b) => b.num === num)!);
 
   /** After a book is searched in a sweep, free its fetch cache. Only the GNT is
    *  kept in Cache Storage; the OT/OpenText ride the (self-managing) HTTP cache. */
   const evictByNum = async (num: number) => {
     if (source === 'nestle1904') await evictGntBook(GNT_BOOKS.find((b) => b.num === num)!);
+    if (source === 'sblgnt') await evictSblgntBook(SBLGNT_BOOKS.find((b) => b.num === num)!);
   };
 
   const loadUnit = async (num: number) => {
@@ -270,7 +277,7 @@ export function SearchPicker() {
   // user just hits "Search {Testament}". Clear it so it fires once.
   useEffect(() => {
     if (!searchPrefill) return;
-    setSource(searchPrefill.language === 'hbo' ? 'ot' : 'nestle1904');
+    setSource(searchPrefill.language === 'hbo' ? 'ot' : 'sblgnt');
     setBookNum(ALL);
     setQuery({ text: searchPrefill.text });
     setSearchPrefill(null);
@@ -386,7 +393,8 @@ export function SearchPicker() {
       <label className="field">
         <span>Source</span>
         <select value={source} onChange={(e) => changeSource(e.target.value as Source)}>
-          <option value="nestle1904">Greek NT — Nestle 1904 (Lowfat)</option>
+          <option value="sblgnt">Greek NT — SBLGNT (Lowfat)</option>
+          <option value="nestle1904">Greek NT — Nestle 1904 (Lowfat, legacy)</option>
           <option value="opentext">Greek NT — OpenText.org</option>
           <option value="ot">Hebrew Bible — WLC (macula)</option>
         </select>
@@ -399,7 +407,10 @@ export function SearchPicker() {
             {books.map((b) => (
               <option key={b.num} value={b.num} title={b.name}>
                 {b.name}
-                {source === 'nestle1904' && BUNDLED_BOOKS.has(b.num) ? ' ✓' : ''}
+                {(source === 'nestle1904' && BUNDLED_BOOKS.has(b.num)) ||
+                (source === 'sblgnt' && SBLGNT_BUNDLED_BOOKS.has(b.num))
+                  ? ' ✓'
+                  : ''}
               </option>
             ))}
           </select>

@@ -26,9 +26,9 @@ function localBase(): string {
   return `${base.replace(/\/$/, '')}/sblgnt/`;
 }
 
-/** No SBLGNT books are bundled with the app yet (planned when it becomes the
- *  default edition); everything fetches on demand and caches in the SW. */
-export const SBLGNT_BUNDLED_BOOKS = new Set<number>();
+/** Philippians is bundled (matching the Nestle1904 starter book) so the
+ *  DEFAULT edition works offline on first run; the rest fetch on demand. */
+export const SBLGNT_BUNDLED_BOOKS = new Set<number>([11]);
 
 /** The runtime cache the service worker keeps corpus XML in (see src/sw.ts). */
 const CORPUS_CACHE = 'gnt-books-v1';

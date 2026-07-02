@@ -90,7 +90,7 @@ Guiding rule: **prefer less misleading labels over falsely precise labels.**
 | 5. Converter fixes | Done | `src/io/lowfat.ts`: (1) accusative `o` under an explicitly PASSIVE verb → `accusativeModifier`, provenance `converted`/`medium` with `sourceRole: 'o'` (middle-passive left alone — the middle reading takes a real object); (2) articular PPs (det + PP content, no substantive head word) rooted on the ARTICLE (`role: substantivalPrepositionalPhrase`), PP + πάντα-style modifiers beneath it with `converted` provenance preserving the source's `head` marking. Both Mark 5 shapes now identical. All 5 `it.fails` specs flipped to ordinary regressions + 4 new detail specs; 630 tests pass. Hebrew unaffected (no `voice`/`case` attributes; detection requires `class="np"` + `det`). |
 | 6. Source model | Done | `SyntaxSourceId` is now explicit + edition-aware (`macula-greek-sblgnt-lowfat` · `macula-greek-nestle1904-lowfat` · `opentext` · `macula-hebrew-wlc-lowfat`); new `ALL_SYNTAX_SOURCES` registry carries corpus/edition/availability (SBLGNT registered, `available: false` until phase 7). Patch bases now stamp `sourceId` via `sourceIdForCorpus`. Safe rename: the old short ids were never persisted anywhere. |
 | 7. SBLGNT loader | Done | `src/io/gnt-sblgnt.ts` (Clear-Bible/macula-greek `SBLGNT/lowfat`, CC BY 4.0) + `sblgntDialect` in `lowfat.ts`: ids on `xml:id`/`ref`, "MRK 5:25" milestones, and — the big one — head INFERENCE by class/role because SBLGNT Lowfat carries no `head="true"` at all. Docs get `sblgnt_` id prefix. Selectable in GntPicker + source compare; SW caches it; Nestle1904 loader untouched. Mark 5:26 regression verified under SBLGNT via bundled fixture (`tests/fixtures-sblgnt-lowfat-mark-5-25-34.xml`). Textual note: SBLGNT reads ἀκούσασα περὶ τοῦ Ἰησοῦ (no τά) — one substantival PP in that sentence, not two. |
-| 8. Default switch | Not started | Only after loader tests pass. |
+| 8. Default switch | Done | `DEFAULT_GNT_SOURCE = macula-greek-sblgnt-lowfat` (per Tim: after loader + Mark 5 tests pass, which they do). GntPicker defaults new/non-GNT sessions to SBLGNT and lists it first (Nestle labelled "legacy"); SearchPicker defaults to SBLGNT; SBLGNT Philippians bundled under `public/sblgnt/` so the default edition works offline first-run; contested-reading base label now names the actual edition via `sourceLabel`. Open passages keep their own edition (pickerSource follows the doc id), and patches are keyed by edition-prefixed passage ids + `sourceId`, so nothing crosses editions. |
 | 9. Alignment cleanup | Not started | BSB alignment is already SBLGNT-based; direct alignment becomes possible. |
 | 10. Source constituency | Not started | Preserve Lowfat `<wg>` hierarchy as optional layer. |
 | 11. Constituency UI | Not started | Improve existing mode; source vs reconstructed toggle. |
@@ -245,20 +245,22 @@ Still open:
 
 ## Resume instructions if interrupted
 
-Current phase: 7 complete; next is 8 (SBLGNT default switch).
-Changed files (phase 7): `src/io/lowfat.ts` (`sblgntDialect` + head
-inference + dialect/docIdPrefix options + edition-agnostic verseRef),
-`src/io/gnt-sblgnt.ts` (new loader), `src/io/{sources,index}.ts`,
-`src/sw.ts` (cache rule), `src/state/store.ts` (sibling nav per edition),
-`src/ui/panels/left/GntPicker.tsx` (SBLGNT option + attribution + offline
-save), `tests/sblgnt.test.ts` + bundled SBLGNT Mark fixture, `README.md`
-attribution, `tests/sources.test.ts`.
+Current phase: 8 complete; next is 9 (BSB alignment cleanup).
+Changed files (phase 8): `src/io/sources.ts` (`DEFAULT_GNT_SOURCE`),
+`src/io/gnt-sblgnt.ts` (Philippians bundled), `public/sblgnt/
+11-philippians.xml` (new), `src/ui/panels/left/GntPicker.tsx` (default +
+order + per-edition bundled sets), `src/ui/panels/left/SearchPicker.tsx`
+(SBLGNT default + option + evict), `src/ui/contested/
+ReadingChoiceControl.tsx` (edition-named base label), `tests/sources.test.ts`.
 Current build/test status: typecheck + lint + production build clean;
-59 files / 641 tests pass. Mark 5:26 regression verified under BOTH editions.
-Known broken behavior: none known.
-Next smallest safe task: Phase 8 — flip the Greek default to SBLGNT: GntPicker
-default source + option order, whatever seeds the first-run/bundled starter
-passage (keep Philippians Nestle1904-bundled behavior graceful — consider
-bundling SBLGNT Philippians under `public/sblgnt/`), and make sure saved
-patches keep loading against their own edition. Mark 5 regression must pass
-under the default source.
+59 files / 642 tests pass. Mark 5 regression passes under the default source.
+Known broken behavior: none known. Note: the contested-syntax registry is
+authored against Nestle1904 ids, so contested badges only appear on
+Nestle1904 passages — intentional for now (registry entries are
+edition-scoped by construction; revisit under phase 12 if SBLGNT variants
+should be curated).
+Next smallest safe task: Phase 9 — `src/io/parallel.ts`: the BSB alignment's
+Greek base is SBLGNT, so add DIRECT positional alignment (verse + within-verse
+index via `morphology.extra.ref` "MRK 5:25!1") for SBLGNT docs, keep the
+Strong's/lemma matching as the Nestle1904/fallback path, and add
+alignment-method metadata for debuggability.

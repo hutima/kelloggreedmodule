@@ -28,6 +28,7 @@ export {
   sourceIdForCorpus,
   sourceLabel,
   SYNTAX_SOURCES,
+  DEFAULT_GNT_SOURCE,
   ALL_SYNTAX_SOURCES,
   type SyntaxSourceId,
   type SyntaxSourceInfo,

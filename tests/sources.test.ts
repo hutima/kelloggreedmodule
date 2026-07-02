@@ -5,6 +5,7 @@ import {
   sourceLabel,
   SYNTAX_SOURCES,
   ALL_SYNTAX_SOURCES,
+  DEFAULT_GNT_SOURCE,
 } from '@/io/sources';
 import type { KrDocument } from '@/domain/schema';
 
@@ -45,6 +46,14 @@ describe('syntax sources (edition-aware)', () => {
     expect(sourceOfDoc(doc('passage_gnt_romans_5_2'))).toBe('macula-greek-nestle1904-lowfat');
     // Anything else (fixtures, OT, custom) defaults to the base Nestle1904.
     expect(sourceOfDoc(doc('doc_sample_fox'))).toBe('macula-greek-nestle1904-lowfat');
+  });
+
+  it('defaults the Greek NT to SBLGNT Lowfat, with Nestle1904 still selectable', () => {
+    expect(DEFAULT_GNT_SOURCE).toBe('macula-greek-sblgnt-lowfat');
+    const def = ALL_SYNTAX_SOURCES.find((s) => s.id === DEFAULT_GNT_SOURCE)!;
+    expect(def.available).toBe(true);
+    // The legacy edition must never disappear.
+    expect(SYNTAX_SOURCES.some((s) => s.id === 'macula-greek-nestle1904-lowfat')).toBe(true);
   });
 
   it('stamps patch bases with an explicit edition-aware sourceId per corpus', () => {

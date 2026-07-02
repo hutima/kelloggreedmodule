@@ -1,17 +1,18 @@
 import { useEditorStore } from '@/state';
 import type { ContestedSyntaxIssue } from '@/domain/schema';
 import { getAlternateReadings } from '@/domain/contested';
-import { sourceOfDoc } from '@/io';
+import { sourceOfDoc, sourceLabel } from '@/io';
 import type { Corpus } from '@/state/types';
 import type { KrDocument } from '@/domain/schema';
 
 /**
  * The label for the "__base__" option — the source parse the sentence loaded
- * with. NOT hardcoded to "1904 / WLC": a user's own typed/imported sentence has
- * no such source, so it just reads "Base parse".
+ * with, named by its EDITION so the active source is always visible. NOT
+ * hardcoded: a user's own typed/imported sentence has no such source, so it
+ * just reads "Base parse".
  */
 function baseReadingLabel(corpus: Corpus, doc: KrDocument): string {
-  if (corpus === 'gnt') return sourceOfDoc(doc) === 'opentext' ? 'Base parse (OpenText)' : 'Base parse (Nestle 1904)';
+  if (corpus === 'gnt') return `Base parse (${sourceLabel(sourceOfDoc(doc))})`;
   if (corpus === 'ot') return 'Base parse (WLC)';
   return 'Base parse';
 }

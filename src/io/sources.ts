@@ -64,6 +64,10 @@ export const SYNTAX_SOURCES: { id: SyntaxSourceId; label: string }[] = ALL_SYNTA
   (s) => s.corpus === 'gnt' && s.available,
 ).map(({ id, label }) => ({ id, label }));
 
+/** The DEFAULT Greek NT edition (plan phase 8): SBLGNT Lowfat. Nestle1904
+ *  remains fully selectable as the legacy/alternate edition. */
+export const DEFAULT_GNT_SOURCE: SyntaxSourceId = 'macula-greek-sblgnt-lowfat';
+
 export function sourceLabel(id: SyntaxSourceId): string {
   return ALL_SYNTAX_SOURCES.find((s) => s.id === id)?.label ?? id;
 }

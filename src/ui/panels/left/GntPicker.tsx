@@ -3,6 +3,8 @@ import { useEditorStore } from '@/state';
 import {
   GNT_BOOKS,
   BUNDLED_BOOKS,
+  SBLGNT_BUNDLED_BOOKS,
+  DEFAULT_GNT_SOURCE,
   cacheGntBook,
   loadGntBook,
   SBLGNT_BOOKS,
@@ -12,7 +14,6 @@ import {
   loadOpenTextBook,
   OPENTEXT_BOOKS,
   SYNTAX_SOURCES,
-  sourceOfDoc,
   type SyntaxSourceId,
   type GntBook,
 } from '@/io';
@@ -26,20 +27,23 @@ import { getIssuesForPassage } from '@/domain/contested';
  * and Open diagrams them all together as one passage, ready to edit. The sentence
  * list doubles as the running Greek text with verse references.
  *
- * Two syntax SOURCES are selectable: the default Nestle1904 Lowfat parse and the
- * OpenText.org analysis (an alternative tree). Both yield ordinary `KrDocument`s,
- * so whichever is opened drives all four visualizations and becomes the editable
- * base — switching source just changes which published analysis you start from.
+ * Three syntax SOURCES are selectable: the default SBLGNT Lowfat edition, the
+ * legacy/alternate Nestle1904 Lowfat edition, and the OpenText.org analysis (an
+ * alternative tree). All yield ordinary `KrDocument`s, so whichever is opened
+ * drives all four visualizations and becomes the editable base — switching
+ * source just changes which published analysis you start from.
  */
 type Source = 'macula-greek-sblgnt-lowfat' | 'macula-greek-nestle1904-lowfat' | 'opentext';
 
 /** The picker slot for a document's source — this picker offers the loadable
  *  GNT sources; anything else shows as the Nestle1904 default. */
 function pickerSource(d: KrDocument): Source {
-  const s = sourceOfDoc(d);
-  return s === 'opentext' || s === 'macula-greek-sblgnt-lowfat'
-    ? s
-    : 'macula-greek-nestle1904-lowfat';
+  const id = d.id.replace(/^passage_/, '');
+  if (id.startsWith('opentext_')) return 'opentext';
+  if (id.startsWith('gnt_')) return 'macula-greek-nestle1904-lowfat';
+  // SBLGNT documents — and anything that is not a GNT passage at all (a
+  // sample, a typed sentence): the picker starts on the DEFAULT edition.
+  return DEFAULT_GNT_SOURCE as Source;
 }
 
 /** The GNT book whose name a passage/sentence title begins with, if any. */
@@ -126,8 +130,11 @@ export function GntPicker() {
 
   const books = booksFor(source);
   const book = books.find((b) => b.num === bookNum) ?? books[0]!;
-  // OpenText's bundled Philemon is always offline-ready; the GNT bundles Php only.
-  const bundled = source === 'opentext' || BUNDLED_BOOKS.has(book.num);
+  // OpenText's bundled Philemon is always offline-ready; each Lowfat edition
+  // bundles Philippians only.
+  const bundledSet =
+    source === 'macula-greek-sblgnt-lowfat' ? SBLGNT_BUNDLED_BOOKS : BUNDLED_BOOKS;
+  const bundled = source === 'opentext' || bundledSet.has(book.num);
 
   // Requests can finish out of order (switching book/source mid-fetch); only
   // the LATEST request may publish its list or clear the spinner, or a slow
@@ -239,8 +246,8 @@ export function GntPicker() {
       <label className="field">
         <span>Syntax source</span>
         <select value={source} onChange={(e) => changeSource(e.target.value as Source)}>
-          <option value="macula-greek-nestle1904-lowfat">Nestle 1904 Lowfat</option>
           <option value="macula-greek-sblgnt-lowfat">SBLGNT Lowfat</option>
+          <option value="macula-greek-nestle1904-lowfat">Nestle 1904 Lowfat (legacy)</option>
           <option value="opentext">OpenText syntax</option>
         </select>
       </label>
@@ -258,7 +265,7 @@ export function GntPicker() {
           {books.map((b) => (
             <option key={b.num} value={b.num} title={b.name}>
               {b.name}
-              {source === 'macula-greek-nestle1904-lowfat' && BUNDLED_BOOKS.has(b.num) ? ' ✓' : ''}
+              {source !== 'opentext' && bundledSet.has(b.num) ? ' ✓' : ''}
             </option>
           ))}
         </select>
