@@ -30,8 +30,10 @@ export function DiscourseToolbar() {
   const redo = useDiscourseStore((s) => s.redo);
   const resetEdits = useDiscourseStore((s) => s.resetEdits);
   const labelUnit = useDiscourseStore((s) => s.labelUnit);
+  const deleteUnit = useDiscourseStore((s) => s.deleteUnit);
 
   const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (!doc) return null;
   const unit = selection.unitId ? doc.units.find((u) => u.id === selection.unitId) : undefined;
@@ -131,6 +133,44 @@ export function DiscourseToolbar() {
         <button className="mini" disabled={!unit} title="Label this unit (A, B′, …)" onClick={promptLabel}>
           Label…
         </button>
+      </div>
+
+      <div className="discourse-toolbar-group">
+        {confirmDelete && isContainer ? (
+          <>
+            <button
+              className="mini reject"
+              title="Delete this group AND every unit inside it (undoable)"
+              onClick={() => {
+                if (unit) deleteUnit(unit.id);
+                setConfirmDelete(false);
+              }}
+            >
+              Delete group + contents?
+            </button>
+            <button className="mini" onClick={() => setConfirmDelete(false)}>
+              Keep
+            </button>
+          </>
+        ) : (
+          <button
+            className="mini reject"
+            disabled={!unit}
+            title={
+              isContainer
+                ? 'Delete this group and everything inside it'
+                : 'Remove this verse / unit from the analysis (undoable; source text is untouched)'
+            }
+            onClick={() => {
+              if (!unit) return;
+              // Deleting a container drops its whole subtree — confirm first.
+              if (isContainer) setConfirmDelete(true);
+              else deleteUnit(unit.id);
+            }}
+          >
+            {isContainer ? 'Delete group…' : 'Delete unit'}
+          </button>
+        )}
       </div>
 
       <div className="discourse-toolbar-group">

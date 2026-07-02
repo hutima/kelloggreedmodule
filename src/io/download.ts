@@ -41,6 +41,57 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/**
+ * Open a self-contained HTML document in a new window and trigger the print
+ * dialog, so the user can "Save as PDF". Falls back to a same-document hidden
+ * iframe when popups are blocked. Returns false if neither path is available.
+ */
+export function printHtmlDocument(html: string): boolean {
+  try {
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      // Give the new document a tick to lay out before printing.
+      setTimeout(() => {
+        try {
+          win.print();
+        } catch {
+          /* user can still print manually */
+        }
+      }, 250);
+      return true;
+    }
+  } catch {
+    /* fall through to the iframe path */
+  }
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+    const cw = iframe.contentWindow;
+    if (!cw) return false;
+    cw.document.open();
+    cw.document.write(html);
+    cw.document.close();
+    setTimeout(() => {
+      cw.focus();
+      cw.print();
+      setTimeout(() => iframe.remove(), 1000);
+    }, 250);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Filesystem-safe slug for default filenames. */
 export function slugify(title: string): string {
   return (

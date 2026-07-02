@@ -3,12 +3,12 @@ import { useDiscourseStore } from '@/state';
 import {
   DISCOURSE_SOURCES,
   discourseBooksFor,
-  loadDiscourseBookDocs,
-  bookRefShape,
-  estimateUnitCount,
-  type SyntaxSourceId,
+  loadDiscourseBook,
+  bookRefShapeOf,
+  estimateUnitCountOf,
+  type DiscourseSourceId,
+  type LoadedDiscourseBook,
 } from '@/io';
-import type { KrDocument } from '@/domain/schema';
 import type { DiscourseGranularity } from '@/domain/schema';
 
 /**
@@ -40,21 +40,22 @@ export function DiscourseRangeSelector() {
   const books = discourseBooksFor(sourceId);
   const book = books.find((b) => b.num === bookNum) ?? books[0]!;
 
-  // The selected book's sentence documents (SW-cached), for the chapter/verse
-  // shape, the unit-count estimate, and to hand straight to loadRange.
-  const [bookDocs, setBookDocs] = useState<KrDocument[] | null>(null);
+  // The selected book's data (SW-cached) — syntax sentence docs OR an English
+  // book — for the chapter/verse shape, the unit-count estimate, and to hand
+  // straight to loadRange.
+  const [loaded, setLoaded] = useState<LoadedDiscourseBook | null>(null);
   const [bookLoading, setBookLoading] = useState(false);
   const [bookError, setBookError] = useState<string | null>(null);
   const loadSeq = useRef(0);
   useEffect(() => {
     const seq = ++loadSeq.current;
-    setBookDocs(null);
+    setLoaded(null);
     setBookError(null);
     setBookLoading(true);
-    loadDiscourseBookDocs(sourceId, book.num)
-      .then((docs) => {
+    loadDiscourseBook(sourceId, book.num)
+      .then((data) => {
         if (seq !== loadSeq.current) return;
-        setBookDocs(docs);
+        setLoaded(data);
         setBookLoading(false);
       })
       .catch((e) => {
@@ -65,7 +66,10 @@ export function DiscourseRangeSelector() {
   }, [sourceId, book.num]);
 
   // Chapter/verse shape of the loaded book (max verse per chapter).
-  const shape = useMemo(() => (bookDocs ? bookRefShape(bookDocs) : new Map<number, number>()), [bookDocs]);
+  const shape = useMemo(
+    () => (loaded ? bookRefShapeOf(loaded) : new Map<number, number>()),
+    [loaded],
+  );
   const chapters = useMemo(() => [...shape.keys()].sort((a, b) => a - b), [shape]);
 
   const parse = (ref: string) => {
@@ -91,8 +95,8 @@ export function DiscourseRangeSelector() {
   }, [shape]);
 
   const estimate = useMemo(
-    () => (bookDocs ? estimateUnitCount(bookDocs, startRef, endRef, granularity) : null),
-    [bookDocs, startRef, endRef, granularity],
+    () => (loaded ? estimateUnitCountOf(loaded, startRef, endRef, granularity) : null),
+    [loaded, startRef, endRef, granularity],
   );
 
   const setStart = (c: number, v: number) => setRange(`${c}:${v}`, endRef);
@@ -119,7 +123,7 @@ export function DiscourseRangeSelector() {
       </p>
       <label className="field">
         <span>Source</span>
-        <select value={sourceId} onChange={(e) => setSourceId(e.target.value as SyntaxSourceId)}>
+        <select value={sourceId} onChange={(e) => setSourceId(e.target.value as DiscourseSourceId)}>
           {DISCOURSE_SOURCES.map((s) => (
             <option key={s.id} value={s.id}>
               {s.label}
@@ -141,7 +145,7 @@ export function DiscourseRangeSelector() {
       {bookLoading && <p className="discourse-note">Loading {book.name}…</p>}
       {bookError && <p className="discourse-error">{bookError}</p>}
 
-      {bookDocs && chapters.length > 0 && (
+      {loaded && chapters.length > 0 && (
         <>
           <div className="discourse-refrow" role="group" aria-label="Start reference">
             <span className="discourse-reflabel">From</span>
@@ -245,7 +249,7 @@ export function DiscourseRangeSelector() {
             <button
               className="mini accept"
               disabled={invalidRange || status === 'loading'}
-              onClick={() => void loadRange({ bookDocs })}
+              onClick={() => loaded && void loadRange({ loaded })}
             >
               {status === 'loading' ? 'Loading…' : 'Load range'}
             </button>

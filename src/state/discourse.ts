@@ -13,6 +13,7 @@ import {
   assignMarkerScope,
   collapseDiscourseUnit,
   deleteDiscourseRelation,
+  deleteDiscourseUnit,
   diffDiscourseDocuments,
   expandDiscourseUnit,
   indentDiscourseUnit,
@@ -37,7 +38,7 @@ import {
   saveLastDiscourseRange,
 } from '@/persistence/discourse';
 import { loadDiscourseRange, DEFAULT_GNT_SOURCE } from '@/io';
-import type { SyntaxSourceId } from '@/io';
+import type { DiscourseSourceId, LoadedDiscourseBook } from '@/io';
 
 /**
  * DISCOURSE STORE — a zustand store fully SEPARATE from the syntax editor
@@ -74,7 +75,7 @@ export interface DiscourseViewToggles {
 
 export interface DiscourseState {
   // --- range selection (the loader's own state, independent of syntax) ---
-  sourceId: SyntaxSourceId;
+  sourceId: DiscourseSourceId;
   bookNum: number;
   startRef: string;
   endRef: string;
@@ -113,12 +114,12 @@ export interface DiscourseState {
 }
 
 export interface DiscourseActions {
-  setSourceId: (id: SyntaxSourceId) => void;
+  setSourceId: (id: DiscourseSourceId) => void;
   setBookNum: (num: number) => void;
   setRange: (startRef: string, endRef: string) => void;
   setGranularity: (g: DiscourseGranularity) => void;
   /** Load the selected range from the selected source (async). */
-  loadRange: (opts?: { bookDocs?: KrDocument[] }) => Promise<void>;
+  loadRange: (opts?: { bookDocs?: KrDocument[]; loaded?: LoadedDiscourseBook }) => Promise<void>;
   /** Restore the last loaded range once (called when Discourse mode opens). */
   restoreLastRange: () => Promise<void>;
   select: (selection: DiscourseSelection) => void;
@@ -133,6 +134,8 @@ export interface DiscourseActions {
   moveUnit: (unitId: string, delta: number) => void;
   wrapUnits: (unitIds: string[], opts?: { label?: string; kind?: DiscourseUnitKind }) => void;
   unwrapUnit: (unitId: string) => void;
+  /** Delete a unit (and its subtree) from the analysis — Discourse-layer only. */
+  deleteUnit: (unitId: string) => void;
   labelUnit: (unitId: string, label: string) => void;
   setUnitNotes: (unitId: string, notes: string) => void;
   setUnitCollapsed: (unitId: string, collapsed: boolean) => void;
@@ -237,6 +240,7 @@ export const useDiscourseStore = create<DiscourseStore>((set, get) => {
           endRef,
           granularity,
           bookDocs: opts?.bookDocs,
+          loaded: opts?.loaded,
         });
         if (seq !== loadSeq) return;
         const live = applyStoredDiscoursePatch(base);
@@ -266,7 +270,7 @@ export const useDiscourseStore = create<DiscourseStore>((set, get) => {
       const last = loadLastDiscourseRange();
       if (last) {
         set({
-          sourceId: last.sourceId as SyntaxSourceId,
+          sourceId: last.sourceId as DiscourseSourceId,
           bookNum: last.bookNum,
           startRef: last.startRef,
           endRef: last.endRef,
@@ -293,6 +297,32 @@ export const useDiscourseStore = create<DiscourseStore>((set, get) => {
     moveUnit: (unitId, delta) => commit((d) => moveDiscourseUnit(d, unitId, delta)),
     wrapUnits: (unitIds, opts) => commit((d) => nestDiscourseUnits(d, unitIds, opts ?? {})),
     unwrapUnit: (unitId) => commit((d) => unwrapDiscourseUnit(d, unitId)),
+    deleteUnit: (unitId) => {
+      commit((d) => deleteDiscourseUnit(d, unitId));
+      // Prune any selection / interaction state that now points at a gone unit.
+      const after = get().doc;
+      if (!after) return;
+      const has = (id?: string | null): id is string =>
+        !!id && after.units.some((u) => u.id === id);
+      set((s) => ({
+        selection: {
+          unitId: has(s.selection.unitId) ? s.selection.unitId : undefined,
+          relationId: after.relations.some((r) => r.id === s.selection.relationId)
+            ? s.selection.relationId
+            : undefined,
+          markerId: after.markers.some((m) => m.id === s.selection.markerId)
+            ? s.selection.markerId
+            : undefined,
+        },
+        multiSelectedUnitIds: s.multiSelectedUnitIds.filter((id) => has(id)),
+        pendingRelationSource: has(s.pendingRelationSource) ? s.pendingRelationSource : null,
+        splitPickUnitId: has(s.splitPickUnitId) ? s.splitPickUnitId : null,
+        relationDraft:
+          s.relationDraft && has(s.relationDraft.sourceUnitId) && has(s.relationDraft.targetUnitId)
+            ? s.relationDraft
+            : null,
+      }));
+    },
     labelUnit: (unitId, label) => commit((d) => labelDiscourseUnit(d, unitId, label)),
     setUnitNotes: (unitId, notes) => commit((d) => setDiscourseUnitNotes(d, unitId, notes)),
     setUnitCollapsed: (unitId, collapsed) =>

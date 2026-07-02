@@ -405,16 +405,30 @@ its own document model, store, persistence, and renderer. See
   contrast / chiasm …), marker hints, suggestions, and compact tokens copied
   from the source docs. Generated deterministically from source sentence
   `KrDocument`s by `domain/discourse/build.ts`; ids derive from stable source
-  ids so patches survive reloads.
+  ids so patches survive reloads. A range load **trims** overlapping source
+  sentences to the requested verses (`filterDiscourseTokensToRange` + the
+  builder's `{startRef,endRef}` option), so a sentence spanning past an endpoint
+  never leaks a neighbouring verse.
+- **English Bible sources** — Discourse mode can also build directly from an
+  **English Bible** with no syntax parse: `domain/discourse/english.ts`
+  (`buildDiscourseDocumentFromEnglishBibleRange`, `language:'en'`) over a
+  normalized `EnglishBibleBook` produced by `io/english-bible.ts` from the
+  bundled BSB parallel data (NT: Strong's-tagged; OT: Hebrew-aligned, no
+  Strong's — tags are copied, never fabricated). `DiscourseSourceId =
+  SyntaxSourceId | EnglishBibleSourceId`; English sources appear ONLY in the
+  Discourse source list, never in the syntax selectors.
 - **Separation** — `useDiscourseStore` (`state/discourse.ts`) is a second
   zustand store: loading a discourse range never touches the syntax passage
   and vice versa; a mode switch reloads neither. The left panel swaps the
   syntax pickers for `DiscourseRangeSelector`; `ResponsiveShell` swaps the
   canvas for `ui/discourse/DiscourseCanvas`.
 - **Edits** — pure mutations (`domain/discourse/mutations.ts`: split, merge,
-  indent/outdent, wrap/unwrap, label, relations, suggestion accept) persisted
-  as `DiscoursePatch` diffs under `kr:discourse:*` (own namespace; edition +
-  baseHash guarded). Editing discourse NEVER mutates any `KrDocument`.
+  indent/outdent, wrap/unwrap, label, delete-unit, relations, suggestion accept)
+  persisted as `DiscoursePatch` diffs under `kr:discourse:*` (own namespace;
+  edition + baseHash guarded). `deleteDiscourseUnit(s)` removes a unit (and its
+  subtree), prunes emptied containers, resequences/respans, and drops dangling
+  relations/markers/suggestions; the `deleteUnit` store action is undoable and
+  patch-persisted. Editing discourse NEVER mutates any `KrDocument`.
 - **Hints, not conclusions** — MACULA provides no discourse arcs. Markers and
   suggestions (`markers.ts`, `suggest.ts`) are low/medium-confidence,
   "possible …"-phrased, and only become structure through an explicit accept.

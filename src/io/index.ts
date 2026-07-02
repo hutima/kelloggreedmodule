@@ -47,7 +47,7 @@ export {
   type ParallelVerse,
   type ParallelWord,
 } from './parallel';
-export { downloadText, downloadBlob, copyText, slugify } from './download';
+export { downloadText, downloadBlob, copyText, slugify, printHtmlDocument } from './download';
 export {
   buildPatch,
   buildPassagePackage,
@@ -71,7 +71,25 @@ export {
   DISCOURSE_SOURCES,
   discourseBooksFor,
   loadDiscourseBookDocs,
+  loadDiscourseBook,
   loadDiscourseRange,
   bookRefShape,
+  englishBookRefShape,
+  bookRefShapeOf,
   estimateUnitCount,
+  estimateEnglishUnitCount,
+  estimateUnitCountOf,
+  type DiscourseSourceId,
+  type LoadedDiscourseBook,
 } from './discourse-source';
+export {
+  ENGLISH_BIBLE_SOURCES,
+  englishBibleBooksFor,
+  englishBibleSourceInfo,
+  isEnglishBibleSource,
+  loadEnglishBibleBook,
+  bsbNtToEnglishBook,
+  bsbOtToEnglishBook,
+  type EnglishBibleSourceId,
+  type EnglishBibleSourceInfo,
+} from './english-bible';
