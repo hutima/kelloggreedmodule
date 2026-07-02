@@ -1795,9 +1795,13 @@ function layoutPredicateArm(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): 
   const belowTop = LAYOUT.slantDrop * ctx.vScale;
   let belowMaxBottom = 0;
   let belowRight = wordW;
+  // Where the below-modifiers actually MEET the line (their feet), distinct from
+  // belowRight, which also counts the full recursive width of their sub-cascades.
+  let footRight = wordW;
   let cursor = wordW / 2;
   belowRels.forEach((rel) => {
     cursor += LAYOUT.dependentGap;
+    footRight = Math.max(footRight, cursor);
     const objId = prepObjectId(ctx, rel);
     const ppConj = objId ? ppConjunctRels(ctx, rel.dependentId) : [];
     let ext: { right: number; bottom: number };
@@ -1845,7 +1849,15 @@ function layoutPredicateArm(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): 
     right = Math.max(right, x);
   });
 
-  elements.unshift(line(eid(), 0, 0, right, 0, 'solid', 'baseline'));
+  // Draw the baseline out to the complements when there are any (they sit at the
+  // right end); otherwise only to the below-modifiers' feet (one row down), so a
+  // deep adverbial cascade — a PP that nests the rest of the sentence — does not
+  // stretch a near-empty arm baseline across the diagram. `width` still reports the
+  // full extent, so the arm reserves its true space.
+  const lineRight = baselineRels.length
+    ? right
+    : Math.min(right, Math.max(wordW, footRight + LAYOUT.diagRun));
+  elements.unshift(line(eid(), 0, 0, lineRight, 0, 'solid', 'baseline'));
   return {
     width: right,
     height: Math.max(baseHeight, belowMaxBottom),
@@ -2511,25 +2523,34 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // long adverbial PP hanging under the verb (ὑπὲρ τοῦ σώματος…) overlaps the
   // direct object's own genitive chain hanging below it on the baseline.
   let vModRight = x;
+  // The rightmost point where a DIRECT verb modifier actually MEETS the line (its
+  // diagonal/stem foot) — distinct from vModRight, which also counts the full
+  // recursive width of that modifier's own sub-cascade hanging below.
+  let vModFootRight = x;
   // Hang the first modifier just inside the verb word's right edge — unlike
   // layoutHead/layoutPredicateArm, which attach from the word's middle. Attaching
   // past the word keeps a modifier's diagonal text from running back over a
   // SHORT verb (a one-word implied copula like "(ἐστίν)").
   let vCursor = verbX0 + (predBlock.wordRight || predBlock.width) - LAYOUT.wordPadX;
   verbMods.forEach((r) => {
+    vModFootRight = Math.max(vModFootRight, vCursor);
     const { right, next } = drawHanging(r, vCursor);
     vCursor = next;
     vModRight = Math.max(vModRight, right);
   });
 
-  // Extend the baseline under the whole verb-modifier cascade so every modifier
-  // visibly hangs from the MAIN LINE rather than from empty space (which reads as
-  // "connected by vertical position"). When complements follow, they start past
-  // the band so a long adverbial PP can't collide with the object's own
-  // modifiers; the bridging baseline keeps the object reading as on the line.
+  // Extend the baseline so the verb's modifiers visibly hang FROM the main line
+  // rather than from empty space — but only far enough to reach their FEET (one row
+  // down), not across the full recursive width of a deep modifier's own sub-cascade.
+  // An adverbial-participle chain that carries most of the sentence (Col 1:9-20:
+  // παυόμεθα → προσευχόμενοι → …) would otherwise stretch a near-empty main line
+  // clear across the diagram. When a complement follows, the line must still run out
+  // PAST the whole band to reach it (else the object would collide with the
+  // modifiers' own descenders), so keep the full reach there.
   const hasBaselineSlot = complementBlocks.length > 0 || pedestalRels.length > 0;
   if (vModRight > x) {
-    const newX = hasBaselineSlot ? vModRight + LAYOUT.dependentGap : vModRight;
+    const footEnd = Math.min(vModRight, vModFootRight + LAYOUT.diagRun);
+    const newX = hasBaselineSlot ? vModRight + LAYOUT.dependentGap : footEnd;
     elements.push(line(eid(), x, 0, newX, 0, 'solid', 'baseline'));
     if (hasBaselineSlot) x = newX;
   }
