@@ -101,6 +101,15 @@ are tracked in
   the analysis. Own document model, store, patches (`kr:discourse:*`), and
   text exports (JSON / Markdown outline / relation table). See
   `docs/discourse-mode-user-guide.md`.
+  - **English Bible sources** — Discourse mode can analyse an English Bible
+    directly (no Greek/Hebrew parse): the bundled **BSB**, plus **KJV** and
+    **ASV** as English-only sources fetched on demand from public-domain remote
+    data and cached. KJV/ASV carry **no** original-language linking, morphology,
+    lemmas, Strong's, or MACULA discourse-marker hints — only the conservative
+    English marker heuristic applies.
+  - **New text (plaintext)** — paste arbitrary prose and load it straight into
+    Discourse mode as sentence units. It is tokenized locally and split into
+    sentences; there is **no LLM call**, no syntax parse, and no `KrDocument`.
 - **Gold-standard data** — GNT (SBLGNT LowFat, Clear-Bible MACULA Greek
   CC BY 4.0 — the default edition — plus Nestle1904 LowFat,
   biblicalhumanities, as legacy/alternate) and OT (WLC LowFat,
@@ -118,7 +127,9 @@ are tracked in
 - **Persistence** — autosave to IndexedDB (localStorage fallback); per-passage
   patch/diff, sermon prep, and notes kept in separate keys.
 - **Import / export** — JSON (round-trips losslessly, schema-validated), SVG,
-  PNG, and a print-friendly view.
+  PNG, and **PDF / Print** (the browser print dialog wraps the current diagram —
+  same mode, spacing, colours, and highlights — in a print-ready page; choose
+  “Save as PDF”).
 - **Offline & installable** — `vite-plugin-pwa` (`injectManifest`) with a
   race-condition-safe update flow.
 - **Polytonic Greek & Hebrew** — Unicode-complete font stacks and

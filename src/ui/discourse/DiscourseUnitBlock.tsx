@@ -17,6 +17,7 @@ import { DiscourseMarkerChip } from './DiscourseMarkerChip';
 export const DiscourseUnitBlock = memo(function DiscourseUnitBlock({
   row,
   view,
+  isEnglish = false,
   selected,
   relationCount,
   registerEl,
@@ -29,6 +30,9 @@ export const DiscourseUnitBlock = memo(function DiscourseUnitBlock({
 }: {
   row: DiscourseRow;
   view: DiscourseViewToggles;
+  /** English-only source (BSB/KJV/ASV): always show the English source text,
+   *  no Greek font/lang, no gloss line. */
+  isEnglish?: boolean;
   selected: boolean;
   /** Relations touching this unit (badge for accessibility / arc-free reading). */
   relationCount: number;
@@ -118,13 +122,19 @@ export const DiscourseUnitBlock = memo(function DiscourseUnitBlock({
         {relateTarget && <span className="discourse-target-hint">← relate here</span>}
       </div>
 
-      {!isContainer && view.showSourceText && !splitPicking && (
-        <p className={`discourse-text greek${view.compact ? ' clamp' : ''}`} lang="grc">
+      {!isContainer && (isEnglish || view.showSourceText) && !splitPicking && (
+        <p
+          className={`discourse-text${isEnglish ? '' : ' greek'}${view.compact ? ' clamp' : ''}`}
+          lang={isEnglish ? 'en' : 'grc'}
+        >
           {tokens.map((t) => t.surface).join(' ')}
         </p>
       )}
       {!isContainer && splitPicking && (
-        <p className="discourse-text greek discourse-split-words" lang="grc">
+        <p
+          className={`discourse-text${isEnglish ? '' : ' greek'} discourse-split-words`}
+          lang={isEnglish ? 'en' : 'grc'}
+        >
           {tokens.map((t, i) => (
             <button
               key={t.id}

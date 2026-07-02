@@ -6,6 +6,7 @@ import {
   rangesOverlap,
   parseRef,
   refInRange,
+  isEnglishSentenceEnd,
   type EnglishBibleBook,
 } from '@/domain/discourse';
 import { GNT_BOOKS, loadGntBook, type GntBook } from './gnt';
@@ -168,7 +169,7 @@ export function estimateEnglishUnitCount(
   // Sentence granularity: count sentence-final punctuation across the range.
   let sentences = 0;
   for (const v of inRange) {
-    for (const w of v.words) if (/[.!?]$/.test(w.surface.trim())) sentences++;
+    for (const w of v.words) if (isEnglishSentenceEnd(w.surface)) sentences++;
   }
   return sentences || inRange.length;
 }

@@ -2688,10 +2688,19 @@ label.field.inline > span { margin-bottom: 0; }
 }
 
 /* --- Discourse mode: range selector (left panel) ---------------------------- */
-.discourse-range .discourse-blurb {
+.discourse-range .discourse-blurb,
+.discourse-plaintext .discourse-blurb {
   font-size: 12px;
   color: var(--muted, #667);
   margin: 0 0 10px;
+  line-height: 1.45;
+}
+.discourse-plaintext-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 120px;
+  font-family: inherit;
+  font-size: 13px;
   line-height: 1.45;
 }
 .discourse-note {

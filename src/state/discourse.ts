@@ -11,6 +11,7 @@ import {
   acceptDiscourseSuggestion,
   addDiscourseRelation,
   assignMarkerScope,
+  buildDiscourseDocumentFromPlainText,
   collapseDiscourseUnit,
   deleteDiscourseRelation,
   deleteDiscourseUnit,
@@ -120,6 +121,11 @@ export interface DiscourseActions {
   setGranularity: (g: DiscourseGranularity) => void;
   /** Load the selected range from the selected source (async). */
   loadRange: (opts?: { bookDocs?: KrDocument[]; loaded?: LoadedDiscourseBook }) => Promise<void>;
+  /**
+   * Load a pasted plaintext directly as a discourse document (sentence units;
+   * no LLM, no syntax parse). Returns false when the text has no words.
+   */
+  loadPlainText: (text: string, title?: string) => boolean;
   /** Restore the last loaded range once (called when Discourse mode opens). */
   restoreLastRange: () => Promise<void>;
   select: (selection: DiscourseSelection) => void;
@@ -262,6 +268,31 @@ export const useDiscourseStore = create<DiscourseStore>((set, get) => {
         if (seq !== loadSeq) return;
         set({ status: 'error', error: (e as Error).message });
       }
+    },
+
+    loadPlainText: (text, title) => {
+      const built = buildDiscourseDocumentFromPlainText(text, title ? { title } : {});
+      if (!built) {
+        set({ status: 'error', error: 'Paste some text to load — no sentences were found.' });
+        return false;
+      }
+      // Supersede any in-flight async range load so it can't clobber this doc.
+      ++loadSeq;
+      const live = applyStoredDiscoursePatch(built);
+      set({
+        baseDoc: built,
+        doc: live,
+        status: 'loaded',
+        error: null,
+        selection: {},
+        pendingRelationSource: null,
+        relationDraft: null,
+        splitPickUnitId: null,
+        multiSelectedUnitIds: [],
+        past: [],
+        future: [],
+      });
+      return true;
     },
 
     restoreLastRange: async () => {

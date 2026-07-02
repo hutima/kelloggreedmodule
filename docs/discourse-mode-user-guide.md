@@ -26,9 +26,12 @@ The range selector offers:
 
 - **Source** — a Greek/Hebrew **syntax** source (SBLGNT Lowfat (default),
   Nestle 1904 Lowfat, or OpenText) **or** an **English Bible** (BSB English for
-  the NT, BSB English OT for the Old Testament). English Bible sources are
-  offered **only in Discourse mode** and load directly from verse text — no
-  Greek/Hebrew syntax parse is required (see *English Bible discourse* below).
+  the NT, BSB English OT for the Old Testament, **KJV**, or **ASV**). English
+  Bible sources are offered **only in Discourse mode** and load directly from
+  verse text — no Greek/Hebrew syntax parse is required (see *English Bible
+  discourse* below). KJV and ASV are English-only, fetched on demand from
+  public-domain data and cached; they add **no** original-language linking,
+  morphology, or discourse-marker hints.
 - **Book**, **From** and **To** references (chapter : verse).
 - **Whole book** and **Chapter…** shortcuts.
 - **Unit size** — one unit per source *sentence* (recommended) or per *verse*.
@@ -114,11 +117,12 @@ repeated lemmas/phrases, and inclusio candidates.
 
 Discourse mode can analyze an **English Bible directly**, without routing the
 passage through Greek or Hebrew syntax first. Pick **BSB English** (New
-Testament) or **BSB English OT** (Old Testament) as the source, then load a
-range exactly as you would for a Greek/Hebrew source. Under the hood the range
-is built straight from English verse text into a discourse document
-(`language: "en"`) — there is **no sentence-level grammar diagram** behind it,
-and none is implied.
+Testament), **BSB English OT** (Old Testament), **KJV**, or **ASV** as the
+source, then load a range exactly as you would for a Greek/Hebrew source. Under
+the hood the range is built straight from English verse text into a discourse
+document (`language: "en"`) — there is **no sentence-level grammar diagram**
+behind it, and none is implied. For English sources the source-text / gloss /
+both toggle is hidden (the text is already English).
 
 Everything else works the same: split (at English word boundaries), merge,
 indent/outdent, label, notes, relations, outline navigation, export, delete,
@@ -130,12 +134,32 @@ as *possible* hints.
 actually carries: NT words keep their **Strong's number** (Greek tagging) where
 aligned; OT words keep their **Hebrew alignment** (the Hebrew text carries no
 Strong's number, so none is shown). Words with no alignment (function words,
-punctuation) are simply plain text. KJV and ASV are **not** offered, because no
-Strong's-tagged public-domain data for them ships with the project — the app
-will not fabricate tags to fake them.
+punctuation) are simply plain text.
+
+**KJV and ASV are plain English only.** They are fetched on demand from
+public-domain remote data (KJV per-book, ASV once for the whole Bible) and
+cached after the first load; no Bible text ships in the app. They carry **no**
+Strong's numbers, lemmas, morphology, Greek/Hebrew alignment, or MACULA
+discourse-marker hints — only the conservative English marker lexicon applies.
+If a remote fetch fails you'll see a readable error, and your existing discourse
+and syntax work is untouched.
 
 Because every visualization is a lens over one model, the discourse operations
 above are identical whether the tokens came from Greek, Hebrew, or English.
+
+## New text (plaintext) — analyze your own words
+
+The **New text** tab in the Discourse left panel loads pasted prose directly as
+sentence units. Paste a paragraph (a translation, a draft, your own notes),
+optionally give it a title, and press **Load text**. It is tokenized locally and
+split into sentences (`.` `?` `!`, plus blank-line paragraph breaks); each
+sentence becomes a unit you can split, merge, indent, label, relate, and export
+like any other discourse document.
+
+This is deliberately simple: **no AI/LLM parse**, no Greek/Hebrew tagging, no
+sentence-diagram, and no discourse-marker hints are generated — it is exactly the
+words you pasted. Ids are derived from the text itself, so re-pasting the same
+text restores your edits; **Reset edits** clears only that plaintext document.
 
 ## Persistence & reset
 

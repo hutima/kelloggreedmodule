@@ -146,10 +146,17 @@ describe('BSB English NT (real data, Greek-tagged)', () => {
     const god = doc.tokens.find((t) => t.ref === '1:3' && t.surface === 'God');
     expect(god?.strong).toBe('2316');
     expect(god?.alignmentMethod).toBe('greek');
-    // Some words are unaligned (function words) — honestly 'none', no strong.
-    const none = doc.tokens.find((t) => t.alignmentMethod === 'none');
-    expect(none).toBeTruthy();
-    expect(none?.strong).toBeUndefined();
+    // Punctuation ATTACHES to its word (no standalone punctuation tokens) —
+    // "Christ," / "realms." are single tokens carrying their word's alignment.
+    expect(doc.tokens.some((t) => t.surface === 'Christ,')).toBe(true);
+    expect(doc.tokens.some((t) => /^[.,;:!?]+$/.test(t.surface))).toBe(false);
+    // The attached-punctuation token keeps the real word's tag (not a bare 'none').
+    const realms = doc.tokens.find((t) => t.surface === 'realms.');
+    expect(realms?.alignmentMethod).toBe('greek');
+    // Unaligned words (when present) are honestly 'none' with no fabricated Strong's.
+    for (const t of doc.tokens) {
+      if (t.alignmentMethod === 'none') expect(t.strong).toBeUndefined();
+    }
   });
 });
 
@@ -185,8 +192,11 @@ describe('English Bible source visibility', () => {
       expect(SYNTAX_SOURCES.some((x) => x.id === (s.id as unknown))).toBe(false);
       expect(ALL_SYNTAX_SOURCES.some((x) => x.id === (s.id as unknown))).toBe(false);
     }
-    // KJV / ASV are NOT offered (no data — not fabricated).
-    expect(discIds).not.toContain('english-kjv');
-    expect(discIds).not.toContain('english-asv');
+    // KJV / ASV ARE offered now — as remote, English-only Discourse sources —
+    // but still ONLY in Discourse mode, never in the syntax selectors.
+    expect(discIds).toContain('english-kjv');
+    expect(discIds).toContain('english-asv');
+    expect(SYNTAX_SOURCES.some((x) => (x.id as unknown) === 'english-kjv')).toBe(false);
+    expect(ALL_SYNTAX_SOURCES.some((x) => (x.id as unknown) === 'english-asv')).toBe(false);
   });
 });

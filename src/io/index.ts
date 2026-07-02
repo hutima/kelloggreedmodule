@@ -93,3 +93,18 @@ export {
   type EnglishBibleSourceId,
   type EnglishBibleSourceInfo,
 } from './english-bible';
+export {
+  REMOTE_ENGLISH_SOURCES,
+  REMOTE_ENGLISH_BOOKS,
+  isRemoteEnglishSource,
+  remoteEnglishSourceInfo,
+  loadRemoteEnglishBibleBook,
+  kjvBookUrl,
+  kjvJsonToEnglishBook,
+  scrollmapperBookToEnglishBook,
+  clearRemoteEnglishCache,
+  ASV_URL,
+  type RemoteEnglishSourceId,
+  type RemoteEnglishSourceInfo,
+  type ScrollmapperBible,
+} from './english-bible-remote';
