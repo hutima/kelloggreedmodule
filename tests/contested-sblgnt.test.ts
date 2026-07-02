@@ -50,12 +50,14 @@ describe('SBLGNT contested registry — structural integrity', () => {
     for (const reading of contestedRegistrySblgnt.readings) expect(nestleIds.has(reading.id)).toBe(false);
   });
 
-  it('mirrors a debate for every Nestle1904 issue except the documented converter-limited ones', () => {
+  it('mirrors a debate for every Nestle1904 issue except the documented edition-difference ones', () => {
     const EXCLUDED = new Set([
-      'iss_titus_2_13_granville',
+      // SBLGNT's own base tree resolves these differently, so the Nestle1904
+      // debate framing would be false here (see contestedSyntaxSblgnt.ts
+      // header). Titus 2:13 and Col 1:15 — once excluded for converter
+      // gaps — are mirrored since the Stage 5–6 head-inference fixes.
       'iss_matt_4_3_command',
       'iss_2cor_5_4_leedy',
-      'iss_col_1_15_firstborn',
       'iss_john_1_14_predicate', // sample doc, not a GNT loader passage
       'iss_1john_1_1_relative_chain', // sample doc
       'iss_gen_1_1_construct', // Hebrew — WLC unchanged by the Greek rebase
