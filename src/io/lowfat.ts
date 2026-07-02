@@ -787,7 +787,16 @@ export class SentenceConverter {
     for (const child of constituents(el)) {
       if (child === head) continue;
       const rep = this.convert(child);
-      const role = this.phraseChildRole(child, rule, coordinated);
+      let role = this.phraseChildRole(child, rule, coordinated);
+      // A prepositional phrase the source wrapped WITHOUT a class (a classless
+      // "Conj2Pp" coordination of PPs — ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς
+      // modifying πάντα in Col 1:16) falls through `phraseChildRole` to the
+      // apposition default; its converted head is a preposition, so treat it as
+      // the PP modifier it is — otherwise it renames the head on the baseline
+      // (an inline "=" fork) instead of hanging beneath it as a phrase.
+      if (role === 'apposition' && this.headTokenPos(rep) === 'preposition') {
+        role = 'prepositionalPhrase';
+      }
       // An article/adjective on an articular clause (τοῖς οὖσιν ἐν Φιλίπποις —
       // "the [ones] who are…") modifies the participle that heads it, so it hangs
       // on a diagonal beneath the verb, not floating beside the whole clause.
@@ -796,6 +805,15 @@ export class SentenceConverter {
       this.rel(role, target, rep);
     }
     return repId;
+  }
+
+  /** POS of a node's first token (its head word), if any — used to tell a
+   *  preposition-headed subtree from a nominal one when the source left the
+   *  wrapping constituent unclassed. */
+  private headTokenPos(nodeId: string): string | undefined {
+    const node = this.nodes.find((n) => n.id === nodeId);
+    const tid = node?.tokenIds[0];
+    return tid ? this.tokens.find((t) => t.id === tid)?.pos : undefined;
   }
 
   /** The word a modifier should attach to: a clause delegates to its predicate. */
@@ -877,7 +895,12 @@ function isPeriphrasticVp(el: Element): boolean {
  */
 function isCoordinationRule(rule: string): boolean {
   if (/^conj/i.test(rule)) return true;
-  if (/(^|[a-z])a(np|pp|adjp|adj|vp|cl)/i.test(rule)) return true;
+  // The "a"(=καί) infix/prefix list joins CAPITALISED category codes
+  // (NpaNp, aPpaPp, 2PpaPp…). Match the category after the coordinator
+  // case-SENSITIVELY so an ordinary 'a' inside a rule WORD is not mistaken for
+  // the coordinator — e.g. "QuanPp" (a quantifier πάντα modified by a PP) must
+  // NOT be read as a coordination just because "Qu·an·Pp" contains "anp".
+  if (/(^|[a-zA-Z])a(N[Pp]|P[Pp]|Adjp?|V[Pp]|C[Ll])/.test(rule)) return true;
   return /^\d*(np|adjp|adj|vp|pp|cl)(\1)+$/i.test(rule);
 }
 
