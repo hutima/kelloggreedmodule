@@ -7,6 +7,12 @@
  *   npx vite-node scripts/dump-passage-syntax.mts -- "Rom 9:5"
  *   npx vite-node scripts/dump-passage-syntax.mts -- "Gen 1:1"
  *   npx vite-node scripts/dump-passage-syntax.mts -- fixture:doc_sample_1john_1_1
+ *   npx vite-node scripts/dump-passage-syntax.mts -- sblgnt:"Php 1:1"
+ *
+ * A `sblgnt:` prefix dumps the SBLGNT Lowfat (MACULA Greek) edition instead of
+ * the Nestle1904 default — the two editions mint DIFFERENT ids for the same
+ * passage, so a contested-syntax entry anchored to one must be dumped and
+ * authored against that edition specifically.
  *
  * GNT books and Hebrew chapters are read from the bundled `public/` copy when
  * present, else fetched from the upstream macula source.
@@ -24,7 +30,7 @@ globalThis.DOMParser = win.DOMParser;
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 
-const { lowfatToDocuments } = await import('../src/io/lowfat.ts');
+const { lowfatToDocuments, sblgntDialect } = await import('../src/io/lowfat.ts');
 const { maculaHebrewToDocuments } = await import('../src/io/macula-hebrew.ts');
 const { GNT_BOOKS } = await import('../src/io/gnt.ts');
 const { OT_BOOKS, chapterFile } = await import('../src/io/ot.ts');
@@ -34,6 +40,7 @@ type KrDocument = (typeof sampleDocuments)[number];
 
 const GNT_SRC =
   'https://raw.githubusercontent.com/biblicalhumanities/greek-new-testament/master/syntax-trees/nestle1904-lowfat/xml/';
+const SBLGNT_SRC = 'https://raw.githubusercontent.com/Clear-Bible/macula-greek/main/SBLGNT/lowfat/';
 const OT_SRC = 'https://raw.githubusercontent.com/Clear-Bible/macula-hebrew/main/WLC/lowfat/';
 
 async function loadXml(localRel: string, remote: string): Promise<string> {
@@ -64,7 +71,9 @@ function coversRef(title: string, chap: number, verse: number): boolean {
   return c === chap && verse >= v0 && verse <= v1;
 }
 
-async function resolvePassage(arg: string): Promise<KrDocument[]> {
+async function resolvePassage(rawArg: string): Promise<KrDocument[]> {
+  const sblgnt = rawArg.startsWith('sblgnt:');
+  const arg = sblgnt ? rawArg.slice('sblgnt:'.length) : rawArg;
   if (arg.startsWith('fixture:')) {
     const id = arg.slice('fixture:'.length);
     const doc = sampleDocuments.find((d) => d.id === id);
@@ -79,6 +88,15 @@ async function resolvePassage(arg: string): Promise<KrDocument[]> {
 
   const gnt = findBook(GNT_BOOKS, bookRaw!.trim());
   if (gnt) {
+    if (sblgnt) {
+      const xml = await loadXml(`public/sblgnt/${gnt.file}`, SBLGNT_SRC + gnt.file);
+      const docs = lowfatToDocuments(xml, {
+        book: gnt.name,
+        dialect: sblgntDialect,
+        docIdPrefix: 'sblgnt',
+      });
+      return docs.filter((d) => coversRef(d.title, chap, verse));
+    }
     const xml = await loadXml(`public/gnt/${gnt.file}`, GNT_SRC + gnt.file);
     const docs = lowfatToDocuments(xml, { book: gnt.name });
     return docs.filter((d) => coversRef(d.title, chap, verse));

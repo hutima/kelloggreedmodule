@@ -48,8 +48,11 @@ as overlays** — using the smallest representation that captures the difference
 only on passages with contested data; a panel explains the issue in neutral
 language, you can **preview** an alternate (never saved) or **compare it
 side-by-side** with linked scrolling and difference highlighting, and on desktop
-**adopt** a structural alternate as your custom parse. See `src/data/contestedSyntax.ts`
-and `src/domain/contested/`.
+**adopt** a structural alternate as your custom parse. Curated issues are
+edition-scoped: `src/data/contestedSyntax.ts` (Nestle1904 GNT / WLC) and
+`src/data/contestedSyntaxSblgnt.ts` (SBLGNT — mirrors most of the same
+debates onto SBLGNT's own ids; a few await an SBLGNT converter fix, see
+`docs/sblgnt-kellogg-reed-plan.md`). See also `src/domain/contested/`.
 
 ## Greek data sources
 

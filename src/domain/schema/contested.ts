@@ -98,6 +98,9 @@ export const AlternateReadingSchema = z.object({
   id: z.string(),
   issueId: z.string(),
   passageId: z.string(),
+  /** Mirrors {@link ContestedSyntaxIssueSchema}'s `sourceId` — the edition
+   *  this reading's overlay ids are authored against. Absent = legacy default. */
+  sourceId: z.string().optional(),
   label: z.string(),
   shortLabel: z.string().optional(),
   interpretation: z.string(),
@@ -134,6 +137,18 @@ export const ContestedSyntaxIssueSchema = z.object({
   id: z.string(),
   /** The base document id this issue is authored against (e.g. a GNT sentence). */
   passageId: z.string(),
+  /**
+   * Which syntax source/edition `passageId` and every affected id below are
+   * authored against (e.g. `macula-greek-sblgnt-lowfat`), matching
+   * `SyntaxSourceId` from `io/sources.ts` (kept as a plain string here so the
+   * schema layer never imports `io/`). ABSENT means the legacy default: the
+   * Nestle1904 GNT edition for a `gnt_…` passage, WLC for a `wlc_…` passage.
+   * A single logical debate that has both a Nestle1904 and an SBLGNT anchor is
+   * represented as TWO issue records (see `src/data/contestedSyntax.ts`) —
+   * ids and overlays are edition-specific and must never be shared across a
+   * source boundary.
+   */
+  sourceId: z.string().optional(),
   /**
    * When a reading crosses a base SENTENCE boundary (e.g. Romans 9:5's doxology,
    * which macula splits into its own sentence), the ordered ids of the base

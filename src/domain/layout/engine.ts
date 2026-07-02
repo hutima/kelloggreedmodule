@@ -1486,7 +1486,25 @@ function layoutCoordination(
   seen: Set<string>,
   openLeft: boolean,
 ): Block {
-  const conjunctRels = wordConjunctRels(ctx, node.id);
+  // A coordinated member is USUALLY another word (Paul and Timothy), but a
+  // direct object can equally coordinate with a whole CLAUSE — Mark 1:19-20
+  // "εἶδεν Ἰάκωβον καὶ Ἰωάνην καὶ αὐτοὺς … καταρτίζοντας" ("he saw James, and
+  // John, and them mending the nets"): the third conjunct is the participial
+  // clause, not a word. `wordConjunctRels` (used elsewhere to detect/measure
+  // WORD coordination specifically) excludes clause dependents, so a bare
+  // conjunctRels = wordConjunctRels(...) here would silently DROP that member
+  // from the fork instead of drawing it — the member never reaches `layoutNode`
+  // at all. Gather clause conjuncts too and merge them in by surface order, so
+  // every coordinate member is drawn (`layoutNode` already dispatches a clause
+  // dependent to `layoutClause`, returning an ordinary `Block` this fork's
+  // generic member-stacking loop handles the same as any word member).
+  const wordConjuncts = wordConjunctRels(ctx, node.id);
+  const clauseConjuncts = childRelations(ctx.doc.syntax, node.id).filter(
+    (r) => r.type === 'conjunct' && isClauseChild(ctx, r.dependentId),
+  );
+  const conjunctRels = [...wordConjuncts, ...clauseConjuncts].sort(
+    (a, b) => subtreeMinIndex(ctx, a.dependentId) - subtreeMinIndex(ctx, b.dependentId),
+  );
   // Coordinators of the HEAD, plus any sitting on a CONJUNCT (a parse may attach
   // the ἀλλά of an "οὐ … ἀλλά" pair to the second member rather than the head);
   // gathering both keeps every conjunction on the fork bar instead of leaking one

@@ -131,12 +131,56 @@ Hebrew (must not regress): Genesis 1:1–3, Psalm 1:1–2, Deuteronomy 6:4.
 
 *Add bugs here immediately, with whether they block the current phase.*
 
+- 2026-07-02 (Tim reported, out-of-band from the SBLGNT rebase phases — a
+  pre-existing Kellogg-Reed layout bug, not caused by any phase above; fixed
+  immediately, does not block any phase): **Mark 1:19–20 renders with a whole
+  coordinate object missing.** "εἶδεν Ἰάκωβον … καὶ Ἰωάνην … καὶ αὐτοὺς …
+  καταρτίζοντας τὰ δίκτυα" ("he saw James, and John, and them mending the
+  nets") coordinates the direct object of εἶδεν across a WORD (Ἰάκωβον), a
+  second WORD (Ἰωάνην), and a whole participial CLAUSE ("them … mending the
+  nets") — three conjuncts, mixed kinds. `layoutCoordination` in
+  `src/domain/layout/engine.ts` built its fork's member list from
+  `wordConjunctRels`, which deliberately excludes clause dependents (that
+  exclusion is correct and needed elsewhere, e.g. compound-predicate
+  detection) — but inside the fork builder itself it meant the clause
+  conjunct was never passed to `layoutNode` at all, so the ENTIRE third
+  member (7 words: αὐτοὺς καταρτίζοντας ἐν τῷ πλοίῳ τὰ δίκτυα) silently
+  vanished from the diagram — the fork only ever showed 2 of 3 arms. Fixed by
+  merging clause conjuncts into `layoutCoordination`'s LOCAL member list (in
+  surface order via `subtreeMinIndex`), leaving the module-level
+  `wordConjunctRels` helper itself untouched so its other ~7 call sites are
+  unaffected. Regression test: `tests/mark1-coordination-regression.test.ts`
+  + bundled fixture `tests/fixtures-lowfat-mark-1-19-20.xml` (confirmed the
+  test fails without the fix, passes with it). Before/after SVG renders sent
+  to Tim for visual confirmation. 667 tests pass; typecheck/lint/build clean.
+
 - 2026-07-02 (found during phase 9, introduced by phase 8's default switch,
   fixed in phase 9 before shipping): `parseRef` in `src/io/parallel.ts` only
   recognized Nestle1904 osisIds ("Phil.1.1!3"), so an SBLGNT passage rendered
   NO parallel English at all. Fixed by teaching `parseRef` the SBLGNT ref
   spelling ("PHP 1:1!3") and adding the direct alignment path + method stats
   that make this class of silent failure visible.
+- 2026-07-02 (found during Phase 14, NOT fixed — documented + blocked
+  instead, does not block Phase 14): `sblgntHead()` in `src/io/lowfat.ts`
+  mishandles coordinate/apposition/adjective-chain constructions with no
+  explicit Lowfat `role` markers, producing either a flat "adjunct soup" (no
+  head at all — 2 Cor 5:4's ἐκδύσασθαι/ἐπενδύσασθαι clause) or an incorrect
+  head choice (an adjective like μεγάλου or πρωτότοκος instead of the noun it
+  modifies — Titus 2:13, Colossians 1:15). Confirmed NOT a Mark-5-regression
+  regression (those tests still pass) — a distinct construction class the
+  Mark 5:26 fix didn't cover. Blocks SBLGNT contested-syntax mirrors for
+  `iss_titus_2_13_granville`, `iss_matt_4_3_command`, `iss_2cor_5_4_leedy`,
+  `iss_col_1_15_firstborn` (kept Nestle1904-only; see Phase 14). Recommended
+  fix: generalize the head-priority fallback for multi-candidate adjective/
+  apposition chains — out of scope to rush; needs its own verification pass
+  against the whole GNT, not just these 4 passages.
+- 2026-07-02 (found + fixed during Phase 14, dev tooling only, no product
+  impact): `scripts/check-contested-registry.mts` reliably OOM'd once a
+  second (SBLGNT) registry roughly doubled the number of full-book happy-dom
+  parses in one process. Root cause not fully isolated (ruled out: simple
+  cache growth — an LRU(3) eviction cache made it WORSE, not better, by
+  forcing re-parses of non-adjacent repeated books). Fixed by running each
+  registry's check in its own subprocess.
 
 ### Confirmed converter behavior behind the Mark 5:26 regression (Phase 2 audit)
 
@@ -285,21 +329,114 @@ Still open:
     files, all passing; typecheck, lint, and production build clean.
 
 Known intentional limitations (recorded for follow-up):
-- Contested-syntax registry entries are authored against Nestle1904 ids, so
-  contested badges appear only on Nestle1904 passages; SBLGNT variants would
-  need curated entries (`npm run dump-syntax` works for either edition).
+- ~~Contested-syntax registry entries are authored against Nestle1904 ids~~ —
+  RESOLVED, see Phase 14 below: a mirrored SBLGNT-anchored registry now ships
+  25 of 29 GNT issues.
 - Hebrew source constituency is not yet captured (Tim's default: regression
   protection only); `captureSourceConstituency` works for it when wanted.
 - Open questions 1–6 under "Open questions for Tim" remain open; safe
   defaults are in effect.
 
+## Phase 14 (post-acceptance follow-up): SBLGNT-anchored contested-syntax registry
+
+Tim asked, after PR 13 merged: "review the contested syntax bridges and
+convert them to SBLGNT." Delivered as `src/data/contestedSyntaxSblgnt.ts` — a
+SECOND curated registry mirroring the Nestle1904 debates onto SBLGNT's own
+ids, wired into `allContestedIssues()`/`allAlternateReadings()` alongside the
+original.
+
+**Method** — `scripts/generate-contested-sblgnt.mts` +
+`scripts/merge-contested-sblgnt.mjs`, driven per-issue (happy-dom's memory
+footprint across ~15 full books per run forced a one-process-per-issue
+approach — see below): every token maps Nestle1904→SBLGNT by Strong's number
++ within-verse position (mirrors `alignParallel`'s cross-edition alignment);
+every node maps via its REPRESENTATIVE token (`repTokenId`); every relation
+maps by taking the mapped dependent's CURRENT parent relation in the SBLGNT
+tree. `scripts/convert-contested-to-sblgnt.mts` is the diagnostic sibling
+(console output, includes a relation-TYPE mismatch detector) used to review
+every conversion before it shipped.
+
+**Review caught real problems, not just id drift.** The type-mismatch
+detector and hand verification found FOUR Nestle1904 issues whose "default
+vs. alternate" framing does not hold under the current SBLGNT converter,
+because SBLGNT's head-inference produces a qualitatively different base tree
+for their specific construction (long adjective/apposition/coordination
+chains without explicit Lowfat `role` markers — a gap beyond what the Mark
+5:26 fix covered):
+
+- `iss_titus_2_13_granville` — μεγάλου (an adjective) wrongly becomes the
+  head of "the great God and our Savior Jesus Christ" via a chain of
+  apposition relations (should be θεοῦ).
+- `iss_matt_4_3_command` — SBLGNT's base tree ALREADY shows the ἵνα-clause as
+  εἰπὲ's direct object — i.e. SBLGNT's DEFAULT already matches what
+  Nestle1904 calls the ALTERNATE. Shipping this would misrepresent SBLGNT's
+  own reading as "debated" when the debate is invisible in that tree.
+- `iss_2cor_5_4_leedy` — the οὐ/ἐκδύσασθαι/ἀλλά/ἐπενδύσασθαι clause converts
+  as four flat `adjunct` children (no head at all) instead of a proper
+  head+dependents shape.
+- `iss_col_1_15_firstborn` — κτίσεως wrongly becomes head with πρωτότοκος as
+  ITS adjectival modifier (backwards from "πρωτότοκος → κτίσεως genitive").
+
+Per the project's "prefer honest over falsely precise" rule, these four stay
+Nestle1904-only — documented in `contestedSyntaxSblgnt.ts`'s header — rather
+than shipping a debate description on top of a demonstrably degraded base
+tree. **Recommended follow-up**: generalize `sblgntHead()` in `src/io/
+lowfat.ts` for coordinate/apposition/adjective-chain constructions lacking
+explicit Lowfat roles (the current priority list handles single clear heads
+well but falls through to the "bare container" flat-adjunct path — or an
+adjective — too easily when several plausible heads compete). Re-run
+`scripts/convert-contested-to-sblgnt.mts` against these four passages after
+any such fix to see if they can be un-blocked.
+
+One MORE issue (`iss_gal_2_16_pistis_christou`) needed a one-line hand
+correction, NOT a converter bug: SBLGNT's actual word order is "πίστεως
+Ἰησοῦ Χριστοῦ" (Ἰησοῦ before Χριστοῦ — a genuine, known textual difference
+from Nestle1904's "πίστεως Χριστοῦ Ἰησοῦ"), so Χριστοῦ is no longer πίστεως's
+direct genitive dependent in SBLGNT — Ἰησοῦ is, with Χριστοῦ in apposition to
+it. Fixed by pointing the first occurrence's `relationId` at the real
+genitive relation (`r_s28_30`, verified by hand) instead of the naively
+dependent-tracked apposition relation.
+
+Romans 9:5 (a `mergePassageIds` cross-sentence issue) was hand-authored and
+verified against a real `combinePassage` run over the two SBLGNT sentences
+(same sentence boundaries as Nestle1904 for this passage, confirmed by
+dumping both editions).
+
+**Tooling fix, not just data**: `scripts/check-contested-registry.mts` now
+validates BOTH registries — but running ~30 full-book happy-dom parses in one
+process reliably OOM'd (confirmed independent of caching strategy: an
+unbounded per-book cache, a bounded LRU(3) cache, and a fresh-`Window`-per-
+book all either still crashed or made it worse — LRU actually made things
+WORSE by forcing re-parses of non-adjacent repeated books). Fix: each
+registry now validates in its OWN subprocess (`--only=nestle` /
+`--only=sblgnt`, spawned by the default invocation with an 8 GB heap each),
+so `npm run contested:check` is back to a single reliable command. This
+subprocess-per-registry pattern is worth remembering for any future
+whole-corpus sweep script.
+
+Files: `src/data/contestedSyntaxSblgnt.ts` (new registry, 25 issues / 37
+readings), `src/domain/contested/registry.ts` (merges both registries),
+`src/domain/schema/contested.ts` (additive `sourceId` field on issue +
+reading), `scripts/{generate,merge,convert}-contested-sblgnt*` (new
+tooling), `scripts/check-contested-registry.mts` (SBLGNT-aware +
+subprocess-per-registry), `scripts/dump-passage-syntax.mts` (already
+SBLGNT-aware from phase 7), `tests/contested-sblgnt.test.ts` (new).
+Build/test: typecheck + lint + production build clean; `npm run
+contested:check` exits 0 (32 Nestle1904/WLC + 25 SBLGNT, 0 errors); 663
+tests / 61 files pass.
+
 ## Resume instructions if interrupted
 
-Current phase: ALL 13 PHASES COMPLETE.
-Build/test: typecheck + lint + production build clean; 656 tests pass.
-Known broken behavior: none known.
-Next smallest safe task: address Tim's review feedback; candidates above
-under "Known intentional limitations".
+Current phase: ALL 13 PHASES + Phase 14 (SBLGNT contested-syntax mirror)
+COMPLETE.
+Build/test: typecheck + lint + production build clean; 663 tests pass;
+`npm run contested:check` exits 0.
+Known broken behavior: none known in shipped code. Known LIMITATION (not a
+regression): 4 Nestle1904 contested issues have no SBLGNT mirror yet, pending
+an `sblgntHead()` generalization — see Phase 14 above for the exact fix
+recommendation and the 4 passage names.
+Next smallest safe task: investigate the Mark 1:19–20 Kellogg-Reed rendering
+report (final clause not splitting) — separate from the SBLGNT work above.
 
 Superseded status notes from phase 9:
 Changed files (phase 9): `src/io/parallel.ts`, `tests/parallel.test.ts`.
