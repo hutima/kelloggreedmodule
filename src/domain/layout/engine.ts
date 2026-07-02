@@ -715,6 +715,35 @@ function pedestalRoom(block: Block): number {
   return Math.max(0, blockAscent(block) - (LAYOUT.dividerUp + LAYOUT.fontSize));
 }
 
+/**
+ * The rightmost x reached by any of `block`'s primitives whose TOP edge sits at
+ * or above `band` (y ≤ band) — i.e. everything that vertically overlaps the strip
+ * from the baseline down to `band`. Used to place a subject|predicate divider
+ * clear of only the subject's SHALLOW content, so the predicate can tuck into the
+ * empty space above a deep-but-narrow-topped subject dependent (a relative clause
+ * on the subject) instead of being flung past that dependent's whole width.
+ */
+function rightWithinBand(block: Block, band: number): number {
+  let right = 0;
+  for (const el of block.elements) {
+    let topY: number;
+    let maxX: number;
+    if (el.kind === 'line') {
+      topY = Math.min(el.y1, el.y2);
+      maxX = Math.max(el.x1, el.x2);
+    } else if (el.kind === 'curve') {
+      topY = Math.min(el.y1, el.cy, el.y2);
+      maxX = Math.max(el.x1, el.cx, el.x2);
+    } else {
+      const w = el.small ? measureText(el.text, SMALL_FONT) : measureText(el.text);
+      topY = el.y - (el.small ? LAYOUT.smallFontSize : LAYOUT.fontSize);
+      maxX = el.anchor === 'end' ? el.x : el.anchor === 'middle' ? el.x + w / 2 : el.x + w;
+    }
+    if (topY <= band) right = Math.max(right, maxX);
+  }
+  return right;
+}
+
 function translate(block: Block, dx: number, dy: number): DiagramElement[] {
   return block.elements.map((el) => {
     if (el.kind === 'line') {
@@ -1766,9 +1795,13 @@ function layoutPredicateArm(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): 
   const belowTop = LAYOUT.slantDrop * ctx.vScale;
   let belowMaxBottom = 0;
   let belowRight = wordW;
+  // Where the below-modifiers actually MEET the line (their feet), distinct from
+  // belowRight, which also counts the full recursive width of their sub-cascades.
+  let footRight = wordW;
   let cursor = wordW / 2;
   belowRels.forEach((rel) => {
     cursor += LAYOUT.dependentGap;
+    footRight = Math.max(footRight, cursor);
     const objId = prepObjectId(ctx, rel);
     const ppConj = objId ? ppConjunctRels(ctx, rel.dependentId) : [];
     let ext: { right: number; bottom: number };
@@ -1816,7 +1849,15 @@ function layoutPredicateArm(ctx: Ctx, verbNode: SyntaxNode, seen: Set<string>): 
     right = Math.max(right, x);
   });
 
-  elements.unshift(line(eid(), 0, 0, right, 0, 'solid', 'baseline'));
+  // Draw the baseline out to the complements when there are any (they sit at the
+  // right end); otherwise only to the below-modifiers' feet (one row down), so a
+  // deep adverbial cascade — a PP that nests the rest of the sentence — does not
+  // stretch a near-empty arm baseline across the diagram. `width` still reports the
+  // full extent, so the arm reserves its true space.
+  const lineRight = baselineRels.length
+    ? right
+    : Math.min(right, Math.max(wordW, footRight + LAYOUT.diagRun));
+  elements.unshift(line(eid(), 0, 0, lineRight, 0, 'solid', 'baseline'));
   return {
     width: right,
     height: Math.max(baseHeight, belowMaxBottom),
@@ -2219,9 +2260,71 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     x += b.width;
   };
 
+  // A subject whose width is dominated by a DEEP below-hanging clause (a relative
+  // clause on the subject, e.g. αὐτός + "ὅς ἐστιν εἰκὼν … ") pushes the divider —
+  // and the whole predicate — past that clause's full width, even though its wide
+  // rows sit well below the baseline and leave the band beside the predicate empty.
+  // Tuck the divider left, clear of only the subject content within the predicate's
+  // own MEASURED shallow depth band, so the predicate slides into that empty space.
+  // Applied ONLY when it is provably clash-free: an inline (non-pedestal) subject, a
+  // simple (non-compound) predicate with no deep clause adjunct on its side, and
+  // only when it actually reclaims space — so every ordinary clause stays
+  // byte-identical.
+  const tuckDivX: number | null = (() => {
+    if (omitSubject || pedestalSubject) return null;
+    if (verbNode && isWordCoordination(ctx, verbNode)) return null;
+    const clauseWordRels = rels.filter((r) => r !== subjectRel && r !== predicateRel);
+    // Everything on the PREDICATE side that hangs below the line: the verb's own
+    // dependents (complements, adverbial modifiers) and the clause-level word
+    // dependents (an object/predicate-nominative the source attached to the clause
+    // rather than the verb — as in this LLM parse — draws as a right-hand phrase).
+    const predSideRels = [
+      ...verbRels.filter((r) => r.type !== 'conjunct' && r.type !== 'coordinator'),
+      ...clauseWordRels.filter(
+        (r) =>
+          r.type !== 'vocative' &&
+          r.type !== 'interjection' &&
+          r.type !== 'particle' &&
+          r.type !== 'conjunction',
+      ),
+    ];
+    // A predicate-side CLAUSE adjunct (a subordinate/relative clause) stacks far
+    // below the whole clause on a stem — there is no shallow band to tuck into, so
+    // bail. (A pedestalled clause complement rides ABOVE the line; a clause-valued
+    // infinitive hangs on a diagonal — both are fine and measured below.)
+    for (const r of predSideRels) {
+      if (isClauseChild(ctx, r.dependentId) && !isInfinitival(ctx, r.dependentId) && !pedestalled.has(r.id)) {
+        return null;
+      }
+    }
+    // The predicate's true below-baseline reach: probe every below-hanging
+    // predicate-side dependent with a CLONED `seen` (so nothing is consumed before
+    // its real layout), then add a clearance margin. Over-measuring only makes the
+    // tuck more conservative, never unsafe.
+    let predDepth = verbBlock.height;
+    for (const r of predSideRels) {
+      if (pedestalled.has(r.id)) continue; // rides a pedestal above the line
+      const probe = layoutNode(ctx, r.dependentId, new Set(seen));
+      predDepth = Math.max(predDepth, LAYOUT.slantDrop * ctx.vScale + blockAscent(probe) + probe.height);
+    }
+    predDepth += LAYOUT.slantDrop * ctx.vScale;
+    // Clear only the subject content within that band; a deep, narrow-topped subject
+    // dependent (a relative clause) reaches further right only BELOW it, where the
+    // predicate never goes — so the predicate tucks into the empty band above it.
+    const shallowRight = rightWithinBand(subjectBlock, predDepth);
+    const candidate = Math.max(subjectBlock.wordRight, shallowRight + LAYOUT.dependentGap);
+    // Only tuck when it reclaims real horizontal space; else keep classic placement
+    // so every ordinary clause stays byte-identical.
+    return subjectBlock.width - candidate > LAYOUT.diagRun ? candidate : null;
+  })();
+
   // subject + subject|predicate divider (crosses the baseline) — unless this is a
   // bare nonfinite predicate, which stands alone with no subject side.
   let divX = 0;
+  // When the divider is tucked left of the subject's full extent, the subject's
+  // deep dependent still reaches subjectBlock.width to the right (below the line),
+  // so the clause's overall width must still count it even though `x` no longer does.
+  let subjectFullRight = 0;
   if (!omitSubject && pedestalSubject) {
     // The substantive rides a pedestal standing in the subject slot, the divider
     // following it. Its body sits ABOVE the baseline, so it adds no below-line
@@ -2253,8 +2356,15 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     );
     x += 2;
   } else if (!omitSubject) {
-    placeBlock(subjectBlock);
-    divX = x;
+    // Draw the subject at the left; advance the baseline to the divider — the FULL
+    // width normally, or the tucked position when a deep subject dependent lets the
+    // predicate slide left (see `tuckDivX`). Either way the subject's full extent is
+    // remembered in `subjectFullRight` for the clause's width.
+    elements.push(...translate(subjectBlock, 0, 0));
+    baselineHeight = Math.max(baselineHeight, subjectBlock.height);
+    subjectFullRight = subjectBlock.width;
+    divX = tuckDivX ?? subjectBlock.width;
+    x = divX;
     // The subject's baseline must run all the way to the subject|predicate cross.
     // A subject with diagonal modifiers whose word overhangs its slant (e.g. "οἱ
     // λίθοι οὗτοι") makes the block wider than its baseline reaches, leaving the
@@ -2405,31 +2515,42 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     ),
   ];
 
-  let maxRight = x;
+  // `subjectFullRight` counts a tucked subject's deep dependent, which reaches past
+  // the divider below the line (0 unless the divider was tucked).
+  let maxRight = Math.max(x, subjectFullRight);
   // Draw the verb's modifiers FIRST, beneath the verb, and record how far right
   // their cascade reaches. The complements then start past that band: otherwise a
   // long adverbial PP hanging under the verb (ὑπὲρ τοῦ σώματος…) overlaps the
   // direct object's own genitive chain hanging below it on the baseline.
   let vModRight = x;
+  // The rightmost point where a DIRECT verb modifier actually MEETS the line (its
+  // diagonal/stem foot) — distinct from vModRight, which also counts the full
+  // recursive width of that modifier's own sub-cascade hanging below.
+  let vModFootRight = x;
   // Hang the first modifier just inside the verb word's right edge — unlike
   // layoutHead/layoutPredicateArm, which attach from the word's middle. Attaching
   // past the word keeps a modifier's diagonal text from running back over a
   // SHORT verb (a one-word implied copula like "(ἐστίν)").
   let vCursor = verbX0 + (predBlock.wordRight || predBlock.width) - LAYOUT.wordPadX;
   verbMods.forEach((r) => {
+    vModFootRight = Math.max(vModFootRight, vCursor);
     const { right, next } = drawHanging(r, vCursor);
     vCursor = next;
     vModRight = Math.max(vModRight, right);
   });
 
-  // Extend the baseline under the whole verb-modifier cascade so every modifier
-  // visibly hangs from the MAIN LINE rather than from empty space (which reads as
-  // "connected by vertical position"). When complements follow, they start past
-  // the band so a long adverbial PP can't collide with the object's own
-  // modifiers; the bridging baseline keeps the object reading as on the line.
+  // Extend the baseline so the verb's modifiers visibly hang FROM the main line
+  // rather than from empty space — but only far enough to reach their FEET (one row
+  // down), not across the full recursive width of a deep modifier's own sub-cascade.
+  // An adverbial-participle chain that carries most of the sentence (Col 1:9-20:
+  // παυόμεθα → προσευχόμενοι → …) would otherwise stretch a near-empty main line
+  // clear across the diagram. When a complement follows, the line must still run out
+  // PAST the whole band to reach it (else the object would collide with the
+  // modifiers' own descenders), so keep the full reach there.
   const hasBaselineSlot = complementBlocks.length > 0 || pedestalRels.length > 0;
   if (vModRight > x) {
-    const newX = hasBaselineSlot ? vModRight + LAYOUT.dependentGap : vModRight;
+    const footEnd = Math.min(vModRight, vModFootRight + LAYOUT.diagRun);
+    const newX = hasBaselineSlot ? vModRight + LAYOUT.dependentGap : footEnd;
     elements.push(line(eid(), x, 0, newX, 0, 'solid', 'baseline'));
     if (hasBaselineSlot) x = newX;
   }
