@@ -46,6 +46,7 @@ export function DiscourseView({ doc, editing = false }: { doc: DiscourseDocument
   const indentUnit = useDiscourseStore((s) => s.indentUnit);
   const outdentUnit = useDiscourseStore((s) => s.outdentUnit);
   const mergeWithPrevious = useDiscourseStore((s) => s.mergeWithPrevious);
+  const deleteUnit = useDiscourseStore((s) => s.deleteUnit);
   const labelUnit = useDiscourseStore((s) => s.labelUnit);
   const setUnitNotes = useDiscourseStore((s) => s.setUnitNotes);
   const updateRelation = useDiscourseStore((s) => s.updateRelation);
@@ -169,6 +170,15 @@ export function DiscourseView({ doc, editing = false }: { doc: DiscourseDocument
         const siblings = childUnits(doc, unit.parentId);
         const i = siblings.findIndex((u) => u.id === unitId);
         const prev = i > 0 ? siblings[i - 1] : undefined;
+        // Shift+Delete/Backspace DELETES the unit; plain Delete/Backspace keeps
+        // the existing "merge into previous" behaviour (no conflict).
+        if (e.shiftKey) {
+          e.preventDefault();
+          const next = prev ?? siblings[i + 1];
+          deleteUnit(unitId);
+          select(next ? { unitId: next.id } : {});
+          return;
+        }
         if (prev && prev.tokenIds.length > 0 && unit.tokenIds.length > 0) {
           e.preventDefault();
           mergeWithPrevious(unitId);
@@ -176,7 +186,7 @@ export function DiscourseView({ doc, editing = false }: { doc: DiscourseDocument
         }
       }
     },
-    [editing, doc, selection.unitId, splitPickUnitId, pendingRelationSource, relationDraft, beginSplit, cancelRelation, select, undo, redo, indentUnit, outdentUnit, mergeWithPrevious],
+    [editing, doc, selection.unitId, splitPickUnitId, pendingRelationSource, relationDraft, beginSplit, cancelRelation, select, undo, redo, indentUnit, outdentUnit, mergeWithPrevious, deleteUnit],
   );
 
   const selectedUnit = selection.unitId

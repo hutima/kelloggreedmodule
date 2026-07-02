@@ -460,6 +460,126 @@ export function unwrapDiscourseUnit(
   return { ...touchDoc(doc, units, now), relations, suggestions };
 }
 
+// --- deletion (remove verse / unit) ------------------------------------------------
+
+/** All descendant unit ids of `unitId` (depth-first; excludes `unitId`). */
+function descendantIds(doc: DiscourseDocument, unitId: string): string[] {
+  const out: string[] = [];
+  const walk = (pid: string) => {
+    for (const c of doc.units.filter((u) => u.parentId === pid)) {
+      out.push(c.id);
+      walk(c.id);
+    }
+  };
+  walk(unitId);
+  return out;
+}
+
+/** True for a pure container unit (no tokens of its own). */
+function isContainer(u: DiscourseUnit): boolean {
+  return u.tokenIds.length === 0;
+}
+
+/** Recompute a container's ref span from the tokens of its descendant leaves. */
+function respanContainers(doc: DiscourseDocument, units: DiscourseUnit[]): DiscourseUnit[] {
+  const childrenOf = (pid: string) => units.filter((u) => u.parentId === pid);
+  const descTokenIds = (id: string): string[] => {
+    const out: string[] = [];
+    const walk = (u: DiscourseUnit) => {
+      if (u.tokenIds.length) out.push(...u.tokenIds);
+      for (const c of childrenOf(u.id)) walk(c);
+    };
+    for (const c of childrenOf(id)) walk(c);
+    return out;
+  };
+  return units.map((u) => {
+    if (!isContainer(u)) return u;
+    const span = refSpanOf(doc, descTokenIds(u.id));
+    if (!span.start && !span.end) return u;
+    return span.start === u.refStart && span.end === u.refEnd
+      ? u
+      : { ...u, refStart: span.start, refEnd: span.end };
+  });
+}
+
+/**
+ * Delete one or more discourse units — a Discourse-layer edit only (source
+ * `KrDocument`s, syntax, sermon notes are never touched). Deleting a container
+ * deletes its whole subtree deliberately, so no child is ever orphaned. After
+ * removal:
+ *   - a container left empty (no children, no tokens) is pruned too;
+ *   - remaining container spans shrink to their surviving descendants;
+ *   - sibling `order` is resequenced and `depth` recomputed;
+ *   - relations touching a deleted unit, markers scoped to (or sitting on a
+ *     token of) a deleted unit, and suggestions referencing one are dropped.
+ * The source token TABLE (`doc.tokens`) is base data and is left intact — it is
+ * regenerated with the base and never part of the patch; only the units that
+ * make text visible are removed, so nothing deleted renders, searches, or
+ * exports. No-op (same doc returned) when nothing matches.
+ */
+export function deleteDiscourseUnits(
+  doc: DiscourseDocument,
+  unitIds: string[],
+  now?: string,
+): DiscourseDocument {
+  const toDelete = new Set<string>();
+  for (const id of unitIds) {
+    if (!unitById(doc, id)) continue;
+    toDelete.add(id);
+    for (const d of descendantIds(doc, id)) toDelete.add(d);
+  }
+  if (!toDelete.size) return doc;
+
+  // Tokens made invisible by this deletion (containers contribute none).
+  const deletedTokenIds = new Set<string>();
+  for (const u of doc.units) {
+    if (toDelete.has(u.id)) for (const t of u.tokenIds) deletedTokenIds.add(t);
+  }
+
+  // Prune ancestor containers that are left empty (no children, no tokens),
+  // iterating upward until the tree is stable.
+  let units = doc.units.filter((u) => !toDelete.has(u.id));
+  for (;;) {
+    const empties = units.filter(
+      (u) => isContainer(u) && !units.some((c) => c.parentId === u.id),
+    );
+    // A leaf-less container that started life as a container (chapter/custom/…)
+    // is noise once emptied; a container the user deletes explicitly is already
+    // in `toDelete`. Only prune those that became empty as a side effect.
+    const newlyEmpty = empties.filter((u) => !toDelete.has(u.id));
+    if (!newlyEmpty.length) break;
+    for (const u of newlyEmpty) toDelete.add(u.id);
+    units = units.filter((u) => !newlyEmpty.some((e) => e.id === u.id));
+  }
+
+  const affectedParents = new Set<string | undefined>();
+  for (const u of doc.units) if (toDelete.has(u.id)) affectedParents.add(u.parentId);
+  for (const p of affectedParents) units = resequence(units, p);
+  units = respanContainers(doc, recomputeDepths(units));
+
+  const relations = doc.relations.filter(
+    (r) => !toDelete.has(r.sourceUnitId) && !toDelete.has(r.targetUnitId),
+  );
+  const markers = doc.markers.filter(
+    (m) => !(m.scopeUnitId && toDelete.has(m.scopeUnitId)) && !deletedTokenIds.has(m.tokenId),
+  );
+  const suggestions = doc.suggestions.filter(
+    (s) =>
+      !s.unitIds.some((id) => toDelete.has(id)) &&
+      !(s.tokenIds ?? []).some((t) => deletedTokenIds.has(t)),
+  );
+  return { ...touchDoc(doc, units, now), relations, markers, suggestions };
+}
+
+/** Delete a single discourse unit (and its subtree). See `deleteDiscourseUnits`. */
+export function deleteDiscourseUnit(
+  doc: DiscourseDocument,
+  unitId: string,
+  now?: string,
+): DiscourseDocument {
+  return deleteDiscourseUnits(doc, [unitId], now);
+}
+
 // --- relations ----------------------------------------------------------------------
 
 export function addDiscourseRelation(
