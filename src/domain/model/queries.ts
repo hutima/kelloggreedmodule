@@ -55,6 +55,11 @@ const VERB_HEADED_ROLES: SyntacticRole[] = [
   'dativeComplement',
   'genitiveComplement',
   'agent',
+  'objectLikeComplement',
+  'accusativeModifier',
+  'accusativeExtent',
+  'accusativeRespect',
+  'retainedAccusative',
 ];
 
 /** The clause node enclosing `nodeId` (walking up parent relations), if any. */

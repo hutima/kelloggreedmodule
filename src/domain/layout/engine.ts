@@ -44,6 +44,12 @@ const BASELINE_COMPLEMENTS: SyntacticRole[] = [
   'objectComplement',
   'dativeComplement',
   'genitiveComplement',
+  // Object-LIKE accusatives sit on the baseline in the object slot too — the
+  // honest label (detail card / connector), not the geometry, carries the
+  // nuance. The adverbial accusatives (extent / respect / neutral modifier)
+  // are NOT here: they hang beneath the verb like other adverbials.
+  'objectLikeComplement',
+  'retainedAccusative',
 ];
 
 /**

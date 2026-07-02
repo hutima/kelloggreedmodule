@@ -87,6 +87,38 @@ const GLOSSARY: Record<string, GlossEntry> = {
     detail: 'The doer of the action in a passive clause (e.g. “by God”).',
   },
 
+  // ── Nuanced Greek accusative functions ──────────────────────────────────
+  objectLikeComplement: {
+    term: 'Object-like complement',
+    abbr: 'obj-like',
+    detail: 'Functions as the thing the verb acts on without being claimed as an ordinary direct object — used where Greek grammar allows more than one analysis.',
+  },
+  accusativeModifier: {
+    term: 'Accusative modifier',
+    abbr: 'acc-mod',
+    detail: 'An accusative attached to the verb whose exact function (extent, respect, retained object…) the analysis deliberately leaves open.',
+  },
+  accusativeExtent: {
+    term: 'Accusative of extent',
+    abbr: 'acc-ext',
+    detail: 'An adverbial accusative telling to what degree or how far — e.g. “not benefited at all”.',
+  },
+  accusativeRespect: {
+    term: 'Accusative of respect',
+    abbr: 'acc-resp',
+    detail: 'An accusative telling in what respect the statement holds — “with respect to…”.',
+  },
+  retainedAccusative: {
+    term: 'Retained accusative',
+    abbr: 'ret-acc',
+    detail: 'An accusative object kept even though the verb is passive (the subject corresponds to the other object of the active construction).',
+  },
+  substantivalPrepositionalPhrase: {
+    term: 'Substantival prepositional phrase',
+    abbr: 'subst-pp',
+    detail: 'An article turning a prepositional phrase into a noun phrase — e.g. τὰ παρ᾽ αὐτῆς, “the things belonging to her”.',
+  },
+
   // ── Modification ────────────────────────────────────────────────────────
   adjectival: {
     term: 'Adjectival modifier',

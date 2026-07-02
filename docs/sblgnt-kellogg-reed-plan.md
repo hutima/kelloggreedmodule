@@ -85,7 +85,7 @@ Guiding rule: **prefer less misleading labels over falsely precise labels.**
 |---|---|---|
 | 1. Documentation | Done | This document + README data-source section. No behavior change. |
 | 2. Mark 5 regression/spec | Done | `tests/mark5-regression.test.ts` + bundled fixtures `tests/fixtures-lowfat-mark-5-25-34.xml`, `tests/fixtures-lowfat-col-1-9-16.xml` (per Tim, no network re-pulls). 5 desired-behavior specs are explicitly marked `it.fails` (they hard-fail once fixed, forcing marker removal); 6 sanity specs pass. |
-| 3. Role/provenance model | Not started | Add nuanced accusative roles + richer provenance; additive only. |
+| 3. Role/provenance model | Done | 6 new `SyntacticRole` values, 3 new `ProvenanceSource` values, `sourceRole`/`editionId` provenance fields; every label map / glossary / guide / layout set updated. Additive only — see Decisions. |
 | 4. KR display labels | Not started | `describe.ts`, layout labels, detail cards. |
 | 5. Converter fixes | Not started | `src/io/lowfat.ts`: passive-participle accusatives, articular PPs. |
 | 6. Source model | Not started | Edition-aware `SyntaxSourceId`s. |
@@ -173,6 +173,43 @@ plus the role vocabulary (Phase 3) and display labels (Phase 4).
   **Colossians 1:9–16** source data into the repo as test fixtures so tests
   don't re-pull from the network (feeds Phase 2).
 
+### Phase 3 type decisions (2026-07-02)
+
+New `SyntacticRole` values (`src/domain/schema/syntax.ts`) — additive, so old
+documents parse unchanged:
+
+- `objectLikeComplement` — object-like accusative (renders on the baseline in
+  the object slot; the label carries the nuance)
+- `accusativeModifier` — the neutral default when the converter cannot decide
+  (renders beneath the verb like an adverbial)
+- `accusativeExtent`, `accusativeRespect` — the two named adverbial
+  accusatives (beneath the verb)
+- `retainedAccusative` — only when the analysis marks it explicitly (baseline
+  object slot)
+- `substantivalPrepositionalPhrase` — article + PP functioning as a noun
+
+New `ProvenanceSource` values (`src/domain/schema/primitives.ts`):
+`converted` (interpretive converter mapping), `reconstructed` (rebuilt for
+display, not source-faithful), `alternate` (reviewer/alternate overlay).
+New optional `Provenance` fields: `sourceRole` (the raw source role, e.g.
+Lowfat `role="o"`, preserved whenever a converter relabels) and `editionId`
+(populated when sources become edition-aware in phases 6+). We did NOT adopt
+the spec's suggested numeric-confidence shape — the existing
+`high|medium|low` enum is already used app-wide and is enough to express
+"uncertain"; `sourceRole` + `reason` carry the audit trail. `uncertainComplement`
+was likewise folded into `accusativeModifier` + confidence, keeping the enum
+tight.
+
+Updated consumers: `ui/editor/roles.ts` (ROLE_LABEL is the one exhaustive
+map, + descriptions), `model/describe.ts` (detail-card phrases),
+`model/glossary.ts`, `ui/editor/relationshipGuide.ts` (new "Nuanced Greek
+accusatives" family — its test enforces every role is documented exactly
+once), `layout/modes/dependency.ts` (SHORT_ROLE tags), `layout/modes/
+phrase-block.ts`, `layout/constants.ts` (arc colour families),
+`layout/engine.ts` (BASELINE_COMPLEMENTS gains objectLikeComplement +
+retainedAccusative), `model/queries.ts` (VERB_HEADED_ROLES so re-roled words
+attach to the verb).
+
 ## Open questions for Tim
 
 Answered 2026-07-02 (see "Decisions made"): Mark 5 demo-passage question (no —
@@ -197,14 +234,15 @@ Still open:
 
 ## Resume instructions if interrupted
 
-Current phase: 2 complete; next is 3 (role/provenance model).
-Changed files: `README.md`, `docs/sblgnt-kellogg-reed-plan.md`,
-`tests/mark5-regression.test.ts`, `tests/fixtures-lowfat-mark-5-25-34.xml`,
-`tests/fixtures-lowfat-col-1-9-16.xml`.
+Current phase: 3 complete; next is 4 (Kellogg-Reed display labels).
+Changed files (phase 3): `src/domain/schema/syntax.ts`, `src/domain/schema/
+primitives.ts`, `src/domain/model/{describe,glossary,queries}.ts`,
+`src/domain/layout/{constants,engine}.ts`, `src/domain/layout/modes/
+{dependency,phrase-block}.ts`, `src/ui/editor/{roles,relationshipGuide}.ts`.
 Current build/test status: typecheck clean; 58 files / 623 tests pass
 (5 Mark 5 desired-behavior specs are inverted via `it.fails`).
-Known broken behavior: the Mark 5:26 role mapping (bugs A/B/C above) — now
-captured by `tests/mark5-regression.test.ts`.
-Next smallest safe task: Phase 3 — add nuanced accusative / substantival-PP
-role values to `SyntacticRoleSchema` (additive) and audit provenance so a
-relation can record source role vs display role and uncertainty.
+Known broken behavior: the Mark 5:26 role mapping (bugs A/B/C above) — the
+new roles exist but nothing emits them yet.
+Next smallest safe task: Phase 4 — make detail cards / connector labels /
+tooltips surface the nuanced roles and provenance (`sourceRole`, `converted`)
+honestly; verify English + Hebrew displays unchanged.
