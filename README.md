@@ -51,6 +51,30 @@ side-by-side** with linked scrolling and difference highlighting, and on desktop
 **adopt** a structural alternate as your custom parse. See `src/data/contestedSyntax.ts`
 and `src/domain/contested/`.
 
+## Greek data sources: current and target
+
+The Greek NT pipeline is being rebased around **SBLGNT Lowfat / MACULA Greek**
+as the primary/default Greek edition. Status and intent:
+
+- **Today** the Greek NT base is the **Nestle1904 Lowfat** syntax tree
+  (macula-greek), with **OpenText.org** available as an alternate syntax
+  source and Hebrew served by **WLC Lowfat** (macula-hebrew).
+- **Target**: **SBLGNT Lowfat** becomes the primary/default Greek edition;
+  **Nestle1904 Lowfat** remains available as a legacy/alternate edition;
+  **OpenText** remains a secondary/alternate syntax source; **Hebrew WLC
+  Lowfat is unchanged**.
+- The **BSB English alignment** (Clear-Bible) is already keyed to an SBLGNT
+  base, so alignment becomes simpler and more direct once SBLGNT is primary —
+  the Strong's/lemma fallback matching stays for other editions.
+- The rebase is partly infrastructure for better **Greek syntax /
+  Kellogg-Reed display** work: less misleading role labels (e.g. not calling
+  every accusative a "direct object"), articular/substantival prepositional
+  phrases, and honest provenance/uncertainty. The active source is always
+  visibly labeled; sources never change silently.
+
+The staged plan, phase status, and the Mark 5:26 core regression are tracked
+in [`docs/sblgnt-kellogg-reed-plan.md`](./docs/sblgnt-kellogg-reed-plan.md).
+
 ## Features
 
 - **Four visualizations over one graph** — Kellogg-Reed (formal SVG diagram),
@@ -58,7 +82,8 @@ and `src/domain/contested/`.
   arcs), and Morphology / Word Details (forms + agreement arcs).
 - **Tier-aware editing** — per-mode Basic and Advanced edit experiences, a
   mode-aware "How to edit" help, visual linking, and a relationship quick-picker.
-- **Gold-standard data** — GNT (Nestle1904 LowFat, macula-greek) and OT (WLC
+- **Gold-standard data** — GNT (Nestle1904 LowFat, macula-greek — SBLGNT
+  LowFat is being introduced as the primary edition, see above) and OT (WLC
   LowFat, macula-hebrew), fetched on demand and cached; Philippians is bundled
   for offline/first-run. Hand-tagged sample documents are bundled too.
 - **Strong's lexicon** — the whole Greek + Hebrew Strong's dictionary (Open
