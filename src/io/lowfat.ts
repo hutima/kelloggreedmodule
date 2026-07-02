@@ -3,6 +3,7 @@ import type {
   Language,
   Morphology,
   PartOfSpeech,
+  Provenance,
   Relation,
   SyntacticRole,
   SyntaxNode,
@@ -24,7 +25,17 @@ import { mergeSharedSubjectPredicate } from '@/domain/model';
  * by agreement and the diagram is faithful to the published analysis.
  *
  * The conversion is gold-standard: every node/relation is marked
- * `source: 'given'`, so nothing renders as a tentative guess.
+ * `source: 'given'`, so nothing renders as a tentative guess — with two
+ * deliberate, honestly-labelled exceptions (see
+ * docs/sblgnt-kellogg-reed-plan.md; Mark 5:26 is the regression case):
+ *
+ *   • an accusative `o` dependent of a PASSIVE verb is not claimed as an
+ *     ordinary direct object — it becomes a neutral `accusativeModifier`
+ *     marked `converted` with the raw source role preserved;
+ *   • an ARTICULAR PP (an article nominalizing a prepositional phrase, with
+ *     no substantive head word — τὰ παρ᾽ αὐτῆς, τὰ περὶ τοῦ Ἰησοῦ) is rooted
+ *     on its ARTICLE, so a quantifier like πάντα modifies the substantival
+ *     phrase instead of being promoted to a bare "direct object".
  */
 
 const POS: Record<string, PartOfSpeech> = {
@@ -184,7 +195,13 @@ export class SentenceConverter {
     });
   }
 
-  private rel(type: SyntacticRole, headId: string, dependentId: string, label?: string): void {
+  private rel(
+    type: SyntacticRole,
+    headId: string,
+    dependentId: string,
+    label?: string,
+    provenance?: Provenance,
+  ): void {
     if (headId === dependentId) return;
     // An explicit label wins; otherwise inherit a stashed subordinator, if any —
     // and carry the subordinator's own node so the connector label is selectable.
@@ -197,7 +214,7 @@ export class SentenceConverter {
       dependentId,
       label: inheritedLabel,
       ...(labelNodeId ? { labelNodeId } : {}),
-      provenance: { source: 'given', confidence: 'high' },
+      provenance: provenance ?? { source: 'given', confidence: 'high' },
     });
   }
 
@@ -334,6 +351,13 @@ export class SentenceConverter {
     if (tag(el) === 'w') return el.getAttribute('class') === 'adj';
     const h = this.headChild(el);
     return h ? this.isAdjective(h) : false;
+  }
+
+  /** The ultimate head WORD of a constituent (following head marking down). */
+  private ultimateHeadWord(el: Element): Element | undefined {
+    if (tag(el) === 'w') return el;
+    const h = this.headChild(el);
+    return h ? this.ultimateHeadWord(h) : undefined;
   }
 
   /** Convert any constituent, returning the id of its representative node. */
@@ -520,9 +544,30 @@ export class SentenceConverter {
         case 's':
           this.rel('subject', clauseId, rep);
           break;
-        case 'o':
-          this.rel('directObject', verbId, rep);
+        case 'o': {
+          // A PASSIVE verb's accusative "object" is not claimed as an ordinary
+          // direct object: Greek allows an adverbial accusative of extent, an
+          // accusative of respect, or a retained accusative here (μηδὲν
+          // ὠφεληθεῖσα, Mark 5:26), and the source's bare `o` does not decide.
+          // The neutral `accusativeModifier` says exactly as much as is known;
+          // provenance preserves the raw source role and the reasoning. Only
+          // explicit `voice="passive"` qualifies — middle-passive forms stay
+          // ordinary objects, since the middle reading takes a real object.
+          const passive = verbEl && this.ultimateHeadWord(verbEl)?.getAttribute('voice') === 'passive';
+          const accusative = this.ultimateHeadWord(child)?.getAttribute('case') === 'accusative';
+          if (passive && accusative) {
+            this.rel('accusativeModifier', verbId, rep, undefined, {
+              source: 'converted',
+              confidence: 'medium',
+              sourceRole: 'o',
+              reason:
+                'Accusative with a passive verb — extent, respect, or retained object; the ordinary direct-object label is not claimed.',
+            });
+          } else {
+            this.rel('directObject', verbId, rep);
+          }
           break;
+        }
         case 'o2':
           this.rel('objectComplement', verbId, rep);
           break;
@@ -549,8 +594,93 @@ export class SentenceConverter {
     return clauseId;
   }
 
+  /**
+   * An NP in which the ARTICLE nominalizes a prepositional phrase — τὰ παρ᾽
+   * αὐτῆς ("the things belonging to her"), τὰ περὶ τοῦ Ἰησοῦ ("the things
+   * concerning Jesus") — rather than agreeing with a substantive head word.
+   * Detected when the np carries a det child, its ultimate head word is NOT a
+   * noun/pronoun (so the article is the nominalizer), and the phrase content is
+   * a PP (a direct child, or a direct child of the head-marked inner np —
+   * Lowfat writes both shapes: `NpPp` heads the article, `DetNP`+`PpNp2Np`
+   * heads a quantifier like πάντα). Returns the pieces, or null when this is an
+   * ordinary NP.
+   */
+  private articularPpParts(
+    el: Element,
+  ): { det: Element; pps: Element[]; mods: Element[] } | null {
+    if (el.getAttribute('class') !== 'np') return null;
+    const kids = constituents(el);
+    const det = kids.find((c) => tag(c) === 'w' && c.getAttribute('class') === 'det');
+    if (!det) return null;
+    const headEl = this.headChild(el);
+    const headWord = headEl && headEl !== det ? this.ultimateHeadWord(headEl) : undefined;
+    const headCls = headWord?.getAttribute('class');
+    if (headCls === 'noun' || headCls === 'pron') return null; // ordinary articular NP
+    const pps: Element[] = [];
+    const mods: Element[] = [];
+    for (const c of kids) {
+      if (c === det) continue;
+      if (c.getAttribute('class') === 'pp') {
+        pps.push(c);
+      } else if (c === headEl && tag(c) === 'wg' && c.getAttribute('class') === 'np') {
+        // one level of flattening: the inner np holding the PP plus modifiers
+        for (const inner of constituents(c)) {
+          if (inner.getAttribute('class') === 'pp') pps.push(inner);
+          else mods.push(inner);
+        }
+      } else {
+        mods.push(c);
+      }
+    }
+    return pps.length ? { det, pps, mods } : null;
+  }
+
+  /**
+   * Root an articular PP on its ARTICLE — the substantival reading. The PP
+   * hangs beneath the article, and any quantifier/adjective (πάντα) modifies
+   * the whole nominalized phrase instead of being promoted to phrase head (the
+   * source marks πάντα `head="true"`, which naive percolation would otherwise
+   * turn into a bare "direct object" — the Mark 5:26 bug). Both Mark 5 shapes
+   * come out identical, so the presence of πάντα no longer forces an
+   * artificial structural difference. Relations that re-read the source's head
+   * marking are stamped `converted` with the raw source role preserved.
+   */
+  private convertArticularPp(
+    el: Element,
+    { det, pps, mods }: { det: Element; pps: Element[]; mods: Element[] },
+  ): string {
+    const detId = this.wordNode(det);
+    const detNode = this.nodes.find((n) => n.id === detId);
+    if (detNode && !detNode.role) detNode.role = 'substantivalPrepositionalPhrase';
+    this.stampCategory(detId, el.getAttribute('class'));
+    for (const pp of pps) {
+      this.rel('prepositionalPhrase', detId, this.convert(pp), undefined, {
+        source: 'converted',
+        confidence: 'high',
+        sourceRole: pp.getAttribute('head') === 'true' ? 'head' : undefined,
+        reason: 'Article + prepositional phrase read as a substantival phrase ("the things …").',
+      });
+    }
+    const rule = el.getAttribute('rule') ?? '';
+    for (const m of mods) {
+      const mapped = this.phraseChildRole(m, rule, false);
+      // A bare word beside the nominalized phrase reads as its modifier, not an
+      // apposition to it.
+      const role = mapped === 'apposition' ? 'adjectival' : mapped;
+      this.rel(role, detId, this.convert(m), undefined, {
+        source: 'converted',
+        confidence: 'medium',
+        sourceRole: m.getAttribute('head') === 'true' ? 'head' : (m.getAttribute('role') ?? undefined),
+        reason: 'Read as modifying the substantival article phrase rather than heading it.',
+      });
+    }
+    return detId;
+  }
+
   /** A phrase (np/vp/adjp/advp): head plus modifiers attached beneath it. */
   private convertPhrase(el: Element): string {
+    const substantival = this.articularPpParts(el);
+    if (substantival) return this.convertArticularPp(el, substantival);
     const head = this.headChild(el);
     if (!head) return `w_${this.key(el)}`;
     const repId = this.convert(head);

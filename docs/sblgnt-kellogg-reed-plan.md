@@ -87,7 +87,7 @@ Guiding rule: **prefer less misleading labels over falsely precise labels.**
 | 2. Mark 5 regression/spec | Done | `tests/mark5-regression.test.ts` + bundled fixtures `tests/fixtures-lowfat-mark-5-25-34.xml`, `tests/fixtures-lowfat-col-1-9-16.xml` (per Tim, no network re-pulls). 5 desired-behavior specs are explicitly marked `it.fails` (they hard-fail once fixed, forcing marker removal); 6 sanity specs pass. |
 | 3. Role/provenance model | Done | 6 new `SyntacticRole` values, 3 new `ProvenanceSource` values, `sourceRole`/`editionId` provenance fields; every label map / glossary / guide / layout set updated. Additive only — see Decisions. |
 | 4. KR display labels | Done | Detail cards gain an italic "Analysis:" provenance/uncertainty line (`analysisNote` in `describe.ts`, rendered in `DiagramCanvas`) — shown only when there is something worth disclosing (conversion, inference, reconstruction, preserved raw source role, non-high confidence). Role labels/phrases landed in phase 3. Geometry decision: object-like/retained accusatives sit in the object slot, adverbial accusatives hang beneath the verb; per Tim the diagram stays neutral and detail cards carry the nuance. |
-| 5. Converter fixes | Not started | `src/io/lowfat.ts`: passive-participle accusatives, articular PPs. |
+| 5. Converter fixes | Done | `src/io/lowfat.ts`: (1) accusative `o` under an explicitly PASSIVE verb → `accusativeModifier`, provenance `converted`/`medium` with `sourceRole: 'o'` (middle-passive left alone — the middle reading takes a real object); (2) articular PPs (det + PP content, no substantive head word) rooted on the ARTICLE (`role: substantivalPrepositionalPhrase`), PP + πάντα-style modifiers beneath it with `converted` provenance preserving the source's `head` marking. Both Mark 5 shapes now identical. All 5 `it.fails` specs flipped to ordinary regressions + 4 new detail specs; 630 tests pass. Hebrew unaffected (no `voice`/`case` attributes; detection requires `class="np"` + `det`). |
 | 6. Source model | Not started | Edition-aware `SyntaxSourceId`s. |
 | 7. SBLGNT loader | Not started | Keep Nestle1904 loader intact. |
 | 8. Default switch | Not started | Only after loader tests pass. |
@@ -173,6 +173,17 @@ plus the role vocabulary (Phase 3) and display labels (Phase 4).
   **Colossians 1:9–16** source data into the repo as test fixtures so tests
   don't re-pull from the network (feeds Phase 2).
 
+- 2026-07-02 (phase 5) — With the articular PP rooted on its article, the
+  whole phrase under the ACTIVE participle δαπανήσασα keeps the plain
+  `directObject` relation (an accusative articular NP object of an active verb
+  IS an ordinary direct object; the fix was *what* the object is, not the
+  role). `objectLikeComplement` stays reserved for genuinely
+  undecided object-ish cases. Relates to Tim's open question 1 — flag if you
+  want the phrase labelled "object-like" instead.
+- 2026-07-02 (phase 5) — Only explicit `voice="passive"` triggers the
+  accusative downgrade; middle-passive forms keep their object (the middle
+  reading takes a real object, and downgrading those would over-reach).
+
 ### Phase 3 type decisions (2026-07-02)
 
 New `SyntacticRole` values (`src/domain/schema/syntax.ts`) — additive, so old
@@ -234,18 +245,19 @@ Still open:
 
 ## Resume instructions if interrupted
 
-Current phase: 4 complete; next is 5 (Lowfat converter fixes for Mark 5).
-Changed files (phase 4): `src/domain/model/describe.ts` (`analysisNote` +
-`FunctionSummary.analysis`), `src/ui/components/DiagramCanvas.tsx` (both
-detail-card spots), `src/ui/styles/global.css`, `tests/describe.test.ts`.
-Current build/test status: typecheck + lint clean; 58 files / 627 tests pass
-(5 Mark 5 desired-behavior specs still inverted via `it.fails`).
-Known broken behavior: the Mark 5:26 role mapping (bugs A/B/C above) — the
-roles and display paths exist but the converter does not emit them yet.
-Next smallest safe task: Phase 5 — in `src/io/lowfat.ts`: (1) passive
-participle/verb + accusative `o` dependent → `accusativeModifier` with
-provenance `converted`, `sourceRole: 'o'`, confidence `medium`, reason; (2)
-articular `<wg class="np">` containing a PP → substantival phrase whose head
-is the ARTICLE (consistent for both Mark 5 shapes), with πάντα-style
-adjectives as `adjectival` modifiers of that phrase and the whole phrase as
-`objectLikeComplement` when the source role is `o`.
+Current phase: 5 complete — the core Mark 5:26 bug is FIXED. Next is 6
+(edition-aware source model), the start of the SBLGNT rebase infrastructure.
+Changed files (phase 5): `src/io/lowfat.ts` (passive-`o` downgrade +
+articular-PP rooting), `tests/mark5-regression.test.ts` (`it.fails` markers
+removed; 4 new converter-detail specs + a layout smoke).
+Current build/test status: typecheck + lint clean; 58 files / 631 tests pass.
+Mark 5:26 now converts as: δαπανήσασα —directObject→ τά(substantival PP head,
+παρ᾽ αὐτῆς PP + πάντα adjectival beneath) · ὠφεληθεῖσα —accusativeModifier→
+μηδέν (converted/medium, sourceRole 'o') · ἀκούσασα —directObject→ τά — the
+two articular PPs are structurally identical.
+Known broken behavior: none known for the core bug; the SBLGNT rebase
+(phases 6–13) has not started.
+Next smallest safe task: Phase 6 — make `SyntaxSourceId` edition-aware
+(`macula-greek-nestle1904-lowfat`, `opentext`, …) in `src/io/sources.ts`
+without changing behavior, and audit patch-base metadata (`baseHash` exists;
+add source/edition id).
