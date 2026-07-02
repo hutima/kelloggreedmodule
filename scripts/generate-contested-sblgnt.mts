@@ -132,15 +132,21 @@ const RELATION_OVERRIDES = {
   iss_gal_2_16_pistis_christou: { r_s28_25: 'RECOMPUTE:pistis-iesou-genitive' },
 };
 
-// Issues excluded from this generation pass: their SBLGNT base tree has a
-// STRUCTURAL shape (not just a different relation id) that the current
-// SBLGNT converter's head-inference does not reproduce faithfully for this
-// specific construction (documented in docs/sblgnt-kellogg-reed-plan.md).
+// Issues excluded from this generation pass. The two remaining exclusions
+// are NOT converter gaps: SBLGNT's own base tree genuinely resolves these
+// constructions differently, so mirroring the Nestle1904 debate framing
+// would misdescribe this edition (see the contestedSyntaxSblgnt.ts header).
+// Titus 2:13 and Col 1:15 were unblocked by the Stage 5–6 head-inference
+// fixes and are hand-authored in contestedSyntaxSblgnt.ts — note that
+// Titus 2:13 needs the Gal-2:16-style word-order correction (SBLGNT reads
+// "Ἰησοῦ Χριστοῦ", so the apposition dependent of θεοῦ is Ἰησοῦ, not
+// Χριστοῦ; this generator's dependent-tracking would map to Χριστοῦ's
+// relation instead — verify by hand if regenerating).
 const EXCLUDED = new Set([
-  'iss_titus_2_13_granville',
-  'iss_matt_4_3_command',
-  'iss_2cor_5_4_leedy',
-  'iss_col_1_15_firstborn',
+  'iss_matt_4_3_command', // SBLGNT base = the Nestle1904 ALTERNATE; debate invisible
+  'iss_2cor_5_4_leedy', // SBLGNT base differs from the Nestle1904 default this issue describes
+  'iss_titus_2_13_granville', // mirrored by hand (word-order correction) — do not regenerate blindly
+  'iss_col_1_15_firstborn', // mirrored by hand — verified r_s3_115
   'iss_rom_9_5_doxology', // merge case — handled separately (hand-authored)
 ]);
 

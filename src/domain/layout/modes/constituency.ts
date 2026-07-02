@@ -133,8 +133,16 @@ interface ConsNode {
   implied?: boolean;
   /** Incoming relation type (for the branch label + colour); undefined at the root. */
   role?: SyntacticRole;
-  /** RAW source role/head marking (source tree only) — shown verbatim on the chip. */
+  /** RAW source role (source tree only) — shown verbatim on the chip. */
   rawRole?: string;
+  /** Source `head="true"` marking (source tree only) — shown on the chip even
+   *  when the node also carries a role, so Nestle1904's explicit head marking
+   *  is never masked. */
+  srcHead?: boolean;
+  /** Source phrase rule (DetNP, QuanPp, NpaNp…) — shown beside the category. */
+  rule?: string;
+  /** Source articular marking — shown beside the category. */
+  articular?: boolean;
   /** Earliest surface index in the subtree, for ordering siblings. */
   order: number;
   children: ConsNode[];
@@ -150,8 +158,9 @@ function buildSourceTree(doc: KrDocument, tree: SourceConstituencyTree): ConsNod
   for (const n of doc.syntax.nodes) for (const t of n.tokenIds) tokenToNode.set(t, n.id);
 
   const walk = (n: SourceConstituencyNode): ConsNode | undefined => {
-    // `head` marking is worth showing, but a bare `cl` wrapper role is noise.
-    const raw = n.role && n.role !== 'cl' ? n.role : n.head ? 'head' : undefined;
+    // A bare `cl` wrapper role is noise (the S category already says it), but
+    // every other raw role — and any `head="true"` marking — is shown verbatim.
+    const raw = n.role && n.role !== 'cl' ? n.role : undefined;
     if (n.kind === 'word') {
       const tok = n.tokenIds?.length ? tokenById.get(n.tokenIds[0]!) : undefined;
       if (!tok) return undefined;
@@ -161,19 +170,26 @@ function buildSourceTree(doc: KrDocument, tree: SourceConstituencyTree): ConsNod
         gloss: tok.gloss,
         nodeId: tokenToNode.get(tok.id),
         rawRole: raw,
+        srcHead: n.head,
         order: tok.index,
         children: [],
       };
     }
     const kids = n.children.map(walk).filter((k): k is ConsNode => Boolean(k));
     if (!kids.length) return undefined;
-    // Collapse a categoryless single-child wrapper — it adds a depth column
-    // without saying anything (Lowfat's outer <wg role="cl"> shell).
-    if (!n.cat && !raw && kids.length === 1) return kids[0];
+    // Collapse a single-child wrapper that says NOTHING (no class, role, rule,
+    // articular, or head marking) — it adds a depth column without content
+    // (Lowfat's outer <wg role="cl"> shell). Any wrapper carrying source
+    // information — including a classless SBLGNT coordination wrapper whose
+    // only content is its `rule` — stays visible as a source node.
+    if (!n.cat && !raw && !n.head && !n.rule && !n.articular && kids.length === 1) return kids[0];
     const cat = n.cat ? (SOURCE_WG_CAT[n.cat] ?? n.cat.toUpperCase()) : '';
     return {
       cat,
       rawRole: raw,
+      srcHead: n.head,
+      rule: n.rule,
+      articular: n.articular,
       order: Math.min(...kids.map((k) => k.order)),
       // Source child order is authoritative — never re-sorted.
       children: kids,
@@ -297,14 +313,30 @@ export function layoutConstituency(
 
   const STEM_H = 16; // horizontal: dotted POS-tag → word connector length
 
-  const chipLabel = (n: ConsNode): string | undefined =>
-    n.rawRole ?? (n.role ? SHORT_ROLE[n.role] : undefined);
+  // Source chips show the raw role AND the head marking together ("s · head"),
+  // so an explicit Nestle1904 head is never hidden behind a role.
+  const chipLabel = (n: ConsNode): string | undefined => {
+    if (n.rawRole || n.srcHead) {
+      return [n.rawRole, n.srcHead ? 'head' : undefined].filter(Boolean).join(' · ');
+    }
+    return n.role ? SHORT_ROLE[n.role] : undefined;
+  };
   const chipColor = (n: ConsNode): string =>
     n.role
       ? relationColor(n.role)
-      : n.rawRole && n.rawRole !== 'head'
+      : n.rawRole
         ? relationColor(SOURCE_ROLE_COLOR[n.rawRole] ?? 'unknown')
         : ROOT_COLOR;
+  // Source phrase rule + articular marking, shown small beside the category —
+  // raw and untranslated (QuanPp stays "QuanPp", never an app-role claim).
+  const srcMeta = (n: ConsNode): string | undefined => {
+    const parts = [n.rule, n.articular ? 'art.' : undefined].filter(Boolean);
+    return parts.length ? parts.join(' · ') : undefined;
+  };
+  const srcMetaW = (n: ConsNode): number => {
+    const m = srcMeta(n);
+    return m ? (n.cat ? 6 : 0) + width(m, true) : 0;
+  };
   const chipW = (n: ConsNode | undefined): number => {
     const l = n && chipLabel(n);
     return l ? width(l, true) + CHIP_PAD : 0;
@@ -316,9 +348,11 @@ export function layoutConstituency(
   // POS tag above its word, so the leaf is only as wide as the widest line;
   // horizontal lays "tag ⋯ word" in a row, so it is that whole run wide.
   const textW = (n: ConsNode): number =>
-    n.word ? Math.max(width(n.word), width(n.cat, true), n.gloss ? width(n.gloss, true) : 0) : width(n.cat);
+    n.word
+      ? Math.max(width(n.word), width(n.cat, true), n.gloss ? width(n.gloss, true) : 0)
+      : width(n.cat) + srcMetaW(n);
   const nodeWh = (n: ConsNode): number =>
-    n.word ? (n.cat ? width(n.cat, true) + STEM_H : 0) + wordBlockW(n) : width(n.cat);
+    n.word ? (n.cat ? width(n.cat, true) + STEM_H : 0) + wordBlockW(n) : width(n.cat) + srcMetaW(n);
   // Cross-axis footprint when VERTICAL: text width + the role chip riding the
   // branch into it (so a narrow leaf's chip can't overlap a sibling) + padding.
   const ownWidth = (n: ConsNode): number => Math.max(textW(n), chipW(n)) + SLOT_GAP;
@@ -407,10 +441,27 @@ export function layoutConstituency(
       if (n.gloss && hasGloss && n.gloss !== n.word) {
         elements.push(text(x, wy + LAYOUT.fontSize + 2, n.gloss, { anchor: 'middle', small: true, muted: true, nodeId: n.nodeId }));
       }
-    } else if (n.cat) {
+    } else if (n.cat || srcMeta(n)) {
       // Internal category node (S, NP, VP…) — tappable for what the symbol means,
-      // and still highlights its constituent on hover via its head node id.
-      elements.push(text(x, y, n.cat, { anchor: 'middle', nodeId: n.nodeId, color: ROOT_COLOR, glossKey: phraseGlossKey(n.cat) }));
+      // and still highlights its constituent on hover via its head node id. A
+      // source node's raw phrase rule / articular marking rides beside it small
+      // and untranslated; a classless source wrapper shows just that metadata.
+      const meta = srcMeta(n);
+      const catW = n.cat ? width(n.cat) : 0;
+      const total = catW + (meta ? srcMetaW(n) : 0);
+      const left = x - total / 2;
+      if (n.cat) {
+        elements.push(
+          text(left + catW / 2, y, n.cat, { anchor: 'middle', nodeId: n.nodeId, color: ROOT_COLOR, glossKey: phraseGlossKey(n.cat) }),
+        );
+      }
+      if (meta) {
+        elements.push(
+          text(left + catW + (n.cat ? 6 : 0) + width(meta, true) / 2, y, meta, {
+            anchor: 'middle', small: true, italic: true, muted: true,
+          }),
+        );
+      }
     }
   };
   draw(tree);

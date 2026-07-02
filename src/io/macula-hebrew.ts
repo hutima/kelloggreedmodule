@@ -1,6 +1,11 @@
 import type { KrDocument, Morphology, PartOfSpeech } from '@/domain/schema';
 import { SCHEMA_VERSION } from '@/domain/schema';
-import { parseXml, SentenceConverter, type LowfatDialect } from './lowfat';
+import {
+  captureSourceConstituency,
+  parseXml,
+  SentenceConverter,
+  type LowfatDialect,
+} from './lowfat';
 
 /**
  * Convert a Clear-Bible **macula-hebrew** (WLC) Lowfat syntax tree into our
@@ -130,6 +135,11 @@ export const hebrewDialect: LowfatDialect = {
 export interface MaculaHebrewDocOptions {
   /** Display book name, e.g. "Genesis". Falls back to the chapter id's code. */
   book?: string;
+  /** When set, each document also preserves the source `<wg>` hierarchy
+   *  verbatim as `sourceConstituency`, attributed to this source id —
+   *  macula-hebrew uses the same head-marked Lowfat `<wg>` shape as the
+   *  Greek editions, so the shared capture helper applies unchanged. */
+  sourceId?: string;
 }
 
 /** Convert every `<sentence>` in a macula-hebrew chapter into a document. */
@@ -150,6 +160,10 @@ export function maculaHebrewToDocuments(
     const conv = new SentenceConverter(`h${i}_`, hebrewDialect);
     const rootId = conv.convert(topWg);
     if (!conv.tokens.length) return;
+    // Rescue any word left unattached — e.g. a sentence-initial compound
+    // subordinator (כִּי אִם) on the OUTERMOST clause, whose stashed connector
+    // label has no incoming relation to ride (same rescue as the Greek path).
+    conv.rescueOrphans(rootId);
     conv.orderTokensBySurface();
 
     const ref = hebrewVerseRef(sentence);
@@ -168,6 +182,9 @@ export function maculaHebrewToDocuments(
       layoutHints: {},
       tokens: conv.tokens,
       syntax: { rootId, nodes: conv.nodes, relations: conv.relations },
+      ...(opts.sourceId
+        ? { sourceConstituency: captureSourceConstituency(topWg, hebrewDialect, opts.sourceId) }
+        : {}),
     });
   });
   return docs;

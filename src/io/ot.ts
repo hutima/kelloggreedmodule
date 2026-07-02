@@ -87,7 +87,10 @@ export function chapterFile(book: OtBook, chapter: number): string {
 /** Fetch and convert a chapter into one document per sentence. */
 export async function loadOtChapter(book: OtBook, chapter: number): Promise<KrDocument[]> {
   const xml = await fetchChapterXml(book, chapter);
-  return maculaHebrewToDocuments(xml, { book: book.name });
+  return maculaHebrewToDocuments(xml, {
+    book: book.name,
+    sourceId: 'macula-hebrew-wlc-lowfat',
+  });
 }
 
 /**

@@ -68,6 +68,10 @@ function prefixDoc(doc: KrDocument, p: string) {
     id: id(r.id),
     headId: id(r.headId),
     dependentId: id(r.dependentId),
+    // A connector-label node (subordinator riding the line) is referenced by
+    // id too — without prefixing it the combined passage's label references
+    // dangle and the label word's node becomes unreachable.
+    ...(r.labelNodeId ? { labelNodeId: id(r.labelNodeId) } : {}),
   }));
   return { rootId: id(doc.syntax.rootId), tokens, nodes, relations };
 }
