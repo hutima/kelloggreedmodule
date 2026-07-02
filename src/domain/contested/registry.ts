@@ -1,14 +1,19 @@
 import type { KrDocument, ContestedSyntaxIssue, AlternateReading } from '@/domain/schema';
 import { contestedRegistry } from '@/data/contestedSyntax';
+import { contestedRegistrySblgnt } from '@/data/contestedSyntaxSblgnt';
 
 /**
  * Read-only accessors over the contested-syntax registry. The CURATED registry is
- * a module constant matched to a passage by its STABLE document id; on top of it
- * sits a small runtime OVERLAY of USER / LLM-imported variants (a full standalone
- * parse per reading). The overlay is registered by the store when a passage loads
- * (from local storage) and after an import, so every accessor below — and thus the
- * badge, the panel, and the dropdown — surface user variants alongside curated
- * ones without any call site needing to know the difference.
+ * TWO module constants — the Nestle1904/WLC-anchored `contestedRegistry` and the
+ * SBLGNT-anchored `contestedRegistrySblgnt` (mirroring the same curated debates
+ * onto SBLGNT's own ids; see `src/data/contestedSyntaxSblgnt.ts`) — each entry
+ * matched to a passage by its STABLE document id, so a passage only ever sees the
+ * issues authored for ITS OWN edition. On top of both sits a small runtime OVERLAY
+ * of USER / LLM-imported variants (a full standalone parse per reading). The
+ * overlay is registered by the store when a passage loads (from local storage)
+ * and after an import, so every accessor below — and thus the badge, the panel,
+ * and the dropdown — surface user variants alongside curated ones without any
+ * call site needing to know the difference.
  */
 
 let userIssues: ContestedSyntaxIssue[] = [];
@@ -26,11 +31,11 @@ export function getUserContested(): { issues: ContestedSyntaxIssue[]; readings: 
 }
 
 export function allContestedIssues(): ContestedSyntaxIssue[] {
-  return [...contestedRegistry.issues, ...userIssues];
+  return [...contestedRegistry.issues, ...contestedRegistrySblgnt.issues, ...userIssues];
 }
 
 export function allAlternateReadings(): AlternateReading[] {
-  return [...contestedRegistry.readings, ...userReadings];
+  return [...contestedRegistry.readings, ...contestedRegistrySblgnt.readings, ...userReadings];
 }
 
 export function getIssuesForPassage(doc: KrDocument): ContestedSyntaxIssue[] {

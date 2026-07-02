@@ -23,12 +23,13 @@ globalThis.DOMParser = win.DOMParser;
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 
-const { lowfatToDocuments } = await import('../src/io/lowfat.ts');
+const { lowfatToDocuments, sblgntDialect } = await import('../src/io/lowfat.ts');
 const { maculaHebrewToDocuments } = await import('../src/io/macula-hebrew.ts');
 const { GNT_BOOKS } = await import('../src/io/gnt.ts');
 const { OT_BOOKS, chapterFile } = await import('../src/io/ot.ts');
 const { sampleDocuments } = await import('../src/fixtures/index.ts');
 const { contestedRegistry } = await import('../src/data/contestedSyntax.ts');
+const { contestedRegistrySblgnt } = await import('../src/data/contestedSyntaxSblgnt.ts');
 const { applyAlternateReadingPreview } = await import('../src/domain/contested/apply.ts');
 const { layoutForMode } = await import('../src/domain/layout/index.ts');
 const { combinePassage } = await import('../src/io/passage.ts');
@@ -37,11 +38,22 @@ type Doc = (typeof sampleDocuments)[number];
 
 const GNT_SRC =
   'https://raw.githubusercontent.com/biblicalhumanities/greek-new-testament/master/syntax-trees/nestle1904-lowfat/xml/';
+const SBLGNT_SRC = 'https://raw.githubusercontent.com/Clear-Bible/macula-greek/main/SBLGNT/lowfat/';
 const OT_SRC = 'https://raw.githubusercontent.com/Clear-Bible/macula-hebrew/main/WLC/lowfat/';
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+// Each unique book is parsed at most ONCE per process and kept for the whole
+// run — issue order jumps between books, so an EVICTING cache would re-parse
+// the same book repeatedly, which is worse for peak memory than caching
+// every book once (confirmed: an LRU(3) cache OOM'd where this doesn't). The
+// two registries still run in separate processes (see `only` below) so each
+// one only ever holds ITS OWN ~15 books, not both editions' at once.
 const bookCache = new Map<string, Doc[]>();
+function cacheBook(key: string, docs: Doc[]): Doc[] {
+  bookCache.set(key, docs);
+  return docs;
+}
 
 async function loadXml(localRel: string, remote: string): Promise<string> {
   const local = resolve(root, localRel);
@@ -55,6 +67,19 @@ async function loadPassage(passageId: string): Promise<Doc | undefined> {
   if (passageId.startsWith('doc_sample')) {
     return sampleDocuments.find((d) => d.id === passageId);
   }
+  if (passageId.startsWith('sblgnt_')) {
+    const m = passageId.match(/^sblgnt_(.+)_(\d+)$/);
+    if (!m) return undefined;
+    const [, bslug, idx] = m;
+    const book = GNT_BOOKS.find((b) => slug(b.name) === bslug);
+    if (!book) return undefined;
+    const key = `sblgnt:${book.name}`;
+    if (!bookCache.has(key)) {
+      const xml = await loadXml(`public/sblgnt/${book.file}`, SBLGNT_SRC + book.file);
+      cacheBook(key, lowfatToDocuments(xml, { book: book.name, dialect: sblgntDialect, docIdPrefix: 'sblgnt' }));
+    }
+    return bookCache.get(key)![Number(idx)];
+  }
   if (passageId.startsWith('gnt_')) {
     const m = passageId.match(/^gnt_(.+)_(\d+)$/);
     if (!m) return undefined;
@@ -63,7 +88,7 @@ async function loadPassage(passageId: string): Promise<Doc | undefined> {
     if (!book) return undefined;
     if (!bookCache.has(book.name)) {
       const xml = await loadXml(`public/gnt/${book.file}`, GNT_SRC + book.file);
-      bookCache.set(book.name, lowfatToDocuments(xml, { book: book.name }));
+      cacheBook(book.name, lowfatToDocuments(xml, { book: book.name }));
     }
     return bookCache.get(book.name)![Number(idx)];
   }
@@ -77,7 +102,7 @@ async function loadPassage(passageId: string): Promise<Doc | undefined> {
     if (!bookCache.has(key)) {
       const file = chapterFile(book, Number(chap));
       const xml = await loadXml(`public/ot/${file}`, OT_SRC + file);
-      bookCache.set(key, maculaHebrewToDocuments(xml, { book: book.name }));
+      cacheBook(key, maculaHebrewToDocuments(xml, { book: book.name }));
     }
     return bookCache.get(key)![Number(idx)];
   }
@@ -92,86 +117,123 @@ const fail = (m: string) => {
   console.error(`  ✗ ${m}`);
 };
 
-const issueIds = new Set(contestedRegistry.issues.map((i) => i.id));
+async function checkRegistry(
+  label: string,
+  registry: { issues: typeof contestedRegistry.issues; readings: typeof contestedRegistry.readings },
+): Promise<void> {
+  console.log(`\n═══ ${label} ═══`);
+  const issueIds = new Set(registry.issues.map((i) => i.id));
 
-// readings reference real issues + matching passage
-for (const r of contestedRegistry.readings) {
-  if (!issueIds.has(r.issueId)) fail(`reading ${r.id} → unknown issue ${r.issueId}`);
-}
-
-for (const issue of contestedRegistry.issues) {
-  const target = issue.mergePassageIds?.length
-    ? `merge[${issue.mergePassageIds.join(' + ')}]`
-    : issue.passageId;
-  console.log(`\n• ${issue.id} (${issue.verseRef}) → ${target}`);
-  let doc: Doc | undefined;
-  try {
-    if (issue.mergePassageIds?.length) {
-      // A cross-boundary issue is authored against the COMBINED document, so load
-      // every spanned sentence and merge them exactly as the app does at runtime.
-      const parts: Doc[] = [];
-      for (const id of issue.mergePassageIds) {
-        const part = await loadPassage(id);
-        if (!part) throw new Error(`merge sentence ${id} did not resolve`);
-        parts.push(part);
-      }
-      doc = combinePassage(parts) as Doc;
-    } else {
-      doc = await loadPassage(issue.passageId);
-    }
-  } catch (e) {
-    console.warn(`  ⚠ could not load (network?) — skipping id checks: ${(e as Error).message}`);
-    skipped++;
-    continue;
+  // readings reference real issues + matching passage
+  for (const r of registry.readings) {
+    if (!issueIds.has(r.issueId)) fail(`reading ${r.id} → unknown issue ${r.issueId}`);
   }
-  if (!doc) {
-    fail(`passage ${issue.passageId} did not resolve to a document`);
-    continue;
-  }
-  checked++;
 
-  const tokenIds = new Set(doc.tokens.map((t) => t.id));
-  const nodeIds = new Set(doc.syntax.nodes.map((n) => n.id));
-  const relIds = new Set(doc.syntax.relations.map((r) => r.id));
-
-  for (const t of issue.affectedTokenIds) if (!tokenIds.has(t)) fail(`token ${t} missing`);
-  for (const n of issue.affectedNodeIds ?? []) if (!nodeIds.has(n)) fail(`node ${n} missing`);
-  for (const r of issue.affectedRelationIds ?? []) if (!relIds.has(r)) fail(`relation ${r} missing`);
-
-  const readings = contestedRegistry.readings.filter((r) => r.issueId === issue.id);
-  for (const id of issue.alternateReadingIds) {
-    if (!readings.some((r) => r.id === id)) fail(`alternateReadingId ${id} has no reading`);
-  }
-  for (const reading of readings) {
-    if (reading.passageId !== issue.passageId)
-      fail(`reading ${reading.id} passageId ≠ issue passageId`);
-    // overlay targets exist
-    if (reading.syntaxPatch) {
-      for (const rid of Object.keys(reading.syntaxPatch.relations?.update ?? {}))
-        if (!relIds.has(rid)) fail(`overlay ${reading.id} updates missing relation ${rid}`);
-      for (const nid of Object.keys(reading.syntaxPatch.nodes?.update ?? {}))
-        if (!nodeIds.has(nid)) fail(`overlay ${reading.id} updates missing node ${nid}`);
-    }
-    if (reading.semanticOverlay?.relationId && !relIds.has(reading.semanticOverlay.relationId))
-      fail(`semantic overlay ${reading.id} → missing relation ${reading.semanticOverlay.relationId}`);
-    if (reading.textualVariant?.affectedBaseTokenIds) {
-      for (const t of reading.textualVariant.affectedBaseTokenIds)
-        if (!tokenIds.has(t)) fail(`textual variant ${reading.id} → missing token ${t}`);
-    }
-    // preview + layout must not throw
+  for (const issue of registry.issues) {
+    const target = issue.mergePassageIds?.length
+      ? `merge[${issue.mergePassageIds.join(' + ')}]`
+      : issue.passageId;
+    console.log(`\n• ${issue.id} (${issue.verseRef}) → ${target}`);
+    const errorsBefore = errors;
+    let doc: Doc | undefined;
     try {
-      const preview = applyAlternateReadingPreview(doc, reading);
-      for (const mode of ['kellogg-reed', 'phrase-block', 'dependency', 'morphology'] as const) {
-        layoutForMode(mode, preview, preview.layoutHints);
+      if (issue.mergePassageIds?.length) {
+        // A cross-boundary issue is authored against the COMBINED document, so load
+        // every spanned sentence and merge them exactly as the app does at runtime.
+        const parts: Doc[] = [];
+        for (const id of issue.mergePassageIds) {
+          const part = await loadPassage(id);
+          if (!part) throw new Error(`merge sentence ${id} did not resolve`);
+          parts.push(part);
+        }
+        doc = combinePassage(parts) as Doc;
+      } else {
+        doc = await loadPassage(issue.passageId);
       }
     } catch (e) {
-      fail(`reading ${reading.id} preview/layout threw: ${(e as Error).message}`);
+      console.warn(`  ⚠ could not load (network?) — skipping id checks: ${(e as Error).message}`);
+      skipped++;
+      continue;
     }
+    if (!doc) {
+      fail(`passage ${issue.passageId} did not resolve to a document`);
+      continue;
+    }
+    checked++;
+
+    const tokenIds = new Set(doc.tokens.map((t) => t.id));
+    const nodeIds = new Set(doc.syntax.nodes.map((n) => n.id));
+    const relIds = new Set(doc.syntax.relations.map((r) => r.id));
+
+    for (const t of issue.affectedTokenIds) if (!tokenIds.has(t)) fail(`token ${t} missing`);
+    for (const n of issue.affectedNodeIds ?? []) if (!nodeIds.has(n)) fail(`node ${n} missing`);
+    for (const r of issue.affectedRelationIds ?? []) if (!relIds.has(r)) fail(`relation ${r} missing`);
+
+    const readings = registry.readings.filter((r) => r.issueId === issue.id);
+    for (const id of issue.alternateReadingIds) {
+      if (!readings.some((r) => r.id === id)) fail(`alternateReadingId ${id} has no reading`);
+    }
+    for (const reading of readings) {
+      if (reading.passageId !== issue.passageId)
+        fail(`reading ${reading.id} passageId ≠ issue passageId`);
+      // overlay targets exist
+      if (reading.syntaxPatch) {
+        for (const rid of Object.keys(reading.syntaxPatch.relations?.update ?? {}))
+          if (!relIds.has(rid)) fail(`overlay ${reading.id} updates missing relation ${rid}`);
+        for (const nid of Object.keys(reading.syntaxPatch.nodes?.update ?? {}))
+          if (!nodeIds.has(nid)) fail(`overlay ${reading.id} updates missing node ${nid}`);
+      }
+      if (reading.semanticOverlay?.relationId && !relIds.has(reading.semanticOverlay.relationId))
+        fail(`semantic overlay ${reading.id} → missing relation ${reading.semanticOverlay.relationId}`);
+      if (reading.textualVariant?.affectedBaseTokenIds) {
+        for (const t of reading.textualVariant.affectedBaseTokenIds)
+          if (!tokenIds.has(t)) fail(`textual variant ${reading.id} → missing token ${t}`);
+      }
+      // preview + layout must not throw
+      try {
+        const preview = applyAlternateReadingPreview(doc, reading);
+        for (const mode of ['kellogg-reed', 'phrase-block', 'dependency', 'morphology'] as const) {
+          layoutForMode(mode, preview, preview.layoutHints);
+        }
+      } catch (e) {
+        fail(`reading ${reading.id} preview/layout threw: ${(e as Error).message}`);
+      }
+    }
+    if (errors === errorsBefore)
+      console.log(`  ✓ ${issue.affectedTokenIds.length} tokens, ${readings.length} reading(s)`);
   }
-  if (!errors) console.log(`  ✓ ${issue.affectedTokenIds.length} tokens, ${readings.length} reading(s)`);
 }
 
+const only = process.argv[2]?.replace(/^--only=/, '');
+
+if (!only) {
+  // Checking both registries in ONE process accumulates enough happy-dom
+  // full-book DOM trees (each edition's set of contested-syntax books) to
+  // OOM even a generously-sized heap — run each registry in its OWN process
+  // instead, so every run starts with a clean heap. `--only` (below) is what
+  // each child actually executes.
+  const { spawnSync } = await import('node:child_process');
+  let anyErrors = false;
+  for (const which of ['nestle', 'sblgnt']) {
+    const res = spawnSync(
+      process.execPath,
+      [
+        '--max-old-space-size=8192',
+        resolve(root, 'node_modules/.bin/vite-node'),
+        fileURLToPath(import.meta.url),
+        `--only=${which}`,
+      ],
+      { stdio: 'inherit' },
+    );
+    if (res.status !== 0) anyErrors = true;
+  }
+  process.exit(anyErrors ? 1 : 0);
+}
+
+if (only === 'nestle' || only === 'both') await checkRegistry('Nestle1904 / WLC registry', contestedRegistry);
+if (only === 'sblgnt' || only === 'both') await checkRegistry('SBLGNT registry', contestedRegistrySblgnt);
+
 console.log(
-  `\n${errors ? '✗' : '✓'} contested registry: ${checked} passage(s) checked, ${skipped} skipped (offline), ${errors} error(s).`,
+  `\n${errors ? '✗' : '✓'} contested registry (${only}): ${checked} passage(s) checked, ${skipped} skipped (offline), ${errors} error(s).`,
 );
 process.exit(errors ? 1 : 0);

@@ -18,3 +18,7 @@ npm-debug.log*
 
 # PWA generated artifacts
 dev-dist
+
+# scripts/generate-contested-sblgnt.mts scratch output (merged then removed
+# by scripts/merge-contested-sblgnt.mjs; ignored in case a run is interrupted)
+.contested-sblgnt-parts
