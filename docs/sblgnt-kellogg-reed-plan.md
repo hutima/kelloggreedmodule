@@ -94,7 +94,7 @@ Guiding rule: **prefer less misleading labels over falsely precise labels.**
 | 9. Alignment cleanup | Done | `src/io/parallel.ts`: found + fixed a phase-8 gap — `parseRef` only read Nestle osisIds, so SBLGNT docs got NO English alignment; it now reads both spellings. SBLGNT docs align DIRECTLY by position (the alignment's own base text, Strong's-verified), Nestle1904 keeps Strong's-nearest + positional fallback. Every token records its `AlignMethod` (`direct`/`strongs`/`position`/`unmatched`) plus aggregate `stats` for debugging. Hebrew aligner reports `direct` by construction — unchanged behavior. Mark 5:26 alignment covered by tests. |
 | 10. Source constituency | Done | New optional `sourceConstituency` layer on `KrDocument` (`schema/constituency.ts` — cat/role/rule/head/articular/tokenIds, whole tree source-given by construction, identified by `sourceId`). Captured verbatim by `captureSourceConstituency` in `lowfat.ts` when the loader passes a `sourceId` (both GNT loaders do); survives `combinePassage` (prefixed under a discourse root, dropped — never corrupted — when members lack it or mix sources). Syntax graph untouched; schemaVersion unchanged; Hebrew deferred per Tim's regression-only default (same helper works when wanted). |
 | 11. Constituency UI | Done | The EXISTING Constituency Tree mode (no duplicate) renders the preserved source `<wg>` hierarchy when present: Auto/Source/App toggle in the canvas toolbar (persisted, default Auto), an honesty caption on the diagram ("Source constituency: SBLGNT Lowfat" vs "Reconstructed from the app syntax graph"), raw source roles (s/v/o/io/p/adv, `head`) shown VERBATIM on branch chips (colour borrowed from the closest app family, text never translated), source child order authoritative, leaves hover-linked to app syntax nodes. Reconstructed path byte-for-byte unchanged; Dependency/Phrase-Block/KR and Hebrew RTL untouched. |
-| 12. Migration guards/tests | Not started | Patch base source/edition guard; Hebrew/OpenText smoke tests. |
+| 12. Migration guards/tests | Done | `applyStoredPatch` now refuses (skip + warn, never delete) a patch whose `base.sourceId` names a different edition than the base document's actual source; legacy patches without a `sourceId` keep loading, guarded by `baseHash` as before. Covered by 3 new guard tests (stamping, crossing, legacy). Hebrew smoke (Gen 1:1 fixture, ot tests) and OpenText smoke (opentext tests) already pass unchanged in the suite; Mark 5 covered under both editions; Col 1:9–16 stress bundled (Nestle). |
 | 13. Cleanup | Not started | |
 
 ## Test passages
@@ -252,19 +252,14 @@ Still open:
 
 ## Resume instructions if interrupted
 
-Current phase: 11 complete; next is 12 (migration guards + regression tests).
-Changed files (phase 11): `src/domain/layout/modes/constituency.ts` (source
-tree builder + variant + caption), `src/domain/layout/{engine,index}.ts`,
-`src/domain/layout/modes/index.ts`, `src/state/{store,types}.ts`
-(`constituencyVariant` persisted pref), `src/ui/components/DiagramCanvas.tsx`
-(Auto/Source/App toggle), `tests/source-constituency.test.ts`.
-Build/test: typecheck + lint + production build clean; 653 tests pass.
-Next smallest safe task: Phase 12 — patch/source mismatch guard: when a
-stored patch's `base.sourceId` disagrees with the base document's actual
-source (`sourceIdForCorpus`), fail safely (skip + warn) instead of applying;
-Hebrew + OpenText smoke tests (Gen 1:1–3, Ps 1:1–2, Deut 6:4 already covered
-by ot/macula-hebrew tests — verify), and a Colossians 1:9–16 long-sentence
-stress run under SBLGNT.
+Current phase: 12 complete; next is 13 (final cleanup — README/plan final
+state + review summary).
+Changed files (phase 12): `src/persistence/userData.ts` (edition guard in
+`applyStoredPatch`), `tests/patch-guard.test.ts` (+3 guard tests).
+Build/test: typecheck + lint clean; 656 tests pass.
+Next smallest safe task: Phase 13 — final documentation pass (README reflects
+the shipped state; this plan's final status), and the whole-project
+acceptance checklist review for Tim.
 
 Superseded status notes from phase 9:
 Changed files (phase 9): `src/io/parallel.ts`, `tests/parallel.test.ts`.
