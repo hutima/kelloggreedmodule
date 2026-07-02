@@ -67,3 +67,11 @@ export {
   type LlmDiagram,
   type MultiImportResult,
 } from './llm';
+export {
+  DISCOURSE_SOURCES,
+  discourseBooksFor,
+  loadDiscourseBookDocs,
+  loadDiscourseRange,
+  bookRefShape,
+  estimateUnitCount,
+} from './discourse-source';

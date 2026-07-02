@@ -2686,3 +2686,36 @@ label.field.inline > span { margin-bottom: 0; }
   background: var(--danger, #b3261e);
   color: #fff;
 }
+
+/* --- Discourse mode: range selector (left panel) ---------------------------- */
+.discourse-range .discourse-blurb {
+  font-size: 12px;
+  color: var(--muted, #667);
+  margin: 0 0 10px;
+  line-height: 1.45;
+}
+.discourse-note {
+  font-size: 12px;
+  color: var(--muted, #667);
+  margin: 6px 0;
+}
+.discourse-warn { color: var(--warning, #a15c00); }
+.discourse-error {
+  font-size: 12px;
+  color: var(--danger, #b3261e);
+  margin: 6px 0;
+}
+.discourse-refrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+}
+.discourse-refrow select { min-width: 56px; }
+.discourse-reflabel {
+  width: 42px;
+  font-size: 12px;
+  color: var(--muted, #667);
+}
+.discourse-shortcuts { margin: 8px 0; }
+.discourse-chapter-shortcut select { font-size: 12px; }

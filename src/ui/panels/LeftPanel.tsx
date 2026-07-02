@@ -4,6 +4,7 @@ import { GntPicker } from './left/GntPicker';
 import { OtPicker } from './left/OtPicker';
 import { NewSourcePicker } from './left/NewSourcePicker';
 import { SearchPicker } from './left/SearchPicker';
+import { DiscourseRangeSelector } from '@/ui/discourse/DiscourseRangeSelector';
 
 /**
  * Left panel: the passage pickers for the two gold-standard corpora — the Greek
@@ -27,6 +28,11 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
   const hasSavedCustom = useEditorStore((s) => s.customParses.length > 0);
   const searchPrefill = useEditorStore((s) => s.searchPrefill);
   const showNew = appMode === 'edit' || hasSavedCustom;
+  // Discourse mode swaps the syntax passage pickers for the dedicated RANGE
+  // selector (its own loader, its own store). The syntax pickers — and the
+  // syntax selection behind them — return untouched when the user leaves
+  // Discourse mode; nothing is reloaded by the swap.
+  const discourseMode = useEditorStore((s) => s.diagramMode === 'discourse');
   const [source, setSource] = useState<'gnt' | 'ot' | 'new' | 'search'>(docLang === 'hbo' ? 'ot' : 'gnt');
   useEffect(() => {
     if (!showNew && source === 'new') setSource('gnt');
@@ -62,7 +68,25 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
   return (
     <aside className={`panel left${hidden ? ' hidden' : ''}${collapsed ? ' collapsed' : ''}`}>
       <div className="tabs">
-        {!collapsed && (
+        {!collapsed && discourseMode && (
+          <>
+            <button
+              className={source !== 'search' ? 'active' : ''}
+              title="Discourse range — load a multi-verse / chapter / whole-book range"
+              onClick={() => setSource('gnt')}
+            >
+              Range
+            </button>
+            <button
+              className={source === 'search' ? 'active' : ''}
+              title="Search a book by word or morphology (verb parse, case…)"
+              onClick={() => setSource('search')}
+            >
+              Search
+            </button>
+          </>
+        )}
+        {!collapsed && !discourseMode && (
           <>
             {/* Bible order: Old Testament first, then the Greek New Testament. */}
             <button
@@ -107,7 +131,9 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
         </button>
       </div>
       <div className="panel-body">
-        {source === 'ot' ? (
+        {discourseMode && source !== 'search' ? (
+          <DiscourseRangeSelector />
+        ) : source === 'ot' ? (
           <OtPicker />
         ) : source === 'search' ? (
           <SearchPicker />

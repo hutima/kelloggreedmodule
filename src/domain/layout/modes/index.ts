@@ -20,7 +20,12 @@ export type DiagramMode =
   | 'dependency'
   | 'dependency-tree'
   | 'constituency'
-  | 'morphology';
+  | 'morphology'
+  // Discourse is NOT a lens over the syntax graph: it renders a separate
+  // DiscourseDocument through its own canvas (src/ui/discourse), never through
+  // `layoutForMode`. It lives in this union so the one visualization selector
+  // covers it.
+  | 'discourse';
 
 export interface DiagramModeInfo {
   id: DiagramMode;
