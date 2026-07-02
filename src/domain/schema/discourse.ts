@@ -43,6 +43,12 @@ export const DiscourseTokenSchema = z.object({
    *  command→ground hint); other morphology stays in the source docs. */
   mood: z.string().optional(),
   gloss: z.string().optional(),
+  /** Strong's number, when the source carries one (e.g. an English Bible with
+   *  Greek/Hebrew tagging). Absent for plain-text sources — never fabricated. */
+  strong: z.string().optional(),
+  /** How an English token was aligned to its original-language word, when known
+   *  (`greek` · `hebrew` · `strongs` · `position` · `none`). Display-only. */
+  alignmentMethod: z.string().optional(),
   /** Canonical `"chapter:verse"` within the document's book. */
   ref: z.string(),
   /** The source sentence document the token belongs to. */

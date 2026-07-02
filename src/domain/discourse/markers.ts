@@ -58,6 +58,67 @@ export function markerHintFor(token: {
 }
 
 /**
+ * ENGLISH DISCOURSE-MARKER HINTS — a deliberately small, conservative table for
+ * English Bible sources (which carry no Greek morphology). Keyed by lowercased
+ * surface word; every entry is a "possible" hint, never a conclusion. Ambiguous
+ * words ("for", "as", "and") stay low-confidence.
+ */
+export const ENGLISH_MARKER_HINTS: Record<string, MarkerHint> = {
+  therefore: { fn: 'inferential', confidence: 'medium', note: '“therefore” often marks an inference or result' },
+  so: { fn: 'inferential', confidence: 'low', note: '“so” can mark an inference or result' },
+  thus: { fn: 'inferential', confidence: 'medium', note: '“thus” often marks an inference or result' },
+  hence: { fn: 'inferential', confidence: 'medium', note: '“hence” often marks an inference' },
+  because: { fn: 'causal', confidence: 'medium', note: '“because” often introduces a ground or reason' },
+  for: { fn: 'causal', confidence: 'low', note: '“for” can introduce a ground or reason (or be a preposition)' },
+  since: { fn: 'causal', confidence: 'low', note: '“since” can introduce a ground (or be temporal)' },
+  but: { fn: 'contrastive', confidence: 'medium', note: '“but” often marks a contrast' },
+  yet: { fn: 'contrastive', confidence: 'low', note: '“yet” can mark a contrast' },
+  however: { fn: 'contrastive', confidence: 'medium', note: '“however” often marks a contrast' },
+  nevertheless: { fn: 'contrastive', confidence: 'medium', note: '“nevertheless” often marks a concession/contrast' },
+  if: { fn: 'conditional', confidence: 'medium', note: '“if” often introduces a condition' },
+  unless: { fn: 'conditional', confidence: 'medium', note: '“unless” often introduces a condition' },
+  and: { fn: 'additive', confidence: 'low', note: '“and” can mark addition or a series — very common, low signal' },
+  or: { fn: 'additive', confidence: 'low', note: '“or” can mark an alternative — low signal' },
+  then: { fn: 'temporal', confidence: 'low', note: '“then” can mark a temporal or logical transition' },
+  now: { fn: 'temporal', confidence: 'low', note: '“now” can mark a temporal or logical transition' },
+};
+
+/** English marker hint for a token, matched by lowercased surface. */
+export function englishMarkerHintFor(token: { surface: string }): MarkerHint | undefined {
+  const w = token.surface.toLowerCase().replace(/[^a-z]/g, '');
+  return w ? ENGLISH_MARKER_HINTS[w] : undefined;
+}
+
+/**
+ * Detect conservative English discourse markers among compact tokens (English
+ * Bible sources). Same shape/provenance as the Greek detector, but matched on
+ * surface words — no morphology is assumed. Pure; marker ids derive from the
+ * stable token ids.
+ */
+export function detectEnglishDiscourseMarkers(
+  tokens: DiscourseToken[],
+  scopeOf: (tokenId: string) => string | undefined,
+): DiscourseMarker[] {
+  const out: DiscourseMarker[] = [];
+  for (const t of tokens) {
+    const hint = englishMarkerHintFor(t);
+    if (!hint) continue;
+    out.push({
+      id: `dm_${t.id}`,
+      tokenId: t.id,
+      surface: t.surface,
+      lemma: t.lemma,
+      pos: t.pos,
+      ref: t.ref,
+      suggestedFunction: hint.fn,
+      scopeUnitId: scopeOf(t.id),
+      provenance: { source: 'inferred', confidence: hint.confidence, reason: hint.note },
+    });
+  }
+  return out;
+}
+
+/**
  * Scan the range's tokens for discourse-relevant particles/conjunctions and
  * produce marker records. `scopeOf` supplies the unit each token belongs to
  * (so a chip renders inside its unit). Pure; ids derive from the (stable)

@@ -38,7 +38,7 @@ import {
   saveLastDiscourseRange,
 } from '@/persistence/discourse';
 import { loadDiscourseRange, DEFAULT_GNT_SOURCE } from '@/io';
-import type { SyntaxSourceId } from '@/io';
+import type { DiscourseSourceId, LoadedDiscourseBook } from '@/io';
 
 /**
  * DISCOURSE STORE — a zustand store fully SEPARATE from the syntax editor
@@ -75,7 +75,7 @@ export interface DiscourseViewToggles {
 
 export interface DiscourseState {
   // --- range selection (the loader's own state, independent of syntax) ---
-  sourceId: SyntaxSourceId;
+  sourceId: DiscourseSourceId;
   bookNum: number;
   startRef: string;
   endRef: string;
@@ -114,12 +114,12 @@ export interface DiscourseState {
 }
 
 export interface DiscourseActions {
-  setSourceId: (id: SyntaxSourceId) => void;
+  setSourceId: (id: DiscourseSourceId) => void;
   setBookNum: (num: number) => void;
   setRange: (startRef: string, endRef: string) => void;
   setGranularity: (g: DiscourseGranularity) => void;
   /** Load the selected range from the selected source (async). */
-  loadRange: (opts?: { bookDocs?: KrDocument[] }) => Promise<void>;
+  loadRange: (opts?: { bookDocs?: KrDocument[]; loaded?: LoadedDiscourseBook }) => Promise<void>;
   /** Restore the last loaded range once (called when Discourse mode opens). */
   restoreLastRange: () => Promise<void>;
   select: (selection: DiscourseSelection) => void;
@@ -240,6 +240,7 @@ export const useDiscourseStore = create<DiscourseStore>((set, get) => {
           endRef,
           granularity,
           bookDocs: opts?.bookDocs,
+          loaded: opts?.loaded,
         });
         if (seq !== loadSeq) return;
         const live = applyStoredDiscoursePatch(base);
@@ -269,7 +270,7 @@ export const useDiscourseStore = create<DiscourseStore>((set, get) => {
       const last = loadLastDiscourseRange();
       if (last) {
         set({
-          sourceId: last.sourceId as SyntaxSourceId,
+          sourceId: last.sourceId as DiscourseSourceId,
           bookNum: last.bookNum,
           startRef: last.startRef,
           endRef: last.endRef,

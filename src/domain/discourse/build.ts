@@ -199,7 +199,7 @@ const COLLAPSE_CHAPTERS_ABOVE = 200;
  * more than one chapter (so a whole book opens as a navigable outline instead
  * of a hundreds-long flat list). Single-chapter ranges stay flat.
  */
-function groupUnderChapters(leaves: DiscourseUnit[]): DiscourseUnit[] {
+export function groupUnderChapters(leaves: DiscourseUnit[]): DiscourseUnit[] {
   const chapters: number[] = [];
   for (const u of leaves) {
     const c = parseRef(u.refStart)?.chapter;

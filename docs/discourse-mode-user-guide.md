@@ -24,7 +24,11 @@ of text), not an individual word.
 
 The range selector offers:
 
-- **Source** — SBLGNT Lowfat (default), Nestle 1904 Lowfat, or OpenText.
+- **Source** — a Greek/Hebrew **syntax** source (SBLGNT Lowfat (default),
+  Nestle 1904 Lowfat, or OpenText) **or** an **English Bible** (BSB English for
+  the NT, BSB English OT for the Old Testament). English Bible sources are
+  offered **only in Discourse mode** and load directly from verse text — no
+  Greek/Hebrew syntax parse is required (see *English Bible discourse* below).
 - **Book**, **From** and **To** references (chapter : verse).
 - **Whole book** and **Chapter…** shortcuts.
 - **Unit size** — one unit per source *sentence* (recommended) or per *verse*.
@@ -64,6 +68,7 @@ the source data itself are never touched.
 | Group units under a new parent | shift-click several units, **Group** | — |
 | Ungroup a parent | **Ungroup** | — |
 | Label a unit (A, B′, "Household code"…) | **Label…** or the inspector | — |
+| Delete a unit / remove a verse | **Delete unit** (a group asks first, then deletes its whole subtree) | `Shift+Delete` / `Shift+Backspace` |
 | Notes | inspector | — |
 | Draw a relation | **Relate →**, click the target, pick the type | `Esc` cancels |
 | Undo / redo | **↶ / ↷** | `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z` or `Ctrl/Cmd+Y` |
@@ -72,6 +77,15 @@ the source data itself are never touched.
 **Indentation is an interpretive outline, not a syntactic claim.** Nesting a
 unit under another says *"I read this as subordinate in the argument"* —
 nothing about the Greek clause structure changes.
+
+**Deleting a unit** removes an unwanted verse or block from *this* analysis
+only. It is a discourse-layer edit: the source text, the syntax documents,
+sermon notes, and your syntax edits are never touched. Deleting a **group**
+(container) removes its whole subtree — you're asked first. Deletion cleans up
+after itself: relations, marker chips, and suggestions that referenced the gone
+unit disappear, sibling order and container spans stay valid, and the change is
+**undoable** and **persisted** as part of your discourse diff (so it survives a
+reload, and **Reset edits** brings the verse back).
 
 **Relations** (ground, inference, result, purpose, condition, concession,
 contrast, series, coordinate, elaboration, explanation, quotation, inclusio,
@@ -95,6 +109,33 @@ repeated lemmas/phrases, and inclusio candidates.
 - **Dismiss** hides a hint (it stays hidden when you reload).
 - Ignoring a hint costs nothing. The machine may point at γάρ; it should not
   preach the sermon.
+
+## English Bible discourse (no syntax parse)
+
+Discourse mode can analyze an **English Bible directly**, without routing the
+passage through Greek or Hebrew syntax first. Pick **BSB English** (New
+Testament) or **BSB English OT** (Old Testament) as the source, then load a
+range exactly as you would for a Greek/Hebrew source. Under the hood the range
+is built straight from English verse text into a discourse document
+(`language: "en"`) — there is **no sentence-level grammar diagram** behind it,
+and none is implied.
+
+Everything else works the same: split (at English word boundaries), merge,
+indent/outdent, label, notes, relations, outline navigation, export, delete,
+undo/redo, and persistence. Marker chips are a small, conservative set of
+English discourse words ("therefore", "because", "but", "if"…), always phrased
+as *possible* hints.
+
+**Tagging is honest, never invented.** BSB retains the alignment the data
+actually carries: NT words keep their **Strong's number** (Greek tagging) where
+aligned; OT words keep their **Hebrew alignment** (the Hebrew text carries no
+Strong's number, so none is shown). Words with no alignment (function words,
+punctuation) are simply plain text. KJV and ASV are **not** offered, because no
+Strong's-tagged public-domain data for them ships with the project — the app
+will not fabricate tags to fake them.
+
+Because every visualization is a lens over one model, the discourse operations
+above are identical whether the tokens came from Greek, Hebrew, or English.
 
 ## Persistence & reset
 
