@@ -14,8 +14,7 @@ import { ResetPassageModal, ResetAllModal } from './ResetModals';
 /**
  * Responsive command bar: brand, the Explore/Edit/Sermon mode switcher, the
  * diagram Export action, and an overflow menu for data import/export, resets, the
- * force-desktop toggle, and help. The title input and full controls collapse on
- * small screens.
+ * force-desktop toggle, and help. The full controls collapse on small screens.
  */
 export function TopBar() {
   const doc = useEditorStore((s) => s.doc);
@@ -41,7 +40,6 @@ export function TopBar() {
   const appMode = useEditorStore((s) => s.appMode);
   const setAppMode = useEditorStore((s) => s.setAppMode);
   const discourseLoaded = useDiscourseStore((s) => !!s.doc);
-  const setTitle = useEditorStore((s) => s.setTitle);
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
   const leftCollapsed = useEditorStore((s) => s.leftCollapsed);
   const undo = useEditorStore((s) => s.undo);
@@ -72,7 +70,7 @@ export function TopBar() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return;
-      // Typing surfaces (the title input, note fields, …) keep the browser's
+      // Typing surfaces (note fields, text inputs, …) keep the browser's
       // native text undo/redo; hijacking the combo there would revert diagram
       // edits while the user is trying to fix their typing. `closest` catches
       // targets nested inside a contentEditable region too.
@@ -120,13 +118,6 @@ export function TopBar() {
       </div>
 
       <ModeSwitcher canEdit={canEdit} />
-
-      <input
-        className="title-input desktop-only"
-        value={doc.title}
-        aria-label="Document title"
-        onChange={(e) => setTitle(e.target.value)}
-      />
 
       <div className="spacer" />
 

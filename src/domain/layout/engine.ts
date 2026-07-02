@@ -171,7 +171,7 @@ function drawDiagonalCoordination(
   nodeId: string,
   attachX: number,
   out: DiagramElement[],
-): { bottom: number; right: number } {
+): { bottom: number; right: number; footRight: number } {
   const node = getNode(ctx.doc.syntax, nodeId)!;
   const conjunctRels = wordConjunctRels(ctx, nodeId);
   const coordRel = childRelations(ctx.doc.syntax, nodeId).find((r) => r.type === 'coordinator');
@@ -205,7 +205,11 @@ function drawDiagonalCoordination(
     out.push(line(eid(), x0, d, x1, d, 'dashed', 'coordination', node.id));
     out.push(smallText(eid(), (x0 + x1) / 2, d - 4, coordText, 'middle', coordRel?.id));
   }
-  return { bottom, right };
+  // The rightmost x where a parallel slant meets the baseline (y = 0); the members
+  // fan rightward from `attachX`, so a caller must extend its baseline this far or
+  // the later slants hang from empty space.
+  const footRight = Math.max(attachX, ...starts);
+  return { bottom, right, footRight };
 }
 
 /**
@@ -351,7 +355,7 @@ function drawPpCoordination(
   topY: number,
   seen: Set<string>,
   out: DiagramElement[],
-): { right: number; bottom: number } {
+): { right: number; bottom: number; footRight: number } {
   const headId = headRel.dependentId;
   // The preposition's OWN surface position, so members lay out left-to-right in
   // reading order (a coordinator child, e.g. a leading negator, must not drag the
@@ -419,7 +423,12 @@ function drawPpCoordination(
     const x = slants[0]!.x + slantRun(d);
     out.push(smallText(eid(), x - 3, d, lead.map((c) => c.text).join(' '), 'end', lead[0]!.id));
   }
-  return { right, bottom };
+  // The rightmost x where a member's slant actually meets the baseline (y = 0).
+  // Each conjunct PP's slant hangs from its own foot, spread rightward along the
+  // line, so a caller that only extended the baseline to the FIRST foot would
+  // leave the later slants floating (Col 1:16 "δι' αὐτοῦ καὶ εἰς αὐτόν").
+  const footRight = Math.max(attachX, ...slants.map((s) => s.x));
+  return { right, bottom, footRight };
 }
 
 /**
@@ -1154,12 +1163,23 @@ function layoutHead(
       elements.push(line(eid(), connectX + LAYOUT.pedestalFootHalf, 0, connectX, apexY, 'solid', 'stem'));
       elements.push(line(eid(), connectX, apexY, connectX, baseY, 'solid', 'stem', undefined, rel.id));
       cursor = afterEq + block.width;
+      // The shared head baseline reaches the pedestal's forked FOOT (both prongs) —
+      // the platform's own baseline sits above the line, so extending to the block's
+      // full width would trail an empty horizontal past the pedestal (Col 1:3
+      // "…τοῦ Κυρίου ἡμῶν = Ἰησοῦ Χριστοῦ"). Cover the whole foot so its right prong
+      // still stands on the line.
+      railRight = Math.max(railRight, connectX + LAYOUT.pedestalFootHalf);
     } else {
       elements.push(...translate(block, afterEq, 0));
       belowBottom = Math.max(belowBottom, block.height);
       cursor = afterEq + block.width;
+      // The shared head baseline reaches only the appositive's OWN baseline end (its
+      // head word), NOT its full block width. An inline appositive whose modifiers
+      // hang BELOW it — a genitive chain on "Πατρὶ" (Col 1:3) — would otherwise drag
+      // the head baseline far out to the right, past everything, into empty space.
+      // The block's `width` (via `cursor`) still reserves the full below-hanging extent.
+      railRight = Math.max(railRight, afterEq + (block.wordRight || block.width));
     }
-    railRight = Math.max(railRight, cursor);
   });
 
   // The head's baseline, extended to carry appositives and modifier diagonals.
@@ -2414,21 +2434,23 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   const drawHanging = (
     r: { id: string; type: SyntacticRole; dependentId: string; label?: string },
     attachX: number,
-  ): { right: number; next: number } => {
+  ): { right: number; next: number; footRight: number } => {
     if (isInfinitival(ctx, r.dependentId)) {
       // Infinitive phrase: empty diagonal down to its own horizontal baseline.
       const ext = drawInfinitive(ctx, r, attachX, belowTop, seen, elements);
       belowMaxBottom = Math.max(belowMaxBottom, ext.bottom);
-      return { right: ext.right, next: ext.right + LAYOUT.dependentGap };
+      return { right: ext.right, next: ext.right + LAYOUT.dependentGap, footRight: attachX };
     }
     const objId = prepObjectId(ctx, r);
     const ppConj = objId ? ppConjunctRels(ctx, r.dependentId) : [];
     if (objId && ppConj.length) {
       // Coordinated adverbial PPs hanging from the verb ("ἐν … καὶ ἐπὶ …"): draw
-      // every conjunct PP, joined by the coordinator, not just the first.
+      // every conjunct PP, joined by the coordinator, not just the first. Each
+      // conjunct's slant hangs from its own foot spread rightward, so report the
+      // rightmost foot — the baseline must reach it or the later slants float.
       const ext = drawPpCoordination(ctx, r, objId, ppConj, attachX, belowTop, seen, elements);
       belowMaxBottom = Math.max(belowMaxBottom, ext.bottom);
-      return { right: ext.right, next: ext.right + LAYOUT.dependentGap };
+      return { right: ext.right, next: ext.right + LAYOUT.dependentGap, footRight: ext.footRight };
     }
     if (objId) {
       // Preposition on the slant, object on a baseline below. The slant drops
@@ -2437,18 +2459,18 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
       // on the main line.
       const ext = drawPp(ctx, r.dependentId, objId, r.id, attachX, belowTop, seen, elements);
       belowMaxBottom = Math.max(belowMaxBottom, ext.bottom);
-      return { right: ext.right, next: ext.right + LAYOUT.dependentGap };
+      return { right: ext.right, next: ext.right + LAYOUT.dependentGap, footRight: attachX };
     }
     if (r.type !== 'conjunct' && isDiagonalCoordination(ctx, r.dependentId)) {
       const ext = drawDiagonalCoordination(ctx, r.dependentId, attachX, elements);
       belowMaxBottom = Math.max(belowMaxBottom, ext.bottom);
-      return { right: ext.right, next: ext.right + LAYOUT.dependentGap };
+      return { right: ext.right, next: ext.right + LAYOUT.dependentGap, footRight: ext.footRight };
     }
     if (r.type !== 'conjunct' && isDiagonalModifier(ctx, r.dependentId)) {
       const node2 = getNode(ctx.doc.syntax, r.dependentId)!;
       const ext = drawDiagonalModifier(ctx, node2, attachX, 0, r.id, elements);
       belowMaxBottom = Math.max(belowMaxBottom, ext.bottom);
-      return { right: ext.right, next: ext.right + LAYOUT.dependentGap };
+      return { right: ext.right, next: ext.right + LAYOUT.dependentGap, footRight: attachX };
     }
     const block = layoutNode(ctx, r.dependentId, seen);
     const oTop = belowTop + blockAscent(block);
@@ -2462,7 +2484,7 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
     }
     belowMaxBottom = Math.max(belowMaxBottom, oTop + block.height);
     const right = objX + block.width;
-    return { right, next: right + LAYOUT.dependentGap };
+    return { right, next: right + LAYOUT.dependentGap, footRight: attachX };
   };
 
   // Verb modifiers, beneath the verb. Narrow leaves (the article) first so they
@@ -2531,10 +2553,19 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   // layoutHead/layoutPredicateArm, which attach from the word's middle. Attaching
   // past the word keeps a modifier's diagonal text from running back over a
   // SHORT verb (a one-word implied copula like "(ἐστίν)").
-  let vCursor = verbX0 + (predBlock.wordRight || predBlock.width) - LAYOUT.wordPadX;
+  //
+  // A COMPOUND predicate is a fork, not a word: `predBlock.wordRight` is the fork's
+  // right JUNCTION (where the arms rejoin), and the post-fork baseline begins there.
+  // Insetting by wordPadX would land the shared modifier's foot on the diagonal
+  // right-prong, LEFT of the baseline, leaving it unattached (Col 1:9 "…προσευχόμενοι
+  // καὶ αἰτούμενοι ὑπὲρ ὑμῶν"). Attach a fork's shared modifier at the junction itself.
+  let vCursor = verbX0 + (predBlock.wordRight || predBlock.width) - (verbIsCoord ? 0 : LAYOUT.wordPadX);
   verbMods.forEach((r) => {
     vModFootRight = Math.max(vModFootRight, vCursor);
-    const { right, next } = drawHanging(r, vCursor);
+    const { right, next, footRight } = drawHanging(r, vCursor);
+    // A coordinated modifier (PP or diagonal) spreads several slant feet rightward;
+    // count the rightmost so the baseline extension below reaches every foot.
+    vModFootRight = Math.max(vModFootRight, footRight);
     vCursor = next;
     vModRight = Math.max(vModRight, right);
   });
@@ -2570,6 +2601,11 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
       );
     }
     x += 6;
+    // Keep the main line CONTINUOUS across the separator: bridge the verb's baseline
+    // end to the complement's own baseline. Without it the predicate-nominative
+    // back-slant — whose foot rests only on the complement side — leaves the verb
+    // baseline ending in a bare gap right before the slant (Col 1:15 "ὅς ἐστιν \ εἰκὼν").
+    elements.push(line(eid(), sepX, 0, x, 0, 'solid', 'baseline', undefined, rel.id));
     placeBlock(block);
   });
 
@@ -2627,7 +2663,10 @@ function layoutClause(ctx: Ctx, clause: SyntaxNode, seen: Set<string>): Block {
   let railRight = railStart;
   wordAdjuncts.forEach((r) => {
     railRight = Math.max(railRight, bx);
-    const { right, next } = drawHanging(r, bx);
+    const { right, next, footRight } = drawHanging(r, bx);
+    // A coordinated adjunct spreads several feet rightward; carry the baseline out
+    // to the rightmost so no slant hangs from empty space.
+    railRight = Math.max(railRight, footRight);
     bx = next;
     maxRight = Math.max(maxRight, right);
   });

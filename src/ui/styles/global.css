@@ -82,19 +82,6 @@ button {
 .topbar .brand svg {
   display: block;
 }
-.topbar .title-input {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid transparent;
-  color: #fff;
-  padding: 5px 8px;
-  border-radius: 6px;
-  min-width: 160px;
-}
-.topbar .title-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  background: rgba(255, 255, 255, 0.16);
-}
 .topbar .spacer {
   flex: 1;
 }
@@ -1536,10 +1523,6 @@ textarea.code,
   .topbar {
     gap: 8px;
     padding: 8px 12px;
-  }
-  .topbar .title-input {
-    min-width: 0;
-    flex: 1 1 120px;
   }
   /* The command group is now just a few compact buttons — keep it on the row. */
   .topbar .btn-group {
