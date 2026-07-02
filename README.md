@@ -42,7 +42,7 @@ duplicated documents) and are exportable, importable, and resettable.
 ## Contested syntax & alternate readings
 
 Where a passage carries a debated syntactic decision or a textual variant, the
-base 1904 / WLC parse remains the default, and **alternate readings are encoded
+base parse (the loaded edition's) remains the default, and **alternate readings are encoded
 as overlays** — using the smallest representation that captures the difference
 (review · semantic · syntax · punctuation · textual). A discreet badge appears
 only on passages with contested data; a panel explains the issue in neutral
@@ -51,31 +51,35 @@ side-by-side** with linked scrolling and difference highlighting, and on desktop
 **adopt** a structural alternate as your custom parse. See `src/data/contestedSyntax.ts`
 and `src/domain/contested/`.
 
-## Greek data sources: current and target
+## Greek data sources
 
-The Greek NT pipeline is being rebased around **SBLGNT Lowfat / MACULA Greek**
-as the primary/default Greek edition. Status and intent:
+The Greek NT pipeline is rebased around **SBLGNT Lowfat / MACULA Greek** as
+the primary/default Greek edition:
 
-- **Today** the default Greek NT base is the **Nestle1904 Lowfat** syntax
-  tree, with **SBLGNT Lowfat** (MACULA Greek, Clear-Bible — CC BY 4.0;
-  SBLGNT text © SBL, CC BY 4.0) selectable as a first-class edition,
-  **OpenText.org** available as an alternate syntax source, and Hebrew served
-  by **WLC Lowfat** (macula-hebrew).
-- **Target**: **SBLGNT Lowfat** becomes the primary/default Greek edition;
-  **Nestle1904 Lowfat** remains available as a legacy/alternate edition;
-  **OpenText** remains a secondary/alternate syntax source; **Hebrew WLC
-  Lowfat is unchanged**.
-- The **BSB English alignment** (Clear-Bible) is already keyed to an SBLGNT
-  base, so alignment becomes simpler and more direct once SBLGNT is primary —
-  the Strong's/lemma fallback matching stays for other editions.
+- **SBLGNT Lowfat** (MACULA Greek, Clear-Bible — CC BY 4.0; SBLGNT text ©
+  SBL, CC BY 4.0) is the **default** Greek edition, with Philippians bundled
+  for offline first-run.
+- **Nestle1904 Lowfat** (biblicalhumanities, CC BY-SA 4.0) remains fully
+  available as the **legacy/alternate** edition — saved documents and patches
+  are edition-scoped and never silently cross editions.
+- **OpenText.org** remains a **secondary/alternate** syntax source.
+- **Hebrew WLC Lowfat** (macula-hebrew) is unchanged.
+- The **BSB English alignment** (Clear-Bible) is keyed to an SBLGNT base, so
+  SBLGNT passages align **directly by position** (Strong's-verified);
+  Nestle1904 keeps the Strong's/lemma matching with positional fallback, and
+  every link records which method matched it.
 - The rebase is partly infrastructure for better **Greek syntax /
-  Kellogg-Reed display** work: less misleading role labels (e.g. not calling
-  every accusative a "direct object"), articular/substantival prepositional
-  phrases, and honest provenance/uncertainty. The active source is always
-  visibly labeled; sources never change silently.
+  Kellogg-Reed display**: nuanced accusative roles (an accusative under a
+  passive verb is a neutral "accusative modifier", not a claimed direct
+  object), articular/substantival prepositional phrases rooted on their
+  article, and honest provenance ("Analysis:" lines disclose interpretive
+  conversions and uncertainty). The active source is always visibly labeled;
+  the Constituency Tree renders the **source `<wg>` hierarchy** when
+  available and says when it is reconstructed instead.
 
-The staged plan, phase status, and the Mark 5:26 core regression are tracked
-in [`docs/sblgnt-kellogg-reed-plan.md`](./docs/sblgnt-kellogg-reed-plan.md).
+The staged plan, phase status, decisions, and the Mark 5:26 core regression
+are tracked in
+[`docs/sblgnt-kellogg-reed-plan.md`](./docs/sblgnt-kellogg-reed-plan.md).
 
 ## Features
 
@@ -84,11 +88,12 @@ in [`docs/sblgnt-kellogg-reed-plan.md`](./docs/sblgnt-kellogg-reed-plan.md).
   arcs), and Morphology / Word Details (forms + agreement arcs).
 - **Tier-aware editing** — per-mode Basic and Advanced edit experiences, a
   mode-aware "How to edit" help, visual linking, and a relationship quick-picker.
-- **Gold-standard data** — GNT (Nestle1904 LowFat, biblicalhumanities, and
-  SBLGNT LowFat, Clear-Bible MACULA Greek CC BY 4.0 — SBLGNT is becoming the
-  primary edition, see above) and OT (WLC LowFat, macula-hebrew), fetched on
-  demand and cached; Philippians (Nestle1904) is bundled for
-  offline/first-run. Hand-tagged sample documents are bundled too.
+- **Gold-standard data** — GNT (SBLGNT LowFat, Clear-Bible MACULA Greek
+  CC BY 4.0 — the default edition — plus Nestle1904 LowFat,
+  biblicalhumanities, as legacy/alternate) and OT (WLC LowFat,
+  macula-hebrew), fetched on demand and cached; Philippians is bundled for
+  offline/first-run in both Greek editions. Hand-tagged sample documents are
+  bundled too.
 - **Strong's lexicon** — the whole Greek + Hebrew Strong's dictionary (Open
   Scriptures, public-domain Strong's 1890), bundled under `public/lexicon/` and
   loaded on demand for the add-a-word lemma search.

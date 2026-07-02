@@ -95,7 +95,7 @@ Guiding rule: **prefer less misleading labels over falsely precise labels.**
 | 10. Source constituency | Done | New optional `sourceConstituency` layer on `KrDocument` (`schema/constituency.ts` — cat/role/rule/head/articular/tokenIds, whole tree source-given by construction, identified by `sourceId`). Captured verbatim by `captureSourceConstituency` in `lowfat.ts` when the loader passes a `sourceId` (both GNT loaders do); survives `combinePassage` (prefixed under a discourse root, dropped — never corrupted — when members lack it or mix sources). Syntax graph untouched; schemaVersion unchanged; Hebrew deferred per Tim's regression-only default (same helper works when wanted). |
 | 11. Constituency UI | Done | The EXISTING Constituency Tree mode (no duplicate) renders the preserved source `<wg>` hierarchy when present: Auto/Source/App toggle in the canvas toolbar (persisted, default Auto), an honesty caption on the diagram ("Source constituency: SBLGNT Lowfat" vs "Reconstructed from the app syntax graph"), raw source roles (s/v/o/io/p/adv, `head`) shown VERBATIM on branch chips (colour borrowed from the closest app family, text never translated), source child order authoritative, leaves hover-linked to app syntax nodes. Reconstructed path byte-for-byte unchanged; Dependency/Phrase-Block/KR and Hebrew RTL untouched. |
 | 12. Migration guards/tests | Done | `applyStoredPatch` now refuses (skip + warn, never delete) a patch whose `base.sourceId` names a different edition than the base document's actual source; legacy patches without a `sourceId` keep loading, guarded by `baseHash` as before. Covered by 3 new guard tests (stamping, crossing, legacy). Hebrew smoke (Gen 1:1 fixture, ot tests) and OpenText smoke (opentext tests) already pass unchanged in the suite; Mark 5 covered under both editions; Col 1:9–16 stress bundled (Nestle). |
-| 13. Cleanup | Not started | |
+| 13. Cleanup | Done | README rewritten to the shipped state (SBLGNT default, edition scoping, alignment methods, source constituency); acceptance checklist below. |
 
 ## Test passages
 
@@ -250,16 +250,56 @@ Still open:
 6. Is it acceptable to hide incomplete source-constituency features behind a
    dev/debug flag during live review?
 
+## Whole-project acceptance checklist (final, 2026-07-02)
+
+1. ✅ Mark 5:26 no longer shows πάντα as the direct object by itself
+   (article-rooted substantival phrase; πάντα is its adjectival modifier).
+2. ✅ μηδέν is a neutral "accusative modifier" under the passive ὠφεληθεῖσα,
+   never an ordinary direct object by default.
+3. ✅ τὰ παρ᾽ αὐτῆς πάντα and τὰ περὶ τοῦ Ἰησοῦ get identical articular-PP
+   treatment (Nestle1904; SBLGNT lacks the second τά — a real textual
+   difference, preserved as such).
+4. ✅ Roles exist and display for object-like, adverbial, respect, extent,
+   retained, and uncertain accusative functions (diagram stays neutral;
+   detail cards carry the nuance, per Tim).
+5. ✅ Provenance distinguishes given / converted / inferred / reconstructed /
+   manual / alternate, plus `sourceRole` and confidence; detail cards
+   disclose it via the "Analysis:" line.
+6. ✅ Default Greek NT source is SBLGNT Lowfat (`DEFAULT_GNT_SOURCE`).
+7. ✅ Nestle1904 Lowfat fully selectable as legacy/alternate.
+8. ✅ OpenText remains secondary/alternate.
+9. ✅ BSB alignment: SBLGNT-direct by position; Strong's/positional fallback
+   retained; per-token method metadata.
+10. ✅ Lowfat `<wg>` source constituency preserved (optional additive layer).
+11. ✅ Existing Constituency Tree renders the source tree when available…
+12. ✅ …with the reconstructed tree as fallback, captioned honestly, with an
+    Auto/Source/App toggle.
+13. ✅ Hebrew WLC Lowfat untouched and green in the suite.
+14. ✅ Patches are edition-stamped (`sourceId`) and never silently cross
+    editions (skip + warn + keep); legacy patches keep working via baseHash.
+15. ✅ README explains the data-source model.
+16. ✅ This plan reflects the final state.
+17. ✅ Tests: Mark 5 under both editions, SBLGNT loader, Nestle1904 suite,
+    BSB alignment (both paths + methods), source constituency + reconstructed
+    fallback, OpenText smoke, Hebrew smoke, patch guards — 656 tests, 61
+    files, all passing; typecheck, lint, and production build clean.
+
+Known intentional limitations (recorded for follow-up):
+- Contested-syntax registry entries are authored against Nestle1904 ids, so
+  contested badges appear only on Nestle1904 passages; SBLGNT variants would
+  need curated entries (`npm run dump-syntax` works for either edition).
+- Hebrew source constituency is not yet captured (Tim's default: regression
+  protection only); `captureSourceConstituency` works for it when wanted.
+- Open questions 1–6 under "Open questions for Tim" remain open; safe
+  defaults are in effect.
+
 ## Resume instructions if interrupted
 
-Current phase: 12 complete; next is 13 (final cleanup — README/plan final
-state + review summary).
-Changed files (phase 12): `src/persistence/userData.ts` (edition guard in
-`applyStoredPatch`), `tests/patch-guard.test.ts` (+3 guard tests).
-Build/test: typecheck + lint clean; 656 tests pass.
-Next smallest safe task: Phase 13 — final documentation pass (README reflects
-the shipped state; this plan's final status), and the whole-project
-acceptance checklist review for Tim.
+Current phase: ALL 13 PHASES COMPLETE.
+Build/test: typecheck + lint + production build clean; 656 tests pass.
+Known broken behavior: none known.
+Next smallest safe task: address Tim's review feedback; candidates above
+under "Known intentional limitations".
 
 Superseded status notes from phase 9:
 Changed files (phase 9): `src/io/parallel.ts`, `tests/parallel.test.ts`.
