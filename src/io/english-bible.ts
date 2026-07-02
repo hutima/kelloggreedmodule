@@ -83,6 +83,50 @@ function verseText(words: string[], nosp: number[] | undefined): string {
   return out.trim();
 }
 
+interface NoSpaceGroup {
+  surface: string;
+  /** Original word indices this display token was joined from. */
+  origIndices: number[];
+}
+
+/**
+ * Group words written with no space between them (per `nosp`) into a single
+ * display token, so punctuation ATTACHES to its word — `["Christ", ","]` →
+ * `"Christ,"` — instead of standing as its own token in Discourse mode. This is
+ * exactly the join {@link verseText} already uses for the readable string, so
+ * the tokens and the text stay in step. KJV/ASV/plaintext already keep
+ * punctuation attached (whitespace tokenization); this brings BSB in line.
+ */
+function mergeNoSpaceGroups(words: string[], nosp: number[] | undefined): NoSpaceGroup[] {
+  const noSpaceAfter = new Set(nosp ?? []);
+  const groups: NoSpaceGroup[] = [];
+  let cur: NoSpaceGroup | null = null;
+  for (let i = 0; i < words.length; i++) {
+    if (!cur) cur = { surface: '', origIndices: [] };
+    cur.surface += words[i];
+    cur.origIndices.push(i);
+    if (!noSpaceAfter.has(i)) {
+      groups.push(cur);
+      cur = null;
+    }
+  }
+  if (cur) groups.push(cur);
+  return groups;
+}
+
+/** The alignment tag for a merged group: the first aligned member wins (the real
+ *  word; attached punctuation carries none). */
+function groupTag(
+  origIndices: number[],
+  tags: Map<number, Partial<EnglishBibleWord>>,
+): Partial<EnglishBibleWord> | undefined {
+  for (const i of origIndices) {
+    const t = tags.get(i);
+    if (t) return t;
+  }
+  return undefined;
+}
+
 /**
  * Map English word index → tag, from a verse's alignment links.
  * `linkOf(link)` extracts the per-word tag; `enOf(link)` its English indices.
@@ -136,11 +180,11 @@ export function bsbNtToEnglishBook(
     verses[ref] = {
       ref,
       text: verseText(words, pb.nosp?.[key]),
-      words: words.map((surface, index) => {
-        const tag = tags.get(index);
+      words: mergeNoSpaceGroups(words, pb.nosp?.[key]).map((g, index) => {
+        const tag = groupTag(g.origIndices, tags);
         return {
           id: wordId(sourceId, book.name, ref, index),
-          surface,
+          surface: g.surface,
           ref,
           index,
           strong: tag?.strong,
@@ -174,11 +218,11 @@ export function bsbOtToEnglishBook(
     verses[ref] = {
       ref,
       text: verseText(words, pb.nosp?.[key]),
-      words: words.map((surface, index) => {
-        const tag = tags.get(index);
+      words: mergeNoSpaceGroups(words, pb.nosp?.[key]).map((g, index) => {
+        const tag = groupTag(g.origIndices, tags);
         return {
           id: wordId(sourceId, book.name, ref, index),
-          surface,
+          surface: g.surface,
           ref,
           index,
           sourceTokenIds: tag?.sourceTokenIds,
