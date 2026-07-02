@@ -337,6 +337,208 @@ describe('PP coordination puts a lone conjunction in the LAST join', () => {
     // In the final join, the conjunction sits to the RIGHT of the middle member.
     expect(and.x).toBeGreaterThan(on.x);
   });
+
+  it('carries the baseline under EVERY coordinated PP slant foot (Col 1:16)', () => {
+    // The three prepositions hang from their own feet spread rightward under the
+    // verb; each slant must meet a horizontal baseline or it floats in empty space
+    // (the "δι' αὐτοῦ καὶ εἰς αὐτόν" bug — the second/third feet had no line).
+    const layout = layoutDocument(doc());
+    for (const foot of slantFeet(layout)) {
+      expect(
+        footOnBaseline(layout, foot),
+        `PP slant foot (${foot.x.toFixed(0)},${foot.y.toFixed(0)}) must rest on a baseline`,
+      ).toBe(true);
+    }
+  });
+});
+
+/** Every line primitive of a layout. */
+type Line = { kind: 'line'; x1: number; y1: number; x2: number; y2: number; role: string };
+const lines = (l: Layout) => l.elements.filter((e) => e.kind === 'line') as unknown as Line[];
+/** Horizontal baseline segments (a line's two ends level, role 'baseline'). */
+const horizBaselines = (l: Layout) =>
+  lines(l).filter((e) => e.role === 'baseline' && Math.abs(e.y1 - e.y2) < 0.5);
+/** The top (baseline-attach) end of every diagonal drawn with role 'slant'. */
+function slantFeet(l: Layout): { x: number; y: number }[] {
+  return lines(l)
+    .filter((e) => e.role === 'slant')
+    .map((e) => (e.y1 <= e.y2 ? { x: e.x1, y: e.y1 } : { x: e.x2, y: e.y2 }));
+}
+/** Whether a point sits on some horizontal baseline segment (within a small ε). */
+function footOnBaseline(l: Layout, p: { x: number; y: number }, eps = 2): boolean {
+  return horizBaselines(l).some(
+    (b) =>
+      Math.abs(b.y1 - p.y) < eps &&
+      p.x >= Math.min(b.x1, b.x2) - eps &&
+      p.x <= Math.max(b.x1, b.x2) + eps,
+  );
+}
+
+describe("compound participle predicate's shared modifier stays attached (Col 1:9)", () => {
+  // "προσευχόμενοι καὶ αἰτούμενοι ὑπὲρ ὑμῶν" — two coordinated participles share
+  // one adverbial PP. The fork rejoins at a right junction and the shared PP hangs
+  // from there; its slant must meet the post-fork baseline, not land 12px left of
+  // it on the diagonal prong (the wordPadX inset that broke "ὑπὲρ ὑμῶν").
+  function doc(): KrDocument {
+    return makeDoc({
+      language: 'grc',
+      tokens: [
+        { id: 't1', index: 0, surface: 'προσευχόμενοι', pos: 'participle' },
+        { id: 't2', index: 1, surface: 'καὶ', pos: 'conjunction' },
+        { id: 't3', index: 2, surface: 'αἰτούμενοι', pos: 'participle' },
+        { id: 't4', index: 3, surface: 'ὑπὲρ', pos: 'preposition' },
+        { id: 't5', index: 4, surface: 'ὑμῶν', pos: 'pronoun' },
+      ],
+      nodes: [
+        { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'n_pray', kind: 'word', role: 'predicate', tokenIds: ['t1'] },
+        { id: 'n_and', kind: 'word', role: 'coordinator', tokenIds: ['t2'] },
+        { id: 'n_ask', kind: 'word', role: 'conjunct', tokenIds: ['t3'] },
+        { id: 'n_for', kind: 'word', role: 'adverbial', tokenIds: ['t4'] },
+        { id: 'n_you', kind: 'word', role: 'prepositionObject', tokenIds: ['t5'] },
+      ],
+      relations: [
+        { id: 'r_p', type: 'predicate', headId: 'n_root', dependentId: 'n_pray' },
+        { id: 'r_c', type: 'coordinator', headId: 'n_pray', dependentId: 'n_and' },
+        { id: 'r_j', type: 'conjunct', headId: 'n_pray', dependentId: 'n_ask' },
+        { id: 'r_adv', type: 'adverbial', headId: 'n_pray', dependentId: 'n_for' },
+        { id: 'r_po', type: 'prepositionObject', headId: 'n_for', dependentId: 'n_you' },
+      ],
+    });
+  }
+
+  it('lands the shared PP slant on the fork baseline, not the prong', () => {
+    const layout = layoutDocument(doc());
+    const feet = slantFeet(layout);
+    expect(feet.length).toBeGreaterThan(0);
+    for (const foot of feet) {
+      expect(
+        footOnBaseline(layout, foot),
+        `shared modifier foot (${foot.x.toFixed(0)},${foot.y.toFixed(0)}) must rest on the baseline`,
+      ).toBe(true);
+    }
+  });
+});
+
+describe('predicate-nominative baseline runs continuous through the back-slant (Col 1:15)', () => {
+  // "ὅς ἐστιν εἰκών" — the predicate nominative's back-slant rests only on the
+  // complement side, so without a bridge the verb's baseline ended in a bare gap
+  // just before the slant. The main line must be unbroken from the verb through
+  // the separator into the complement.
+  function doc(): KrDocument {
+    return makeDoc({
+      language: 'grc',
+      tokens: [
+        { id: 't1', index: 0, surface: 'ὅς', pos: 'pronoun' },
+        { id: 't2', index: 1, surface: 'ἐστιν', pos: 'verb' },
+        { id: 't3', index: 2, surface: 'εἰκών', pos: 'noun' },
+      ],
+      nodes: [
+        { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'n_s', kind: 'word', role: 'subject', tokenIds: ['t1'] },
+        { id: 'n_v', kind: 'word', role: 'predicate', tokenIds: ['t2'] },
+        { id: 'n_pn', kind: 'word', role: 'predicateNominative', tokenIds: ['t3'] },
+      ],
+      relations: [
+        { id: 'r_s', type: 'subject', headId: 'n_root', dependentId: 'n_s' },
+        { id: 'r_p', type: 'predicate', headId: 'n_root', dependentId: 'n_v' },
+        { id: 'r_pn', type: 'predicateNominative', headId: 'n_v', dependentId: 'n_pn' },
+      ],
+    });
+  }
+
+  it('leaves no gap between the verb baseline and the predicate nominative', () => {
+    const layout = layoutDocument(doc());
+    const verb = textEl(layout, 'ἐστιν')!;
+    const pn = textEl(layout, 'εἰκών')!;
+    // Baseline segments spanning the horizontal band between the verb and the
+    // complement, at their shared y. Merge them and require no interior gap.
+    const y = verb.y + 6; // a hair below the words, on the baseline row
+    const spans = horizBaselines(layout)
+      .filter((b) => Math.abs(b.y1 - roundBaselineY(layout, verb, pn)) < 2)
+      .map((b) => [Math.min(b.x1, b.x2), Math.max(b.x1, b.x2)] as [number, number])
+      .filter(([, x2]) => x2 > verb.x && x2 <= pn.x + 200)
+      .sort((a, b) => a[0] - b[0]);
+    expect(spans.length).toBeGreaterThan(0);
+    // Walk the merged coverage from the verb to the complement — no gap > ε.
+    let reach = spans[0]![0];
+    for (const [x1, x2] of spans) {
+      expect(x1 - reach, 'baseline must be continuous (no gap before the back-slant)').toBeLessThan(2);
+      reach = Math.max(reach, x2);
+    }
+    expect(reach).toBeGreaterThanOrEqual(pn.x - 40);
+    expect(y).toBeGreaterThan(0);
+  });
+});
+
+/** The baseline-row y shared by the verb and complement (their text sits just above it). */
+function roundBaselineY(l: Layout, a: { y: number }, b: { y: number }): number {
+  const target = Math.max(a.y, b.y) + 6;
+  let best = target;
+  let bestD = Infinity;
+  for (const line of horizBaselines(l)) {
+    const d = Math.abs(line.y1 - target);
+    if (d < bestD) {
+      bestD = d;
+      best = line.y1;
+    }
+  }
+  return best;
+}
+
+describe("inline appositive's genitive does not drag the head baseline into empty space (Col 1:3)", () => {
+  // "Θεῷ = Πατρὶ τοῦ Κυρίου …" — the appositive Πατρὶ carries a genitive chain that
+  // hangs BELOW it. The shared head baseline must reach only the appositive's own
+  // baseline end, not its full (genitive-inflated) block width, or it trails a long
+  // empty horizontal past everything.
+  function doc(): KrDocument {
+    return makeDoc({
+      language: 'grc',
+      tokens: [
+        { id: 't1', index: 0, surface: 'εὐχαριστοῦμεν', pos: 'verb' },
+        { id: 't2', index: 1, surface: 'Θεῷ', pos: 'noun' },
+        { id: 't3', index: 2, surface: 'Πατρὶ', pos: 'noun' },
+        { id: 't4', index: 3, surface: 'Κυρίου', pos: 'noun' },
+        { id: 't5', index: 4, surface: 'μεγάλου', pos: 'adjective' },
+      ],
+      nodes: [
+        { id: 'n_root', kind: 'clause', clauseType: 'independent', tokenIds: [] },
+        { id: 'n_s', kind: 'word', role: 'subject', tokenIds: [], implied: true, label: '(we)' },
+        { id: 'n_v', kind: 'word', role: 'predicate', tokenIds: ['t1'] },
+        { id: 'n_god', kind: 'word', role: 'dativeComplement', tokenIds: ['t2'] },
+        { id: 'n_father', kind: 'word', role: 'apposition', tokenIds: ['t3'] },
+        { id: 'n_lord', kind: 'word', role: 'genitive', tokenIds: ['t4'] },
+        { id: 'n_great', kind: 'word', role: 'adjectival', tokenIds: ['t5'] },
+      ],
+      relations: [
+        { id: 'r_s', type: 'subject', headId: 'n_root', dependentId: 'n_s' },
+        { id: 'r_p', type: 'predicate', headId: 'n_root', dependentId: 'n_v' },
+        { id: 'r_io', type: 'dativeComplement', headId: 'n_v', dependentId: 'n_god' },
+        { id: 'r_ap', type: 'apposition', headId: 'n_god', dependentId: 'n_father' },
+        { id: 'r_gen', type: 'genitive', headId: 'n_father', dependentId: 'n_lord' },
+        { id: 'r_adj', type: 'adjectival', headId: 'n_lord', dependentId: 'n_great' },
+      ],
+    });
+  }
+
+  it('stops the head baseline near the appositive word, not past the genitive', () => {
+    const layout = layoutDocument(doc());
+    const father = textEl(layout, 'Πατρὶ')!;
+    const lord = textEl(layout, 'Κυρίου')!; // hangs below-right on the genitive slant
+    expect(father).toBeDefined();
+    // The appositive's shared baseline row (just below Πατρὶ).
+    const rowY = roundBaselineY(layout, father, father);
+    const rightEnd = Math.max(
+      ...horizBaselines(layout)
+        .filter((b) => Math.abs(b.y1 - rowY) < 2)
+        .map((b) => Math.max(b.x1, b.x2)),
+    );
+    // The genitive Κυρίου sits well to the right but BELOW the line; the head
+    // baseline must NOT extend out to it. Keep a generous margin so the test pins
+    // the regression (pre-fix the baseline ran to the genitive's full extent).
+    expect(lord.x - father.x).toBeGreaterThan(40); // the genitive really is far right
+    expect(rightEnd).toBeLessThan(lord.x - 20);
+  });
 });
 
 describe('infinitive-fork lead words read in surface order', () => {
