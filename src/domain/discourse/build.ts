@@ -15,6 +15,7 @@ import {
   parseRef,
   rangeOfTitle,
   rangesOverlap,
+  refInRange,
   refSlug,
 } from './refs';
 
@@ -40,6 +41,15 @@ export interface BuildDiscourseOptions {
   book: string;
   /** How to cut the initial units. Defaults to `sentence`. */
   granularity?: DiscourseGranularity;
+  /**
+   * Inclusive verse range (canonical `"c:v"`) to TRIM the built document to.
+   * When set, source tokens whose ref falls outside `[startRef, endRef]` are
+   * dropped BEFORE units are cut, so a source sentence that overlaps an endpoint
+   * contributes only its in-range words (never leaks neighbouring verses). Both
+   * ends must be provided to trim; omit for a whole-book build.
+   */
+  startRef?: string;
+  endRef?: string;
   /** Clock injection for deterministic tests. */
   now?: string;
 }
@@ -72,6 +82,23 @@ function discourseTokensOf(doc: KrDocument): DiscourseToken[] {
         sourceDocId: doc.id,
       };
     });
+}
+
+/**
+ * Trim compact discourse tokens to an inclusive verse range. A token is kept
+ * when its normalized ref falls inside `[startRef, endRef]`; a token with no
+ * usable ref is kept (custom/typed sentences carry no verse refs, so range
+ * trimming does not apply to them). This is the ONE place out-of-range source
+ * words are dropped so an overlapping sentence never leaks a neighbouring verse
+ * — it reads compact tokens only and never touches the source `KrDocument`.
+ */
+export function filterDiscourseTokensToRange(
+  tokens: DiscourseToken[],
+  startRef: string,
+  endRef: string,
+): DiscourseToken[] {
+  if (!startRef || !endRef) return tokens;
+  return tokens.filter((t) => !t.ref || refInRange(t.ref, startRef, endRef));
 }
 
 /** First/last refs among a unit's tokens (they are in reading order). */
@@ -226,34 +253,52 @@ export function buildDiscourseDocumentFromKrDocuments(
 ): DiscourseDocument {
   const granularity = opts.granularity ?? 'sentence';
   const now = opts.now ?? new Date().toISOString();
-  const tokensByDoc = new Map(docs.map((d) => [d.id, discourseTokensOf(d)]));
-  const tokens = docs.flatMap((d) => tokensByDoc.get(d.id)!);
+  const trim = Boolean(opts.startRef && opts.endRef);
 
-  const leaves = splitRangeIntoInitialUnits(docs, tokensByDoc, granularity);
+  // Build compact tokens per source doc, then TRIM to the requested range so an
+  // overlapping sentence contributes only its in-range words. A source doc left
+  // with no tokens after trimming is dropped entirely (no empty units, and its
+  // id no longer appears in sourceDocIds).
+  const tokensByDoc = new Map(
+    docs.map((d) => {
+      const toks = discourseTokensOf(d);
+      return [d.id, trim ? filterDiscourseTokensToRange(toks, opts.startRef!, opts.endRef!) : toks];
+    }),
+  );
+  const keptDocs = docs.filter((d) => (tokensByDoc.get(d.id)?.length ?? 0) > 0);
+  const tokens = keptDocs.flatMap((d) => tokensByDoc.get(d.id)!);
+
+  const leaves = splitRangeIntoInitialUnits(keptDocs, tokensByDoc, granularity);
   const units = groupUnderChapters(leaves);
 
   const span = refSpan(tokens);
-  const startRef = span.start || rangeOfTitle(docs[0]?.title ?? '')?.start || '';
-  const endRef = span.end || rangeOfTitle(docs[docs.length - 1]?.title ?? '')?.end || '';
+  const startRef = span.start || rangeOfTitle(keptDocs[0]?.title ?? '')?.start || '';
+  const endRef = span.end || rangeOfTitle(keptDocs[keptDocs.length - 1]?.title ?? '')?.end || '';
 
   const scopeByToken = new Map<string, string>();
   for (const u of units) for (const tid of u.tokenIds) scopeByToken.set(tid, u.id);
   const markers = detectDiscourseMarkers(tokens, (tid) => scopeByToken.get(tid));
 
-  const language = docs[0]?.language ?? 'grc';
+  const language = keptDocs[0]?.language ?? docs[0]?.language ?? 'grc';
   const id = `disc_${slug(opts.sourceId)}_${slug(opts.book)}_${refSlug(startRef)}-${refSlug(endRef)}_${granularity}`;
+
+  // When trimming, a source sentence's own `text` still holds its out-of-range
+  // words, so reconstruct the running text from the RETAINED tokens instead.
+  const text = trim
+    ? tokens.map((t) => t.surface).join(' ')
+    : keptDocs.map((d) => d.text).join(' ');
 
   const doc: DiscourseDocument = {
     schemaVersion: 1,
     id,
-    sourceDocIds: docs.map((d) => d.id),
+    sourceDocIds: keptDocs.map((d) => d.id),
     sourceId: opts.sourceId,
     editionId: opts.editionId,
     language,
     title: `${opts.book} ${formatRange(startRef, endRef)}`.trim(),
     range: { book: opts.book, startRef, endRef },
     granularity,
-    text: docs.map((d) => d.text).join(' '),
+    text,
     tokens,
     units,
     relations: [],
@@ -263,7 +308,7 @@ export function buildDiscourseDocumentFromKrDocuments(
     provenance: {
       source: 'given',
       confidence: 'high',
-      reason: `Generated from ${docs.length} source sentence document(s); discourse structure is user-authored.`,
+      reason: `Generated from ${keptDocs.length} source sentence document(s); discourse structure is user-authored.`,
     },
     createdAt: now,
     updatedAt: now,
@@ -273,8 +318,9 @@ export function buildDiscourseDocumentFromKrDocuments(
 
 /**
  * Filter a BOOK's sentence documents down to a verse range, then build. The
- * range is inclusive; a sentence overlapping either endpoint is included whole
- * (sentences are the smallest source unit — we never cut one off mid-load).
+ * range is inclusive; a sentence overlapping either endpoint is selected, then
+ * TRIMMED to the range by the builder so only its in-range words survive — an
+ * overlapping sentence never leaks a neighbouring verse into the document.
  */
 export function buildDiscourseDocumentFromRange(
   bookDocs: KrDocument[],
@@ -284,6 +330,7 @@ export function buildDiscourseDocumentFromRange(
     const r = rangeOfTitle(d.title);
     return r && rangesOverlap(r.start, r.end, opts.startRef, opts.endRef);
   });
+  // opts carries startRef/endRef → the builder trims tokens to the range.
   return buildDiscourseDocumentFromKrDocuments(selected, opts);
 }
 

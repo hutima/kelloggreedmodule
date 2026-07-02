@@ -1,5 +1,5 @@
 import type { DiscourseDocument, DiscourseGranularity, KrDocument } from '@/domain/schema';
-import { buildDiscourseDocumentFromRange, rangeOfTitle, rangesOverlap, parseRef } from '@/domain/discourse';
+import { buildDiscourseDocumentFromRange, rangeOfTitle, rangesOverlap, parseRef, refInRange } from '@/domain/discourse';
 import { GNT_BOOKS, loadGntBook, type GntBook } from './gnt';
 import { SBLGNT_BOOKS, loadSblgntBook } from './gnt-sblgnt';
 import { OPENTEXT_BOOKS, loadOpenTextBook } from './opentext-source';
@@ -81,11 +81,15 @@ export function estimateUnitCount(
     if (!r) continue;
     const s = parseRef(r.start)!;
     const e = parseRef(r.end)!;
-    // Count verses per chapter conservatively from the title span.
+    // Count verses per chapter from the title span, clamped to the requested
+    // range so an overlapping sentence's out-of-range verses are not counted.
     for (let c = s.chapter; c <= e.chapter; c++) {
       const v0 = c === s.chapter ? s.verse : 1;
       const v1 = c === e.chapter ? e.verse : v0;
-      for (let v = v0; v <= v1; v++) verses.add(`${c}:${v}`);
+      for (let v = v0; v <= v1; v++) {
+        const ref = `${c}:${v}`;
+        if (refInRange(ref, startRef, endRef)) verses.add(ref);
+      }
     }
   }
   return verses.size;
