@@ -647,9 +647,9 @@ export class SentenceConverter {
           // accusative of respect, or a retained accusative here (μηδὲν
           // ὠφεληθεῖσα, Mark 5:26), and the source's bare `o` does not decide.
           // The neutral `accusativeModifier` says exactly as much as is known;
-          // provenance preserves the raw source role and the reasoning. Only
-          // explicit `voice="passive"` qualifies — middle-passive forms stay
-          // ordinary objects, since the middle reading takes a real object.
+          // provenance preserves the raw source role. Only explicit
+          // `voice="passive"` qualifies — middle-passive forms stay ordinary
+          // objects, since the middle reading takes a real object.
           const passive = verbEl && this.ultimateHeadWord(verbEl)?.getAttribute('voice') === 'passive';
           const accusative = this.ultimateHeadWord(child)?.getAttribute('case') === 'accusative';
           if (passive && accusative) {
@@ -657,8 +657,6 @@ export class SentenceConverter {
               source: 'converted',
               confidence: 'medium',
               sourceRole: 'o',
-              reason:
-                'Accusative with a passive verb — extent, respect, or retained object; the ordinary direct-object label is not claimed.',
             });
           } else {
             this.rel('directObject', verbId, rep);
@@ -755,7 +753,6 @@ export class SentenceConverter {
         source: 'converted',
         confidence: 'high',
         sourceRole: pp.getAttribute('head') === 'true' ? 'head' : undefined,
-        reason: 'Article + prepositional phrase read as a substantival phrase ("the things …").',
       });
     }
     const rule = el.getAttribute('rule') ?? '';
@@ -768,7 +765,6 @@ export class SentenceConverter {
         source: 'converted',
         confidence: 'medium',
         sourceRole: m.getAttribute('head') === 'true' ? 'head' : (m.getAttribute('role') ?? undefined),
-        reason: 'Read as modifying the substantival article phrase rather than heading it.',
       });
     }
     return detId;
