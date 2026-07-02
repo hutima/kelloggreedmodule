@@ -185,8 +185,11 @@ describe('English Bible source visibility', () => {
       expect(SYNTAX_SOURCES.some((x) => x.id === (s.id as unknown))).toBe(false);
       expect(ALL_SYNTAX_SOURCES.some((x) => x.id === (s.id as unknown))).toBe(false);
     }
-    // KJV / ASV are NOT offered (no data — not fabricated).
-    expect(discIds).not.toContain('english-kjv');
-    expect(discIds).not.toContain('english-asv');
+    // KJV / ASV ARE offered now — as remote, English-only Discourse sources —
+    // but still ONLY in Discourse mode, never in the syntax selectors.
+    expect(discIds).toContain('english-kjv');
+    expect(discIds).toContain('english-asv');
+    expect(SYNTAX_SOURCES.some((x) => (x.id as unknown) === 'english-kjv')).toBe(false);
+    expect(ALL_SYNTAX_SOURCES.some((x) => (x.id as unknown) === 'english-asv')).toBe(false);
   });
 });

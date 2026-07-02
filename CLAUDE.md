@@ -417,6 +417,23 @@ its own document model, store, persistence, and renderer. See
   Strong's — tags are copied, never fabricated). `DiscourseSourceId =
   SyntaxSourceId | EnglishBibleSourceId`; English sources appear ONLY in the
   Discourse source list, never in the syntax selectors.
+  - **Remote KJV / ASV** — `io/english-bible-remote.ts` adds `english-kjv` and
+    `english-asv` as English-ONLY sources fetched on demand (KJV per-book from
+    `aruljohn/Bible-kjv`; ASV whole-Bible-once from `scrollmapper/bible_databases`,
+    both public domain) and cached in memory. They ship NO Bible text in-repo
+    (only a manifest + URL template + adapter) and carry NO lemma/morphology/
+    Strong's/alignment (`alignmentMethod:'none'`) and NO MACULA marker hints —
+    only the conservative English marker lexicon (`ENGLISH_MARKER_HINTS`) applies,
+    exactly as for BSB. A remote failure surfaces a readable error and never
+    corrupts discourse or syntax state. The English source-text/gloss/both toggle
+    is hidden for `language:'en'` documents (the text is already English).
+- **Plaintext "New text"** — `domain/discourse/plaintext.ts`
+  (`buildDiscourseDocumentFromPlainText`) loads pasted prose directly as sentence
+  units (`sourceId:'custom-plaintext'`): tokenized locally, split on `.?!` / Greek
+  `;·` / Hebrew sof pasuq + blank lines, deterministic ids from a text hash (so a
+  re-paste restores patches). NO LLM prompt, NO syntax parse, NO `KrDocument`, and
+  NO invented markers/suggestions/tags. Loaded via the store `loadPlainText` action
+  and the Discourse left-panel "New text" tab (`DiscoursePlaintextPicker`).
 - **Separation** — `useDiscourseStore` (`state/discourse.ts`) is a second
   zustand store: loading a discourse range never touches the syntax passage
   and vice versa; a mode switch reloads neither. The left panel swaps the
