@@ -89,7 +89,7 @@ Guiding rule: **prefer less misleading labels over falsely precise labels.**
 | 4. KR display labels | Done | Detail cards gain an italic "Analysis:" provenance/uncertainty line (`analysisNote` in `describe.ts`, rendered in `DiagramCanvas`) — shown only when there is something worth disclosing (conversion, inference, reconstruction, preserved raw source role, non-high confidence). Role labels/phrases landed in phase 3. Geometry decision: object-like/retained accusatives sit in the object slot, adverbial accusatives hang beneath the verb; per Tim the diagram stays neutral and detail cards carry the nuance. |
 | 5. Converter fixes | Done | `src/io/lowfat.ts`: (1) accusative `o` under an explicitly PASSIVE verb → `accusativeModifier`, provenance `converted`/`medium` with `sourceRole: 'o'` (middle-passive left alone — the middle reading takes a real object); (2) articular PPs (det + PP content, no substantive head word) rooted on the ARTICLE (`role: substantivalPrepositionalPhrase`), PP + πάντα-style modifiers beneath it with `converted` provenance preserving the source's `head` marking. Both Mark 5 shapes now identical. All 5 `it.fails` specs flipped to ordinary regressions + 4 new detail specs; 630 tests pass. Hebrew unaffected (no `voice`/`case` attributes; detection requires `class="np"` + `det`). |
 | 6. Source model | Done | `SyntaxSourceId` is now explicit + edition-aware (`macula-greek-sblgnt-lowfat` · `macula-greek-nestle1904-lowfat` · `opentext` · `macula-hebrew-wlc-lowfat`); new `ALL_SYNTAX_SOURCES` registry carries corpus/edition/availability (SBLGNT registered, `available: false` until phase 7). Patch bases now stamp `sourceId` via `sourceIdForCorpus`. Safe rename: the old short ids were never persisted anywhere. |
-| 7. SBLGNT loader | Not started | Keep Nestle1904 loader intact. |
+| 7. SBLGNT loader | Done | `src/io/gnt-sblgnt.ts` (Clear-Bible/macula-greek `SBLGNT/lowfat`, CC BY 4.0) + `sblgntDialect` in `lowfat.ts`: ids on `xml:id`/`ref`, "MRK 5:25" milestones, and — the big one — head INFERENCE by class/role because SBLGNT Lowfat carries no `head="true"` at all. Docs get `sblgnt_` id prefix. Selectable in GntPicker + source compare; SW caches it; Nestle1904 loader untouched. Mark 5:26 regression verified under SBLGNT via bundled fixture (`tests/fixtures-sblgnt-lowfat-mark-5-25-34.xml`). Textual note: SBLGNT reads ἀκούσασα περὶ τοῦ Ἰησοῦ (no τά) — one substantival PP in that sentence, not two. |
 | 8. Default switch | Not started | Only after loader tests pass. |
 | 9. Alignment cleanup | Not started | BSB alignment is already SBLGNT-based; direct alignment becomes possible. |
 | 10. Source constituency | Not started | Preserve Lowfat `<wg>` hierarchy as optional layer. |
@@ -245,19 +245,20 @@ Still open:
 
 ## Resume instructions if interrupted
 
-Current phase: 6 complete; next is 7 (SBLGNT Lowfat loader).
-Changed files (phase 6): `src/io/sources.ts` (explicit ids + registry +
-`sourceIdForCorpus`), `src/io/index.ts`, `src/state/store.ts` (compare
-default + patch bases stamp `sourceId`), `src/ui/panels/left/GntPicker.tsx`
-(`pickerSource` narrowing + renamed option values), `tests/sources.test.ts`.
-Current build/test status: typecheck + lint clean; 58 files / 633 tests pass.
-Mark 5:26 converts correctly (see phase 5 notes); the Mark 5 regression suite
-guards it.
+Current phase: 7 complete; next is 8 (SBLGNT default switch).
+Changed files (phase 7): `src/io/lowfat.ts` (`sblgntDialect` + head
+inference + dialect/docIdPrefix options + edition-agnostic verseRef),
+`src/io/gnt-sblgnt.ts` (new loader), `src/io/{sources,index}.ts`,
+`src/sw.ts` (cache rule), `src/state/store.ts` (sibling nav per edition),
+`src/ui/panels/left/GntPicker.tsx` (SBLGNT option + attribution + offline
+save), `tests/sblgnt.test.ts` + bundled SBLGNT Mark fixture, `README.md`
+attribution, `tests/sources.test.ts`.
+Current build/test status: typecheck + lint + production build clean;
+59 files / 641 tests pass. Mark 5:26 regression verified under BOTH editions.
 Known broken behavior: none known.
-Next smallest safe task: Phase 7 — add the SBLGNT Lowfat loader. MACULA
-Greek publishes SBLGNT Lowfat trees (Clear-Bible/macula-greek,
-`SBLGNT/lowfat`); reuse `lowfatToDocuments` with a `sblgnt_` doc-id prefix,
-keep the Nestle1904 loader untouched, flip
-`ALL_SYNTAX_SOURCES['macula-greek-sblgnt-lowfat'].available` to true, wire
-`loadSourcePassage`, and run the Mark 5 fixture expectations against a real
-SBLGNT Mark slice (licence/attribution to README).
+Next smallest safe task: Phase 8 — flip the Greek default to SBLGNT: GntPicker
+default source + option order, whatever seeds the first-run/bundled starter
+passage (keep Philippians Nestle1904-bundled behavior graceful — consider
+bundling SBLGNT Philippians under `public/sblgnt/`), and make sure saved
+patches keep loading against their own edition. Mark 5 regression must pass
+under the default source.

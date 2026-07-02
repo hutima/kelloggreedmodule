@@ -15,6 +15,7 @@ const doc = (id: string): KrDocument =>
 describe('syntax sources (edition-aware)', () => {
   it('lists the loadable GNT sources with explicit ids and labels', () => {
     expect(SYNTAX_SOURCES.map((s) => s.id)).toEqual([
+      'macula-greek-sblgnt-lowfat',
       'macula-greek-nestle1904-lowfat',
       'opentext',
     ]);
@@ -24,13 +25,12 @@ describe('syntax sources (edition-aware)', () => {
     expect(sourceLabel('macula-hebrew-wlc-lowfat')).toMatch(/WLC/);
   });
 
-  it('registers SBLGNT as a known (not yet loadable) edition and Hebrew as loadable', () => {
+  it('registers SBLGNT as a loadable GNT edition and Hebrew as loadable', () => {
     const sblgnt = ALL_SYNTAX_SOURCES.find((s) => s.id === 'macula-greek-sblgnt-lowfat')!;
     expect(sblgnt.corpus).toBe('gnt');
     expect(sblgnt.edition).toBe('sblgnt');
-    expect(sblgnt.available).toBe(false); // flips in plan phase 7
-    // Not yet loadable → must not appear in the UI-selectable list.
-    expect(SYNTAX_SOURCES.some((s) => s.id === sblgnt.id)).toBe(false);
+    expect(sblgnt.available).toBe(true); // loader landed in plan phase 7
+    expect(SYNTAX_SOURCES.some((s) => s.id === sblgnt.id)).toBe(true);
     const wlc = ALL_SYNTAX_SOURCES.find((s) => s.id === 'macula-hebrew-wlc-lowfat')!;
     expect(wlc.corpus).toBe('ot');
     expect(wlc.available).toBe(true);

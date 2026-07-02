@@ -56,9 +56,11 @@ and `src/domain/contested/`.
 The Greek NT pipeline is being rebased around **SBLGNT Lowfat / MACULA Greek**
 as the primary/default Greek edition. Status and intent:
 
-- **Today** the Greek NT base is the **Nestle1904 Lowfat** syntax tree
-  (macula-greek), with **OpenText.org** available as an alternate syntax
-  source and Hebrew served by **WLC Lowfat** (macula-hebrew).
+- **Today** the default Greek NT base is the **Nestle1904 Lowfat** syntax
+  tree, with **SBLGNT Lowfat** (MACULA Greek, Clear-Bible — CC BY 4.0;
+  SBLGNT text © SBL, CC BY 4.0) selectable as a first-class edition,
+  **OpenText.org** available as an alternate syntax source, and Hebrew served
+  by **WLC Lowfat** (macula-hebrew).
 - **Target**: **SBLGNT Lowfat** becomes the primary/default Greek edition;
   **Nestle1904 Lowfat** remains available as a legacy/alternate edition;
   **OpenText** remains a secondary/alternate syntax source; **Hebrew WLC
@@ -82,10 +84,11 @@ in [`docs/sblgnt-kellogg-reed-plan.md`](./docs/sblgnt-kellogg-reed-plan.md).
   arcs), and Morphology / Word Details (forms + agreement arcs).
 - **Tier-aware editing** — per-mode Basic and Advanced edit experiences, a
   mode-aware "How to edit" help, visual linking, and a relationship quick-picker.
-- **Gold-standard data** — GNT (Nestle1904 LowFat, macula-greek — SBLGNT
-  LowFat is being introduced as the primary edition, see above) and OT (WLC
-  LowFat, macula-hebrew), fetched on demand and cached; Philippians is bundled
-  for offline/first-run. Hand-tagged sample documents are bundled too.
+- **Gold-standard data** — GNT (Nestle1904 LowFat, biblicalhumanities, and
+  SBLGNT LowFat, Clear-Bible MACULA Greek CC BY 4.0 — SBLGNT is becoming the
+  primary edition, see above) and OT (WLC LowFat, macula-hebrew), fetched on
+  demand and cached; Philippians (Nestle1904) is bundled for
+  offline/first-run. Hand-tagged sample documents are bundled too.
 - **Strong's lexicon** — the whole Greek + Hebrew Strong's dictionary (Open
   Scriptures, public-domain Strong's 1890), bundled under `public/lexicon/` and
   loaded on demand for the add-a-word lemma search.

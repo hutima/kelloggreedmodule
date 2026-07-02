@@ -5,6 +5,9 @@ import {
   BUNDLED_BOOKS,
   cacheGntBook,
   loadGntBook,
+  SBLGNT_BOOKS,
+  cacheSblgntBook,
+  loadSblgntBook,
   combinePassage,
   loadOpenTextBook,
   OPENTEXT_BOOKS,
@@ -28,13 +31,15 @@ import { getIssuesForPassage } from '@/domain/contested';
  * so whichever is opened drives all four visualizations and becomes the editable
  * base — switching source just changes which published analysis you start from.
  */
-type Source = 'macula-greek-nestle1904-lowfat' | 'opentext';
+type Source = 'macula-greek-sblgnt-lowfat' | 'macula-greek-nestle1904-lowfat' | 'opentext';
 
-/** The picker slot for a document's source — this picker offers the two
- *  loadable GNT sources; anything else shows as the Nestle1904 default. */
+/** The picker slot for a document's source — this picker offers the loadable
+ *  GNT sources; anything else shows as the Nestle1904 default. */
 function pickerSource(d: KrDocument): Source {
   const s = sourceOfDoc(d);
-  return s === 'opentext' ? 'opentext' : 'macula-greek-nestle1904-lowfat';
+  return s === 'opentext' || s === 'macula-greek-sblgnt-lowfat'
+    ? s
+    : 'macula-greek-nestle1904-lowfat';
 }
 
 /** The GNT book whose name a passage/sentence title begins with, if any. */
@@ -54,6 +59,9 @@ function loadBookDocs(source: Source, num: number): Promise<KrDocument[]> {
   if (source === 'opentext') {
     const b = OPENTEXT_BOOKS.find((x) => x.num === num)!;
     return loadOpenTextBook(b);
+  }
+  if (source === 'macula-greek-sblgnt-lowfat') {
+    return loadSblgntBook(SBLGNT_BOOKS.find((x) => x.num === num)!);
   }
   return loadGntBook(GNT_BOOKS.find((x) => x.num === num)!);
 }
@@ -170,7 +178,9 @@ export function GntPicker() {
     const b = GNT_BOOKS.find((x) => x.num === num);
     if (!b) return;
     setCacheState('saving');
-    setCacheState((await cacheGntBook(b)) ? 'saved' : 'error');
+    const ok =
+      source === 'macula-greek-sblgnt-lowfat' ? await cacheSblgntBook(b) : await cacheGntBook(b);
+    setCacheState(ok ? 'saved' : 'error');
   };
 
   const toggle = (id: string) =>
@@ -230,7 +240,8 @@ export function GntPicker() {
         <span>Syntax source</span>
         <select value={source} onChange={(e) => changeSource(e.target.value as Source)}>
           <option value="macula-greek-nestle1904-lowfat">Nestle 1904 Lowfat</option>
-          <option value="opentext">OpenText.org</option>
+          <option value="macula-greek-sblgnt-lowfat">SBLGNT Lowfat</option>
+          <option value="opentext">OpenText syntax</option>
         </select>
       </label>
       {/* Book selector spans the full width on its own line so the full book name
@@ -254,7 +265,7 @@ export function GntPicker() {
       </label>
       <div className="row">
         {loading && <span style={{ fontSize: 12, color: 'var(--ink-soft, #667)' }}>Loading…</span>}
-        {source === 'macula-greek-nestle1904-lowfat' && (
+        {source !== 'opentext' && (
           <button
             className="mini"
             disabled={bundled || cacheState === 'saving' || cacheState === 'saved'}
@@ -268,6 +279,12 @@ export function GntPicker() {
       {source === 'opentext' && (
         <p style={{ fontSize: 12, color: 'var(--muted, #667)' }}>
           OpenText.org analysis (CC BY-SA 4.0), surface text from Nestle 1904.
+        </p>
+      )}
+      {source === 'macula-greek-sblgnt-lowfat' && (
+        <p style={{ fontSize: 12, color: 'var(--muted, #667)' }}>
+          SBLGNT text (SBL, CC BY 4.0) with MACULA Greek Lowfat syntax
+          (Clear-Bible, CC BY 4.0).
         </p>
       )}
 

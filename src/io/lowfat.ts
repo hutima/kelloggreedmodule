@@ -134,12 +134,14 @@ export interface LowfatDialect {
   glossOf(w: Element): string | undefined;
   morphOf(w: Element): Morphology | undefined;
   /**
-   * Pick the head among children when NONE is marked `head="true"`. macula-greek
+   * Pick the head among children when NONE is marked `head="true"`. Nestle1904
    * marks word-level heads, so the first child is right; macula-hebrew marks
    * heads only on word-GROUPS, so a leaf group (article + noun) needs the content
-   * word chosen instead of the leading function morpheme. Defaults to the first.
+   * word chosen instead of the leading function morpheme; SBLGNT Lowfat carries
+   * NO head marking at all, so every group needs class/role-driven inference.
+   * Defaults to the first child.
    */
-  headFallback?(kids: Element[]): Element | undefined;
+  headFallback?(kids: Element[], parent?: Element): Element | undefined;
 }
 
 /** macula-greek (Nestle1904 Lowfat): ids on `n`/`osisId`, surface in text. */
@@ -151,6 +153,66 @@ export const greekDialect: LowfatDialect = {
   lemmaOf: (w) => w.getAttribute('lemma') ?? w.getAttribute('normalized') ?? undefined,
   glossOf: (w) => w.getAttribute('gloss') ?? undefined,
   morphOf,
+};
+
+/** Alignment anchors for SBLGNT `<w>`: canonical `ref` ("MRK 5:25!1") and
+ *  Strong's number, carried in `morphology.extra` like the Nestle1904 osisId. */
+function sblgntMorphOf(w: Element): Morphology | undefined {
+  const m: Morphology = {};
+  let any = false;
+  for (const k of MORPH_KEYS) {
+    const v = w.getAttribute(k);
+    if (v) {
+      (m as Record<string, string>)[k] = v;
+      any = true;
+    }
+  }
+  const extra: Record<string, string> = {};
+  const ref = w.getAttribute('ref');
+  const strong = w.getAttribute('strong');
+  if (ref) extra.ref = ref;
+  if (strong) extra.strong = strong;
+  if (Object.keys(extra).length) {
+    m.extra = extra;
+    any = true;
+  }
+  return any ? m : undefined;
+}
+
+/**
+ * Head inference for SBLGNT Lowfat, which (unlike Nestle1904) carries NO
+ * `head="true"` marking: pick the most content-like constituent by role, then
+ * class, skipping function words (det/conj/prep/ptcl). This is what keeps a
+ * `DetNP` headed by its noun (not the article) and a `PrepNp` object findable.
+ */
+function sblgntHead(kids: Element[]): Element | undefined {
+  if (!kids.length) return undefined;
+  const cls = (el: Element) => el.getAttribute('class') ?? '';
+  const role = (el: Element) => el.getAttribute('role') ?? '';
+  return (
+    kids.find((k) => role(k) === 'v' || role(k) === 'vc') ??
+    kids.find((k) => cls(k) === 'cl') ??
+    kids.find((k) => ['np', 'noun', 'pron'].includes(cls(k))) ??
+    kids.find((k) => ['adjp', 'adj', 'num'].includes(cls(k))) ??
+    kids.find((k) => ['vp', 'verb'].includes(cls(k))) ??
+    kids.find((k) => ['advp', 'adv'].includes(cls(k))) ??
+    kids.find((k) => cls(k) === 'pp') ??
+    kids.find((k) => !['det', 'conj', 'prep', 'ptcl'].includes(cls(k))) ??
+    kids[0]
+  );
+}
+
+/** macula-greek SBLGNT Lowfat (Clear-Bible/macula-greek): ids on `xml:id`/
+ *  `ref`, no head marking (inferred), alignment ref instead of osisId. */
+export const sblgntDialect: LowfatDialect = {
+  language: 'grc',
+  idOf: (el) => el.getAttribute('xml:id') || el.getAttribute('ref') || null,
+  surfaceOf: (w) => (w.textContent ?? '').trim(),
+  posOf,
+  lemmaOf: (w) => w.getAttribute('lemma') ?? w.getAttribute('normalized') ?? undefined,
+  glossOf: (w) => w.getAttribute('gloss') ?? undefined,
+  morphOf: sblgntMorphOf,
+  headFallback: sblgntHead,
 };
 
 /** One conversion pass over a single `<sentence>`. */
@@ -342,7 +404,7 @@ export class SentenceConverter {
     const kids = constituents(el);
     return (
       kids.find((c) => c.getAttribute('head') === 'true') ??
-      this.dialect.headFallback?.(kids) ??
+      this.dialect.headFallback?.(kids, el) ??
       kids[0]
     );
   }
@@ -818,6 +880,11 @@ function isCoordinatorWord(el: Element): boolean {
 export interface LowfatDocOptions {
   /** Book name for titles, e.g. "Philippians". */
   book?: string;
+  /** Leaf-read adapter (defaults to Nestle1904 macula-greek). */
+  dialect?: LowfatDialect;
+  /** Document-id prefix — `gnt` (Nestle1904, default) or `sblgnt`. The prefix
+   *  is how `sourceOfDoc` tells editions apart, so it must stay distinct. */
+  docIdPrefix?: string;
 }
 
 /** Convert every `<sentence>` in a Lowfat book into a standalone document. */
@@ -830,7 +897,7 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
   sentences.forEach((sentence, i) => {
     const topWg = sentence.querySelector('wg');
     if (!topWg) return;
-    const conv = new SentenceConverter(`s${i}_`, greekDialect);
+    const conv = new SentenceConverter(`s${i}_`, opts.dialect ?? greekDialect);
     const rootId = conv.convert(topWg);
     if (!conv.tokens.length) return;
     // Rescue any word the tree walk left unattached (e.g. a clause-initial οὖν on
@@ -845,7 +912,7 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
     docs.push(
       mergeSharedSubjectPredicate({
         schemaVersion: SCHEMA_VERSION,
-        id: `gnt_${slug(book)}_${i}`,
+        id: `${opts.docIdPrefix ?? 'gnt'}_${slug(book)}_${i}`,
         title: ref ? `${book} ${ref}` : `${book} (${i + 1})`,
         language: 'grc',
         text: conv.tokens.map((t) => t.surface).join(' '),
@@ -864,8 +931,12 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
 function verseRef(sentence: Element): string | undefined {
   const ms = sentence.querySelectorAll('milestone[unit="verse"]');
   const ids = Array.from(ms).map((m) => m.getAttribute('id') || m.textContent || '');
+  // Nestle1904 writes "Mark.5.25"; SBLGNT writes "MRK 5:25" — both end c(:|.)v.
   const verses = ids
-    .map((id) => id.split('.').slice(1).join(':'))
+    .map((id) => {
+      const m = id.match(/(\d+)[:.](\d+)\s*$/);
+      return m ? `${m[1]}:${m[2]}` : '';
+    })
     .filter(Boolean);
   if (!verses.length) return undefined;
   return verses.length > 1 ? `${verses[0]}–${verses[verses.length - 1]!.split(':').pop()}` : verses[0];

@@ -86,6 +86,8 @@ import {
 import {
   combinePassage,
   loadGntBook,
+  loadSblgntBook,
+  SBLGNT_BOOKS,
   loadOpenTextBook,
   loadOtChapter,
   GNT_BOOKS,
@@ -618,9 +620,13 @@ async function restoreNavContext(
       // A GNT passage can come from either syntax source (the document id says
       // which); the siblings must be reloaded from the SAME source, or prev/next
       // would silently step through the other analysis.
-      if (sourceOfDoc(doc) === 'opentext') {
+      const src = sourceOfDoc(doc);
+      if (src === 'opentext') {
         const book = OPENTEXT_BOOKS.find((b) => doc.title.startsWith(b.name));
         if (book) passages = await loadOpenTextBook(book);
+      } else if (src === 'macula-greek-sblgnt-lowfat') {
+        const book = SBLGNT_BOOKS.find((b) => doc.title.startsWith(b.name));
+        if (book) passages = await loadSblgntBook(book);
       } else {
         const book = GNT_BOOKS.find((b) => doc.title.startsWith(b.name));
         if (book) passages = await loadGntBook(book);

@@ -1,5 +1,6 @@
 import type { KrDocument } from '@/domain/schema';
 import { GNT_BOOKS, loadGntBook } from './gnt';
+import { SBLGNT_BOOKS, loadSblgntBook } from './gnt-sblgnt';
 import { OPENTEXT_BOOKS, loadOpenTextBook } from './opentext-source';
 import { combinePassage } from './passage';
 
@@ -39,7 +40,7 @@ export const ALL_SYNTAX_SOURCES: SyntaxSourceInfo[] = [
     label: 'SBLGNT Lowfat',
     corpus: 'gnt',
     edition: 'sblgnt',
-    available: false,
+    available: true,
   },
   {
     id: 'macula-greek-nestle1904-lowfat',
@@ -140,7 +141,11 @@ export async function loadSourcePassage(
     const book = GNT_BOOKS.find((b) => norm(b.name) === norm(r.book));
     return book ? pick(await loadGntBook(book)) : null;
   }
-  // SBLGNT (phase 7) and Hebrew are not loadable through this GNT-compare
-  // path yet — say so honestly instead of silently serving another edition.
+  if (source === 'macula-greek-sblgnt-lowfat') {
+    const book = SBLGNT_BOOKS.find((b) => norm(b.name) === norm(r.book));
+    return book ? pick(await loadSblgntBook(book)) : null;
+  }
+  // Hebrew is not loadable through this GNT-compare path — say so honestly
+  // instead of silently serving another edition.
   return null;
 }

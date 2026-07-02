@@ -30,6 +30,8 @@ self.addEventListener('fetch', (event) => {
     (p.endsWith('.xml') &&
       (p.includes('/gnt/') ||
         p.includes('nestle1904-lowfat') ||
+        p.includes('/sblgnt/') ||
+        p.includes('macula-greek') ||
         p.includes('/ot/') ||
         p.includes('macula-hebrew') ||
         p.includes('/opentext/') ||
