@@ -89,9 +89,10 @@ clauses) keyed by word id.
 | POS | base-layer code (`NON/PRO/ADJ/…/VBF/VBP/VBN`) → `POS_CODE`; NON + Louw-Nida domain 93 → propernoun; PAR + lemma in `CONJUNCTION_LEMMAS` → conjunction | mostly direct; the PAR→conjunction promotion and propernoun-by-domain are **interpretive** |
 | Morphology | base-layer `pos` element attributes, mapped tables | direct |
 | Clause roles | clause layer components: `cl.s`→subject, `cl.p`→predicate, `cl.a`→adverbial, `cl.add`→adjunct, `pl.conj`→conjunction; `cl.c`→directObject, or predicateNominative/predicateAdjective when the predicate lemma is in `COPULA_LEMMAS` (εἰμί/γίνομαι/ὑπάρχω) or absent | `cl.c` mapping is **interpretive** (copula-lemma test), currently stamped `given` |
-| Phrase roles | wordgroup modifier edges `definer/specifier/qualifier/relator/connector` → `modRole()`: article→determiner, adj/num→adjectival, definer→genitive-or-apposition by case, specifier→adjectival, qualifier→PP/genitive/apposition, relator(preposition)→prepositionObject | **interpretive**, stamped `given`, and — unlike Lowfat's converted paths — the raw OpenText role (`definer` etc.) is **NOT preserved in `provenance.sourceRole`** (honesty gap, PR 8) |
+| Phrase roles | wordgroup modifier edges `definer/specifier/qualifier/relator/connector` → `modRole()`: article→determiner, adj/num→adjectival, definer→genitive-or-apposition by case, specifier→adjectival, qualifier→PP/genitive/apposition, relator(preposition)→prepositionObject | 1:1 relabellings stay `given`; case-decided splits (definer/qualifier → genitive-vs-apposition) are stamped `converted`; **Stage 8**: every wordgroup relation now preserves the raw OpenText role in `provenance.sourceRole` |
+| Clause-component provenance | `cl.s`/`cl.a`/`cl.add`/`pl.conj` are `given` with raw `sourceRole` (S/A/add/conj); `cl.c` — whose object-vs-predicate-complement split is decided by the copula lemma list — is `converted`/medium with `sourceRole: 'C'` (**Stage 8**) | honest |
 | Heads | the wordgroup layer's own head/modifier structure (explicit in the source) | direct |
-| Constituency hierarchy | **flattened**: `parseWordGroups` reduces the wordgroup tree to a head→modifier adjacency; the clause layer is walked recursively but no tree is preserved | no `sourceConstituency` captured — Constituency mode always **reconstructs** for OpenText |
+| Constituency hierarchy | **Stage 8**: the CLAUSE layer (clauses + S/P/C/A components, raw labels, source order) is preserved as `sourceConstituency` (`captureOpenTextConstituency`) and drives the Constituency Tree in Auto mode with an "OpenText" caption. The WORDGROUP layer's phrase-internal nesting is deliberately NOT folded in — it is a parallel standoff structure whose ordering semantics differ from the clause layer; folding it in faithfully needs its own design pass (documented in `io/opentext.ts`), so phrase-internal structure remains visible only in the normalized graph views | clause layer source-backed; wordgroup nesting deferred, documented |
 
 Extra caveats: surfaces are lemma-only in the source (copyright); the
 displayed surface is aligned from Nestle1904 (`opentext-align.ts`, ~94%
@@ -165,7 +166,16 @@ SBLGNT mirrors of four contested-syntax issues.
 | Titus 2:13 — **FIXED (Stage 5)** | adjective μεγάλου became head of "the great God and our Savior…" because the classless `NpaNp` wrapper wasn't recognized as nominal; the scored head inference resolves classless wrappers through their own head constituent, so θεοῦ heads with μεγάλου adjectival (`tests/sblgnt-head-inference.test.ts`) | `iss_titus_2_13_granville` (re-evaluate in Stage 7) |
 | Col 1:15 — **FIXED (Stage 5)** | genitive "πάσης κτίσεως" outranked nominative πρωτότοκος; genitive candidates are now demoted relative to non-genitive case-bearing siblings, so πρωτότοκος heads with κτίσεως as its genitive dependent | `iss_col_1_15_firstborn` (re-evaluate in Stage 7) |
 | 2 Cor 5:4 — **FIXED (Stages 5–6)** | the οὐ … ἐκδύσασθαι … ἀλλά … ἐπενδύσασθαι construction previously converted as flat "adjunct soup"; the Stage 5 head inference makes ἐκδύσασθαι head, and Stage 6 treats contrastive rules (`notVPbutVP`) as coordination in `convertPhrase` (ἐπενδύσασθαι → conjunct, ἀλλά → coordinator, οὐ → adverbial) and ranks clauses in the verbal tier so the substantival participial subject outranks the focusing adverb καί (`tests/sblgnt-2cor-5-4.test.ts`) | `iss_2cor_5_4_leedy` (re-evaluate in Stage 7) |
-| Matt 4:3 | SBLGNT's base tree already shows the ἵνα-clause as εἰπὲ's object — i.e. SBLGNT's default equals what Nestle1904 calls the alternate; mirroring the issue would misrepresent the debate | `iss_matt_4_3_command` |
+| Matt 4:3 — **RESOLVED as edition difference (Stage 7)** | re-verified under the Stage 5–6 converter: SBLGNT's base tree still reads `εἰπὲ —directObject→ [ἵνα clause]` (and `λίθοι —apposition→ οὗτοι`) — SBLGNT's default IS what Nestle1904 calls the alternate, so the debate is invisible in this edition and is documented (contestedSyntaxSblgnt.ts header) rather than mirrored | `iss_matt_4_3_command` stays Nestle1904-only by design |
+
+Stage 7 contested-bridge outcomes: `iss_titus_2_13_granville_sblgnt` and
+`iss_col_1_15_firstborn_sblgnt` are now mirrored (hand-verified ids; Titus
+needed the Gal-2:16-style word-order correction — SBLGNT reads Ἰησοῦ
+Χριστοῦ, so the apposition dependent is Ἰησοῦ/r_s17_65, not Χριστοῦ).
+`iss_2cor_5_4_leedy` stays Nestle1904-only: the SBLGNT base already
+coordinates the infinitives (partially matching the Leedy alternate) and
+attaches the ἵνα clause adverbially under στενάζομεν, so the Nestle1904
+issue's default-reading prose would misdescribe this edition's base tree.
 
 Root cause (first three): `sblgntHead()` is a flat priority list
 (role v/vc → class cl → np/noun/pron → adjp/adj/num → vp/verb → advp/adv →

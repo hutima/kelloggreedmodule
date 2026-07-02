@@ -53,7 +53,7 @@ OpenText), not architecture.
 | SBLGNT Lowfat | **Yes** (`gnt-sblgnt.ts` passes `sourceId`) | source tree in Auto/Source | no `head` markers exist in this edition, so none are shown — nothing inferred is presented as source-given |
 | Nestle1904 Lowfat | **Yes** (`gnt.ts` passes `sourceId`) | source tree in Auto/Source | explicit `head="true"` captured; display caveat in §4.2 |
 | Hebrew WLC Lowfat | **No** — `macula-hebrew.ts` never captures | reconstructed (captioned) | deferred per plan phase 10 ("regression protection only"); the Hebrew trees are the same `<wg>` shape, so `captureSourceConstituency` would work — PR 9 decision |
-| OpenText | **No** — wordgroup/clause layers are flattened to adjacency during conversion | reconstructed (captioned) | OpenText is not Lowfat; a source-backed view would render its own clause + wordgroup layers, not a forced `<wg>` shape — PR 8 audit |
+| OpenText | **Yes (Stage 8)** — the CLAUSE layer (clauses + S/P/C/A components, raw labels, source order) is captured by `captureOpenTextConstituency`; leaves map 1:1 to tokens (validator-pinned on all of Philemon) | source tree in Auto/Source ("Source constituency: OpenText") | not forced into the Lowfat shape: no `rule`/`articular`/`head` fields are fabricated (test-pinned). The wordgroup layer's phrase-internal nesting is deferred, documented in `io/opentext.ts` |
 | Custom / LLM / edited-beyond-source | No (nothing published to preserve) | reconstructed (captioned) | correct by design |
 
 One subtlety in the reconstructed path: `phraseCat` prefers the

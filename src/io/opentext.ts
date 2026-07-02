@@ -7,7 +7,10 @@ import type {
   Morphology,
   PartOfSpeech,
   Person,
+  Provenance,
   Relation,
+  SourceConstituencyNode,
+  SourceConstituencyTree,
   SyntacticRole,
   SyntaxNode,
   Tense,
@@ -285,9 +288,22 @@ class OpenTextConverter {
     }
   }
 
-  private rel(type: SyntacticRole, headId: string, dependentId: string, label?: string): void {
+  private rel(
+    type: SyntacticRole,
+    headId: string,
+    dependentId: string,
+    label?: string,
+    provenance?: Provenance,
+  ): void {
     if (!headId || !dependentId || headId === dependentId) return;
-    this.relations.push({ id: `r_ot${this.seq++}`, type, headId, dependentId, label, provenance: GIVEN });
+    this.relations.push({
+      id: `r_ot${this.seq++}`,
+      type,
+      headId,
+      dependentId,
+      label,
+      provenance: provenance ?? GIVEN,
+    });
   }
 
   /** Create (once) the token + word node for a base word, return the node id. */
@@ -322,30 +338,44 @@ class OpenTextConverter {
     return nodeId;
   }
 
-  /** Kellogg-Reed role for a word-group modifier edge, by the modifier's morphology. */
-  private modRole(edge: WgEdge): SyntacticRole {
+  /**
+   * Kellogg-Reed role for a word-group modifier edge. A 1:1 relabelling (an
+   * article is a determiner in any slot) stays `given`; a mapping that had to
+   * consult morphology or structure beyond the source label (a definer split
+   * into genitive-vs-apposition by case) is stamped `converted` — and either
+   * way the RAW OpenText role (`definer`/`specifier`/`qualifier`) is
+   * preserved in `provenance.sourceRole`, like the Lowfat converter does.
+   */
+  private modRole(edge: WgEdge): { type: SyntacticRole; provenance: Provenance } {
     const w = this.base.get(edge.word);
     const pos = w?.pos;
     const gen = w?.morph?.case === 'genitive';
+    const given = (type: SyntacticRole) => ({
+      type,
+      provenance: { ...GIVEN, sourceRole: edge.role },
+    });
+    const converted = (type: SyntacticRole): { type: SyntacticRole; provenance: Provenance } => ({
+      type,
+      provenance: { source: 'converted', confidence: 'medium', sourceRole: edge.role },
+    });
     // An article is a determiner whatever modifier slot it sits in — it must never
     // fall through to apposition (drawn on the baseline) in a role that doesn't
     // special-case it.
-    if (pos === 'article') return 'determiner';
+    if (pos === 'article') return given('determiner');
     // A quantifier/numeral (πᾶσα "every", δύο "two") modifies its noun
     // adjectivally — it slants under the head, not onto the baseline as an
     // apposition (the old fall-through default).
-    if (pos === 'adjective' || pos === 'numeral') return 'adjectival';
+    if (pos === 'adjective' || pos === 'numeral') return given('adjectival');
     switch (edge.role) {
       case 'definer':
-        return gen ? 'genitive' : 'apposition';
+        return converted(gen ? 'genitive' : 'apposition');
       case 'specifier':
-        return 'adjectival';
+        return given('adjectival');
       case 'qualifier':
-        if (this.isPrepositional(edge.word)) return 'prepositionalPhrase';
-        if (gen) return 'genitive';
-        return 'apposition';
+        if (this.isPrepositional(edge.word)) return given('prepositionalPhrase');
+        return converted(gen ? 'genitive' : 'apposition');
       default:
-        return 'adjunct';
+        return converted('adjunct');
     }
   }
 
@@ -392,8 +422,9 @@ class OpenTextConverter {
       const childRep = this.buildPhrase(e.word, seen);
       // A leftover (non-preposition) relator edge attaches as an ordinary
       // qualifier — genitive/adjectival/apposition by the word's own morphology.
-      const role = e.role === 'relator' ? this.modRole({ role: 'qualifier', word: e.word }) : this.modRole(e);
-      this.rel(role, nodeId, childRep);
+      const mapped =
+        e.role === 'relator' ? this.modRole({ role: 'qualifier', word: e.word }) : this.modRole(e);
+      this.rel(mapped.type, nodeId, childRep, undefined, mapped.provenance);
     }
     return rep;
   }
@@ -506,22 +537,34 @@ class OpenTextConverter {
       if (!rep) continue;
       switch (t) {
         case 'cl.s':
-          this.rel('subject', clauseId, rep);
+          this.rel('subject', clauseId, rep, undefined, { ...GIVEN, sourceRole: 'S' });
           break;
         case 'cl.c':
-          this.rel(this.complementRole(rep, copula), verbId, rep);
+          // OpenText's "C" (complement) covers objects AND copular predicate
+          // complements; deciding which by the predicate's copula lemma is an
+          // interpretive step, so the mapping is stamped `converted` with the
+          // raw component label preserved.
+          this.rel(this.complementRole(rep, copula), verbId, rep, undefined, {
+            source: 'converted',
+            confidence: 'medium',
+            sourceRole: 'C',
+          });
           break;
         case 'cl.a':
-          this.rel('adverbial', verbId, rep);
+          this.rel('adverbial', verbId, rep, undefined, { ...GIVEN, sourceRole: 'A' });
           break;
         case 'cl.add':
-          this.rel('adjunct', clauseId, rep);
+          this.rel('adjunct', clauseId, rep, undefined, { ...GIVEN, sourceRole: 'add' });
           break;
         case 'pl.conj':
-          this.rel('conjunction', clauseId, rep);
+          this.rel('conjunction', clauseId, rep, undefined, { ...GIVEN, sourceRole: 'conj' });
           break;
         default:
-          this.rel('adjunct', clauseId, rep);
+          this.rel('adjunct', clauseId, rep, undefined, {
+            source: 'converted',
+            confidence: 'low',
+            sourceRole: t,
+          });
       }
     }
     return clauseId;
@@ -551,6 +594,55 @@ class OpenTextConverter {
 function firstWord(el: Element): string | undefined {
   const w = el.querySelector('w');
   return w ? href(w) ?? undefined : undefined;
+}
+
+/** Raw display label for an OpenText clause-component tag — the source's own
+ *  vocabulary (S / P / C / A / add / conj), never translated to app roles. */
+const COMPONENT_LABEL: Record<string, string> = {
+  'cl.s': 'S',
+  'cl.p': 'P',
+  'cl.c': 'C',
+  'cl.a': 'A',
+  'cl.add': 'add',
+  'pl.conj': 'conj',
+};
+
+/**
+ * Preserve an OpenText CLAUSE-layer tree verbatim as a source constituency
+ * tree: clauses and their S/P/C/A components as labelled groups (raw source
+ * labels), word pointers as leaves in source order. OpenText is not Lowfat —
+ * it has no `<wg class>`/`rule`/`articular` — so only the fields its own
+ * annotation provides are populated. The WORDGROUP layer's head/modifier
+ * nesting is NOT folded in (it is a parallel standoff structure whose
+ * ordering semantics differ); the constituency view therefore shows the
+ * published clause structure, with phrase-internal structure left to the
+ * normalized syntax graph. Pure recording — no interpretation.
+ */
+export function captureOpenTextConstituency(
+  clauseEl: Element,
+  base: Map<string, BaseWord>,
+): SourceConstituencyTree | undefined {
+  let seq = 0;
+  const walk = (el: Element): SourceConstituencyNode | undefined => {
+    const t = tag(el);
+    if (t === 'w') {
+      const id = href(el);
+      if (!id || !base.has(id)) return undefined;
+      return { id: `sc${seq++}`, kind: 'word', tokenIds: [`t_${id}`], children: [] };
+    }
+    if (t === 'cl.clause' || COMPONENT_TAG.has(t)) {
+      const children = kids(el)
+        .map(walk)
+        .filter((c): c is SourceConstituencyNode => Boolean(c));
+      if (!children.length) return undefined;
+      return t === 'cl.clause'
+        ? { id: `sc${seq++}`, kind: 'wg', cat: 'cl', children }
+        : { id: `sc${seq++}`, kind: 'wg', role: COMPONENT_LABEL[t] ?? t, children };
+    }
+    return undefined;
+  };
+  const root = walk(clauseEl);
+  return root ? { sourceId: 'opentext', root } : undefined;
 }
 
 function clauseTypeOf(el: Element): SyntaxNode['clauseType'] {
@@ -600,9 +692,11 @@ export function buildOpenTextDocuments(
     const rootId = conv.buildClause(clauseEl, new Set());
     if (!conv.tokens.length) return;
     conv.orderTokens();
+    const sourceConstituency = captureOpenTextConstituency(clauseEl, base);
     const ref = verseRange(conv.tokens, base);
     const ts = '2024-01-01T00:00:00.000Z';
     docs.push({
+      ...(sourceConstituency ? { sourceConstituency } : {}),
       schemaVersion: SCHEMA_VERSION,
       id: `opentext_${slug(book)}_${chapter}_${i}`,
       title: ref ? `${book} ${ref}` : `${book} ${chapter} (${i + 1})`,
