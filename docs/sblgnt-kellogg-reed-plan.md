@@ -93,7 +93,7 @@ Guiding rule: **prefer less misleading labels over falsely precise labels.**
 | 8. Default switch | Done | `DEFAULT_GNT_SOURCE = macula-greek-sblgnt-lowfat` (per Tim: after loader + Mark 5 tests pass, which they do). GntPicker defaults new/non-GNT sessions to SBLGNT and lists it first (Nestle labelled "legacy"); SearchPicker defaults to SBLGNT; SBLGNT Philippians bundled under `public/sblgnt/` so the default edition works offline first-run; contested-reading base label now names the actual edition via `sourceLabel`. Open passages keep their own edition (pickerSource follows the doc id), and patches are keyed by edition-prefixed passage ids + `sourceId`, so nothing crosses editions. |
 | 9. Alignment cleanup | Done | `src/io/parallel.ts`: found + fixed a phase-8 gap — `parseRef` only read Nestle osisIds, so SBLGNT docs got NO English alignment; it now reads both spellings. SBLGNT docs align DIRECTLY by position (the alignment's own base text, Strong's-verified), Nestle1904 keeps Strong's-nearest + positional fallback. Every token records its `AlignMethod` (`direct`/`strongs`/`position`/`unmatched`) plus aggregate `stats` for debugging. Hebrew aligner reports `direct` by construction — unchanged behavior. Mark 5:26 alignment covered by tests. |
 | 10. Source constituency | Done | New optional `sourceConstituency` layer on `KrDocument` (`schema/constituency.ts` — cat/role/rule/head/articular/tokenIds, whole tree source-given by construction, identified by `sourceId`). Captured verbatim by `captureSourceConstituency` in `lowfat.ts` when the loader passes a `sourceId` (both GNT loaders do); survives `combinePassage` (prefixed under a discourse root, dropped — never corrupted — when members lack it or mix sources). Syntax graph untouched; schemaVersion unchanged; Hebrew deferred per Tim's regression-only default (same helper works when wanted). |
-| 11. Constituency UI | Not started | Improve existing mode; source vs reconstructed toggle. |
+| 11. Constituency UI | Done | The EXISTING Constituency Tree mode (no duplicate) renders the preserved source `<wg>` hierarchy when present: Auto/Source/App toggle in the canvas toolbar (persisted, default Auto), an honesty caption on the diagram ("Source constituency: SBLGNT Lowfat" vs "Reconstructed from the app syntax graph"), raw source roles (s/v/o/io/p/adv, `head`) shown VERBATIM on branch chips (colour borrowed from the closest app family, text never translated), source child order authoritative, leaves hover-linked to app syntax nodes. Reconstructed path byte-for-byte unchanged; Dependency/Phrase-Block/KR and Hebrew RTL untouched. |
 | 12. Migration guards/tests | Not started | Patch base source/edition guard; Hebrew/OpenText smoke tests. |
 | 13. Cleanup | Not started | |
 
@@ -252,18 +252,19 @@ Still open:
 
 ## Resume instructions if interrupted
 
-Current phase: 10 complete; next is 11 (Constituency Tree renders the source
-tree).
-Changed files (phase 10): `src/domain/schema/{constituency,document,index}.ts`,
-`src/io/{lowfat,gnt,gnt-sblgnt,passage}.ts`,
-`tests/source-constituency.test.ts`.
-Build/test: typecheck + lint clean; 650 tests pass.
-Next smallest safe task: Phase 11 — teach `src/domain/layout/modes/
-constituency.ts` to lay out `doc.sourceConstituency` when present (Auto:
-source when available, reconstructed otherwise; keep the existing estimate
-path as the fallback), label the display "Source constituency: <source>" vs
-"Reconstructed from app syntax graph", and reuse the existing tree-layout
-infra. Don't break Dependency/Phrase-Block/KR or Hebrew RTL.
+Current phase: 11 complete; next is 12 (migration guards + regression tests).
+Changed files (phase 11): `src/domain/layout/modes/constituency.ts` (source
+tree builder + variant + caption), `src/domain/layout/{engine,index}.ts`,
+`src/domain/layout/modes/index.ts`, `src/state/{store,types}.ts`
+(`constituencyVariant` persisted pref), `src/ui/components/DiagramCanvas.tsx`
+(Auto/Source/App toggle), `tests/source-constituency.test.ts`.
+Build/test: typecheck + lint + production build clean; 653 tests pass.
+Next smallest safe task: Phase 12 — patch/source mismatch guard: when a
+stored patch's `base.sourceId` disagrees with the base document's actual
+source (`sourceIdForCorpus`), fail safely (skip + warn) instead of applying;
+Hebrew + OpenText smoke tests (Gen 1:1–3, Ps 1:1–2, Deut 6:4 already covered
+by ot/macula-hebrew tests — verify), and a Colossians 1:9–16 long-sentence
+stress run under SBLGNT.
 
 Superseded status notes from phase 9:
 Changed files (phase 9): `src/io/parallel.ts`, `tests/parallel.test.ts`.

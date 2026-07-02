@@ -78,6 +78,8 @@ export function DiagramCanvas() {
   const diagramMode = useEditorStore((s) => s.diagramMode);
   const setDiagramMode = useEditorStore((s) => s.setDiagramMode);
   const treeOrientation = useEditorStore((s) => s.treeOrientation);
+  const constituencyVariant = useEditorStore((s) => s.constituencyVariant);
+  const setConstituencyVariant = useEditorStore((s) => s.setConstituencyVariant);
   const setTreeOrientation = useEditorStore((s) => s.setTreeOrientation);
   // Desktop: the verses strip can live in the center (default) or be moved into a
   // "Verses" tab on the right panel, freeing the diagram the full center height.
@@ -165,8 +167,8 @@ export function DiagramCanvas() {
     [glossMode, diagramMode, doc],
   );
   const layout = useMemo(
-    () => layoutForMode(diagramMode, layoutDoc, doc.layoutHints, { verticalScale, colorMode, treeOrientation, rtl }),
-    [diagramMode, layoutDoc, doc.layoutHints, verticalScale, colorMode, treeOrientation, rtl],
+    () => layoutForMode(diagramMode, layoutDoc, doc.layoutHints, { verticalScale, colorMode, treeOrientation, rtl, constituencyVariant }),
+    [diagramMode, layoutDoc, doc.layoutHints, verticalScale, colorMode, treeOrientation, rtl, constituencyVariant],
   );
   // The flip toggle applies to the two baseline-oriented structural diagrams; the
   // trees/dependency/morphology read left-to-right regardless.
@@ -919,6 +921,34 @@ export function DiagramCanvas() {
                 onClick={() => setGlossMode(true)}
               >
                 Eng
+              </button>
+            </div>
+          )}
+          {diagramMode === 'constituency' && (
+            <div className="lang-toggle" role="group" aria-label="Constituency tree data">
+              <button
+                className={constituencyVariant === 'auto' ? 'active' : ''}
+                title="Source tree when the passage carries one, reconstructed otherwise"
+                aria-pressed={constituencyVariant === 'auto'}
+                onClick={() => setConstituencyVariant('auto')}
+              >
+                Auto
+              </button>
+              <button
+                className={constituencyVariant === 'source' ? 'active' : ''}
+                title="The published source's own phrase structure (when available)"
+                aria-pressed={constituencyVariant === 'source'}
+                onClick={() => setConstituencyVariant('source')}
+              >
+                Source
+              </button>
+              <button
+                className={constituencyVariant === 'reconstructed' ? 'active' : ''}
+                title="Reconstructed from the app's syntax graph"
+                aria-pressed={constituencyVariant === 'reconstructed'}
+                onClick={() => setConstituencyVariant('reconstructed')}
+              >
+                App
               </button>
             </div>
           )}

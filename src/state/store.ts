@@ -68,7 +68,7 @@ import {
 import { diffDocuments, hashBase } from '@/domain/patch';
 import { isEmptySyntaxPatch } from '@/domain/schema';
 import { cloneSample } from '@/fixtures';
-import { DEFAULT_MODE, type DiagramMode, type TreeOrientation } from '@/domain/layout';
+import { DEFAULT_MODE, type ConstituencyVariant, type DiagramMode, type TreeOrientation } from '@/domain/layout';
 import { loadForceDesktop, saveForceDesktop } from '@/ui/responsive/viewport';
 import { scheduleAutosave } from './autosave';
 import {
@@ -170,6 +170,27 @@ function isFirstRun(): boolean {
  * Persisted view preferences (best-effort localStorage; tests / private mode just
  * fall back to the default). Kept tiny and explicit, mirroring `forceDesktop`.
  */
+const CONSTITUENCY_VARIANT_KEY = 'kr:constituencyVariant';
+function loadConstituencyVariant(): ConstituencyVariant {
+  if (typeof localStorage === 'undefined') return 'auto';
+  try {
+    const v = localStorage.getItem(CONSTITUENCY_VARIANT_KEY);
+    return v === 'source' || v === 'reconstructed' ? v : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+function saveConstituencyVariant(value: ConstituencyVariant): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    // 'auto' is the default, so store only an override.
+    if (value !== 'auto') localStorage.setItem(CONSTITUENCY_VARIANT_KEY, value);
+    else localStorage.removeItem(CONSTITUENCY_VARIANT_KEY);
+  } catch {
+    /* best-effort */
+  }
+}
+
 const TREE_ORIENTATION_KEY = 'kr:treeOrientation';
 function loadTreeOrientation(): TreeOrientation {
   if (typeof localStorage === 'undefined') return 'horizontal';
@@ -469,6 +490,7 @@ export interface EditorActions {
   setDiagramMode: (mode: DiagramMode) => void;
   /** Tree visualizations: switch between left-to-right and top-down growth. */
   setTreeOrientation: (value: TreeOrientation) => void;
+  setConstituencyVariant: (value: ConstituencyVariant) => void;
   /** Desktop: move the verses strip between the center canvas and the right panel. */
   setVersesInPanel: (value: boolean) => void;
   /** Register (or clear) the right-panel element that hosts the verses strip. */
@@ -746,6 +768,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     verticalScale: 1,
     diagramMode: DEFAULT_MODE,
     treeOrientation: loadTreeOrientation(),
+    constituencyVariant: loadConstituencyVariant(),
     versesInPanel: loadVersesInPanel(),
     versesHost: null,
     sourceCompare: { on: false, source: 'opentext' },
@@ -1604,6 +1627,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setTreeOrientation: (value) => {
       saveTreeOrientation(value);
       set({ treeOrientation: value });
+    },
+    setConstituencyVariant: (value) => {
+      saveConstituencyVariant(value);
+      set({ constituencyVariant: value });
     },
     setVersesInPanel: (value) => {
       saveVersesInPanel(value);

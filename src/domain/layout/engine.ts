@@ -760,6 +760,13 @@ export interface LayoutOptions {
    * shape. Ignored by the non-tree modes.
    */
   treeOrientation?: TreeOrientation;
+  /**
+   * Which tree the CONSTITUENCY mode draws: `'auto'` (default — the preserved
+   * source `<wg>` hierarchy when the document carries one, else the
+   * reconstruction), `'source'`, or `'reconstructed'`. The mode captions the
+   * diagram with whichever tree is actually shown. Ignored by other modes.
+   */
+  constituencyVariant?: 'auto' | 'source' | 'reconstructed';
 }
 
 export function layoutDocument(

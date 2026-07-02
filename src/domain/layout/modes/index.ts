@@ -120,7 +120,7 @@ export function layoutForMode(
     case 'dependency-tree':
       return layoutDependencyTree(doc, options.treeOrientation);
     case 'constituency':
-      return layoutConstituency(doc, options.treeOrientation);
+      return layoutConstituency(doc, options.treeOrientation, options.constituencyVariant);
     case 'phrase-block': {
       const layout = layoutPhraseBlock(doc, { colorMode: options.colorMode });
       return rtl ? mirrorLayout(layout) : layout;

@@ -1,4 +1,11 @@
-import type { KrDocument, PartOfSpeech, SyntacticRole, SyntaxNode } from '@/domain/schema';
+import type {
+  KrDocument,
+  PartOfSpeech,
+  SourceConstituencyNode,
+  SourceConstituencyTree,
+  SyntacticRole,
+  SyntaxNode,
+} from '@/domain/schema';
 import { childRelations, getNode } from '@/domain/model';
 import type { DiagramElement, DiagramLayout } from '../types';
 import { LAYOUT, relationColor } from '../constants';
@@ -29,6 +36,37 @@ import { tidyTree, columnCentres, type TreeOrientation } from './tree-layout';
  * means a constituent's words can be discontinuous; siblings are ordered by their
  * subtree's earliest surface word, which keeps the common cases left-to-right.
  */
+
+/** Which tree the mode draws: the SOURCE `<wg>` hierarchy (when the document
+ *  carries one), the RECONSTRUCTED estimate from the app syntax graph, or
+ *  `auto` — source when available, reconstructed otherwise. */
+export type ConstituencyVariant = 'auto' | 'source' | 'reconstructed';
+
+/** Human label for a source id in the caption. Kept local — the layout layer
+ *  must not import io/. Falls back to the raw id for unknown sources. */
+const SOURCE_LABEL: Record<string, string> = {
+  'macula-greek-sblgnt-lowfat': 'SBLGNT Lowfat',
+  'macula-greek-nestle1904-lowfat': 'Nestle 1904 Lowfat',
+  'macula-hebrew-wlc-lowfat': 'WLC Lowfat',
+  opentext: 'OpenText',
+};
+
+/** Source `<w class>` → terminal tag (the source's own word classes). */
+const SOURCE_LEAF_TAG: Record<string, string> = {
+  noun: 'N', verb: 'V', det: 'Det', adj: 'Adj', adv: 'Adv', prep: 'P',
+  conj: 'Conj', pron: 'Pron', ptcl: 'Prt', num: 'Num', intj: 'Intj',
+  cj: 'Conj', art: 'Det', om: 'Det',
+};
+/** Source `<wg class>` → phrase category symbol. */
+const SOURCE_WG_CAT: Record<string, string> = {
+  np: 'NP', vp: 'VP', pp: 'PP', adjp: 'AdjP', advp: 'AdvP', cl: 'S', discourse: '',
+};
+/** Source role → the closest app role, ONLY for branch colouring — the chip
+ *  text shows the RAW source role, never a translated claim. */
+const SOURCE_ROLE_COLOR: Record<string, SyntacticRole> = {
+  s: 'subject', v: 'predicate', vc: 'copula', o: 'directObject', o2: 'objectComplement',
+  io: 'indirectObject', p: 'predicateNominative', adv: 'adverbial',
+};
 
 const ROOT_COLOR = '#5b6470';
 const SLOT_GAP = 28;
@@ -95,14 +133,59 @@ interface ConsNode {
   implied?: boolean;
   /** Incoming relation type (for the branch label + colour); undefined at the root. */
   role?: SyntacticRole;
+  /** RAW source role/head marking (source tree only) — shown verbatim on the chip. */
+  rawRole?: string;
   /** Earliest surface index in the subtree, for ordering siblings. */
   order: number;
   children: ConsNode[];
 }
 
+/** Build the ConsNode tree straight from the PRESERVED source `<wg>`
+ *  hierarchy — a faithful rendering of what the source published (child order,
+ *  categories, raw roles, head marking), with leaves resolved to the document's
+ *  tokens and hover-linked to the app syntax node realizing each word. */
+function buildSourceTree(doc: KrDocument, tree: SourceConstituencyTree): ConsNode | undefined {
+  const tokenById = new Map(doc.tokens.map((t) => [t.id, t]));
+  const tokenToNode = new Map<string, string>();
+  for (const n of doc.syntax.nodes) for (const t of n.tokenIds) tokenToNode.set(t, n.id);
+
+  const walk = (n: SourceConstituencyNode): ConsNode | undefined => {
+    // `head` marking is worth showing, but a bare `cl` wrapper role is noise.
+    const raw = n.role && n.role !== 'cl' ? n.role : n.head ? 'head' : undefined;
+    if (n.kind === 'word') {
+      const tok = n.tokenIds?.length ? tokenById.get(n.tokenIds[0]!) : undefined;
+      if (!tok) return undefined;
+      return {
+        cat: SOURCE_LEAF_TAG[n.cat ?? ''] ?? '–',
+        word: tok.surface,
+        gloss: tok.gloss,
+        nodeId: tokenToNode.get(tok.id),
+        rawRole: raw,
+        order: tok.index,
+        children: [],
+      };
+    }
+    const kids = n.children.map(walk).filter((k): k is ConsNode => Boolean(k));
+    if (!kids.length) return undefined;
+    // Collapse a categoryless single-child wrapper — it adds a depth column
+    // without saying anything (Lowfat's outer <wg role="cl"> shell).
+    if (!n.cat && !raw && kids.length === 1) return kids[0];
+    const cat = n.cat ? (SOURCE_WG_CAT[n.cat] ?? n.cat.toUpperCase()) : '';
+    return {
+      cat,
+      rawRole: raw,
+      order: Math.min(...kids.map((k) => k.order)),
+      // Source child order is authoritative — never re-sorted.
+      children: kids,
+    };
+  };
+  return walk(tree.root);
+}
+
 export function layoutConstituency(
   doc: KrDocument,
   orientation: TreeOrientation = 'horizontal',
+  variant: ConstituencyVariant = 'auto',
 ): DiagramLayout {
   resetIds();
   const horiz = orientation === 'horizontal';
@@ -191,8 +274,19 @@ export function layoutConstituency(
     return { cat: phraseCat(node), role, order: ord, nodeId, children };
   };
 
-  const tree = build(doc.syntax.rootId, undefined, new Set());
+  // Pick the tree: source when available (unless explicitly reconstructed),
+  // else the reconstruction — and SAY which one is on screen.
+  const sourceTree =
+    variant !== 'reconstructed' && doc.sourceConstituency
+      ? buildSourceTree(doc, doc.sourceConstituency)
+      : undefined;
+  const tree = sourceTree ?? build(doc.syntax.rootId, undefined, new Set());
   if (!tree) return finalize([]);
+  const caption = sourceTree
+    ? `Source constituency: ${SOURCE_LABEL[doc.sourceConstituency!.sourceId] ?? doc.sourceConstituency!.sourceId}`
+    : variant === 'source'
+      ? 'Reconstructed from the app syntax graph (no source tree available)'
+      : 'Reconstructed from the app syntax graph';
 
   // ---- tidy layout: measure the cross axis, then map (depth, cross) → (x, y) --
   // Vertical grows top-down (depth → y); horizontal grows left-to-right (depth →
@@ -203,8 +297,18 @@ export function layoutConstituency(
 
   const STEM_H = 16; // horizontal: dotted POS-tag → word connector length
 
-  const chipW = (role: SyntacticRole | undefined): number =>
-    role && SHORT_ROLE[role] ? width(SHORT_ROLE[role]!, true) + CHIP_PAD : 0;
+  const chipLabel = (n: ConsNode): string | undefined =>
+    n.rawRole ?? (n.role ? SHORT_ROLE[n.role] : undefined);
+  const chipColor = (n: ConsNode): string =>
+    n.role
+      ? relationColor(n.role)
+      : n.rawRole && n.rawRole !== 'head'
+        ? relationColor(SOURCE_ROLE_COLOR[n.rawRole] ?? 'unknown')
+        : ROOT_COLOR;
+  const chipW = (n: ConsNode | undefined): number => {
+    const l = n && chipLabel(n);
+    return l ? width(l, true) + CHIP_PAD : 0;
+  };
   // The word (+ gloss beneath) block of a terminal — its width, the two stacked.
   const wordBlockW = (n: ConsNode): number =>
     Math.max(width(n.word ?? ''), n.gloss && hasGloss && n.gloss !== n.word ? width(n.gloss, true) : 0);
@@ -217,7 +321,7 @@ export function layoutConstituency(
     n.word ? (n.cat ? width(n.cat, true) + STEM_H : 0) + wordBlockW(n) : width(n.cat);
   // Cross-axis footprint when VERTICAL: text width + the role chip riding the
   // branch into it (so a narrow leaf's chip can't overlap a sibling) + padding.
-  const ownWidth = (n: ConsNode): number => Math.max(textW(n), chipW(n.role)) + SLOT_GAP;
+  const ownWidth = (n: ConsNode): number => Math.max(textW(n), chipW(n)) + SLOT_GAP;
   // Cross-axis footprint when HORIZONTAL: one row, plus a second line below a
   // terminal that carries an English gloss under its word.
   const crossH = (n: ConsNode): number =>
@@ -229,7 +333,7 @@ export function layoutConstituency(
   if (horiz) {
     const colWidth = byDepth.map((list) => Math.max(0, ...list.map(nodeWh)));
     const centres = columnCentres(colWidth, (d) =>
-      d === 0 ? COL_PAD : Math.max(0, ...byDepth[d]!.map((n) => chipW(n.role))) + COL_PAD,
+      d === 0 ? COL_PAD : Math.max(0, ...byDepth[d]!.map((n) => chipW(n))) + COL_PAD,
     );
     for (const [n, d] of depth) xy.set(n, { x: centres[d]!, y: cross.get(n)! });
   } else {
@@ -242,8 +346,8 @@ export function layoutConstituency(
     const { x, y } = xy.get(n)!;
     for (const c of n.children) {
       const p = xy.get(c)!;
-      const color = c.role ? relationColor(c.role) : ROOT_COLOR;
-      const lbl = c.role ? SHORT_ROLE[c.role] : undefined;
+      const color = chipColor(c);
+      const lbl = chipLabel(c);
       if (horiz) {
         // Branch steps rightward and stops at the role chip's LEFT edge (no line
         // under the bubble); the chip sits centred in the gap before the child.
@@ -255,7 +359,7 @@ export function layoutConstituency(
           const chipCx = wordLeft - 5 - bw / 2;
           x2 = chipCx - bw / 2;
           elements.push(
-            text(chipCx, p.y, lbl, { anchor: 'middle', small: true, italic: true, box: true, color, glossKey: c.role }),
+            text(chipCx, p.y, lbl, { anchor: 'middle', small: true, italic: true, box: true, color, ...(c.role ? { glossKey: c.role } : {}) }),
           );
         }
         elements.push(line(x1, y, x2, p.y, 'connector', 'solid', { color }));
@@ -266,7 +370,7 @@ export function layoutConstituency(
         if (lbl) {
           elements.push(
             text(p.x, p.y - LAYOUT.fontSize - 7, lbl, {
-              anchor: 'middle', small: true, italic: true, box: true, color, glossKey: c.role,
+              anchor: 'middle', small: true, italic: true, box: true, color, ...(c.role ? { glossKey: c.role } : {}),
             }),
           );
         }
@@ -310,6 +414,9 @@ export function layoutConstituency(
     }
   };
   draw(tree);
+
+  // The honesty caption: which tree is on screen, and from which source.
+  elements.push(text(0, -30, caption, { anchor: 'start', small: true, italic: true, muted: true }));
 
   return finalize(elements);
 }

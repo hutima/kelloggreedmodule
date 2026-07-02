@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { lowfatToDocuments, sblgntDialect } from '@/io/lowfat';
 import { combinePassage } from '@/io/passage';
+import { layoutForMode } from '@/domain/layout';
 import {
   KrDocumentSchema,
   type KrDocument,
@@ -96,5 +97,44 @@ describe('source constituency preservation (Lowfat <wg> hierarchy)', () => {
     const bare = { ...b!, sourceConstituency: undefined };
     const passage = combinePassage([a!, bare]) as KrDocument;
     expect(passage.sourceConstituency).toBeUndefined();
+  });
+});
+
+describe('Constituency Tree mode renders the source tree (phase 11)', () => {
+  const texts = (doc: KrDocument, variant?: 'auto' | 'source' | 'reconstructed') =>
+    layoutForMode('constituency', doc, {}, { constituencyVariant: variant })
+      .elements.filter((e): e is Extract<typeof e, { kind: 'text' }> => e.kind === 'text')
+      .map((e) => e.text);
+
+  it('draws the SOURCE tree by default and captions it with the edition', () => {
+    const doc = sblgntDocs()[0]!;
+    const t = texts(doc); // variant defaults to auto
+    expect(t.some((x) => x.includes('Source constituency: SBLGNT Lowfat'))).toBe(true);
+    // Source raw roles appear verbatim on branch chips (never translated).
+    expect(t).toContain('o');
+    expect(t).toContain('s');
+    // Every word of the sentence is a leaf.
+    for (const tok of doc.tokens) expect(t).toContain(tok.surface);
+  });
+
+  it('honours the explicit variants and says which tree is shown', () => {
+    const doc = nestleDocs()[0]!;
+    expect(
+      texts(doc, 'source').some((x) => x.includes('Source constituency: Nestle 1904 Lowfat')),
+    ).toBe(true);
+    expect(
+      texts(doc, 'reconstructed').some((x) => x.includes('Reconstructed from the app syntax graph')),
+    ).toBe(true);
+  });
+
+  it('falls back to the reconstruction (and says so) when no source tree exists', () => {
+    const doc = lowfatToDocuments(
+      readFileSync('tests/fixtures-lowfat-mark-5-25-34.xml', 'utf8'),
+      { book: 'Mark' }, // no sourceId → no preserved tree
+    )[0]!;
+    const auto = texts(doc);
+    expect(auto.some((x) => x.includes('Reconstructed from the app syntax graph'))).toBe(true);
+    const wantedSource = texts(doc, 'source');
+    expect(wantedSource.some((x) => x.includes('no source tree available'))).toBe(true);
   });
 });
