@@ -1309,7 +1309,23 @@ function layoutClauseSpine(
   // joining the clauses at their left edge.
   const laid = memberRels.map((r) => ({ r, block: layoutNode(ctx, r.dependentId, seen) }));
   const vxOf = (b: Block) => b.verbX ?? b.wordLeft;
-  const verbAlignX = laid.length ? Math.max(...laid.map(({ block }) => vxOf(block))) : 0;
+  // The verb-alignment column: normally the widest member's verb, so the dashed
+  // bar runs verb-to-verb. But a member whose SUBJECT carries a big below-hanging
+  // clause (a relative clause) has its verb dragged far to the right — its whole
+  // baseline runs out over that clause before the verb. Aligning every other
+  // member to that lone outlier strands them across a wide empty gap and forces an
+  // absurdly long parent connector (Col 1:16–18: "…ὅς ἐστιν εἰκὼν … ὅτι ἐν αὐτῷ
+  // ἐκτίσθη τὰ πάντα …"). When the widest verb sits more than double — and well
+  // beyond — the next-widest, drop it from the column: align the pack to the
+  // next-widest, and let the outlier keep its natural left position. Its verb is
+  // reached by the coordinate bar simply meeting its own baseline (see below).
+  const vxsDesc = [...laid.map(({ block }) => vxOf(block))].sort((a, b) => b - a);
+  let verbAlignX = vxsDesc[0] ?? 0;
+  for (let i = 0; i + 1 < vxsDesc.length; i++) {
+    if (vxsDesc[i]! > 2 * vxsDesc[i + 1]! && vxsDesc[i]! - vxsDesc[i + 1]! > LAYOUT.spineOutlierGap) {
+      verbAlignX = vxsDesc[i + 1]!;
+    } else break;
+  }
   // A correlative set (μέν … δέ …) rides the clause baselines; otherwise each
   // conjunction marks a JOIN and needs clear room in that gap so it never crowds
   // the verb below it.
@@ -1326,7 +1342,13 @@ function layoutClauseSpine(
   let firstStubTop = Infinity;
 
   laid.forEach(({ r, block }, i) => {
-    const blockX = verbAlignX - vxOf(block); // ≥ 0; verbs line up at verbAlignX
+    // Verbs line up at verbAlignX. A dropped outlier (its verb past the column,
+    // see above) would give a NEGATIVE shift; clamp to 0 so it anchors at the
+    // spine's left instead of dragging every other member back to the right (the
+    // whole picture is normalized afterwards, so a negative shift would just
+    // reintroduce the very gap we are removing). The bar then meets the outlier's
+    // own baseline where it crosses the column.
+    const blockX = Math.max(0, verbAlignX - vxOf(block));
     const y = cursorTop + blockAscent(block);
     elements.push(...translate(block, blockX, y));
     // A connector that introduces a member (ἵνα …, Οὐχ ὅτι …) rides the dashed

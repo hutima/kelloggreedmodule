@@ -88,6 +88,15 @@ export const LAYOUT = {
    */
   /** Horizontal indent of a stacked clause from its vertical stem. */
   spineIndent: 26,
+  /**
+   * Compound-sentence verb alignment drops a member from the shared verb column
+   * when its verb sits more than DOUBLE — and at least this many px beyond — the
+   * next-widest member's verb (a subject that trails a big relative clause drifts
+   * this far). Below this gap the members stay strictly verb-aligned as before;
+   * the guard only fires for a genuine outlier, so ordinary compounds are
+   * untouched. Sized well past any normal subject width so it never trips on one.
+   */
+  spineOutlierGap: 600,
   /** Drop from the stem's top to the first stacked clause's baseline. */
   clauseFirstDrop: 24,
   /** Vertical gap between the bottom of one stacked clause and the next. */

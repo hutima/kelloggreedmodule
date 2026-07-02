@@ -62,6 +62,19 @@ describe('buildLlmPrompt', () => {
     expect(prompt).toMatch(/BEFORE YOU REPLY/);
   });
 
+  it('tells the model to EXCLUDE verse numbers and other non-text tokens', () => {
+    // Pasted scripture often carries a leading verse number ("16 …") that the
+    // tokenizer captures as a token; it is not part of the sentence, so the model
+    // must drop it from the diagram exactly as it drops punctuation — while still
+    // diagramming a numeral that is a real word ("five loaves").
+    expect(prompt).toMatch(/VERSE NUMBERS/);
+    expect(prompt).toMatch(/NOT part of the sentence itself/);
+    expect(prompt).toMatch(/EXCLUDE it exactly like punctuation/);
+    expect(prompt).toMatch(/genuine WORD of the sentence.*"numeral"/);
+    // the self-checks also name verse numbers, not just punctuation
+    expect(prompt).toMatch(/no verse number or other non-text token — has a node or a relation/);
+  });
+
   it('tells the model to isolate each word and NOT lump a modal verb with its complement', () => {
     // The Chinese-slogan follow-up: the model lumped 要+做官 and 要+革命 into one
     // predicate node each. The verb-phrase rule is now scoped to true auxiliaries,
