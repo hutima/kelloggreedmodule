@@ -409,6 +409,10 @@ const ADAPTERS: Record<DiagramMode, EditorViewAdapter> = {
   // entry only satisfies the exhaustive map — editing never routes through it.
   constituency: kelloggReedAdapter,
   morphology: morphologyAdapter,
+  // Discourse mode never routes through the SYNTAX editing surface at all —
+  // it has its own canvas, store, and edit operations (src/ui/discourse).
+  // This entry only satisfies the exhaustive map.
+  discourse: kelloggReedAdapter,
 };
 
 export function adapterFor(mode: DiagramMode): EditorViewAdapter {

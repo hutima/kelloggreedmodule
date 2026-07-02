@@ -15,7 +15,10 @@ export type IdPrefix =
   | 'note'
   | 'hl'
   | 'obs'
-  | 'sec';
+  | 'sec'
+  // discourse entities (user-created units / relations)
+  | 'du'
+  | 'dr';
 
 export function makeId(prefix: IdPrefix): string {
   return `${prefix}_${nano()}`;

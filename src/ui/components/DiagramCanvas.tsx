@@ -901,7 +901,7 @@ export function DiagramCanvas() {
               {DIAGRAM_MODES.map((m) => (
                 <option key={m.id} value={m.id} title={m.description}>
                   {m.label}
-                  {appMode === 'edit' && !isEditableMode(m.id) ? ' (view only)' : ''}
+                  {appMode === 'edit' && !isEditableMode(m.id) && m.id !== 'discourse' ? ' (view only)' : ''}
                 </option>
               ))}
             </select>

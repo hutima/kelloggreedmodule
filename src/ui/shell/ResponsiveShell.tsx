@@ -3,6 +3,7 @@ import { useEditorStore } from '@/state';
 import { useViewport } from '@/ui/responsive';
 import { TopBar } from '@/ui/components/TopBar';
 import { DiagramCanvas } from '@/ui/components/DiagramCanvas';
+import { DiscourseCanvas } from '@/ui/discourse/DiscourseCanvas';
 import { LeftPanel } from '@/ui/panels/LeftPanel';
 import { RightPanel } from '@/ui/panels/RightPanel';
 import { EditorController } from '@/ui/editor/EditorController';
@@ -28,6 +29,10 @@ export function ResponsiveShell() {
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
   const setDiagramMode = useEditorStore((s) => s.setDiagramMode);
   const firstRun = useEditorStore((s) => s.firstRun);
+  // Discourse mode swaps the whole center canvas for its own (separate
+  // document model, separate store); switching back re-mounts the syntax
+  // canvas over the UNTOUCHED syntax state — no reload happens either way.
+  const discourseMode = useEditorStore((s) => s.diagramMode === 'discourse');
 
   // On a phone, lead with the most finger-friendly syntax lens, and keep the
   // sources drawer closed so the diagram gets the screen. One-time per mount —
@@ -49,7 +54,7 @@ export function ResponsiveShell() {
       <div className={`app mobile${appMode === 'sermon' ? ' sermon-open' : ''}`}>
         <TopBar />
         <main className="mobile-main">
-          <DiagramCanvas />
+          {discourseMode ? <DiscourseCanvas /> : <DiagramCanvas />}
         </main>
         {!leftCollapsed && (
           <div className="left-drawer">
@@ -73,7 +78,7 @@ export function ResponsiveShell() {
       <div className="workspace">
         <LeftPanel />
         <main className="panel" style={{ borderRight: 'none', background: 'var(--bg)' }}>
-          <DiagramCanvas />
+          {discourseMode ? <DiscourseCanvas /> : <DiagramCanvas />}
         </main>
         {appMode === 'sermon' ? (
           <aside className="panel right sermon-aside">
@@ -84,7 +89,7 @@ export function ResponsiveShell() {
               <SermonPrepDrawer />
             </div>
           </aside>
-        ) : (
+        ) : discourseMode ? null : ( // the right panel inspects the SYNTAX passage — hidden in Discourse mode
           <RightPanel />
         )}
       </div>

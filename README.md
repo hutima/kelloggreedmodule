@@ -86,11 +86,21 @@ are tracked in
 
 ## Features
 
-- **Four visualizations over one graph** — Kellogg-Reed (formal SVG diagram),
+- **Visualizations over one graph** — Kellogg-Reed (formal SVG diagram),
   Phrase/Block (interactive outline / workbench), Dependency (head→dependent
-  arcs), and Morphology / Word Details (forms + agreement arcs).
+  arcs), Dependency Tree, Constituency Tree, and Morphology / Word Details
+  (forms + agreement arcs) — plus the separate Discourse analysis layer below.
 - **Tier-aware editing** — per-mode Basic and Advanced edit experiences, a
   mode-aware "How to edit" help, visual linking, and a relationship quick-picker.
+- **Discourse mode** — a separate multi-verse / chapter / whole-book analysis
+  layer (`Visualization → Discourse`): load a range through its own selector,
+  block the passage into discourse units, insert breaks, indent/outdent an
+  interpretive outline, label units (A/B/A′…), and draw typed relations
+  (ground, inference, contrast, purpose, inclusio, chiasm…). Source particles
+  contribute marker chips and non-authoritative hints; the user's structure is
+  the analysis. Own document model, store, patches (`kr:discourse:*`), and
+  text exports (JSON / Markdown outline / relation table). See
+  `docs/discourse-mode-user-guide.md`.
 - **Gold-standard data** — GNT (SBLGNT LowFat, Clear-Bible MACULA Greek
   CC BY 4.0 — the default edition — plus Nestle1904 LowFat,
   biblicalhumanities, as legacy/alternate) and OT (WLC LowFat,

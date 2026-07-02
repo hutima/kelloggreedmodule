@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useEditorStore } from '@/state';
+import { useEditorStore, useDiscourseStore } from '@/state';
 import { glossDoc, docDirection } from '@/domain/model';
 import { useViewport } from '@/ui/responsive';
 import { ModeSwitcher } from '@/ui/shell/ModeSwitcher';
 import { ForcedDesktopModeModal } from '@/ui/shell/ForcedDesktopModeModal';
 import { ExportModal } from './ExportModal';
+import { DiscourseExportModal } from '@/ui/discourse/DiscourseExportModal';
 import { AboutModal } from './AboutModal';
 import { GuideModal } from './GuideModal';
 import { ImportExportModal } from './ImportExportModal';
@@ -39,6 +40,7 @@ export function TopBar() {
   );
   const appMode = useEditorStore((s) => s.appMode);
   const setAppMode = useEditorStore((s) => s.setAppMode);
+  const discourseLoaded = useDiscourseStore((s) => !!s.doc);
   const setTitle = useEditorStore((s) => s.setTitle);
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
   const leftCollapsed = useEditorStore((s) => s.leftCollapsed);
@@ -86,6 +88,14 @@ export function TopBar() {
         return;
       }
       e.preventDefault();
+      // Discourse mode has its own document + history: the global shortcut
+      // must undo the DISCOURSE edit stack there, never the syntax one.
+      if (useEditorStore.getState().diagramMode === 'discourse') {
+        const d = useDiscourseStore.getState();
+        if (e.shiftKey) d.redo();
+        else d.undo();
+        return;
+      }
       if (e.shiftKey) redo();
       else undo();
     };
@@ -130,9 +140,26 @@ export function TopBar() {
             Sources
           </button>
         )}
-        <button className="btn primary" onClick={() => setExportOpen(true)} title="Export diagram">
-          Export diagram
-        </button>
+        {diagramMode === 'discourse' ? (
+          // Discourse exports TEXT forms (JSON / Markdown outline / relation
+          // table), not the syntax visualizations' SVG/PNG geometry.
+          <button
+            className="btn primary"
+            disabled={!discourseLoaded}
+            onClick={() => setExportOpen(true)}
+            title={
+              discourseLoaded
+                ? 'Export the discourse analysis (JSON, Markdown outline, relation table)'
+                : 'Load a discourse range first'
+            }
+          >
+            Export analysis
+          </button>
+        ) : (
+          <button className="btn primary" onClick={() => setExportOpen(true)} title="Export diagram">
+            Export diagram
+          </button>
+        )}
         <div className="menu-wrap">
           <button className="btn" onClick={() => setMenuOpen((v) => !v)} aria-haspopup="menu" aria-expanded={menuOpen}>
             ⋯
@@ -179,9 +206,12 @@ export function TopBar() {
         {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : status === 'error' ? 'Save error' : ''}
       </div>
 
-      {exportOpen && (
-        <ExportModal doc={exportDoc} sourceDoc={doc} verticalScale={verticalScale} treeOrientation={treeOrientation} rtl={rtl} colorMode={colorMode} mode={diagramMode} onClose={() => setExportOpen(false)} />
-      )}
+      {exportOpen &&
+        (diagramMode === 'discourse' ? (
+          <DiscourseExportModal onClose={() => setExportOpen(false)} />
+        ) : (
+          <ExportModal doc={exportDoc} sourceDoc={doc} verticalScale={verticalScale} treeOrientation={treeOrientation} rtl={rtl} colorMode={colorMode} mode={diagramMode} onClose={() => setExportOpen(false)} />
+        ))}
       {dataOpen && <ImportExportModal onClose={() => setDataOpen(false)} />}
       {resetOpen && <ResetPassageModal onClose={() => setResetOpen(false)} />}
       {resetAllOpen && <ResetAllModal onClose={() => setResetAllOpen(false)} />}

@@ -20,7 +20,12 @@ export type DiagramMode =
   | 'dependency'
   | 'dependency-tree'
   | 'constituency'
-  | 'morphology';
+  | 'morphology'
+  // Discourse is NOT a lens over the syntax graph: it renders a separate
+  // DiscourseDocument through its own canvas (src/ui/discourse), never through
+  // `layoutForMode`. It lives in this union so the one visualization selector
+  // covers it.
+  | 'discourse';
 
 export interface DiagramModeInfo {
   id: DiagramMode;
@@ -37,6 +42,7 @@ export const DIAGRAM_MODES: DiagramModeInfo[] = [
   { id: 'dependency-tree', label: 'Dependency Tree', description: 'Top-down head-dependent tree (Perseus style)' },
   { id: 'constituency', label: 'Constituency Tree', description: 'Phrase-structure tree (S → NP VP), categories on the branches' },
   { id: 'morphology', label: 'Morphology Clause', description: 'Greek forms and agreement' },
+  { id: 'discourse', label: 'Discourse', description: 'Argument flow / discourse structure' },
 ];
 
 /**
@@ -129,6 +135,10 @@ export function layoutForMode(
       return layoutMorphology(doc);
     case 'kellogg-reed':
     default:
+      // 'discourse' never reaches this function in the app — it renders a
+      // DiscourseDocument through its own canvas (src/ui/discourse), not a
+      // KrDocument through the primitive pipeline. Falling through to the
+      // Kellogg-Reed layout keeps exhaustive mode sweeps (tests, tools) safe.
       return layoutDocument(doc, hints, { ...options, rtl });
   }
 }
