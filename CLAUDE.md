@@ -391,3 +391,31 @@ drives all four modes for free.
   upstream repo, with Philemon bundled under `public/opentext/` for offline use.
   A book parses its base layer once (`parseBase`) and loops its chapters
   (`buildOpenTextDocuments` per chapter, ids kept unique by chapter number).
+
+## 16. Discourse mode (separate analysis layer)
+
+Discourse mode (`DiagramMode: 'discourse'`) is **not** a lens over the syntax
+graph — it is a separate multi-verse/chapter/whole-book analysis layer with
+its own document model, store, persistence, and renderer. See
+`docs/discourse-mode-plan.md` (architecture) and
+`docs/discourse-mode-user-guide.md` (usage).
+
+- **Model** — `DiscourseDocument` (`schema/discourse.ts`): units (blocks of
+  text with refs + source token ids), typed relations (ground / inference /
+  contrast / chiasm …), marker hints, suggestions, and compact tokens copied
+  from the source docs. Generated deterministically from source sentence
+  `KrDocument`s by `domain/discourse/build.ts`; ids derive from stable source
+  ids so patches survive reloads.
+- **Separation** — `useDiscourseStore` (`state/discourse.ts`) is a second
+  zustand store: loading a discourse range never touches the syntax passage
+  and vice versa; a mode switch reloads neither. The left panel swaps the
+  syntax pickers for `DiscourseRangeSelector`; `ResponsiveShell` swaps the
+  canvas for `ui/discourse/DiscourseCanvas`.
+- **Edits** — pure mutations (`domain/discourse/mutations.ts`: split, merge,
+  indent/outdent, wrap/unwrap, label, relations, suggestion accept) persisted
+  as `DiscoursePatch` diffs under `kr:discourse:*` (own namespace; edition +
+  baseHash guarded). Editing discourse NEVER mutates any `KrDocument`.
+- **Hints, not conclusions** — MACULA provides no discourse arcs. Markers and
+  suggestions (`markers.ts`, `suggest.ts`) are low/medium-confidence,
+  "possible …"-phrased, and only become structure through an explicit accept.
+  User-authored structure (provenance `manual`) is the authoritative overlay.

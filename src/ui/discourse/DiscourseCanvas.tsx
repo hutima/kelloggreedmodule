@@ -159,10 +159,10 @@ export function DiscourseCanvas() {
       {infoOpen && (
         <div className="discourse-info" role="note">
           <p>
-            <strong>Discourse mode</strong> is an interpretive outline and relationship
-            layer over the passage. Source data may suggest markers and boundaries,
-            but user-authored structure is <em>your</em> analysis — marker chips are
-            hints from the text's particles, never conclusions.
+            Discourse mode is an interpretive outline and relationship layer over the
+            passage. Source data may suggest markers and boundaries, but user-authored
+            structure is your analysis. Marker chips are hints from the text's
+            particles — clues, never conclusions.
           </p>
           <button className="mini" onClick={() => setInfoOpen(false)}>
             Got it

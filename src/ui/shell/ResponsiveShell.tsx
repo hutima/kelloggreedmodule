@@ -89,7 +89,7 @@ export function ResponsiveShell() {
               <SermonPrepDrawer />
             </div>
           </aside>
-        ) : (
+        ) : discourseMode ? null : ( // the right panel inspects the SYNTAX passage — hidden in Discourse mode
           <RightPanel />
         )}
       </div>
