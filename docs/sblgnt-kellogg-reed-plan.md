@@ -131,6 +131,29 @@ Hebrew (must not regress): Genesis 1:1–3, Psalm 1:1–2, Deuteronomy 6:4.
 
 *Add bugs here immediately, with whether they block the current phase.*
 
+- 2026-07-02 (Tim reported, out-of-band from the SBLGNT rebase phases — a
+  pre-existing Kellogg-Reed layout bug, not caused by any phase above; fixed
+  immediately, does not block any phase): **Mark 1:19–20 renders with a whole
+  coordinate object missing.** "εἶδεν Ἰάκωβον … καὶ Ἰωάνην … καὶ αὐτοὺς …
+  καταρτίζοντας τὰ δίκτυα" ("he saw James, and John, and them mending the
+  nets") coordinates the direct object of εἶδεν across a WORD (Ἰάκωβον), a
+  second WORD (Ἰωάνην), and a whole participial CLAUSE ("them … mending the
+  nets") — three conjuncts, mixed kinds. `layoutCoordination` in
+  `src/domain/layout/engine.ts` built its fork's member list from
+  `wordConjunctRels`, which deliberately excludes clause dependents (that
+  exclusion is correct and needed elsewhere, e.g. compound-predicate
+  detection) — but inside the fork builder itself it meant the clause
+  conjunct was never passed to `layoutNode` at all, so the ENTIRE third
+  member (7 words: αὐτοὺς καταρτίζοντας ἐν τῷ πλοίῳ τὰ δίκτυα) silently
+  vanished from the diagram — the fork only ever showed 2 of 3 arms. Fixed by
+  merging clause conjuncts into `layoutCoordination`'s LOCAL member list (in
+  surface order via `subtreeMinIndex`), leaving the module-level
+  `wordConjunctRels` helper itself untouched so its other ~7 call sites are
+  unaffected. Regression test: `tests/mark1-coordination-regression.test.ts`
+  + bundled fixture `tests/fixtures-lowfat-mark-1-19-20.xml` (confirmed the
+  test fails without the fix, passes with it). Before/after SVG renders sent
+  to Tim for visual confirmation. 667 tests pass; typecheck/lint/build clean.
+
 - 2026-07-02 (found during phase 9, introduced by phase 8's default switch,
   fixed in phase 9 before shipping): `parseRef` in `src/io/parallel.ts` only
   recognized Nestle1904 osisIds ("Phil.1.1!3"), so an SBLGNT passage rendered
