@@ -1,0 +1,2114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<book name="Mark">
+   <sentence>
+      <p>
+         <milestone unit="verse" id="Mark.5.25">Mark.5.25</milestone> 
+         <milestone unit="verse" id="Mark.5.26">Mark.5.26</milestone> 
+         <milestone unit="verse" id="Mark.5.27">Mark.5.27</milestone> Καὶ γυνὴ οὖσα ἐν ῥύσει αἵματος δώδεκα ἔτη, καὶ πολλὰ παθοῦσα ὑπὸ πολλῶν ἰατρῶν καὶ δαπανήσασα τὰ παρ’ αὐτῆς πάντα, καὶ μηδὲν ὠφεληθεῖσα ἀλλὰ μᾶλλον εἰς τὸ χεῖρον ἐλθοῦσα, ἀκούσασα τὰ περὶ τοῦ Ἰησοῦ, ἐλθοῦσα ἐν τῷ ὄχλῳ ὄπισθεν ἥψατο τοῦ ἱματίου αὐτοῦ·</p>
+      <wg role="cl">
+         <wg class="cl" n="410050250010430" rule="Conj-CL">
+            <w class="conj"
+               osisId="Mark.5.25!1"
+               n="410050250010010"
+               lemma="καί"
+               normalized="Καί"
+               strong="2532"
+               gloss="And">Καὶ</w>
+            <wg class="cl" n="410050250020420" rule="S-ADV-ADV-V-O">
+               <wg role="s" class="np" n="410050250020280" rule="NpAdjp">
+                  <w class="noun"
+                     type="common"
+                     osisId="Mark.5.25!2"
+                     n="410050250020010"
+                     lemma="γυνή"
+                     normalized="γυνή"
+                     strong="1135"
+                     number="singular"
+                     gender="feminine"
+                     case="nominative"
+                     head="true"
+                     gloss="a woman">γυνὴ</w>
+                  <wg class="adjp" n="410050250030271" rule="CL2Adjp">
+                     <wg class="cl" n="410050250030270" rule="Conj4CL">
+                        <wg class="cl" n="410050250030060" head="true" rule="VC-P-ADV">
+                           <w role="vc"
+                              class="verb"
+                              osisId="Mark.5.25!3"
+                              n="410050250030010"
+                              lemma="εἰμί"
+                              normalized="οὖσα"
+                              strong="1510"
+                              number="singular"
+                              gender="feminine"
+                              case="nominative"
+                              tense="present"
+                              voice="active"
+                              mood="participle"
+                              type="?"
+                              gloss="being">οὖσα</w>
+                           <wg role="p"
+                               class="pp"
+                               n="410050250040030"
+                               head="true"
+                               rule="PrepNp">
+                              <w class="prep"
+                                 osisId="Mark.5.25!4"
+                                 n="410050250040010"
+                                 lemma="ἐν"
+                                 normalized="ἐν"
+                                 strong="1722"
+                                 gloss="with">ἐν</w>
+                              <wg class="np" n="410050250050020" head="true" rule="NPofNP">
+                                 <w class="noun"
+                                    type="common"
+                                    osisId="Mark.5.25!5"
+                                    n="410050250050010"
+                                    lemma="ῥύσις"
+                                    normalized="ῥύσει"
+                                    strong="4511"
+                                    number="singular"
+                                    gender="feminine"
+                                    case="dative"
+                                    head="true"
+                                    gloss="a flux">ῥύσει</w>
+                                 <w class="noun"
+                                    type="common"
+                                    osisId="Mark.5.25!6"
+                                    n="410050250060010"
+                                    lemma="αἷμα"
+                                    normalized="αἵματος"
+                                    strong="129"
+                                    number="singular"
+                                    gender="neuter"
+                                    case="genitive"
+                                    gloss="of blood">αἵματος</w>
+                              </wg>
+                           </wg>
+                           <wg role="adv" class="np" n="410050250070020" rule="NumpNP">
+                              <w class="num"
+                                 osisId="Mark.5.25!7"
+                                 n="410050250070010"
+                                 lemma="δώδεκα"
+                                 normalized="δώδεκα"
+                                 strong="1427"
+                                 gloss="twelve">δώδεκα</w>
+                              <w class="noun"
+                                 type="common"
+                                 osisId="Mark.5.25!8"
+                                 n="410050250080010"
+                                 lemma="ἔτος"
+                                 normalized="ἔτη"
+                                 strong="2094"
+                                 number="plural"
+                                 gender="neuter"
+                                 case="accusative"
+                                 head="true"
+                                 gloss="years">ἔτη</w>
+                              <pc>,</pc>
+                           </wg>
+                        </wg>
+                        <w class="conj"
+                           osisId="Mark.5.26!1"
+                           n="410050260010010"
+                           lemma="καί"
+                           normalized="καί"
+                           strong="2532"
+                           gloss="and">καὶ</w>
+                        <wg class="cl" n="410050260020050" rule="O-V-ADV">
+                           <w role="o"
+                              class="adj"
+                              osisId="Mark.5.26!2"
+                              n="410050260020010"
+                              lemma="πολύς"
+                              normalized="πολλά"
+                              strong="4183"
+                              number="plural"
+                              gender="neuter"
+                              case="accusative"
+                              gloss="much">πολλὰ</w>
+                           <w role="v"
+                              class="verb"
+                              osisId="Mark.5.26!3"
+                              n="410050260030010"
+                              lemma="πάσχω"
+                              normalized="παθοῦσα"
+                              strong="3958"
+                              number="singular"
+                              gender="feminine"
+                              case="nominative"
+                              tense="aorist"
+                              voice="active"
+                              mood="participle"
+                              type="?"
+                              head="true"
+                              gloss="having suffered">παθοῦσα</w>
+                           <wg role="adv" class="pp" n="410050260040030" rule="PrepNp">
+                              <w class="prep"
+                                 osisId="Mark.5.26!4"
+                                 n="410050260040010"
+                                 lemma="ὑπό"
+                                 normalized="ὑπό"
+                                 strong="5259"
+                                 gloss="under">ὑπὸ</w>
+                              <wg class="np" n="410050260050020" head="true" rule="AdjpNp">
+                                 <w class="adj"
+                                    osisId="Mark.5.26!5"
+                                    n="410050260050010"
+                                    lemma="πολύς"
+                                    normalized="πολλῶν"
+                                    strong="4183"
+                                    number="plural"
+                                    gender="masculine"
+                                    case="genitive"
+                                    gloss="many">πολλῶν</w>
+                                 <w class="noun"
+                                    type="common"
+                                    osisId="Mark.5.26!6"
+                                    n="410050260060010"
+                                    lemma="ἰατρός"
+                                    normalized="ἰατρῶν"
+                                    strong="2395"
+                                    number="plural"
+                                    gender="masculine"
+                                    case="genitive"
+                                    head="true"
+                                    gloss="physicians">ἰατρῶν</w>
+                              </wg>
+                           </wg>
+                        </wg>
+                        <w class="conj"
+                           osisId="Mark.5.26!7"
+                           n="410050260070010"
+                           lemma="καί"
+                           normalized="καί"
+                           strong="2532"
+                           gloss="and">καὶ</w>
+                        <wg class="cl" n="410050260080050" rule="V-O">
+                           <w role="v"
+                              class="verb"
+                              osisId="Mark.5.26!8"
+                              n="410050260080010"
+                              lemma="δαπανάω"
+                              normalized="δαπανήσασα"
+                              strong="1159"
+                              number="singular"
+                              gender="feminine"
+                              case="nominative"
+                              tense="aorist"
+                              voice="active"
+                              mood="participle"
+                              type="?"
+                              head="true"
+                              gloss="having spent">δαπανήσασα</w>
+                           <wg role="o"
+                               class="np"
+                               n="410050260090040"
+                               articular="true"
+                               rule="DetNP">
+                              <w class="det"
+                                 osisId="Mark.5.26!9"
+                                 n="410050260090010"
+                                 lemma="ὁ"
+                                 normalized="τά"
+                                 strong="3588"
+                                 number="plural"
+                                 gender="neuter"
+                                 case="accusative"
+                                 gloss="the">τὰ</w>
+                              <wg class="np" n="410050260100030" head="true" rule="PpNp2Np">
+                                 <wg class="pp" n="410050260100020" rule="PrepNp">
+                                    <w class="prep"
+                                       osisId="Mark.5.26!10"
+                                       n="410050260100010"
+                                       lemma="παρά"
+                                       normalized="παρ’"
+                                       strong="3844"
+                                       gloss="of">παρ’</w>
+                                    <w class="pron"
+                                       type="personal"
+                                       osisId="Mark.5.26!11"
+                                       n="410050260110010"
+                                       lemma="αὐτός"
+                                       normalized="αὐτῆς"
+                                       strong="846"
+                                       number="singular"
+                                       gender="feminine"
+                                       case="genitive"
+                                       head="true"
+                                       gloss="her">αὐτῆς</w>
+                                 </wg>
+                                 <w class="adj"
+                                    osisId="Mark.5.26!12"
+                                    n="410050260120010"
+                                    lemma="πᾶς"
+                                    normalized="πάντα"
+                                    strong="3956"
+                                    number="plural"
+                                    gender="neuter"
+                                    case="accusative"
+                                    head="true"
+                                    gloss="all">πάντα</w>
+                                 <pc>,</pc>
+                              </wg>
+                           </wg>
+                        </wg>
+                        <w class="conj"
+                           osisId="Mark.5.26!13"
+                           n="410050260130010"
+                           lemma="καί"
+                           normalized="καί"
+                           strong="2532"
+                           gloss="and">καὶ</w>
+                        <wg class="cl" n="410050260140080" rule="CLaCL">
+                           <wg class="cl" n="410050260140020" head="true" rule="O-V">
+                              <w role="o"
+                                 class="adj"
+                                 osisId="Mark.5.26!14"
+                                 n="410050260140010"
+                                 lemma="μηδείς"
+                                 normalized="μηδέν"
+                                 strong="3367"
+                                 number="singular"
+                                 gender="neuter"
+                                 case="accusative"
+                                 gloss="in no way">μηδὲν</w>
+                              <w role="v"
+                                 class="verb"
+                                 osisId="Mark.5.26!15"
+                                 n="410050260150010"
+                                 lemma="ὠφελέω"
+                                 normalized="ὠφεληθεῖσα"
+                                 strong="5623"
+                                 number="singular"
+                                 gender="feminine"
+                                 case="nominative"
+                                 tense="aorist"
+                                 voice="passive"
+                                 mood="participle"
+                                 type="?"
+                                 head="true"
+                                 gloss="having benefited">ὠφεληθεῖσα</w>
+                           </wg>
+                           <w class="conj"
+                              osisId="Mark.5.26!16"
+                              n="410050260160010"
+                              lemma="ἀλλά"
+                              normalized="ἀλλά"
+                              strong="235"
+                              gloss="but">ἀλλὰ</w>
+                           <wg class="cl" n="410050260170050" rule="ADV-ADV-V">
+                              <w role="adv"
+                                 class="adv"
+                                 osisId="Mark.5.26!17"
+                                 n="410050260170010"
+                                 lemma="μᾶλλον"
+                                 normalized="μᾶλλον"
+                                 strong="3123"
+                                 gloss="rather">μᾶλλον</w>
+                              <wg role="adv"
+                                  class="pp"
+                                  n="410050260180030"
+                                  articular="true"
+                                  rule="PrepNp">
+                                 <w class="prep"
+                                    osisId="Mark.5.26!18"
+                                    n="410050260180010"
+                                    lemma="εἰς"
+                                    normalized="εἰς"
+                                    strong="1519"
+                                    gloss="to">εἰς</w>
+                                 <wg class="np"
+                                     n="410050260190020"
+                                     articular="true"
+                                     head="true"
+                                     rule="DetAdj">
+                                    <w class="det"
+                                       osisId="Mark.5.26!19"
+                                       n="410050260190010"
+                                       lemma="ὁ"
+                                       normalized="τό"
+                                       strong="3588"
+                                       number="singular"
+                                       gender="neuter"
+                                       case="accusative"
+                                       gloss="the">τὸ</w>
+                                    <w class="adj"
+                                       osisId="Mark.5.26!20"
+                                       n="410050260200010"
+                                       lemma="χείρων"
+                                       normalized="χεῖρον"
+                                       strong="5501"
+                                       number="singular"
+                                       gender="neuter"
+                                       case="accusative"
+                                       head="true"
+                                       gloss="worse">χεῖρον</w>
+                                 </wg>
+                              </wg>
+                              <w role="v"
+                                 class="verb"
+                                 osisId="Mark.5.26!21"
+                                 n="410050260210010"
+                                 lemma="ἔρχομαι"
+                                 normalized="ἐλθοῦσα"
+                                 strong="2064"
+                                 number="singular"
+                                 gender="feminine"
+                                 case="nominative"
+                                 tense="aorist"
+                                 voice="active"
+                                 mood="participle"
+                                 type="?"
+                                 head="true"
+                                 gloss="having come">ἐλθοῦσα</w>
+                              <pc>,</pc>
+                           </wg>
+                        </wg>
+                     </wg>
+                  </wg>
+               </wg>
+               <wg role="adv" class="cl" n="410050270010050" rule="V-O">
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.27!1"
+                     n="410050270010010"
+                     lemma="ἀκούω"
+                     normalized="ἀκούσασα"
+                     strong="191"
+                     number="singular"
+                     gender="feminine"
+                     case="nominative"
+                     tense="aorist"
+                     voice="active"
+                     mood="participle"
+                     type="?"
+                     head="true"
+                     gloss="having heard">ἀκούσασα</w>
+                  <wg role="o" class="np" n="410050270020040" rule="NpPp">
+                     <w class="det"
+                        osisId="Mark.5.27!2"
+                        n="410050270020010"
+                        lemma="ὁ"
+                        normalized="τά"
+                        strong="3588"
+                        number="plural"
+                        gender="neuter"
+                        case="accusative"
+                        head="true"
+                        gloss="-">τὰ</w>
+                     <wg class="pp" n="410050270030030" articular="true" rule="PrepNp">
+                        <w class="prep"
+                           osisId="Mark.5.27!3"
+                           n="410050270030010"
+                           lemma="περί"
+                           normalized="περί"
+                           strong="4012"
+                           gloss="concerning">περὶ</w>
+                        <wg class="np"
+                            n="410050270040020"
+                            articular="true"
+                            head="true"
+                            rule="DetNP">
+                           <w class="det"
+                              osisId="Mark.5.27!4"
+                              n="410050270040010"
+                              lemma="ὁ"
+                              normalized="τοῦ"
+                              strong="3588"
+                              number="singular"
+                              gender="masculine"
+                              case="genitive"
+                              gloss="-">τοῦ</w>
+                           <w class="noun"
+                              type="proper"
+                              osisId="Mark.5.27!5"
+                              n="410050270050010"
+                              lemma="Ἰησοῦς"
+                              normalized="Ἰησοῦ"
+                              strong="2424"
+                              number="singular"
+                              gender="masculine"
+                              case="genitive"
+                              head="true"
+                              gloss="Jesus">Ἰησοῦ</w>
+                           <pc>,</pc>
+                        </wg>
+                     </wg>
+                  </wg>
+               </wg>
+               <wg role="adv" class="cl" n="410050270060050" rule="V-ADV-ADV">
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.27!6"
+                     n="410050270060010"
+                     lemma="ἔρχομαι"
+                     normalized="ἐλθοῦσα"
+                     strong="2064"
+                     number="singular"
+                     gender="feminine"
+                     case="nominative"
+                     tense="aorist"
+                     voice="active"
+                     mood="participle"
+                     type="?"
+                     head="true"
+                     gloss="having come up">ἐλθοῦσα</w>
+                  <wg role="adv"
+                      class="pp"
+                      n="410050270070030"
+                      articular="true"
+                      rule="PrepNp">
+                     <w class="prep"
+                        osisId="Mark.5.27!7"
+                        n="410050270070010"
+                        lemma="ἐν"
+                        normalized="ἐν"
+                        strong="1722"
+                        gloss="in">ἐν</w>
+                     <wg class="np"
+                         n="410050270080020"
+                         articular="true"
+                         head="true"
+                         rule="DetNP">
+                        <w class="det"
+                           osisId="Mark.5.27!8"
+                           n="410050270080010"
+                           lemma="ὁ"
+                           normalized="τῷ"
+                           strong="3588"
+                           number="singular"
+                           gender="masculine"
+                           case="dative"
+                           gloss="the">τῷ</w>
+                        <w class="noun"
+                           type="common"
+                           osisId="Mark.5.27!9"
+                           n="410050270090010"
+                           lemma="ὄχλος"
+                           normalized="ὄχλῳ"
+                           strong="3793"
+                           number="singular"
+                           gender="masculine"
+                           case="dative"
+                           head="true"
+                           gloss="crowd">ὄχλῳ</w>
+                     </wg>
+                  </wg>
+                  <w role="adv"
+                     class="adv"
+                     osisId="Mark.5.27!10"
+                     n="410050270100010"
+                     lemma="ὄπισθεν"
+                     normalized="ὄπισθεν"
+                     strong="3693"
+                     gloss="behind">ὄπισθεν</w>
+               </wg>
+               <w role="v"
+                  class="verb"
+                  osisId="Mark.5.27!11"
+                  n="410050270110010"
+                  lemma="ἅπτω"
+                  normalized="ἥψατο"
+                  strong="680"
+                  number="singular"
+                  person="third"
+                  tense="aorist"
+                  voice="middle"
+                  mood="indicative"
+                  head="true"
+                  gloss="she touched">ἥψατο</w>
+               <wg role="o"
+                   class="np"
+                   n="410050270120030"
+                   articular="true"
+                   rule="DetNP">
+                  <w class="det"
+                     osisId="Mark.5.27!12"
+                     n="410050270120010"
+                     lemma="ὁ"
+                     normalized="τοῦ"
+                     strong="3588"
+                     number="singular"
+                     gender="neuter"
+                     case="genitive"
+                     gloss="the">τοῦ</w>
+                  <wg class="np" n="410050270130020" head="true" rule="NPofNP">
+                     <w class="noun"
+                        type="common"
+                        osisId="Mark.5.27!13"
+                        n="410050270130010"
+                        lemma="ἱμάτιον"
+                        normalized="ἱματίου"
+                        strong="2440"
+                        number="singular"
+                        gender="neuter"
+                        case="genitive"
+                        head="true"
+                        gloss="clothing">ἱματίου</w>
+                     <w class="pron"
+                        type="personal"
+                        osisId="Mark.5.27!14"
+                        n="410050270140010"
+                        lemma="αὐτός"
+                        normalized="αὐτοῦ"
+                        strong="846"
+                        number="singular"
+                        gender="masculine"
+                        case="genitive"
+                        gloss="of Him">αὐτοῦ</w>
+                     <pc>·</pc>
+                  </wg>
+               </wg>
+            </wg>
+         </wg>
+      </wg>
+   </sentence>
+   <sentence>
+      <p>
+         <milestone unit="verse" id="Mark.5.28">Mark.5.28</milestone> ἔλεγεν γὰρ ὅτι Ἐὰν ἅψωμαι κἂν τῶν ἱματίων αὐτοῦ σωθήσομαι.</p>
+      <wg role="cl">
+         <wg class="cl" n="410050280020100" rule="Conj-CL">
+            <w class="conj"
+               osisId="Mark.5.28!2"
+               n="410050280020010"
+               lemma="γάρ"
+               normalized="γάρ"
+               strong="1063"
+               discontinuous="true"
+               gloss="for">γὰρ</w>
+            <wg class="cl" n="410050280010013" head="true" rule="V2CL">
+               <w role="v"
+                  class="verb"
+                  osisId="Mark.5.28!1"
+                  n="410050280010010"
+                  lemma="λέγω"
+                  normalized="ἔλεγεν"
+                  strong="3004"
+                  number="singular"
+                  person="third"
+                  tense="imperfect"
+                  voice="active"
+                  mood="indicative"
+                  head="true"
+                  gloss="She was saying">ἔλεγεν</w>
+            </wg>
+            <wg class="cl" n="410050280030080" rule="that-VP">
+               <w class="conj"
+                  osisId="Mark.5.28!3"
+                  n="410050280030010"
+                  lemma="ὅτι"
+                  normalized="ὅτι"
+                  strong="3754"
+                  gloss="-">ὅτι</w>
+               <wg class="cl" n="410050280040060" rule="sub-CL">
+                  <w class="conj"
+                     osisId="Mark.5.28!4"
+                     n="410050280040010"
+                     lemma="ἐάν"
+                     normalized="Ἐάν"
+                     strong="1437"
+                     gloss="If">Ἐὰν</w>
+                  <wg class="cl" n="410050280050050" rule="V-O">
+                     <w role="v"
+                        class="verb"
+                        osisId="Mark.5.28!5"
+                        n="410050280050010"
+                        lemma="ἅπτω"
+                        normalized="ἅψωμαι"
+                        strong="680"
+                        number="singular"
+                        person="first"
+                        tense="aorist"
+                        voice="middle"
+                        mood="subjunctive"
+                        head="true"
+                        gloss="I shall touch">ἅψωμαι</w>
+                     <wg role="o"
+                         class="np"
+                         n="410050280060040"
+                         articular="true"
+                         rule="AdvpNp">
+                        <w class="adv"
+                           osisId="Mark.5.28!6"
+                           n="410050280060010"
+                           lemma="κἄν"
+                           normalized="κἄν"
+                           strong="2579"
+                           gloss="even">κἂν</w>
+                        <wg class="np"
+                            n="410050280070030"
+                            articular="true"
+                            head="true"
+                            rule="DetNP">
+                           <w class="det"
+                              osisId="Mark.5.28!7"
+                              n="410050280070010"
+                              lemma="ὁ"
+                              normalized="τῶν"
+                              strong="3588"
+                              number="plural"
+                              gender="neuter"
+                              case="genitive"
+                              gloss="the">τῶν</w>
+                           <wg class="np" n="410050280080020" head="true" rule="NPofNP">
+                              <w class="noun"
+                                 type="common"
+                                 osisId="Mark.5.28!8"
+                                 n="410050280080010"
+                                 lemma="ἱμάτιον"
+                                 normalized="ἱματίων"
+                                 strong="2440"
+                                 number="plural"
+                                 gender="neuter"
+                                 case="genitive"
+                                 head="true"
+                                 gloss="garments">ἱματίων</w>
+                              <w class="pron"
+                                 type="personal"
+                                 osisId="Mark.5.28!9"
+                                 n="410050280090010"
+                                 lemma="αὐτός"
+                                 normalized="αὐτοῦ"
+                                 strong="846"
+                                 number="singular"
+                                 gender="masculine"
+                                 case="genitive"
+                                 gloss="of Him">αὐτοῦ</w>
+                           </wg>
+                        </wg>
+                     </wg>
+                  </wg>
+               </wg>
+               <wg class="cl" n="410050280100013" head="true" rule="V2CL">
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.28!10"
+                     n="410050280100010"
+                     lemma="σῴζω"
+                     normalized="σωθήσομαι"
+                     strong="4982"
+                     number="singular"
+                     person="first"
+                     tense="future"
+                     voice="passive"
+                     mood="indicative"
+                     head="true"
+                     gloss="I will be healed">σωθήσομαι</w>
+                  <pc>.</pc>
+               </wg>
+            </wg>
+         </wg>
+      </wg>
+   </sentence>
+   <sentence>
+      <p>
+         <milestone unit="verse" id="Mark.5.29">Mark.5.29</milestone> καὶ εὐθὺς ἐξηράνθη ἡ πηγὴ τοῦ αἵματος αὐτῆς, καὶ ἔγνω τῷ σώματι ὅτι ἴαται ἀπὸ τῆς μάστιγος.</p>
+      <wg role="cl">
+         <wg class="cl" n="410050290010170" rule="Conj-CL">
+            <w class="conj"
+               osisId="Mark.5.29!1"
+               n="410050290010010"
+               lemma="καί"
+               normalized="καί"
+               strong="2532"
+               gloss="And">καὶ</w>
+            <wg class="cl" n="410050290020160" rule="CLaCL">
+               <wg class="cl" n="410050290020070" head="true" rule="ADV-V-S">
+                  <w role="adv"
+                     class="adj"
+                     osisId="Mark.5.29!2"
+                     n="410050290020010"
+                     lemma="εὐθύς"
+                     normalized="εὐθύς"
+                     strong="2117"
+                     number="singular"
+                     gender="masculine"
+                     case="nominative"
+                     gloss="immediately">εὐθὺς</w>
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.29!3"
+                     n="410050290030010"
+                     lemma="ξηραίνω"
+                     normalized="ἐξηράνθη"
+                     strong="3583"
+                     number="singular"
+                     person="third"
+                     tense="aorist"
+                     voice="passive"
+                     mood="indicative"
+                     head="true"
+                     gloss="was dried up">ἐξηράνθη</w>
+                  <wg role="s"
+                      class="np"
+                      n="410050290040050"
+                      articular="true"
+                      rule="DetNP">
+                     <w class="det"
+                        osisId="Mark.5.29!4"
+                        n="410050290040010"
+                        lemma="ὁ"
+                        normalized="ἡ"
+                        strong="3588"
+                        number="singular"
+                        gender="feminine"
+                        case="nominative"
+                        gloss="the">ἡ</w>
+                     <wg class="np" n="410050290050040" head="true" rule="NPofNP">
+                        <w class="noun"
+                           type="common"
+                           osisId="Mark.5.29!5"
+                           n="410050290050010"
+                           lemma="πηγή"
+                           normalized="πηγή"
+                           strong="4077"
+                           number="singular"
+                           gender="feminine"
+                           case="nominative"
+                           head="true"
+                           gloss="flow">πηγὴ</w>
+                        <wg class="np" n="410050290060030" articular="true" rule="DetNP">
+                           <w class="det"
+                              osisId="Mark.5.29!6"
+                              n="410050290060010"
+                              lemma="ὁ"
+                              normalized="τοῦ"
+                              strong="3588"
+                              number="singular"
+                              gender="neuter"
+                              case="genitive"
+                              gloss="of the">τοῦ</w>
+                           <wg class="np" n="410050290070020" head="true" rule="NPofNP">
+                              <w class="noun"
+                                 type="common"
+                                 osisId="Mark.5.29!7"
+                                 n="410050290070010"
+                                 lemma="αἷμα"
+                                 normalized="αἵματος"
+                                 strong="129"
+                                 number="singular"
+                                 gender="neuter"
+                                 case="genitive"
+                                 head="true"
+                                 gloss="blood">αἵματος</w>
+                              <w class="pron"
+                                 type="personal"
+                                 osisId="Mark.5.29!8"
+                                 n="410050290080010"
+                                 lemma="αὐτός"
+                                 normalized="αὐτῆς"
+                                 strong="846"
+                                 number="singular"
+                                 gender="feminine"
+                                 case="genitive"
+                                 gloss="of her">αὐτῆς</w>
+                              <pc>,</pc>
+                           </wg>
+                        </wg>
+                     </wg>
+                  </wg>
+               </wg>
+               <w class="conj"
+                  osisId="Mark.5.29!9"
+                  n="410050290090010"
+                  lemma="καί"
+                  normalized="καί"
+                  strong="2532"
+                  gloss="and">καὶ</w>
+               <wg class="cl" n="410050290100030" head="true" rule="V-ADV">
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.29!10"
+                     n="410050290100010"
+                     lemma="γινώσκω"
+                     normalized="ἔγνω"
+                     strong="1097"
+                     number="singular"
+                     person="third"
+                     tense="aorist"
+                     voice="active"
+                     mood="indicative"
+                     head="true"
+                     gloss="she knew">ἔγνω</w>
+                  <wg role="adv"
+                      class="np"
+                      n="410050290110020"
+                      articular="true"
+                      rule="DetNP">
+                     <w class="det"
+                        osisId="Mark.5.29!11"
+                        n="410050290110010"
+                        lemma="ὁ"
+                        normalized="τῷ"
+                        strong="3588"
+                        number="singular"
+                        gender="neuter"
+                        case="dative"
+                        gloss="in the">τῷ</w>
+                     <w class="noun"
+                        type="common"
+                        osisId="Mark.5.29!12"
+                        n="410050290120010"
+                        lemma="σῶμα"
+                        normalized="σώματι"
+                        strong="4983"
+                        number="singular"
+                        gender="neuter"
+                        case="dative"
+                        head="true"
+                        gloss="body">σώματι</w>
+                  </wg>
+               </wg>
+               <wg class="cl" n="410050290130050" rule="that-VP">
+                  <w class="conj"
+                     osisId="Mark.5.29!13"
+                     n="410050290130010"
+                     lemma="ὅτι"
+                     normalized="ὅτι"
+                     strong="3754"
+                     gloss="that">ὅτι</w>
+                  <wg class="cl" n="410050290140040" rule="V-ADV">
+                     <w role="v"
+                        class="verb"
+                        osisId="Mark.5.29!14"
+                        n="410050290140010"
+                        lemma="ἰάομαι"
+                        normalized="ἴαται"
+                        strong="2390"
+                        number="singular"
+                        person="third"
+                        tense="perfect"
+                        voice="passive"
+                        mood="indicative"
+                        head="true"
+                        gloss="she was healed">ἴαται</w>
+                     <wg role="adv"
+                         class="pp"
+                         n="410050290150030"
+                         articular="true"
+                         rule="PrepNp">
+                        <w class="prep"
+                           osisId="Mark.5.29!15"
+                           n="410050290150010"
+                           lemma="ἀπό"
+                           normalized="ἀπό"
+                           strong="575"
+                           gloss="from">ἀπὸ</w>
+                        <wg class="np"
+                            n="410050290160020"
+                            articular="true"
+                            head="true"
+                            rule="DetNP">
+                           <w class="det"
+                              osisId="Mark.5.29!16"
+                              n="410050290160010"
+                              lemma="ὁ"
+                              normalized="τῆς"
+                              strong="3588"
+                              number="singular"
+                              gender="feminine"
+                              case="genitive"
+                              gloss="the">τῆς</w>
+                           <w class="noun"
+                              type="common"
+                              osisId="Mark.5.29!17"
+                              n="410050290170010"
+                              lemma="μάστιξ"
+                              normalized="μάστιγος"
+                              strong="3148"
+                              number="singular"
+                              gender="feminine"
+                              case="genitive"
+                              head="true"
+                              gloss="affliction">μάστιγος</w>
+                           <pc>.</pc>
+                        </wg>
+                     </wg>
+                  </wg>
+               </wg>
+            </wg>
+         </wg>
+      </wg>
+   </sentence>
+   <sentence>
+      <p>
+         <milestone unit="verse" id="Mark.5.30">Mark.5.30</milestone> καὶ εὐθὺς ὁ Ἰησοῦς ἐπιγνοὺς ἐν ἑαυτῷ τὴν ἐξ αὐτοῦ δύναμιν ἐξελθοῦσαν, ἐπιστραφεὶς ἐν τῷ ὄχλῳ ἔλεγεν Τίς μου ἥψατο τῶν ἱματίων;</p>
+      <wg role="cl">
+         <wg class="cl" n="410050300010220" rule="Conj-CL">
+            <w class="conj"
+               osisId="Mark.5.30!1"
+               n="410050300010010"
+               lemma="καί"
+               normalized="καί"
+               strong="2532"
+               gloss="And">καὶ</w>
+            <wg class="cl"
+                n="410050300020160"
+                head="true"
+                rule="ADV-S-ADV-ADV-V">
+               <w role="adv"
+                  class="adj"
+                  osisId="Mark.5.30!2"
+                  n="410050300020010"
+                  lemma="εὐθύς"
+                  normalized="εὐθύς"
+                  strong="2117"
+                  number="singular"
+                  gender="masculine"
+                  case="nominative"
+                  gloss="immediately">εὐθὺς</w>
+               <wg role="s"
+                   class="np"
+                   n="410050300030020"
+                   articular="true"
+                   rule="DetNP">
+                  <w class="det"
+                     osisId="Mark.5.30!3"
+                     n="410050300030010"
+                     lemma="ὁ"
+                     normalized="ὁ"
+                     strong="3588"
+                     number="singular"
+                     gender="masculine"
+                     case="nominative"
+                     gloss="-">ὁ</w>
+                  <w class="noun"
+                     type="proper"
+                     osisId="Mark.5.30!4"
+                     n="410050300040010"
+                     lemma="Ἰησοῦς"
+                     normalized="Ἰησοῦς"
+                     strong="2424"
+                     number="singular"
+                     gender="masculine"
+                     case="nominative"
+                     head="true"
+                     gloss="Jesus">Ἰησοῦς</w>
+               </wg>
+               <wg role="adv" class="cl" n="410050300050080" rule="V-ADV-O">
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.30!5"
+                     n="410050300050010"
+                     lemma="ἐπιγινώσκω"
+                     normalized="ἐπιγνούς"
+                     strong="1921"
+                     number="singular"
+                     gender="masculine"
+                     case="nominative"
+                     tense="aorist"
+                     voice="active"
+                     mood="participle"
+                     type="?"
+                     head="true"
+                     gloss="having known">ἐπιγνοὺς</w>
+                  <wg role="adv" class="pp" n="410050300060020" rule="PrepNp">
+                     <w class="prep"
+                        osisId="Mark.5.30!6"
+                        n="410050300060010"
+                        lemma="ἐν"
+                        normalized="ἐν"
+                        strong="1722"
+                        gloss="in">ἐν</w>
+                     <w class="pron"
+                        type="personal"
+                        osisId="Mark.5.30!7"
+                        n="410050300070010"
+                        lemma="ἑαυτοῦ"
+                        normalized="ἑαυτῷ"
+                        strong="1438"
+                        number="singular"
+                        gender="masculine"
+                        case="dative"
+                        head="true"
+                        gloss="Himself">ἑαυτῷ</w>
+                  </wg>
+                  <wg role="o" class="cl" n="410050300080050" rule="S-V">
+                     <wg role="s"
+                         class="np"
+                         n="410050300080040"
+                         articular="true"
+                         rule="DetNP">
+                        <w class="det"
+                           osisId="Mark.5.30!8"
+                           n="410050300080010"
+                           lemma="ὁ"
+                           normalized="τήν"
+                           strong="3588"
+                           number="singular"
+                           gender="feminine"
+                           case="accusative"
+                           gloss="the">τὴν</w>
+                        <wg class="np" n="410050300090030" head="true" rule="PpNp2Np">
+                           <wg class="pp" n="410050300090020" rule="PrepNp">
+                              <w class="prep"
+                                 osisId="Mark.5.30!9"
+                                 n="410050300090010"
+                                 lemma="ἐκ"
+                                 normalized="ἐξ"
+                                 strong="1537"
+                                 gloss="out of">ἐξ</w>
+                              <w class="pron"
+                                 type="personal"
+                                 osisId="Mark.5.30!10"
+                                 n="410050300100010"
+                                 lemma="αὐτός"
+                                 normalized="αὐτοῦ"
+                                 strong="846"
+                                 number="singular"
+                                 gender="masculine"
+                                 case="genitive"
+                                 head="true"
+                                 gloss="Him">αὐτοῦ</w>
+                           </wg>
+                           <w class="noun"
+                              type="common"
+                              osisId="Mark.5.30!11"
+                              n="410050300110010"
+                              lemma="δύναμις"
+                              normalized="δύναμιν"
+                              strong="1411"
+                              number="singular"
+                              gender="feminine"
+                              case="accusative"
+                              head="true"
+                              gloss="power">δύναμιν</w>
+                        </wg>
+                     </wg>
+                     <w role="v"
+                        class="verb"
+                        osisId="Mark.5.30!12"
+                        n="410050300120010"
+                        lemma="ἐξέρχομαι"
+                        normalized="ἐξελθοῦσαν"
+                        strong="1831"
+                        number="singular"
+                        gender="feminine"
+                        case="accusative"
+                        tense="aorist"
+                        voice="active"
+                        mood="participle"
+                        type="?"
+                        head="true"
+                        gloss="having gone forth">ἐξελθοῦσαν</w>
+                     <pc>,</pc>
+                  </wg>
+               </wg>
+               <wg role="adv" class="cl" n="410050300130040" rule="V-ADV">
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.30!13"
+                     n="410050300130010"
+                     lemma="ἐπιστρέφω"
+                     normalized="ἐπιστραφείς"
+                     strong="1994"
+                     number="singular"
+                     gender="masculine"
+                     case="nominative"
+                     tense="aorist"
+                     voice="passive"
+                     mood="participle"
+                     type="?"
+                     head="true"
+                     gloss="having turned">ἐπιστραφεὶς</w>
+                  <wg role="adv"
+                      class="pp"
+                      n="410050300140030"
+                      articular="true"
+                      rule="PrepNp">
+                     <w class="prep"
+                        osisId="Mark.5.30!14"
+                        n="410050300140010"
+                        lemma="ἐν"
+                        normalized="ἐν"
+                        strong="1722"
+                        gloss="in">ἐν</w>
+                     <wg class="np"
+                         n="410050300150020"
+                         articular="true"
+                         head="true"
+                         rule="DetNP">
+                        <w class="det"
+                           osisId="Mark.5.30!15"
+                           n="410050300150010"
+                           lemma="ὁ"
+                           normalized="τῷ"
+                           strong="3588"
+                           number="singular"
+                           gender="masculine"
+                           case="dative"
+                           gloss="the">τῷ</w>
+                        <w class="noun"
+                           type="common"
+                           osisId="Mark.5.30!16"
+                           n="410050300160010"
+                           lemma="ὄχλος"
+                           normalized="ὄχλῳ"
+                           strong="3793"
+                           number="singular"
+                           gender="masculine"
+                           case="dative"
+                           head="true"
+                           gloss="crowd">ὄχλῳ</w>
+                     </wg>
+                  </wg>
+               </wg>
+               <w role="v"
+                  class="verb"
+                  osisId="Mark.5.30!17"
+                  n="410050300170010"
+                  lemma="λέγω"
+                  normalized="ἔλεγεν"
+                  strong="3004"
+                  number="singular"
+                  person="third"
+                  tense="imperfect"
+                  voice="active"
+                  mood="indicative"
+                  head="true"
+                  gloss="said">ἔλεγεν</w>
+            </wg>
+            <wg class="cl" n="410050300180050" rule="S-V-O">
+               <w role="s"
+                  class="pron"
+                  type="interrogative"
+                  osisId="Mark.5.30!18"
+                  n="410050300180010"
+                  lemma="τίς"
+                  normalized="Τίς"
+                  strong="5101"
+                  number="singular"
+                  gender="masculine"
+                  case="nominative"
+                  gloss="Who">Τίς</w>
+               <w role="v"
+                  class="verb"
+                  osisId="Mark.5.30!20"
+                  n="410050300200010"
+                  lemma="ἅπτω"
+                  normalized="ἥψατο"
+                  strong="680"
+                  number="singular"
+                  person="third"
+                  tense="aorist"
+                  voice="middle"
+                  mood="indicative"
+                  head="true"
+                  discontinuous="true"
+                  gloss="touched">ἥψατο</w>
+               <wg role="o"
+                   class="np"
+                   n="410050300190030"
+                   articular="true"
+                   rule="ofNPNP">
+                  <w class="pron"
+                     type="personal"
+                     osisId="Mark.5.30!19"
+                     n="410050300190010"
+                     lemma="ἐγώ"
+                     normalized="μου"
+                     strong="1473"
+                     number="singular"
+                     case="genitive"
+                     gloss="of Me">μου</w>
+                  <wg class="np"
+                      n="410050300210020"
+                      articular="true"
+                      head="true"
+                      rule="DetNP">
+                     <w class="det"
+                        osisId="Mark.5.30!21"
+                        n="410050300210010"
+                        lemma="ὁ"
+                        normalized="τῶν"
+                        strong="3588"
+                        number="plural"
+                        gender="neuter"
+                        case="genitive"
+                        gloss="the">τῶν</w>
+                     <w class="noun"
+                        type="common"
+                        osisId="Mark.5.30!22"
+                        n="410050300220010"
+                        lemma="ἱμάτιον"
+                        normalized="ἱματίων"
+                        strong="2440"
+                        number="plural"
+                        gender="neuter"
+                        case="genitive"
+                        head="true"
+                        gloss="garments">ἱματίων</w>
+                     <pc>;</pc>
+                  </wg>
+               </wg>
+            </wg>
+         </wg>
+      </wg>
+   </sentence>
+   <sentence>
+      <p>
+         <milestone unit="verse" id="Mark.5.31">Mark.5.31</milestone> καὶ ἔλεγον αὐτῷ οἱ μαθηταὶ αὐτοῦ Βλέπεις τὸν ὄχλον συνθλίβοντά σε, καὶ λέγεις Τίς μου ἥψατο;</p>
+      <wg role="cl">
+         <wg class="cl" n="410050310010160" rule="Conj-CL">
+            <w class="conj"
+               osisId="Mark.5.31!1"
+               n="410050310010010"
+               lemma="καί"
+               normalized="καί"
+               strong="2532"
+               gloss="And">καὶ</w>
+            <wg class="cl" n="410050310020050" head="true" rule="V-IO-S">
+               <w role="v"
+                  class="verb"
+                  osisId="Mark.5.31!2"
+                  n="410050310020010"
+                  lemma="λέγω"
+                  normalized="ἔλεγον"
+                  strong="3004"
+                  number="plural"
+                  person="third"
+                  tense="imperfect"
+                  voice="active"
+                  mood="indicative"
+                  head="true"
+                  gloss="were saying">ἔλεγον</w>
+               <w role="io"
+                  class="pron"
+                  type="personal"
+                  osisId="Mark.5.31!3"
+                  n="410050310030010"
+                  lemma="αὐτός"
+                  normalized="αὐτῷ"
+                  strong="846"
+                  number="singular"
+                  gender="masculine"
+                  case="dative"
+                  gloss="to Him">αὐτῷ</w>
+               <wg role="s"
+                   class="np"
+                   n="410050310040030"
+                   articular="true"
+                   rule="DetNP">
+                  <w class="det"
+                     osisId="Mark.5.31!4"
+                     n="410050310040010"
+                     lemma="ὁ"
+                     normalized="οἱ"
+                     strong="3588"
+                     number="plural"
+                     gender="masculine"
+                     case="nominative"
+                     gloss="the">οἱ</w>
+                  <wg class="np" n="410050310050020" head="true" rule="NPofNP">
+                     <w class="noun"
+                        type="common"
+                        osisId="Mark.5.31!5"
+                        n="410050310050010"
+                        lemma="μαθητής"
+                        normalized="μαθηταί"
+                        strong="3101"
+                        number="plural"
+                        gender="masculine"
+                        case="nominative"
+                        head="true"
+                        gloss="disciples">μαθηταὶ</w>
+                     <w class="pron"
+                        type="personal"
+                        osisId="Mark.5.31!6"
+                        n="410050310060010"
+                        lemma="αὐτός"
+                        normalized="αὐτοῦ"
+                        strong="846"
+                        number="singular"
+                        gender="masculine"
+                        case="genitive"
+                        gloss="of Him">αὐτοῦ</w>
+                  </wg>
+               </wg>
+            </wg>
+            <wg class="cl" n="410050310070100" rule="CLaCL">
+               <wg class="cl" n="410050310070050" head="true" rule="V-O">
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.31!7"
+                     n="410050310070010"
+                     lemma="βλέπω"
+                     normalized="Βλέπεις"
+                     strong="991"
+                     number="singular"
+                     person="second"
+                     tense="present"
+                     voice="active"
+                     mood="indicative"
+                     head="true"
+                     gloss="You see">Βλέπεις</w>
+                  <wg role="o" class="cl" n="410050310080040" rule="S-V-O">
+                     <wg role="s"
+                         class="np"
+                         n="410050310080020"
+                         articular="true"
+                         rule="DetNP">
+                        <w class="det"
+                           osisId="Mark.5.31!8"
+                           n="410050310080010"
+                           lemma="ὁ"
+                           normalized="τόν"
+                           strong="3588"
+                           number="singular"
+                           gender="masculine"
+                           case="accusative"
+                           gloss="the">τὸν</w>
+                        <w class="noun"
+                           type="common"
+                           osisId="Mark.5.31!9"
+                           n="410050310090010"
+                           lemma="ὄχλος"
+                           normalized="ὄχλον"
+                           strong="3793"
+                           number="singular"
+                           gender="masculine"
+                           case="accusative"
+                           head="true"
+                           gloss="crowd">ὄχλον</w>
+                     </wg>
+                     <w role="v"
+                        class="verb"
+                        osisId="Mark.5.31!10"
+                        n="410050310100010"
+                        lemma="συνθλίβω"
+                        normalized="συνθλίβοντα"
+                        strong="4918"
+                        number="singular"
+                        gender="masculine"
+                        case="accusative"
+                        tense="present"
+                        voice="active"
+                        mood="participle"
+                        type="?"
+                        head="true"
+                        gloss="pressing in on">συνθλίβοντά</w>
+                     <w role="o"
+                        class="pron"
+                        type="personal"
+                        osisId="Mark.5.31!11"
+                        n="410050310110010"
+                        lemma="σύ"
+                        normalized="σε"
+                        strong="4771"
+                        number="singular"
+                        case="accusative"
+                        gloss="You">σε</w>
+                     <pc>,</pc>
+                  </wg>
+               </wg>
+               <w class="conj"
+                  osisId="Mark.5.31!12"
+                  n="410050310120010"
+                  lemma="καί"
+                  normalized="καί"
+                  strong="2532"
+                  gloss="and">καὶ</w>
+               <wg class="cl" n="410050310130013" head="true" rule="V2CL">
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.31!13"
+                     n="410050310130010"
+                     lemma="λέγω"
+                     normalized="λέγεις"
+                     strong="3004"
+                     number="singular"
+                     person="second"
+                     tense="present"
+                     voice="active"
+                     mood="indicative"
+                     head="true"
+                     gloss="say You">λέγεις</w>
+               </wg>
+               <wg class="cl" n="410050310140030" rule="S-O-V">
+                  <w role="s"
+                     class="pron"
+                     type="interrogative"
+                     osisId="Mark.5.31!14"
+                     n="410050310140010"
+                     lemma="τίς"
+                     normalized="Τίς"
+                     strong="5101"
+                     number="singular"
+                     gender="masculine"
+                     case="nominative"
+                     gloss="Who">Τίς</w>
+                  <w role="o"
+                     class="pron"
+                     type="personal"
+                     osisId="Mark.5.31!15"
+                     n="410050310150010"
+                     lemma="ἐγώ"
+                     normalized="μου"
+                     strong="1473"
+                     number="singular"
+                     case="genitive"
+                     gloss="Me">μου</w>
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.31!16"
+                     n="410050310160010"
+                     lemma="ἅπτω"
+                     normalized="ἥψατο"
+                     strong="680"
+                     number="singular"
+                     person="third"
+                     tense="aorist"
+                     voice="middle"
+                     mood="indicative"
+                     head="true"
+                     gloss="touched">ἥψατο</w>
+                  <pc>;</pc>
+               </wg>
+            </wg>
+         </wg>
+      </wg>
+   </sentence>
+   <sentence>
+      <p>
+         <milestone unit="verse" id="Mark.5.32">Mark.5.32</milestone> καὶ περιεβλέπετο ἰδεῖν τὴν τοῦτο ποιήσασαν.</p>
+      <wg role="cl">
+         <wg class="cl" n="410050320010060" rule="Conj-CL">
+            <w class="conj"
+               osisId="Mark.5.32!1"
+               n="410050320010010"
+               lemma="καί"
+               normalized="καί"
+               strong="2532"
+               gloss="And">καὶ</w>
+            <wg class="cl" n="410050320020050" rule="V-ADV">
+               <w role="v"
+                  class="verb"
+                  osisId="Mark.5.32!2"
+                  n="410050320020010"
+                  lemma="περιβλέπω"
+                  normalized="περιεβλέπετο"
+                  strong="4017"
+                  number="singular"
+                  person="third"
+                  tense="imperfect"
+                  voice="middle"
+                  mood="indicative"
+                  head="true"
+                  gloss="He was looking around">περιεβλέπετο</w>
+               <wg role="adv" class="cl" n="410050320030040" rule="V-O">
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.32!3"
+                     n="410050320030010"
+                     lemma="ὁράω"
+                     normalized="ἰδεῖν"
+                     strong="3708"
+                     tense="aorist"
+                     voice="active"
+                     mood="infinitive"
+                     type="?"
+                     head="true"
+                     gloss="to see">ἰδεῖν</w>
+                  <wg role="o"
+                      class="np"
+                      n="410050320040030"
+                      articular="true"
+                      rule="DetCL">
+                     <w class="det"
+                        osisId="Mark.5.32!4"
+                        n="410050320040010"
+                        lemma="ὁ"
+                        normalized="τήν"
+                        strong="3588"
+                        number="singular"
+                        gender="feminine"
+                        case="accusative"
+                        gloss="the [one]">τὴν</w>
+                     <wg class="cl" n="410050320050020" head="true" rule="O-V">
+                        <w role="o"
+                           class="pron"
+                           type="demonstrative"
+                           osisId="Mark.5.32!5"
+                           n="410050320050010"
+                           lemma="οὗτος"
+                           normalized="τοῦτο"
+                           strong="3778"
+                           number="singular"
+                           gender="neuter"
+                           case="accusative"
+                           gloss="this">τοῦτο</w>
+                        <w role="v"
+                           class="verb"
+                           osisId="Mark.5.32!6"
+                           n="410050320060010"
+                           lemma="ποιέω"
+                           normalized="ποιήσασαν"
+                           strong="4160"
+                           number="singular"
+                           gender="feminine"
+                           case="accusative"
+                           tense="aorist"
+                           voice="active"
+                           mood="participle"
+                           type="?"
+                           head="true"
+                           gloss="having done">ποιήσασαν</w>
+                        <pc>.</pc>
+                     </wg>
+                  </wg>
+               </wg>
+            </wg>
+         </wg>
+      </wg>
+   </sentence>
+   <sentence>
+      <p>
+         <milestone unit="verse" id="Mark.5.33">Mark.5.33</milestone> ἡ δὲ γυνὴ φοβηθεῖσα καὶ τρέμουσα, εἰδυῖα ὃ γέγονεν αὐτῇ, ἦλθεν καὶ προσέπεσεν αὐτῷ καὶ εἶπεν αὐτῷ πᾶσαν τὴν ἀλήθειαν.</p>
+      <wg role="cl">
+         <wg class="cl" n="410050330020200" rule="Conj-CL">
+            <w class="conj"
+               osisId="Mark.5.33!2"
+               n="410050330020010"
+               lemma="δέ"
+               normalized="δέ"
+               strong="1161"
+               discontinuous="true"
+               gloss="And">δὲ</w>
+            <wg class="cl" n="410050330010190" rule="Conj3CL">
+               <wg class="cl" n="410050330010100" head="true" rule="S-ADV-ADV-V">
+                  <wg role="s"
+                      class="np"
+                      n="410050330010020"
+                      articular="true"
+                      rule="DetNP">
+                     <w class="det"
+                        osisId="Mark.5.33!1"
+                        n="410050330010010"
+                        lemma="ὁ"
+                        normalized="ἡ"
+                        strong="3588"
+                        number="singular"
+                        gender="feminine"
+                        case="nominative"
+                        gloss="-">ἡ</w>
+                     <w class="noun"
+                        type="common"
+                        osisId="Mark.5.33!3"
+                        n="410050330030010"
+                        lemma="γυνή"
+                        normalized="γυνή"
+                        strong="1135"
+                        number="singular"
+                        gender="feminine"
+                        case="nominative"
+                        head="true"
+                        gloss="the woman">γυνὴ</w>
+                  </wg>
+                  <wg role="adv" class="cl" n="410050330040032" rule="V2CL">
+                     <wg role="v" class="vp" n="410050330040030" rule="Conj2VP">
+                        <w class="verb"
+                           osisId="Mark.5.33!4"
+                           n="410050330040010"
+                           lemma="φοβέω"
+                           normalized="φοβηθεῖσα"
+                           strong="5399"
+                           number="singular"
+                           gender="feminine"
+                           case="nominative"
+                           tense="aorist"
+                           voice="passive"
+                           mood="participle"
+                           type="?"
+                           head="true"
+                           gloss="having been frightened">φοβηθεῖσα</w>
+                        <w class="conj"
+                           osisId="Mark.5.33!5"
+                           n="410050330050010"
+                           lemma="καί"
+                           normalized="καί"
+                           strong="2532"
+                           gloss="and">καὶ</w>
+                        <w class="verb"
+                           osisId="Mark.5.33!6"
+                           n="410050330060010"
+                           lemma="τρέμω"
+                           normalized="τρέμουσα"
+                           strong="5141"
+                           number="singular"
+                           gender="feminine"
+                           case="nominative"
+                           tense="present"
+                           voice="active"
+                           mood="participle"
+                           type="?"
+                           gloss="trembling">τρέμουσα</w>
+                        <pc>,</pc>
+                     </wg>
+                  </wg>
+                  <wg role="adv" class="cl" n="410050330070040" rule="V-O">
+                     <w role="v"
+                        class="verb"
+                        osisId="Mark.5.33!7"
+                        n="410050330070010"
+                        lemma="οἶδα"
+                        normalized="εἰδυῖα"
+                        strong="1492"
+                        number="singular"
+                        gender="feminine"
+                        case="nominative"
+                        tense="perfect"
+                        voice="active"
+                        mood="participle"
+                        type="?"
+                        head="true"
+                        gloss="knowing">εἰδυῖα</w>
+                     <wg role="o" class="np" n="410050330080031" rule="CL2NP">
+                        <wg class="cl" n="410050330080030" rule="S-V-ADV">
+                           <w role="s"
+                              class="pron"
+                              type="relative"
+                              osisId="Mark.5.33!8"
+                              n="410050330080010"
+                              lemma="ὅς"
+                              normalized="ὅ"
+                              strong="3739"
+                              number="singular"
+                              gender="neuter"
+                              case="nominative"
+                              gloss="what">ὃ</w>
+                           <w role="v"
+                              class="verb"
+                              osisId="Mark.5.33!9"
+                              n="410050330090010"
+                              lemma="γίνομαι"
+                              normalized="γέγονεν"
+                              strong="1096"
+                              number="singular"
+                              person="third"
+                              tense="perfect"
+                              voice="active"
+                              mood="indicative"
+                              head="true"
+                              gloss="had been done">γέγονεν</w>
+                           <w role="adv"
+                              class="pron"
+                              type="personal"
+                              osisId="Mark.5.33!10"
+                              n="410050330100010"
+                              lemma="αὐτός"
+                              normalized="αὐτῇ"
+                              strong="846"
+                              number="singular"
+                              gender="feminine"
+                              case="dative"
+                              gloss="to her">αὐτῇ</w>
+                           <pc>,</pc>
+                        </wg>
+                     </wg>
+                  </wg>
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.33!11"
+                     n="410050330110010"
+                     lemma="ἔρχομαι"
+                     normalized="ἦλθεν"
+                     strong="2064"
+                     number="singular"
+                     person="third"
+                     tense="aorist"
+                     voice="active"
+                     mood="indicative"
+                     head="true"
+                     gloss="came">ἦλθεν</w>
+               </wg>
+               <w class="conj"
+                  osisId="Mark.5.33!12"
+                  n="410050330120010"
+                  lemma="καί"
+                  normalized="καί"
+                  strong="2532"
+                  gloss="and">καὶ</w>
+               <wg class="cl" n="410050330130020" rule="V-ADV">
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.33!13"
+                     n="410050330130010"
+                     lemma="προσπίπτω"
+                     normalized="προσέπεσεν"
+                     strong="4363"
+                     number="singular"
+                     person="third"
+                     tense="aorist"
+                     voice="active"
+                     mood="indicative"
+                     head="true"
+                     gloss="fell down before">προσέπεσεν</w>
+                  <w role="adv"
+                     class="pron"
+                     type="personal"
+                     osisId="Mark.5.33!14"
+                     n="410050330140010"
+                     lemma="αὐτός"
+                     normalized="αὐτῷ"
+                     strong="846"
+                     number="singular"
+                     gender="masculine"
+                     case="dative"
+                     gloss="Him">αὐτῷ</w>
+               </wg>
+               <w class="conj"
+                  osisId="Mark.5.33!15"
+                  n="410050330150010"
+                  lemma="καί"
+                  normalized="καί"
+                  strong="2532"
+                  gloss="and">καὶ</w>
+               <wg class="cl" n="410050330160050" rule="V-IO-O">
+                  <w role="v"
+                     class="verb"
+                     osisId="Mark.5.33!16"
+                     n="410050330160010"
+                     lemma="λέγω"
+                     normalized="εἶπεν"
+                     strong="3004"
+                     number="singular"
+                     person="third"
+                     tense="aorist"
+                     voice="active"
+                     mood="indicative"
+                     head="true"
+                     gloss="told">εἶπεν</w>
+                  <w role="io"
+                     class="pron"
+                     type="personal"
+                     osisId="Mark.5.33!17"
+                     n="410050330170010"
+                     lemma="αὐτός"
+                     normalized="αὐτῷ"
+                     strong="846"
+                     number="singular"
+                     gender="masculine"
+                     case="dative"
+                     gloss="Him">αὐτῷ</w>
+                  <wg role="o"
+                      class="np"
+                      n="410050330180030"
+                      articular="true"
+                      rule="All-NP">
+                     <w class="adj"
+                        osisId="Mark.5.33!18"
+                        n="410050330180010"
+                        lemma="πᾶς"
+                        normalized="πᾶσαν"
+                        strong="3956"
+                        number="singular"
+                        gender="feminine"
+                        case="accusative"
+                        gloss="all">πᾶσαν</w>
+                     <wg class="np"
+                         n="410050330190020"
+                         articular="true"
+                         head="true"
+                         rule="DetNP">
+                        <w class="det"
+                           osisId="Mark.5.33!19"
+                           n="410050330190010"
+                           lemma="ὁ"
+                           normalized="τήν"
+                           strong="3588"
+                           number="singular"
+                           gender="feminine"
+                           case="accusative"
+                           gloss="the">τὴν</w>
+                        <w class="noun"
+                           type="common"
+                           osisId="Mark.5.33!20"
+                           n="410050330200010"
+                           lemma="ἀλήθεια"
+                           normalized="ἀλήθειαν"
+                           strong="225"
+                           number="singular"
+                           gender="feminine"
+                           case="accusative"
+                           head="true"
+                           gloss="truth">ἀλήθειαν</w>
+                        <pc>.</pc>
+                     </wg>
+                  </wg>
+               </wg>
+            </wg>
+         </wg>
+      </wg>
+   </sentence>
+   <sentence>
+      <p>
+         <milestone unit="verse" id="Mark.5.34">Mark.5.34</milestone> ὁ δὲ εἶπεν αὐτῇ Θυγάτηρ, ἡ πίστις σου σέσωκέν σε·</p>
+      <wg role="cl">
+         <wg class="cl" n="410050340020100" rule="Conj-CL">
+            <w class="conj"
+               osisId="Mark.5.34!2"
+               n="410050340020010"
+               lemma="δέ"
+               normalized="δέ"
+               strong="1161"
+               discontinuous="true"
+               gloss="And">δὲ</w>
+            <wg class="cl" n="410050340010030" head="true" rule="S-V-IO">
+               <w role="s"
+                  class="det"
+                  osisId="Mark.5.34!1"
+                  n="410050340010010"
+                  lemma="ὁ"
+                  normalized="ὁ"
+                  strong="3588"
+                  number="singular"
+                  gender="masculine"
+                  case="nominative"
+                  gloss="-">ὁ</w>
+               <w role="v"
+                  class="verb"
+                  osisId="Mark.5.34!3"
+                  n="410050340030010"
+                  lemma="λέγω"
+                  normalized="εἶπεν"
+                  strong="3004"
+                  number="singular"
+                  person="third"
+                  tense="aorist"
+                  voice="active"
+                  mood="indicative"
+                  head="true"
+                  gloss="He said">εἶπεν</w>
+               <w role="io"
+                  class="pron"
+                  type="personal"
+                  osisId="Mark.5.34!4"
+                  n="410050340040010"
+                  lemma="αὐτός"
+                  normalized="αὐτῇ"
+                  strong="846"
+                  number="singular"
+                  gender="feminine"
+                  case="dative"
+                  gloss="to her">αὐτῇ</w>
+            </wg>
+            <wg class="cl" n="410050340050012" rule="Np2CL">
+               <w class="noun"
+                  type="common"
+                  osisId="Mark.5.34!5"
+                  n="410050340050010"
+                  lemma="θυγάτηρ"
+                  normalized="Θυγάτηρ"
+                  strong="2364"
+                  number="singular"
+                  gender="feminine"
+                  case="vocative"
+                  gloss="Daughter">Θυγάτηρ</w>
+               <pc>,</pc>
+            </wg>
+            <wg class="cl" n="410050340060050" head="true" rule="S-V-O">
+               <wg role="s"
+                   class="np"
+                   n="410050340060030"
+                   articular="true"
+                   rule="DetNP">
+                  <w class="det"
+                     osisId="Mark.5.34!6"
+                     n="410050340060010"
+                     lemma="ὁ"
+                     normalized="ἡ"
+                     strong="3588"
+                     number="singular"
+                     gender="feminine"
+                     case="nominative"
+                     gloss="the">ἡ</w>
+                  <wg class="np" n="410050340070020" head="true" rule="NPofNP">
+                     <w class="noun"
+                        type="common"
+                        osisId="Mark.5.34!7"
+                        n="410050340070010"
+                        lemma="πίστις"
+                        normalized="πίστις"
+                        strong="4102"
+                        number="singular"
+                        gender="feminine"
+                        case="nominative"
+                        head="true"
+                        gloss="faith">πίστις</w>
+                     <w class="pron"
+                        type="personal"
+                        osisId="Mark.5.34!8"
+                        n="410050340080010"
+                        lemma="σύ"
+                        normalized="σου"
+                        strong="4771"
+                        number="singular"
+                        case="genitive"
+                        gloss="of you">σου</w>
+                  </wg>
+               </wg>
+               <w role="v"
+                  class="verb"
+                  osisId="Mark.5.34!9"
+                  n="410050340090010"
+                  lemma="σῴζω"
+                  normalized="σέσωκεν"
+                  strong="4982"
+                  number="singular"
+                  person="third"
+                  tense="perfect"
+                  voice="active"
+                  mood="indicative"
+                  head="true"
+                  gloss="has healed">σέσωκέν</w>
+               <w role="o"
+                  class="pron"
+                  type="personal"
+                  osisId="Mark.5.34!10"
+                  n="410050340100010"
+                  lemma="σύ"
+                  normalized="σε"
+                  strong="4771"
+                  number="singular"
+                  case="accusative"
+                  gloss="you">σε</w>
+               <pc>·</pc>
+            </wg>
+         </wg>
+      </wg>
+   </sentence>
+   <sentence>
+      <p>
+         <milestone unit="verse" id="Mark.5.34">Mark.5.34</milestone> ὕπαγε εἰς εἰρήνην, καὶ ἴσθι ὑγιὴς ἀπὸ τῆς μάστιγός σου.</p>
+      <wg role="cl">
+         <wg class="cl" n="410050340110100" rule="CLaCL">
+            <wg class="cl" n="410050340110030" head="true" rule="V-ADV">
+               <w role="v"
+                  class="verb"
+                  osisId="Mark.5.34!11"
+                  n="410050340110010"
+                  lemma="ὑπάγω"
+                  normalized="ὕπαγε"
+                  strong="5217"
+                  number="singular"
+                  person="second"
+                  tense="present"
+                  voice="active"
+                  mood="imperative"
+                  head="true"
+                  gloss="go">ὕπαγε</w>
+               <wg role="adv" class="pp" n="410050340120020" rule="PrepNp">
+                  <w class="prep"
+                     osisId="Mark.5.34!12"
+                     n="410050340120010"
+                     lemma="εἰς"
+                     normalized="εἰς"
+                     strong="1519"
+                     gloss="in">εἰς</w>
+                  <w class="noun"
+                     type="common"
+                     osisId="Mark.5.34!13"
+                     n="410050340130010"
+                     lemma="εἰρήνη"
+                     normalized="εἰρήνην"
+                     strong="1515"
+                     number="singular"
+                     gender="feminine"
+                     case="accusative"
+                     head="true"
+                     gloss="peace">εἰρήνην</w>
+                  <pc>,</pc>
+               </wg>
+            </wg>
+            <w class="conj"
+               osisId="Mark.5.34!14"
+               n="410050340140010"
+               lemma="καί"
+               normalized="καί"
+               strong="2532"
+               gloss="and">καὶ</w>
+            <wg class="cl" n="410050340150060" rule="VC-P-ADV">
+               <w role="vc"
+                  class="verb"
+                  osisId="Mark.5.34!15"
+                  n="410050340150010"
+                  lemma="εἰμί"
+                  normalized="ἴσθι"
+                  strong="1510"
+                  number="singular"
+                  person="second"
+                  tense="present"
+                  voice="active"
+                  mood="imperative"
+                  gloss="be">ἴσθι</w>
+               <w role="p"
+                  class="adj"
+                  osisId="Mark.5.34!16"
+                  n="410050340160010"
+                  lemma="ὑγιής"
+                  normalized="ὑγιής"
+                  strong="5199"
+                  number="singular"
+                  gender="feminine"
+                  case="nominative"
+                  head="true"
+                  gloss="sound">ὑγιὴς</w>
+               <wg role="adv"
+                   class="pp"
+                   n="410050340170040"
+                   articular="true"
+                   rule="PrepNp">
+                  <w class="prep"
+                     osisId="Mark.5.34!17"
+                     n="410050340170010"
+                     lemma="ἀπό"
+                     normalized="ἀπό"
+                     strong="575"
+                     gloss="from">ἀπὸ</w>
+                  <wg class="np"
+                      n="410050340180030"
+                      articular="true"
+                      head="true"
+                      rule="DetNP">
+                     <w class="det"
+                        osisId="Mark.5.34!18"
+                        n="410050340180010"
+                        lemma="ὁ"
+                        normalized="τῆς"
+                        strong="3588"
+                        number="singular"
+                        gender="feminine"
+                        case="genitive"
+                        gloss="the">τῆς</w>
+                     <wg class="np" n="410050340190020" head="true" rule="NPofNP">
+                        <w class="noun"
+                           type="common"
+                           osisId="Mark.5.34!19"
+                           n="410050340190010"
+                           lemma="μάστιξ"
+                           normalized="μάστιγος"
+                           strong="3148"
+                           number="singular"
+                           gender="feminine"
+                           case="genitive"
+                           head="true"
+                           gloss="affliction">μάστιγός</w>
+                        <w class="pron"
+                           type="personal"
+                           osisId="Mark.5.34!20"
+                           n="410050340200010"
+                           lemma="σύ"
+                           normalized="σου"
+                           strong="4771"
+                           number="singular"
+                           case="genitive"
+                           gloss="of you">σου</w>
+                        <pc>.</pc>
+                     </wg>
+                  </wg>
+               </wg>
+            </wg>
+         </wg>
+      </wg>
+   </sentence>
+</book>

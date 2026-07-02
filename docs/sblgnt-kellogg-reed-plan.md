@@ -83,8 +83,8 @@ Guiding rule: **prefer less misleading labels over falsely precise labels.**
 
 | Phase | Status | Notes |
 |---|---|---|
-| 1. Documentation | In progress | This document + README data-source section. No behavior change. |
-| 2. Mark 5 regression/spec | Not started | Bundle Mark 5:25–34 + Col 1:9–16 source data as in-repo fixtures (per Tim, no network re-pulls); expected-fail specs allowed if documented. |
+| 1. Documentation | Done | This document + README data-source section. No behavior change. |
+| 2. Mark 5 regression/spec | Done | `tests/mark5-regression.test.ts` + bundled fixtures `tests/fixtures-lowfat-mark-5-25-34.xml`, `tests/fixtures-lowfat-col-1-9-16.xml` (per Tim, no network re-pulls). 5 desired-behavior specs are explicitly marked `it.fails` (they hard-fail once fixed, forcing marker removal); 6 sanity specs pass. |
 | 3. Role/provenance model | Not started | Add nuanced accusative roles + richer provenance; additive only. |
 | 4. KR display labels | Not started | `describe.ts`, layout labels, detail cards. |
 | 5. Converter fixes | Not started | `src/io/lowfat.ts`: passive-participle accusatives, articular PPs. |
@@ -130,6 +130,26 @@ Hebrew (must not regress): Genesis 1:1–3, Psalm 1:1–2, Deuteronomy 6:4.
 ## Bugs discovered
 
 *Add bugs here immediately, with whether they block the current phase.*
+
+### Confirmed converter behavior behind the Mark 5:26 regression (Phase 2 audit)
+
+The Lowfat source marks `τὰ παρ᾽ αὐτῆς πάντα` as ONE articular object
+(`<wg role="o" class="np" articular="true" rule="DetNP">`), but puts
+`head="true"` on `πάντα` inside the inner NP (`rule="PpNp2Np"`), while
+`τὰ περὶ τοῦ Ἰησοῦ` (`rule="NpPp"`) puts `head="true"` on the article `τά`.
+The converter's head percolation therefore emits:
+
+- `δαπανήσασα —directObject→ πάντα` (article demoted to determiner, PP demoted
+  beneath πάντα) — bug A;
+- `ὠφεληθεῖσα (voice=passive) —directObject→ μηδέν`, stamped gold-standard
+  `given` — bug B (the source role is `o`, but blind `o→directObject` mapping
+  loses the passive nuance);
+- `ἀκούσασα —directObject→ τὰ` with the PP beneath the article — the preferred
+  shape, which makes the A/C inconsistency structural, not cosmetic — bug C.
+
+So the fix (Phase 5) lives in `src/io/lowfat.ts` role mapping / head handling
+for articular `<wg class="np">` groups and passive-participle `o` dependents,
+plus the role vocabulary (Phase 3) and display labels (Phase 4).
 
 ## Decisions made
 
@@ -177,11 +197,14 @@ Still open:
 
 ## Resume instructions if interrupted
 
-Current phase: 1 (Documentation) — writing README section + this plan.
-Changed files: `README.md`, `docs/sblgnt-kellogg-reed-plan.md`.
-Current build/test status: docs-only change; build/tests expected unchanged
-(verify with `npm run typecheck && npm test`).
-Known broken behavior: the Mark 5:26 role-mapping issues described above
-(pre-existing; not yet captured by tests).
-Next smallest safe task: Phase 2 — add a Mark 5:25–34 fixture and spec tests
-capturing the desired behavior (expected failures explicitly marked).
+Current phase: 2 complete; next is 3 (role/provenance model).
+Changed files: `README.md`, `docs/sblgnt-kellogg-reed-plan.md`,
+`tests/mark5-regression.test.ts`, `tests/fixtures-lowfat-mark-5-25-34.xml`,
+`tests/fixtures-lowfat-col-1-9-16.xml`.
+Current build/test status: typecheck clean; 58 files / 623 tests pass
+(5 Mark 5 desired-behavior specs are inverted via `it.fails`).
+Known broken behavior: the Mark 5:26 role mapping (bugs A/B/C above) — now
+captured by `tests/mark5-regression.test.ts`.
+Next smallest safe task: Phase 3 — add nuanced accusative / substantival-PP
+role values to `SyntacticRoleSchema` (additive) and audit provenance so a
+relation can record source role vs display role and uncertainty.
