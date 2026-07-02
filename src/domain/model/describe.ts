@@ -1,4 +1,4 @@
-import type { KrDocument, Morphology, SyntacticRole } from '@/domain/schema';
+import type { KrDocument, Morphology, Provenance, SyntacticRole } from '@/domain/schema';
 import { getNode, nodeText, parentRelations, tidyGloss } from './queries';
 import { transliterationOf } from './transliterate';
 
@@ -24,6 +24,37 @@ export interface FunctionSummary {
   strong?: string;
   /** Lemma (falling back to the surface) to seed a whole-corpus search. */
   lemma?: string;
+  /**
+   * Where this analysis came from and how sure it is — shown so the app never
+   * overclaims. Present only when there is something worth saying (an
+   * interpretive conversion, an inference, a reconstruction, uncertainty, or a
+   * preserved raw source role); absent for plain high-confidence source data.
+   */
+  analysis?: string;
+}
+
+/** Human-readable provenance note for a relation's analysis, or undefined
+ *  when it would say nothing beyond "gold-standard source data". */
+export function analysisNote(p: Provenance | undefined): string | undefined {
+  if (!p) return undefined;
+  const interesting =
+    p.source !== 'given' || Boolean(p.sourceRole) || (p.confidence && p.confidence !== 'high');
+  if (!interesting) return undefined;
+  const origin: Record<string, string> = {
+    given: 'from the source analysis',
+    converted: 'interpreted during conversion from the source analysis',
+    inferred: 'inferred by the app',
+    confirmed: 'inferred by the app and confirmed',
+    manual: 'manually edited',
+    reconstructed: 'reconstructed for display — not source-given',
+    alternate: 'from an alternate reading',
+  };
+  const parts = [origin[p.source] ?? p.source];
+  if (p.sourceRole) parts.push(`the source labels it “${p.sourceRole}”`);
+  if (p.confidence === 'medium') parts.push('somewhat uncertain');
+  if (p.confidence === 'low') parts.push('uncertain');
+  const note = parts.join(' · ');
+  return p.reason ? `${note} — ${p.reason}` : note;
 }
 
 const ROLE_PHRASES: Partial<Record<SyntacticRole, { role: string; withHead: (h: string) => string }>> = {
@@ -115,6 +146,7 @@ export function describeFunction(doc: KrDocument, nodeId: string): FunctionSumma
     word,
     role,
     detail,
+    analysis: up ? analysisNote(up.provenance) : undefined,
     grammar: grammarString(doc, nodeId),
     gloss: tok?.gloss ? tidyGloss(tok.gloss) : undefined,
     translit: tok ? transliterationOf(tok) : undefined,

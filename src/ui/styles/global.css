@@ -511,6 +511,14 @@ textarea.code,
   font-variant: small-caps;
   letter-spacing: 0.02em;
 }
+/* Provenance / uncertainty note ("interpreted during conversion…") — quiet
+   italic so the honesty line informs without shouting. */
+.kr-reveal-analysis {
+  margin-top: 3px;
+  font-size: 12px;
+  font-style: italic;
+  color: #a9b6c2;
+}
 /* Strong's number / lemma-search link inside the dark detail popover. */
 .kr-reveal-strongs {
   margin-top: 5px;

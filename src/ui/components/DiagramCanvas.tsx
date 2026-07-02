@@ -664,6 +664,7 @@ export function DiagramCanvas() {
       <div className="kr-reveal-role">{summary.role}</div>
       <div className="kr-reveal-detail">{summary.detail}</div>
       {summary.grammar && <div className="kr-reveal-grammar">{summary.grammar}</div>}
+      {summary.analysis && <div className="kr-reveal-analysis">Analysis: {summary.analysis}</div>}
       {strongsRow(summary)}
       {sermonHighlight}
     </div>
@@ -1327,6 +1328,9 @@ export function DiagramCanvas() {
             <div className="kr-reveal-role">{reveal.summary.role}</div>
             <div className="kr-reveal-detail">{reveal.summary.detail}</div>
             {reveal.summary.grammar && <div className="kr-reveal-grammar">{reveal.summary.grammar}</div>}
+            {reveal.summary.analysis && (
+              <div className="kr-reveal-analysis">Analysis: {reveal.summary.analysis}</div>
+            )}
             {strongsRow(reveal.summary)}
             {sermonHighlight}
           </div>

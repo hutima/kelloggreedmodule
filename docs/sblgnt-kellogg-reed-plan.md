@@ -86,7 +86,7 @@ Guiding rule: **prefer less misleading labels over falsely precise labels.**
 | 1. Documentation | Done | This document + README data-source section. No behavior change. |
 | 2. Mark 5 regression/spec | Done | `tests/mark5-regression.test.ts` + bundled fixtures `tests/fixtures-lowfat-mark-5-25-34.xml`, `tests/fixtures-lowfat-col-1-9-16.xml` (per Tim, no network re-pulls). 5 desired-behavior specs are explicitly marked `it.fails` (they hard-fail once fixed, forcing marker removal); 6 sanity specs pass. |
 | 3. Role/provenance model | Done | 6 new `SyntacticRole` values, 3 new `ProvenanceSource` values, `sourceRole`/`editionId` provenance fields; every label map / glossary / guide / layout set updated. Additive only — see Decisions. |
-| 4. KR display labels | Not started | `describe.ts`, layout labels, detail cards. |
+| 4. KR display labels | Done | Detail cards gain an italic "Analysis:" provenance/uncertainty line (`analysisNote` in `describe.ts`, rendered in `DiagramCanvas`) — shown only when there is something worth disclosing (conversion, inference, reconstruction, preserved raw source role, non-high confidence). Role labels/phrases landed in phase 3. Geometry decision: object-like/retained accusatives sit in the object slot, adverbial accusatives hang beneath the verb; per Tim the diagram stays neutral and detail cards carry the nuance. |
 | 5. Converter fixes | Not started | `src/io/lowfat.ts`: passive-participle accusatives, articular PPs. |
 | 6. Source model | Not started | Edition-aware `SyntaxSourceId`s. |
 | 7. SBLGNT loader | Not started | Keep Nestle1904 loader intact. |
@@ -234,15 +234,18 @@ Still open:
 
 ## Resume instructions if interrupted
 
-Current phase: 3 complete; next is 4 (Kellogg-Reed display labels).
-Changed files (phase 3): `src/domain/schema/syntax.ts`, `src/domain/schema/
-primitives.ts`, `src/domain/model/{describe,glossary,queries}.ts`,
-`src/domain/layout/{constants,engine}.ts`, `src/domain/layout/modes/
-{dependency,phrase-block}.ts`, `src/ui/editor/{roles,relationshipGuide}.ts`.
-Current build/test status: typecheck clean; 58 files / 623 tests pass
-(5 Mark 5 desired-behavior specs are inverted via `it.fails`).
+Current phase: 4 complete; next is 5 (Lowfat converter fixes for Mark 5).
+Changed files (phase 4): `src/domain/model/describe.ts` (`analysisNote` +
+`FunctionSummary.analysis`), `src/ui/components/DiagramCanvas.tsx` (both
+detail-card spots), `src/ui/styles/global.css`, `tests/describe.test.ts`.
+Current build/test status: typecheck + lint clean; 58 files / 627 tests pass
+(5 Mark 5 desired-behavior specs still inverted via `it.fails`).
 Known broken behavior: the Mark 5:26 role mapping (bugs A/B/C above) — the
-new roles exist but nothing emits them yet.
-Next smallest safe task: Phase 4 — make detail cards / connector labels /
-tooltips surface the nuanced roles and provenance (`sourceRole`, `converted`)
-honestly; verify English + Hebrew displays unchanged.
+roles and display paths exist but the converter does not emit them yet.
+Next smallest safe task: Phase 5 — in `src/io/lowfat.ts`: (1) passive
+participle/verb + accusative `o` dependent → `accusativeModifier` with
+provenance `converted`, `sourceRole: 'o'`, confidence `medium`, reason; (2)
+articular `<wg class="np">` containing a PP → substantival phrase whose head
+is the ARTICLE (consistent for both Mark 5 shapes), with πάντα-style
+adjectives as `adjectival` modifiers of that phrase and the whole phrase as
+`objectLikeComplement` when the source role is `o`.
