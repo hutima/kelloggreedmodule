@@ -131,6 +131,37 @@ Hebrew (must not regress): Genesis 1:1–3, Psalm 1:1–2, Deuteronomy 6:4.
 
 *Add bugs here immediately, with whether they block the current phase.*
 
+- 2026-07-02 (Tim reported from the live app — SBLGNT Mark 1:19–20 in
+  Phrase/Block showed a whole clause mislabelled `adjunct`; fixed): **the
+  SBLGNT Lowfat converter mangled classless phrase coordinations.** SBLGNT
+  writes a PHRASE-level coordination as a CLASSLESS `<wg>` carrying only a
+  `rule` (e.g. `<wg role="o" rule="NpaNp">` for the object "Ἰάκωβον … καὶ
+  Ἰωάννην … καὶ αὐτοὺς … καταρτίζοντας τὰ δίκτυα"), whereas Nestle1904 puts a
+  `class` on such groups. The converter's classless→`convertClause` default
+  (`src/io/lowfat.ts`) therefore sent the object coordination to
+  `convertClause`, whose no-verb branch mistook the noun-phrase member
+  "Ἰάκωβον…καὶ Ἰωάννην…" for a bare subordinator word and `wordNode()`'d the
+  ENTIRE `<wg>` into ONE garbled token (surface = the whole group's text),
+  which `rescueOrphans` then hung off the root as `adjunct`. This is the same
+  CLASS of head-inference gap noted in Phase 14 (it's why Titus 2:13 / Col
+  1:15 / etc. were held back), now partly closed. Fix, minimally scoped so
+  Nestle1904 is untouched: (1) `convert()` routes a classless `<wg>` with a
+  phrase coordination rule (`isCoordinationRule` && not clause/vp) to
+  `convertPhrase`; (2) `convertClause`'s no-verb branch delegates a classless,
+  clause-content-free `<wg>` (a "καί + <NP>" coordination-member wrapper) to
+  `convertPhrase` instead of fabricating an adjunct-only clause. Now εἶδεν
+  takes Ἰάκωβον as its direct object, with Ἰωάννην and the participial clause
+  as conjuncts and the son-of-Zebedee / brother appositives preserved.
+  Regenerated the affected SBLGNT contested-syntax ids (Phil 1:1, Rom 3:22
+  relation ids shifted) and re-validated. Regression test
+  `tests/sblgnt-coordination-regression.test.ts` + bundled fixture
+  `tests/fixtures-sblgnt-lowfat-mark-1-19-20.xml` (fails without the fix).
+  Before/after renders sent to Tim. 671 tests pass; typecheck/lint/build +
+  `contested:check` clean. NOTE: this narrows but does not fully close the
+  Phase 14 `sblgntHead()` gap — Titus 2:13 / Matt 4:3 / 2 Cor 5:4 / Col 1:15
+  remain Nestle1904-only pending a broader head-inference pass (their trees
+  are mis-*headed*, a different failure from this coordination-*routing* bug).
+
 - 2026-07-02 (Tim reported, out-of-band from the SBLGNT rebase phases — a
   pre-existing Kellogg-Reed layout bug, not caused by any phase above; fixed
   immediately, does not block any phase): **Mark 1:19–20 renders with a whole

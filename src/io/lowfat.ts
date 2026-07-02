@@ -424,6 +424,24 @@ export class SentenceConverter {
     return h ? this.ultimateHeadWord(h) : undefined;
   }
 
+  /**
+   * A CLASSLESS `<wg>` that SBLGNT writes for a PHRASE-level coordination — a
+   * rule like `NpaNp` / `PpaPp` / `NpNp` joining PHRASES (never clauses).
+   * Nestle1904 puts a `class` on such groups, so `convert`'s classless→clause
+   * default was fine there; SBLGNT leaves them classless with only a `rule`, so
+   * without this they fall through to `convertClause` and get mangled — a
+   * coordinate member (the object "Ἰάκωβον … καὶ Ἰωάννην …" in Mark 1:19) is
+   * mistaken for a bare subordinator word and collapsed to a single token.
+   * Clause coordinations (rule mentions CL) and verb-phrase coordinations stay
+   * clauses.
+   */
+  private isPhraseCoordination(el: Element): boolean {
+    if (tag(el) !== 'wg' || el.getAttribute('class')) return false;
+    const rule = el.getAttribute('rule') ?? '';
+    if (!rule || /cl|vp/i.test(rule)) return false;
+    return isCoordinationRule(rule);
+  }
+
   /** Convert any constituent, returning the id of its representative node. */
   convert(el: Element): string {
     if (tag(el) === 'w') return this.wordNode(el);
@@ -433,7 +451,11 @@ export class SentenceConverter {
         ? this.convertContrastivePp(el)
         : this.convertPp(el);
     }
-    if (cls === 'cl' || el.getAttribute('role') === 'cl' || !cls) return this.convertClause(el);
+    if (cls === 'cl' || el.getAttribute('role') === 'cl' || !cls) {
+      // A classless SBLGNT phrase coordination is a PHRASE, not a clause.
+      if (!cls && this.isPhraseCoordination(el)) return this.convertPhrase(el);
+      return this.convertClause(el);
+    }
     return this.convertPhrase(el);
   }
 
@@ -569,6 +591,17 @@ export class SentenceConverter {
         if (sub && !this.subLabel.has(rep)) this.subLabel.set(rep, sub);
         if (subNodeId && !this.subLabelNode.has(rep)) this.subLabelNode.set(rep, subNodeId);
         return rep;
+      }
+
+      // A CLASSLESS `<wg>` with NO clause content at all is a PHRASE, not a
+      // clause — an SBLGNT coordination-member wrapper such as "καὶ + <NP>"
+      // (the "καὶ Ἰωάννην …" arm of the Mark 1:19 object). Convert it as a
+      // phrase (the conjunction becomes a coordinator, the content phrase its
+      // head) instead of fabricating an adjunct-only clause, which would bury
+      // the member below a spurious "(subject)/(verb)" baseline. A `class="cl"`
+      // wrapper is left to the last-resort container below.
+      if (clauseKids.length === 0 && !el.getAttribute('class')) {
+        return this.convertPhrase(el);
       }
 
       const clauseId = this.makeClause(el, 'unknown');
