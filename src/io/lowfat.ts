@@ -181,27 +181,86 @@ function sblgntMorphOf(w: Element): Morphology | undefined {
   return any ? m : undefined;
 }
 
+/** Function-word classes that never head an SBLGNT word group. */
+const SBLGNT_FUNCTION_CLASSES = new Set(['det', 'conj', 'prep', 'ptcl']);
+
+/**
+ * Head-worthiness of a constituent class (higher heads). The relative order
+ * mirrors the original priority list: nominal > adjectival > verbal >
+ * adverbial > prepositional.
+ */
+const SBLGNT_CLASS_RANK: Record<string, number> = {
+  np: 5, noun: 5, pron: 5,
+  adjp: 4, adj: 4, num: 4,
+  vp: 3, verb: 3,
+  advp: 2, adv: 2,
+  pp: 1, prep: 1,
+};
+
+/** The ultimate head WORD an SBLGNT constituent would resolve to (following
+ *  explicit head marks where present, inferred heads otherwise). */
+function sblgntUltimateWord(el: Element): Element | undefined {
+  if (tag(el) === 'w') return el;
+  const kids = constituents(el);
+  const head = kids.find((c) => c.getAttribute('head') === 'true') ?? sblgntHead(kids);
+  return head ? sblgntUltimateWord(head) : undefined;
+}
+
 /**
  * Head inference for SBLGNT Lowfat, which (unlike Nestle1904) carries NO
- * `head="true"` marking: pick the most content-like constituent by role, then
- * class, skipping function words (det/conj/prep/ptcl). This is what keeps a
- * `DetNP` headed by its noun (not the article) and a `PrepNp` object findable.
+ * `head="true"` marking. Explicit predicate roles (`v`/`vc`) and clause
+ * children win outright; other candidates are scored by class — the class of
+ * a CLASSLESS wrapper (an SBLGNT coordination like `NpaNp`) resolved through
+ * its own ultimate word, so a coordination of nouns counts as nominal (the
+ * Titus 2:13 fix: θεοῦ-καὶ-σωτῆρος must outrank the adjective μεγάλου) — with
+ * two linguistic adjustments on top of the class ranking:
+ *
+ *   • function words (det/conj/prep/ptcl) never head — a `DetNP` is headed by
+ *     its noun and a `PrepNp` object stays findable;
+ *   • a GENITIVE candidate is demoted below every non-genitive case-bearing
+ *     candidate: inside a nominal group a genitive alongside another case is
+ *     (almost always) the dependent (the Col 1:15 fix: nominative
+ *     πρωτότοκος heads, genitive πάσης-κτίσεως depends) — while a group
+ *     that is entirely genitive (Titus 2:13) is left to the class ranking.
+ *
+ * Ties keep document order, matching the original first-match behavior.
  */
 function sblgntHead(kids: Element[]): Element | undefined {
   if (!kids.length) return undefined;
   const cls = (el: Element) => el.getAttribute('class') ?? '';
   const role = (el: Element) => el.getAttribute('role') ?? '';
-  return (
+  const explicit =
     kids.find((k) => role(k) === 'v' || role(k) === 'vc') ??
-    kids.find((k) => cls(k) === 'cl') ??
-    kids.find((k) => ['np', 'noun', 'pron'].includes(cls(k))) ??
-    kids.find((k) => ['adjp', 'adj', 'num'].includes(cls(k))) ??
-    kids.find((k) => ['vp', 'verb'].includes(cls(k))) ??
-    kids.find((k) => ['advp', 'adv'].includes(cls(k))) ??
-    kids.find((k) => cls(k) === 'pp') ??
-    kids.find((k) => !['det', 'conj', 'prep', 'ptcl'].includes(cls(k))) ??
-    kids[0]
-  );
+    kids.find((k) => cls(k) === 'cl');
+  if (explicit) return explicit;
+
+  // Effective rank: a node's own class when it has one; a CLASSLESS wrapper
+  // ranks as its inferred head CONSTITUENT (one level at a time — so a
+  // classless coordination of nouns ranks nominal, while a classless
+  // coordination of PPs ranks prepositional, never as the PP's object noun).
+  const rankOf = (el: Element): number => {
+    const c = el.getAttribute('class');
+    if (c) return SBLGNT_CLASS_RANK[c] ?? 0;
+    if (tag(el) === 'w') return 0;
+    const inner = constituents(el);
+    const head = inner.find((x) => x.getAttribute('head') === 'true') ?? sblgntHead(inner);
+    return head ? rankOf(head) : 0;
+  };
+
+  const contentKids = kids.filter((k) => !SBLGNT_FUNCTION_CLASSES.has(cls(k)));
+  const pool = contentKids.length ? contentKids : kids;
+  const scored = pool.map((k) => {
+    const w = sblgntUltimateWord(k);
+    const kase = w?.getAttribute('case') ?? '';
+    return { k, rank: rankOf(k), genitive: kase === 'genitive', hasCase: Boolean(kase) };
+  });
+  // Demote genitives only RELATIVE to a non-genitive case-bearing sibling.
+  const hasNonGenitiveCase = scored.some((s) => s.hasCase && !s.genitive);
+  const effective = (s: (typeof scored)[number]) =>
+    s.rank - (s.genitive && hasNonGenitiveCase ? 10 : 0);
+  let best = scored[0]!;
+  for (const s of scored) if (effective(s) > effective(best)) best = s;
+  return best.k;
 }
 
 /** macula-greek SBLGNT Lowfat (Clear-Bible/macula-greek): ids on `xml:id`/
