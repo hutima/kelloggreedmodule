@@ -53,7 +53,12 @@ async function fetchBookXml(book: GntBook): Promise<string> {
 /** Fetch and convert a book into one document per sentence (cached by the SW). */
 export async function loadSblgntBook(book: GntBook): Promise<KrDocument[]> {
   const xml = await fetchBookXml(book);
-  return lowfatToDocuments(xml, { book: book.name, dialect: sblgntDialect, docIdPrefix: 'sblgnt' });
+  return lowfatToDocuments(xml, {
+    book: book.name,
+    dialect: sblgntDialect,
+    docIdPrefix: 'sblgnt',
+    sourceId: 'macula-greek-sblgnt-lowfat',
+  });
 }
 
 /** Warm the service-worker cache for offline use. Resolves true on success. */

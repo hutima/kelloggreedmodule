@@ -92,7 +92,7 @@ Guiding rule: **prefer less misleading labels over falsely precise labels.**
 | 7. SBLGNT loader | Done | `src/io/gnt-sblgnt.ts` (Clear-Bible/macula-greek `SBLGNT/lowfat`, CC BY 4.0) + `sblgntDialect` in `lowfat.ts`: ids on `xml:id`/`ref`, "MRK 5:25" milestones, and — the big one — head INFERENCE by class/role because SBLGNT Lowfat carries no `head="true"` at all. Docs get `sblgnt_` id prefix. Selectable in GntPicker + source compare; SW caches it; Nestle1904 loader untouched. Mark 5:26 regression verified under SBLGNT via bundled fixture (`tests/fixtures-sblgnt-lowfat-mark-5-25-34.xml`). Textual note: SBLGNT reads ἀκούσασα περὶ τοῦ Ἰησοῦ (no τά) — one substantival PP in that sentence, not two. |
 | 8. Default switch | Done | `DEFAULT_GNT_SOURCE = macula-greek-sblgnt-lowfat` (per Tim: after loader + Mark 5 tests pass, which they do). GntPicker defaults new/non-GNT sessions to SBLGNT and lists it first (Nestle labelled "legacy"); SearchPicker defaults to SBLGNT; SBLGNT Philippians bundled under `public/sblgnt/` so the default edition works offline first-run; contested-reading base label now names the actual edition via `sourceLabel`. Open passages keep their own edition (pickerSource follows the doc id), and patches are keyed by edition-prefixed passage ids + `sourceId`, so nothing crosses editions. |
 | 9. Alignment cleanup | Done | `src/io/parallel.ts`: found + fixed a phase-8 gap — `parseRef` only read Nestle osisIds, so SBLGNT docs got NO English alignment; it now reads both spellings. SBLGNT docs align DIRECTLY by position (the alignment's own base text, Strong's-verified), Nestle1904 keeps Strong's-nearest + positional fallback. Every token records its `AlignMethod` (`direct`/`strongs`/`position`/`unmatched`) plus aggregate `stats` for debugging. Hebrew aligner reports `direct` by construction — unchanged behavior. Mark 5:26 alignment covered by tests. |
-| 10. Source constituency | Not started | Preserve Lowfat `<wg>` hierarchy as optional layer. |
+| 10. Source constituency | Done | New optional `sourceConstituency` layer on `KrDocument` (`schema/constituency.ts` — cat/role/rule/head/articular/tokenIds, whole tree source-given by construction, identified by `sourceId`). Captured verbatim by `captureSourceConstituency` in `lowfat.ts` when the loader passes a `sourceId` (both GNT loaders do); survives `combinePassage` (prefixed under a discourse root, dropped — never corrupted — when members lack it or mix sources). Syntax graph untouched; schemaVersion unchanged; Hebrew deferred per Tim's regression-only default (same helper works when wanted). |
 | 11. Constituency UI | Not started | Improve existing mode; source vs reconstructed toggle. |
 | 12. Migration guards/tests | Not started | Patch base source/edition guard; Hebrew/OpenText smoke tests. |
 | 13. Cleanup | Not started | |
@@ -252,13 +252,21 @@ Still open:
 
 ## Resume instructions if interrupted
 
-Current phase: 9 complete; next is 10 (source constituency preservation).
+Current phase: 10 complete; next is 11 (Constituency Tree renders the source
+tree).
+Changed files (phase 10): `src/domain/schema/{constituency,document,index}.ts`,
+`src/io/{lowfat,gnt,gnt-sblgnt,passage}.ts`,
+`tests/source-constituency.test.ts`.
+Build/test: typecheck + lint clean; 650 tests pass.
+Next smallest safe task: Phase 11 — teach `src/domain/layout/modes/
+constituency.ts` to lay out `doc.sourceConstituency` when present (Auto:
+source when available, reconstructed otherwise; keep the existing estimate
+path as the fallback), label the display "Source constituency: <source>" vs
+"Reconstructed from app syntax graph", and reuse the existing tree-layout
+infra. Don't break Dependency/Phrase-Block/KR or Hebrew RTL.
+
+Superseded status notes from phase 9:
 Changed files (phase 9): `src/io/parallel.ts`, `tests/parallel.test.ts`.
-Build/test: typecheck + lint clean; 645 tests pass.
-Next smallest safe task: Phase 10 — optional `sourceConstituency` layer on
-`KrDocument` (additive schema), captured from the Lowfat `<wg>` hierarchy in
-the converter; then phase 11 renders it in the existing Constituency Tree
-mode with a source/reconstructed toggle.
 
 Superseded status notes from phase 8:
 Changed files (phase 8): `src/io/sources.ts` (`DEFAULT_GNT_SOURCE`),

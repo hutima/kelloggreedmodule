@@ -71,7 +71,10 @@ export const BUNDLED_BOOKS = new Set([11]);
 /** Fetch and convert a book into one document per sentence (cached by the SW). */
 export async function loadGntBook(book: GntBook): Promise<KrDocument[]> {
   const xml = await fetchBookXml(book);
-  return lowfatToDocuments(xml, { book: book.name });
+  return lowfatToDocuments(xml, {
+    book: book.name,
+    sourceId: 'macula-greek-nestle1904-lowfat',
+  });
 }
 
 /**

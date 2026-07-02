@@ -5,6 +5,8 @@ import type {
   PartOfSpeech,
   Provenance,
   Relation,
+  SourceConstituencyNode,
+  SourceConstituencyTree,
   SyntacticRole,
   SyntaxNode,
   Token,
@@ -885,6 +887,45 @@ export interface LowfatDocOptions {
   /** Document-id prefix — `gnt` (Nestle1904, default) or `sblgnt`. The prefix
    *  is how `sourceOfDoc` tells editions apart, so it must stay distinct. */
   docIdPrefix?: string;
+  /** When set, each document also preserves the source `<wg>` hierarchy
+   *  verbatim as `sourceConstituency`, attributed to this source id. */
+  sourceId?: string;
+}
+
+/**
+ * Preserve a sentence's `<wg>` hierarchy VERBATIM as a source constituency
+ * tree: categories, roles, rules, head/articular marking, and each leaf's
+ * token id (matching the converter's `t_<source id>` tokens). Pure recording —
+ * no interpretation — so the Constituency Tree can show exactly what the
+ * source published.
+ */
+export function captureSourceConstituency(
+  topWg: Element,
+  dialect: LowfatDialect,
+  sourceId: string,
+  editionId?: string,
+): SourceConstituencyTree {
+  let seq = 0;
+  const walk = (el: Element): SourceConstituencyNode => {
+    const base = {
+      id: `sc${seq++}`,
+      cat: el.getAttribute('class') ?? undefined,
+      role: el.getAttribute('role') ?? undefined,
+      head: el.getAttribute('head') === 'true' ? true : undefined,
+    };
+    if (tag(el) === 'w') {
+      const k = dialect.idOf(el);
+      return { ...base, kind: 'word', tokenIds: k ? [`t_${k}`] : [], children: [] };
+    }
+    return {
+      ...base,
+      kind: 'wg',
+      rule: el.getAttribute('rule') ?? undefined,
+      articular: el.getAttribute('articular') === 'true' ? true : undefined,
+      children: constituents(el).map(walk),
+    };
+  };
+  return { sourceId, ...(editionId ? { editionId } : {}), root: walk(topWg) };
 }
 
 /** Convert every `<sentence>` in a Lowfat book into a standalone document. */
@@ -907,6 +948,7 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
 
     const ref = verseRef(sentence);
     const ts = '2024-01-01T00:00:00.000Z';
+    const dialect = opts.dialect ?? greekDialect;
     // Collapse coordinate clauses that share one subject into a compound
     // predicate (one subject, forked verbs) — the Reed-Kellogg reading.
     docs.push(
@@ -922,6 +964,9 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
         layoutHints: {},
         tokens: conv.tokens,
         syntax: { rootId, nodes: conv.nodes, relations: conv.relations },
+        ...(opts.sourceId
+          ? { sourceConstituency: captureSourceConstituency(topWg, dialect, opts.sourceId) }
+          : {}),
       }),
     );
   });
