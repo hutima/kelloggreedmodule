@@ -64,29 +64,30 @@ reconstructed — acceptable, but worth remembering when reading its output.
 
 ## 4. Gaps against the acceptance criteria
 
-### 4.1 `rule` and `articular` are captured but never rendered
+### 4.1 `rule` and `articular` are captured but never rendered — FIXED (Stage 2)
 
 `SourceConstituencyNode.rule` (e.g. `DetNP`, `PpNp2Np`, `QuanPp`,
-`Conj2Pp`) and `.articular` are preserved by capture but no code in
-`constituency.ts` reads them. The acceptance criteria require Source mode to
-"visibly label raw source roles/**rules**/classes". **PR 2 item.**
+`Conj2Pp`) and `.articular` now render as a small muted italic suffix
+beside the category on source-tree nodes (`srcMeta` in `constituency.ts`),
+verbatim and untranslated. Reconstructed nodes never carry them. Covered by
+the "source metadata display" tests in `tests/source-constituency.test.ts`.
 
-### 4.2 `head="true"` is hidden when the node also has a `role`
+### 4.2 `head="true"` hidden when the node also has a `role` — FIXED (Stage 2)
 
-The chip logic is `role (unless 'cl') ?? head ? 'head' : nothing` — a
-Nestle1904 node carrying both `role="s"` and `head="true"` shows only `s`.
-Head marking is exactly what makes Nestle1904 more explicit than SBLGNT, so
-it should not be masked by a role. **PR 2 item.**
+The chip now combines both (`s · head`), so Nestle1904's explicit head
+marking is never masked by a role. (No current Lowfat fixture actually
+writes both attributes on one element — the fix is defensive — so the test
+pins it with a synthetic tree.)
 
-### 4.3 Display-only shell collapse
+### 4.3 Display-only shell collapse — NARROWED (Stage 2)
 
-`buildSourceTree` collapses a categoryless single-child `<wg role="cl">`
-shell when drawing. The captured data is intact; only the picture skips the
-wrapper. Defensible as de-noising, but PR 2 should either document it in
-the UI help or make the collapse visible (e.g. keep the chip). Classless
-SBLGNT coordination wrappers with *multiple* children are NOT collapsed —
-they render as source nodes, which is what the acceptance criteria demand;
-PR 2 adds the fixture test proving it for Mark 1:19–20.
+`buildSourceTree` now collapses a single-child wrapper only when it carries
+NOTHING (no class, role, rule, articular, or head): effectively only
+Lowfat's bare `<wg role="cl">` outer shell. Any wrapper with source
+content — including a classless single-child wrapper whose only content is
+its `rule` — stays visible as a source node. Classless SBLGNT coordination
+wrappers (Mark 1:19–20 `NpaNp`) are pinned by test to survive as source
+nodes with their members intact.
 
 ### 4.4 No inferred-head display for SBLGNT
 
@@ -119,12 +120,12 @@ fallback.
 | Criterion | Status |
 | --- | --- |
 | SBLGNT source-backed passages render source constituency by default (Auto) | ✅ |
-| Nestle1904 likewise, with explicit heads preserved | ✅ captured; ⚠️ head chip masked by role (§4.2) |
-| Source mode labels raw roles/rules/classes without translating | ⚠️ roles+classes yes; **rules/articular not shown** (§4.1) |
+| Nestle1904 likewise, with explicit heads preserved | ✅ captured + shown, never masked (Stage 2, §4.2) |
+| Source mode labels raw roles/rules/classes without translating | ✅ roles+classes+rules+articular (Stage 2, §4.1) |
 | Reconstructed mode clearly labeled | ✅ caption |
 | Never silently falls back Source→Reconstructed | ✅ caption names the fallback |
 | Source child order preserved | ✅ (capture and draw; never re-sorted) |
 | Discontinuous/non-adjacent token groups representable | ✅ leaves carry token ids; layout does not require adjacency |
-| Classless SBLGNT `<wg>` wrappers shown as source nodes | ✅ behavior; ⚠️ untested (§4.6) |
+| Classless SBLGNT `<wg>` wrappers shown as source nodes | ✅ behavior + pinned by test (Stage 2, §4.3/§4.6) |
 | Source tree and app syntax graph separate layers | ✅ (separate schema key; mode is read-only) |
 | Role-conversion improvements can't corrupt the source tree | ✅ structurally (capture is independent of conversion) — PR 3 adds a validator to keep it that way |
