@@ -437,9 +437,7 @@ export class SentenceConverter {
    */
   private isPhraseCoordination(el: Element): boolean {
     if (tag(el) !== 'wg' || el.getAttribute('class')) return false;
-    const rule = el.getAttribute('rule') ?? '';
-    if (!rule || /cl|vp/i.test(rule)) return false;
-    return isCoordinationRule(rule);
+    return isPhraseCoordinationRule(el.getAttribute('rule') ?? '');
   }
 
   /** Convert any constituent, returning the id of its representative node. */
@@ -447,7 +445,7 @@ export class SentenceConverter {
     if (tag(el) === 'w') return this.wordNode(el);
     const cls = el.getAttribute('class');
     if (cls === 'pp') {
-      return /but/i.test(el.getAttribute('rule') ?? '')
+      return classifyLowfatRule(el.getAttribute('rule') ?? '').contrastive
         ? this.convertContrastivePp(el)
         : this.convertPp(el);
     }
@@ -635,56 +633,24 @@ export class SentenceConverter {
 
     for (const child of kids) {
       if (child === verbEl) continue;
-      const role = child.getAttribute('role');
       const rep = this.convert(child);
-      switch (role) {
-        case 's':
-          this.rel('subject', clauseId, rep);
-          break;
-        case 'o': {
-          // A PASSIVE verb's accusative "object" is not claimed as an ordinary
-          // direct object: Greek allows an adverbial accusative of extent, an
-          // accusative of respect, or a retained accusative here (μηδὲν
-          // ὠφεληθεῖσα, Mark 5:26), and the source's bare `o` does not decide.
-          // The neutral `accusativeModifier` says exactly as much as is known;
-          // provenance preserves the raw source role. Only explicit
-          // `voice="passive"` qualifies — middle-passive forms stay ordinary
-          // objects, since the middle reading takes a real object.
-          const passive = verbEl && this.ultimateHeadWord(verbEl)?.getAttribute('voice') === 'passive';
-          const accusative = this.ultimateHeadWord(child)?.getAttribute('case') === 'accusative';
-          if (passive && accusative) {
-            this.rel('accusativeModifier', verbId, rep, undefined, {
-              source: 'converted',
-              confidence: 'medium',
-              sourceRole: 'o',
-            });
-          } else {
-            this.rel('directObject', verbId, rep);
-          }
-          break;
-        }
-        case 'o2':
-          this.rel('objectComplement', verbId, rep);
-          break;
-        case 'io':
-          this.rel('indirectObject', verbId, rep);
-          break;
-        case 'p':
-          // A predicate that is a prepositional phrase (οὖσιν ἐν Φιλίπποις —
-          // "being in Philippi") is locative/adverbial in KR: it hangs under the
-          // verb like any adverbial, not on the baseline as a predicate noun.
-          if (child.getAttribute('class') === 'pp') {
-            this.rel('adverbial', verbId, rep);
-          } else {
-            this.rel(this.isAdjective(child) ? 'predicateAdjective' : 'predicateNominative', verbId, rep);
-          }
-          break;
-        case 'adv':
-          this.rel('adverbial', verbId, rep);
-          break;
-        default:
-          this.rel('adjunct', clauseId, rep);
-      }
+      const mapped = normalizeLowfatClauseRole(child.getAttribute('role'), {
+        // Only explicit `voice="passive"` triggers the accusative downgrade —
+        // middle-passive forms keep a real object (the middle reading takes one).
+        passiveVerb: Boolean(
+          verbEl && this.ultimateHeadWord(verbEl)?.getAttribute('voice') === 'passive',
+        ),
+        accusative: this.ultimateHeadWord(child)?.getAttribute('case') === 'accusative',
+        isPp: child.getAttribute('class') === 'pp',
+        isAdjective: this.isAdjective(child),
+      });
+      this.rel(
+        mapped.type,
+        mapped.attachTo === 'verb' ? verbId : clauseId,
+        rep,
+        undefined,
+        mapped.provenance,
+      );
     }
     return clauseId;
   }
@@ -822,39 +788,123 @@ export class SentenceConverter {
 
   /** Map a non-head phrase child to a Kellogg-Reed relation. */
   private phraseChildRole(child: Element, rule: string, coordinated: boolean): SyntacticRole {
-    const role = child.getAttribute('role');
-    if (role === 'adv') return 'adverbial';
-    const cls = child.getAttribute('class');
-    // An adverb (or adverb phrase) modifying a noun phrase — e.g. the focusing
-    // καί "also" in "καὶ ὁ Θεός" (rule AdvpNp) — is adverbial: it slants under its
-    // head, not onto the baseline as an apposition. (`class="adv"`, no `role`.)
-    if (cls === 'adv' || cls === 'advp') return 'adverbial';
-    // Determiners: Greek `det`, Hebrew article `art`, and the Hebrew direct-object
-    // marker אֵת (`om`), which rides a slant under the noun it marks.
-    if (cls === 'det' || cls === 'art' || cls === 'om') return 'determiner';
-    // Coordinators: a real conjunction (Greek `conj`, Hebrew `cj`) or the
-    // coordinating particle τε. A non-coordinating particle (γε, μέν…) keeps the
-    // `particle` role rather than being mistaken for a conjunction.
-    if (isCoordinatorWord(child)) return 'coordinator';
-    if (cls === 'ptcl') return 'particle';
-    // Coordination is decided FIRST, so a coordinated sibling constituent becomes
-    // a CONJUNCT of the head rather than being mis-read as a modifier of it. This
-    // is what fixes a dropped second PP in "ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς"
-    // (rule "Conj2Pp"): without it, the ἐπὶ phrase becomes a `prepositionalPhrase`
-    // hanging off ἐν, which the layout engine's PP fast-path then silently drops.
-    if (coordinated) return 'conjunct';
-    if (cls === 'pp') return 'prepositionalPhrase';
-    // A cardinal numeral quantifying a noun ("πέντε ἄρτους", "τὰ τρία ταῦτα")
-    // is adjectival — it slants under the noun like any quantifier, not onto the
-    // baseline as an apposition (the final fall-through default).
-    if (cls === 'adj' || cls === 'adjp' || cls === 'num') return 'adjectival';
-    if (cls === 'cl') return 'adjectival'; // relative/attributive clause
-    // Noun-level: genitive vs apposition, from the parent rule.
-    if (/appos/i.test(rule)) return 'apposition';
-    if (/ofnp|ofgen|gen/i.test(rule)) return 'genitive';
-    if (this.isAdjective(child)) return 'adjectival';
-    return child.getAttribute('case') === 'genitive' ? 'genitive' : 'apposition';
+    return normalizeLowfatPhraseRole(child, rule, coordinated, (el) => this.isAdjective(el));
   }
+}
+
+/** Everything about a clause child the clause-role normalization needs. */
+export interface LowfatClauseChildContext {
+  /** The clause's verb is EXPLICITLY passive (`voice="passive"`; never middle-passive). */
+  passiveVerb: boolean;
+  /** The child's ultimate head word is accusative. */
+  accusative: boolean;
+  /** The child is a prepositional phrase. */
+  isPp: boolean;
+  /** The child's ultimate head word is an adjective. */
+  isAdjective: boolean;
+}
+
+export interface NormalizedClauseRole {
+  type: SyntacticRole;
+  /** Whether the relation hangs off the predicate or the clause node. */
+  attachTo: 'verb' | 'clause';
+  /** Set only when the mapping is interpretive (beyond a 1:1 relabelling). */
+  provenance?: Provenance;
+}
+
+/**
+ * Map a Lowfat clause-child `role` attribute (s / o / o2 / io / p / adv) to
+ * the app relation it becomes — the clause-level source-role normalization,
+ * in one named place. Two mappings are deliberately interpretive:
+ *
+ *   • a PASSIVE verb's accusative "o" is not claimed as an ordinary direct
+ *     object (μηδὲν ὠφεληθεῖσα, Mark 5:26): Greek allows an accusative of
+ *     extent/respect or a retained accusative here, and the source's bare
+ *     `o` does not decide — the neutral `accusativeModifier` says exactly
+ *     as much as is known, with the raw source role preserved in provenance;
+ *   • a predicate complement that is a PP (οὖσιν ἐν Φιλίπποις) is
+ *     locative/adverbial in KR — it hangs under the verb, not on the
+ *     baseline as a predicate noun.
+ */
+export function normalizeLowfatClauseRole(
+  role: string | null,
+  ctx: LowfatClauseChildContext,
+): NormalizedClauseRole {
+  switch (role) {
+    case 's':
+      return { type: 'subject', attachTo: 'clause' };
+    case 'o':
+      if (ctx.passiveVerb && ctx.accusative) {
+        return {
+          type: 'accusativeModifier',
+          attachTo: 'verb',
+          provenance: { source: 'converted', confidence: 'medium', sourceRole: 'o' },
+        };
+      }
+      return { type: 'directObject', attachTo: 'verb' };
+    case 'o2':
+      return { type: 'objectComplement', attachTo: 'verb' };
+    case 'io':
+      return { type: 'indirectObject', attachTo: 'verb' };
+    case 'p':
+      if (ctx.isPp) return { type: 'adverbial', attachTo: 'verb' };
+      return {
+        type: ctx.isAdjective ? 'predicateAdjective' : 'predicateNominative',
+        attachTo: 'verb',
+      };
+    case 'adv':
+      return { type: 'adverbial', attachTo: 'verb' };
+    default:
+      return { type: 'adjunct', attachTo: 'clause' };
+  }
+}
+
+/**
+ * Map a NON-HEAD phrase child to the app role it plays under its head —
+ * the phrase-level source-role normalization, in one named place. `rule` is
+ * the PARENT group's rule; `coordinated` says the parent is a coordination
+ * fork; `isAdjective` resolves a constituent's ultimate head word (which
+ * needs the converter's head logic, hence injected).
+ */
+export function normalizeLowfatPhraseRole(
+  child: Element,
+  rule: string,
+  coordinated: boolean,
+  isAdjective: (el: Element) => boolean,
+): SyntacticRole {
+  const role = child.getAttribute('role');
+  if (role === 'adv') return 'adverbial';
+  const cls = child.getAttribute('class');
+  // An adverb (or adverb phrase) modifying a noun phrase — e.g. the focusing
+  // καί "also" in "καὶ ὁ Θεός" (rule AdvpNp) — is adverbial: it slants under its
+  // head, not onto the baseline as an apposition. (`class="adv"`, no `role`.)
+  if (cls === 'adv' || cls === 'advp') return 'adverbial';
+  // Determiners: Greek `det`, Hebrew article `art`, and the Hebrew direct-object
+  // marker אֵת (`om`), which rides a slant under the noun it marks.
+  if (cls === 'det' || cls === 'art' || cls === 'om') return 'determiner';
+  // Coordinators: a real conjunction (Greek `conj`, Hebrew `cj`) or the
+  // coordinating particle τε. A non-coordinating particle (γε, μέν…) keeps the
+  // `particle` role rather than being mistaken for a conjunction.
+  if (isCoordinatorWord(child)) return 'coordinator';
+  if (cls === 'ptcl') return 'particle';
+  // Coordination is decided FIRST, so a coordinated sibling constituent becomes
+  // a CONJUNCT of the head rather than being mis-read as a modifier of it. This
+  // is what fixes a dropped second PP in "ἐν τοῖς οὐρανοῖς καὶ ἐπὶ τῆς γῆς"
+  // (rule "Conj2Pp"): without it, the ἐπὶ phrase becomes a `prepositionalPhrase`
+  // hanging off ἐν, which the layout engine's PP fast-path then silently drops.
+  if (coordinated) return 'conjunct';
+  if (cls === 'pp') return 'prepositionalPhrase';
+  // A cardinal numeral quantifying a noun ("πέντε ἄρτους", "τὰ τρία ταῦτα")
+  // is adjectival — it slants under the noun like any quantifier, not onto the
+  // baseline as an apposition (the final fall-through default).
+  if (cls === 'adj' || cls === 'adjp' || cls === 'num') return 'adjectival';
+  if (cls === 'cl') return 'adjectival'; // relative/attributive clause
+  // Noun-level: genitive vs apposition, from the parent rule.
+  const ruleClass = classifyLowfatRule(rule);
+  if (ruleClass.apposition) return 'apposition';
+  if (ruleClass.genitive) return 'genitive';
+  if (isAdjective(child)) return 'adjectival';
+  return child.getAttribute('case') === 'genitive' ? 'genitive' : 'apposition';
 }
 
 /**
@@ -889,7 +939,7 @@ function isPeriphrasticVp(el: Element): boolean {
  * A modifier structure (NpPp, AdjpNp, NpAdjp, Np-Appos…) matches none of these,
  * so its pp/adjp/clause child stays a modifier.
  */
-function isCoordinationRule(rule: string): boolean {
+export function isCoordinationRule(rule: string): boolean {
   if (/^conj/i.test(rule)) return true;
   // The "a"(=καί) infix/prefix list joins CAPITALISED category codes
   // (NpaNp, aPpaPp, 2PpaPp…). Match the category after the coordinator
@@ -898,6 +948,53 @@ function isCoordinationRule(rule: string): boolean {
   // NOT be read as a coordination just because "Qu·an·Pp" contains "anp".
   if (/(^|[a-zA-Z])a(N[Pp]|P[Pp]|Adjp?|V[Pp]|C[Ll])/.test(rule)) return true;
   return /^\d*(np|adjp|adj|vp|pp|cl)(\1)+$/i.test(rule);
+}
+
+/**
+ * One classification of a Lowfat `rule` string, replacing the scattered
+ * regexes the converter used to apply in place. Everything here reads the
+ * RULE only — the element's class/role/children still decide how the flags
+ * are used. Behavior-preserving extraction: each flag reproduces the exact
+ * test previously inlined at its call site.
+ */
+export interface LowfatRuleClassification {
+  /** A coordination fork of like constituents, at any level. */
+  coordination: boolean;
+  /** Mentions a clause/verb-phrase category (a classless wg with this stays a clause). */
+  clauseLike: boolean;
+  /** A PHRASE-level coordination — coordination that never involves cl/vp
+   *  (the classless SBLGNT `NpaNp`/`PpaPp` wrappers; Mark 1:19–20). */
+  phraseCoordination: boolean;
+  /** A contrastive "not X but Y" coordination (Lowfat "notPPbutPP" rules). */
+  contrastive: boolean;
+  /** An apposition-like rule (Np-Appos …). */
+  apposition: boolean;
+  /** A genitive / of-NP rule (NPofNP, ofNPNP …). */
+  genitive: boolean;
+}
+
+export function classifyLowfatRule(rule: string): LowfatRuleClassification {
+  const coordination = isCoordinationRule(rule);
+  const clauseLike = /cl|vp/i.test(rule);
+  return {
+    coordination,
+    clauseLike,
+    phraseCoordination: Boolean(rule) && coordination && !clauseLike,
+    contrastive: /but/i.test(rule),
+    apposition: /appos/i.test(rule),
+    genitive: /ofnp|ofgen|gen/i.test(rule),
+  };
+}
+
+/** A rule marking a PHRASE-level coordination (never clause/vp members). */
+export function isPhraseCoordinationRule(rule: string): boolean {
+  return classifyLowfatRule(rule).phraseCoordination;
+}
+
+/** A rule marking a CLAUSE-level (or verb-phrase) coordination. */
+export function isClauseCoordinationRule(rule: string): boolean {
+  const c = classifyLowfatRule(rule);
+  return c.coordination && c.clauseLike;
 }
 
 /**
