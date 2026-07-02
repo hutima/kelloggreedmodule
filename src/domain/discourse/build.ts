@@ -66,6 +66,7 @@ function discourseTokensOf(doc: KrDocument): DiscourseToken[] {
         surface: t.surface,
         lemma: t.lemma,
         pos: t.pos,
+        mood: t.morphology?.mood,
         gloss: t.gloss,
         ref,
         sourceDocId: doc.id,

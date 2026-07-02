@@ -4,6 +4,7 @@ import { VisualizationSwitcher } from '@/ui/shell/VisualizationSwitcher';
 
 import { DiscourseView } from './DiscourseView';
 import { DiscourseToolbar } from './DiscourseToolbar';
+import { DiscourseSuggestions } from './DiscourseSuggestions';
 
 /**
  * DISCOURSE CANVAS — the center-column replacement for `DiagramCanvas` while
@@ -21,6 +22,11 @@ export function DiscourseCanvas() {
   const view = useDiscourseStore((s) => s.view);
   const setView = useDiscourseStore((s) => s.setView);
   const collapseAll = useDiscourseStore((s) => s.collapseAll);
+  const suggestionsOpen = useDiscourseStore((s) => s.suggestionsOpen);
+  const setSuggestionsOpen = useDiscourseStore((s) => s.setSuggestionsOpen);
+  const openHintCount = useDiscourseStore(
+    (s) => s.doc?.suggestions.filter((x) => !x.accepted).length ?? 0,
+  );
   const restoreLastRange = useDiscourseStore((s) => s.restoreLastRange);
   const setLeftCollapsed = useEditorStore((s) => s.setLeftCollapsed);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -127,6 +133,14 @@ export function DiscourseCanvas() {
                   </button>
                 </div>
               )}
+              <button
+                className={`mini${suggestionsOpen ? ' accept' : ''}`}
+                aria-pressed={suggestionsOpen}
+                title="Possible markers, breaks, and relations suggested by the source — hints, not conclusions"
+                onClick={() => setSuggestionsOpen(!suggestionsOpen)}
+              >
+                Hints{openHintCount ? ` (${openHintCount})` : ''}
+              </button>
             </>
           )}
         </div>
@@ -157,7 +171,10 @@ export function DiscourseCanvas() {
               {doc.sourceId === 'opentext' ? 'OpenText' : doc.editionId === 'sblgnt' ? 'SBLGNT' : 'Nestle 1904'}
             </span>
           </div>
-          <DiscourseView doc={doc} editing={appMode === 'edit'} />
+          <div className="discourse-body">
+            <DiscourseView doc={doc} editing={appMode === 'edit'} />
+            {suggestionsOpen && <DiscourseSuggestions />}
+          </div>
         </>
       ) : (
         <div className="discourse-empty">

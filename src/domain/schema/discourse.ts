@@ -39,6 +39,9 @@ export const DiscourseTokenSchema = z.object({
   surface: z.string(),
   lemma: z.string().optional(),
   pos: z.string().optional(),
+  /** Verbal mood when the source provides it (imperative drives the
+   *  command→ground hint); other morphology stays in the source docs. */
+  mood: z.string().optional(),
   gloss: z.string().optional(),
   /** Canonical `"chapter:verse"` within the document's book. */
   ref: z.string(),
@@ -340,6 +343,8 @@ export const DiscoursePatchSchema = z.object({
   markers: MarkerOpsSchema.default(emptyOps()),
   /** Ids of suggestions the user accepted (display state; edits are in ops). */
   acceptedSuggestionIds: z.array(z.string()).default([]),
+  /** Ids of suggestions the user dismissed (hidden on rebuild; harmless). */
+  dismissedSuggestionIds: z.array(z.string()).default([]),
   /** Replacement layout hints (display-only), if changed. */
   layoutHints: DiscourseLayoutHintsSchema.optional(),
   createdAt: z.string(),
@@ -356,6 +361,7 @@ export function isEmptyDiscoursePatch(patch: DiscoursePatch): boolean {
     empty(patch.relations) &&
     empty(patch.markers) &&
     patch.acceptedSuggestionIds.length === 0 &&
+    patch.dismissedSuggestionIds.length === 0 &&
     !patch.layoutHints
   );
 }

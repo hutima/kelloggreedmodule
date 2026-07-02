@@ -102,6 +102,12 @@ export function diffDiscourseDocuments(
   const acceptedSuggestionIds = edited.suggestions
     .filter((s) => s.accepted && !base.suggestions.find((b) => b.id === s.id)?.accepted)
     .map((s) => s.id);
+  // A suggestion present in the base but absent from the live doc was
+  // DISMISSED by the user; it stays hidden when the base is regenerated.
+  const editedIds = new Set(edited.suggestions.map((s) => s.id));
+  const dismissedSuggestionIds = base.suggestions
+    .filter((s) => !editedIds.has(s.id))
+    .map((s) => s.id);
   return {
     schemaVersion: 1,
     base: discoursePatchBase(base),
@@ -109,6 +115,7 @@ export function diffDiscourseDocuments(
     relations: diffEntities<DiscourseRelation>(base.relations, edited.relations),
     markers: diffEntities<DiscourseMarker>(base.markers, edited.markers),
     acceptedSuggestionIds,
+    dismissedSuggestionIds,
     layoutHints: jsonEqual(base.layoutHints, edited.layoutHints) ? undefined : edited.layoutHints,
     createdAt: now,
     updatedAt: now,
@@ -125,12 +132,15 @@ export function applyDiscoursePatch(
   patch: DiscoursePatch,
 ): DiscourseDocument {
   const accepted = new Set(patch.acceptedSuggestionIds);
+  const dismissed = new Set(patch.dismissedSuggestionIds);
   return {
     ...base,
     units: applyEntityOps(base.units, patch.units),
     relations: applyEntityOps(base.relations, patch.relations),
     markers: applyEntityOps(base.markers, patch.markers),
-    suggestions: base.suggestions.map((s) => (accepted.has(s.id) ? { ...s, accepted: true } : s)),
+    suggestions: base.suggestions
+      .filter((s) => !dismissed.has(s.id))
+      .map((s) => (accepted.has(s.id) ? { ...s, accepted: true } : s)),
     layoutHints: patch.layoutHints ?? base.layoutHints,
     updatedAt: patch.updatedAt,
   };

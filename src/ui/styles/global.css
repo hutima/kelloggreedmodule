@@ -2944,3 +2944,45 @@ label.field.inline > span { margin-bottom: 0; }
 .discourse-relation-markers legend { font-size: 11px; color: var(--muted, #667); padding: 0 4px; }
 .discourse-inspector-relations li { display: flex; align-items: center; gap: 6px; }
 .discourse-canvas { position: relative; }
+
+/* --- Discourse mode: suggestions panel --------------------------------------- */
+.discourse-body { display: flex; flex: 1; min-height: 0; }
+.discourse-body .discourse-view { flex: 1; min-width: 0; }
+.discourse-suggestions {
+  width: 300px;
+  flex: none;
+  border-left: 1px solid var(--line, #d8dce2);
+  padding: 10px 12px;
+  overflow: auto;
+  font-size: 12.5px;
+  background: var(--bg-soft, #fafbfc);
+}
+.discourse-suggestions-head { display: flex; align-items: center; gap: 8px; }
+.discourse-suggestions-head .mini { margin-left: auto; }
+.discourse-suggestions-blurb { color: var(--muted, #667); font-size: 12px; line-height: 1.45; }
+.discourse-suggestion-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.discourse-suggestion {
+  border: 1px solid var(--line, #e0e3e8);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--bg, #fff);
+}
+.discourse-suggestion.accepted { opacity: 0.7; }
+.discourse-suggestion-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.discourse-suggestion-type { font-weight: 600; font-size: 12px; }
+.discourse-suggestion-conf {
+  font-size: 10.5px;
+  border-radius: 8px;
+  padding: 0 6px;
+  border: 1px solid var(--line, #d8dce2);
+  color: var(--muted, #667);
+}
+.discourse-suggestion-conf.conf-medium { border-color: #a98f4a; color: #7b6a2f; }
+.discourse-suggestion-label { font-size: 12px; }
+.discourse-suggestion-expl { margin: 5px 0; line-height: 1.45; }
+.discourse-suggestion-units { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 5px; }
+.discourse-suggestion-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.discourse-suggestion-prov { margin-left: auto; font-size: 10.5px; color: var(--muted, #667); font-style: italic; }
+@media (max-width: 900px) {
+  .discourse-suggestions { position: absolute; right: 0; top: 0; bottom: 0; z-index: 20; box-shadow: -6px 0 18px rgba(0,0,0,0.12); }
+}

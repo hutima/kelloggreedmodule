@@ -553,10 +553,12 @@ const SUGGESTION_RELATION: Partial<Record<DiscourseSuggestion['type'], Discourse
 };
 
 /**
- * Accept a suggestion: mark it accepted and — when it is relation-shaped and
- * names two units — materialize an ordinary EDITABLE manual relation (stamped
- * `confirmed`, keeping the hint's confidence). This is the only path from
- * hint to structure; nothing is ever committed silently.
+ * Accept a suggestion: mark it accepted and materialize its edit —
+ *   - relation-shaped hints become an ordinary EDITABLE relation (stamped
+ *     `confirmed`, keeping the hint's confidence);
+ *   - a `possibleBreak` splits its unit at the suggested token (a normal,
+ *     undoable split, marked user-authored).
+ * This is the only path from hint to structure; nothing is committed silently.
  */
 export function acceptDiscourseSuggestion(
   doc: DiscourseDocument,
@@ -572,6 +574,10 @@ export function acceptDiscourseSuggestion(
     ),
     updatedAt: now ?? new Date().toISOString(),
   };
+  if (suggestion.type === 'possibleBreak' && suggestion.unitIds[0] && suggestion.tokenIds?.[0]) {
+    // A stale hint (the unit was already re-cut) splits nothing — harmless.
+    return splitDiscourseUnit(next, suggestion.unitIds[0], suggestion.tokenIds[0], now);
+  }
   const relType = SUGGESTION_RELATION[suggestion.type];
   if (relType && suggestion.unitIds.length >= 2) {
     next = addDiscourseRelation(

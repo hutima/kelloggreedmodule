@@ -215,20 +215,129 @@ function inclusioHint(doc: DiscourseDocument, leaves: DiscourseUnit[]): Discours
 }
 
 /**
+ * Break-point candidates INSIDE multi-verse units: a verse boundary where the
+ * new verse opens with a transition-grade marker (δέ, οὖν, διό, ἀλλά, γάρ) is
+ * a place an exegete may want a break. Accepting one splits the unit there.
+ */
+function breakPointHints(doc: DiscourseDocument, leaves: DiscourseUnit[]): DiscourseSuggestion[] {
+  const BREAK_LEMMAS = new Set(['δέ', 'οὖν', 'διό', 'ἀλλά', 'γάρ'].map(nfc));
+  const tokens = new Map(doc.tokens.map((t) => [t.id, t]));
+  const out: DiscourseSuggestion[] = [];
+  for (const u of leaves) {
+    if (u.refStart === u.refEnd) continue;
+    let prevRef = '';
+    for (let i = 0; i < u.tokenIds.length; i++) {
+      const t = tokens.get(u.tokenIds[i]!);
+      if (!t) continue;
+      const verseStart = i > 0 && t.ref !== prevRef;
+      prevRef = t.ref;
+      if (!verseStart) continue;
+      // The marker may sit second (postpositive δέ/γάρ/οὖν).
+      const next = tokens.get(u.tokenIds[i + 1] ?? '');
+      const markerAtStart =
+        (t.lemma && BREAK_LEMMAS.has(nfc(t.lemma))) ||
+        (next?.ref === t.ref && next.lemma && BREAK_LEMMAS.has(nfc(next.lemma)));
+      if (!markerAtStart) continue;
+      out.push({
+        id: `ds_break_${t.id}`,
+        type: 'possibleBreak',
+        unitIds: [u.id],
+        tokenIds: [t.id],
+        label: t.ref,
+        explanation: `Verse ${t.ref} opens with a transition-grade particle inside this unit — a possible break point. Accepting splits the unit at ${t.ref}.`,
+        confidence: 'low',
+        provenance: inferredLow('Verse boundary + unit-medial transition particle.'),
+      });
+    }
+  }
+  return out;
+}
+
+/** Units OPENING with the same 3-lemma sequence: a possible parallel frame. */
+function repeatedPhraseHints(doc: DiscourseDocument, leaves: DiscourseUnit[]): DiscourseSuggestion[] {
+  const tokens = new Map(doc.tokens.map((t) => [t.id, t]));
+  const opening = (u: DiscourseUnit) =>
+    u.tokenIds
+      .slice(0, 3)
+      .map((tid) => nfc(tokens.get(tid)?.lemma ?? ''))
+      .filter(Boolean)
+      .join(' ');
+  const byPhrase = new Map<string, string[]>();
+  for (const u of leaves) {
+    const key = opening(u);
+    if (key.split(' ').length < 3) continue;
+    (byPhrase.get(key) ?? byPhrase.set(key, []).get(key)!).push(u.id);
+  }
+  return [...byPhrase.entries()]
+    .filter(([, ids]) => ids.length >= 2)
+    .slice(0, 5)
+    .map(([phrase, unitIds]) => ({
+      id: `ds_repphrase_${keySlug(phrase)}`,
+      type: 'repeatedPhrase' as const,
+      unitIds,
+      label: phrase,
+      explanation: `${unitIds.length} units open with the same words (${phrase}) — a possible parallel frame or refrain.`,
+      confidence: 'low' as const,
+      provenance: inferredLow(`Repeated opening phrase ${phrase}.`),
+    }));
+}
+
+/** An imperative-bearing unit followed by a γάρ unit: possible command→ground. */
+function commandGroundHints(doc: DiscourseDocument, leaves: DiscourseUnit[]): DiscourseSuggestion[] {
+  const tokens = new Map(doc.tokens.map((t) => [t.id, t]));
+  const out: DiscourseSuggestion[] = [];
+  for (let i = 0; i < leaves.length - 1; i++) {
+    const cmd = leaves[i]!;
+    const next = leaves[i + 1]!;
+    const hasImperative = cmd.tokenIds.some((tid) => tokens.get(tid)?.mood === 'imperative');
+    if (!hasImperative) continue;
+    const gar = doc.markers.find(
+      (m) => m.scopeUnitId === next.id && nfc(m.lemma ?? '') === 'γάρ' && next.tokenIds.indexOf(m.tokenId) < 3,
+    );
+    if (!gar) continue;
+    out.push({
+      id: `ds_cmdground_${next.id}`,
+      type: 'possibleGround',
+      unitIds: [next.id, cmd.id],
+      markerIds: [gar.id],
+      label: 'command → γάρ',
+      explanation:
+        'A command here is followed by a γάρ unit — a candidate command/ground pattern (the γάρ unit may supply the reason for the command).',
+      confidence: 'medium',
+      provenance: inferredLow('Imperative followed by unit-initial γάρ.'),
+    });
+  }
+  return out;
+}
+
+/**
  * All initial suggestions for a freshly generated document. Deterministic;
- * called once by the builder. PR 5 extends this set (quotation frames,
- * imperative+γάρ command/ground patterns…).
+ * called once by the builder. Every suggestion is a hint the user may accept
+ * (turning it into an editable manual relation or a split) or dismiss —
+ * nothing is ever committed silently.
  */
 export function buildInitialSuggestions(doc: DiscourseDocument): DiscourseSuggestion[] {
   const leaves = leafUnits(doc);
   const all = [
+    // Specific patterns first: dedupe keeps the first proposal for a pair, so
+    // command→γάρ must beat the generic unit-initial-γάρ hint.
+    ...commandGroundHints(doc, leaves),
     ...markerRelationHints(doc, leaves),
     ...menDeHints(doc, leaves),
     ...oukAllaHints(doc, leaves),
+    ...breakPointHints(doc, leaves),
+    ...repeatedPhraseHints(doc, leaves),
     ...repeatedLemmaHints(doc, leaves),
     ...inclusioHint(doc, leaves),
   ];
-  // Dedupe by id (two heuristics may key the same unit).
+  // Dedupe by type + unit pair (two heuristics may propose the same relation);
+  // the first (more specific) heuristic wins — e.g. command→γάρ over plain γάρ.
   const seen = new Set<string>();
-  return all.filter((s) => (seen.has(s.id) ? false : (seen.add(s.id), true)));
+  return all.filter((s) => {
+    const key = `${s.type}:${s.unitIds.join(',')}:${(s.tokenIds ?? []).join(',')}`;
+    if (seen.has(key) || seen.has(s.id)) return false;
+    seen.add(key);
+    seen.add(s.id);
+    return true;
+  });
 }
