@@ -18,9 +18,12 @@ export { loadOpenTextBook, OPENTEXT_BOOKS, type OpenTextBook } from './opentext-
 export {
   loadSourcePassage,
   sourceOfDoc,
+  sourceIdForCorpus,
   sourceLabel,
   SYNTAX_SOURCES,
+  ALL_SYNTAX_SOURCES,
   type SyntaxSourceId,
+  type SyntaxSourceInfo,
 } from './sources';
 export { combinePassage } from './passage';
 export {

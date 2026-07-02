@@ -28,7 +28,14 @@ import { getIssuesForPassage } from '@/domain/contested';
  * so whichever is opened drives all four visualizations and becomes the editable
  * base — switching source just changes which published analysis you start from.
  */
-type Source = 'nestle1904' | 'opentext';
+type Source = 'macula-greek-nestle1904-lowfat' | 'opentext';
+
+/** The picker slot for a document's source — this picker offers the two
+ *  loadable GNT sources; anything else shows as the Nestle1904 default. */
+function pickerSource(d: KrDocument): Source {
+  const s = sourceOfDoc(d);
+  return s === 'opentext' ? 'opentext' : 'macula-greek-nestle1904-lowfat';
+}
 
 /** The GNT book whose name a passage/sentence title begins with, if any. */
 function bookForTitle(title: string): GntBook | undefined {
@@ -65,7 +72,7 @@ export function GntPicker() {
   // Seed the source from the OPEN passage (its document id tells which parse it
   // came from), so the selector reflects what you're reading and persists across
   // remounts — exactly like the Book selector.
-  const [source, setSource] = useState<Source>(() => sourceOfDoc(doc));
+  const [source, setSource] = useState<Source>(() => pickerSource(doc));
   const [bookNum, setBookNum] = useState(currentBook?.num ?? 11);
   // Desktop-only two-source side-by-side comparison.
   const vp = useViewport();
@@ -96,7 +103,7 @@ export function GntPicker() {
     // A non-GNT doc (Hebrew, a typed custom sentence…) doesn't drive the GNT
     // picker — following it would reset the source/book and refetch the list.
     if (doc.language !== 'grc' || !currentBook) return;
-    const docSource = sourceOfDoc(doc);
+    const docSource = pickerSource(doc);
     const bookChanged = !!currentBook && currentBook.num !== bookNum;
     const sourceChanged = docSource !== source;
     if (sourceChanged) setSource(docSource);
@@ -222,7 +229,7 @@ export function GntPicker() {
       <label className="field">
         <span>Syntax source</span>
         <select value={source} onChange={(e) => changeSource(e.target.value as Source)}>
-          <option value="nestle1904">Nestle 1904 (Lowfat)</option>
+          <option value="macula-greek-nestle1904-lowfat">Nestle 1904 Lowfat</option>
           <option value="opentext">OpenText.org</option>
         </select>
       </label>
@@ -240,14 +247,14 @@ export function GntPicker() {
           {books.map((b) => (
             <option key={b.num} value={b.num} title={b.name}>
               {b.name}
-              {source === 'nestle1904' && BUNDLED_BOOKS.has(b.num) ? ' ✓' : ''}
+              {source === 'macula-greek-nestle1904-lowfat' && BUNDLED_BOOKS.has(b.num) ? ' ✓' : ''}
             </option>
           ))}
         </select>
       </label>
       <div className="row">
         {loading && <span style={{ fontSize: 12, color: 'var(--ink-soft, #667)' }}>Loading…</span>}
-        {source === 'nestle1904' && (
+        {source === 'macula-greek-nestle1904-lowfat' && (
           <button
             className="mini"
             disabled={bundled || cacheState === 'saving' || cacheState === 'saved'}

@@ -88,7 +88,7 @@ Guiding rule: **prefer less misleading labels over falsely precise labels.**
 | 3. Role/provenance model | Done | 6 new `SyntacticRole` values, 3 new `ProvenanceSource` values, `sourceRole`/`editionId` provenance fields; every label map / glossary / guide / layout set updated. Additive only — see Decisions. |
 | 4. KR display labels | Done | Detail cards gain an italic "Analysis:" provenance/uncertainty line (`analysisNote` in `describe.ts`, rendered in `DiagramCanvas`) — shown only when there is something worth disclosing (conversion, inference, reconstruction, preserved raw source role, non-high confidence). Role labels/phrases landed in phase 3. Geometry decision: object-like/retained accusatives sit in the object slot, adverbial accusatives hang beneath the verb; per Tim the diagram stays neutral and detail cards carry the nuance. |
 | 5. Converter fixes | Done | `src/io/lowfat.ts`: (1) accusative `o` under an explicitly PASSIVE verb → `accusativeModifier`, provenance `converted`/`medium` with `sourceRole: 'o'` (middle-passive left alone — the middle reading takes a real object); (2) articular PPs (det + PP content, no substantive head word) rooted on the ARTICLE (`role: substantivalPrepositionalPhrase`), PP + πάντα-style modifiers beneath it with `converted` provenance preserving the source's `head` marking. Both Mark 5 shapes now identical. All 5 `it.fails` specs flipped to ordinary regressions + 4 new detail specs; 630 tests pass. Hebrew unaffected (no `voice`/`case` attributes; detection requires `class="np"` + `det`). |
-| 6. Source model | Not started | Edition-aware `SyntaxSourceId`s. |
+| 6. Source model | Done | `SyntaxSourceId` is now explicit + edition-aware (`macula-greek-sblgnt-lowfat` · `macula-greek-nestle1904-lowfat` · `opentext` · `macula-hebrew-wlc-lowfat`); new `ALL_SYNTAX_SOURCES` registry carries corpus/edition/availability (SBLGNT registered, `available: false` until phase 7). Patch bases now stamp `sourceId` via `sourceIdForCorpus`. Safe rename: the old short ids were never persisted anywhere. |
 | 7. SBLGNT loader | Not started | Keep Nestle1904 loader intact. |
 | 8. Default switch | Not started | Only after loader tests pass. |
 | 9. Alignment cleanup | Not started | BSB alignment is already SBLGNT-based; direct alignment becomes possible. |
@@ -245,19 +245,19 @@ Still open:
 
 ## Resume instructions if interrupted
 
-Current phase: 5 complete — the core Mark 5:26 bug is FIXED. Next is 6
-(edition-aware source model), the start of the SBLGNT rebase infrastructure.
-Changed files (phase 5): `src/io/lowfat.ts` (passive-`o` downgrade +
-articular-PP rooting), `tests/mark5-regression.test.ts` (`it.fails` markers
-removed; 4 new converter-detail specs + a layout smoke).
-Current build/test status: typecheck + lint clean; 58 files / 631 tests pass.
-Mark 5:26 now converts as: δαπανήσασα —directObject→ τά(substantival PP head,
-παρ᾽ αὐτῆς PP + πάντα adjectival beneath) · ὠφεληθεῖσα —accusativeModifier→
-μηδέν (converted/medium, sourceRole 'o') · ἀκούσασα —directObject→ τά — the
-two articular PPs are structurally identical.
-Known broken behavior: none known for the core bug; the SBLGNT rebase
-(phases 6–13) has not started.
-Next smallest safe task: Phase 6 — make `SyntaxSourceId` edition-aware
-(`macula-greek-nestle1904-lowfat`, `opentext`, …) in `src/io/sources.ts`
-without changing behavior, and audit patch-base metadata (`baseHash` exists;
-add source/edition id).
+Current phase: 6 complete; next is 7 (SBLGNT Lowfat loader).
+Changed files (phase 6): `src/io/sources.ts` (explicit ids + registry +
+`sourceIdForCorpus`), `src/io/index.ts`, `src/state/store.ts` (compare
+default + patch bases stamp `sourceId`), `src/ui/panels/left/GntPicker.tsx`
+(`pickerSource` narrowing + renamed option values), `tests/sources.test.ts`.
+Current build/test status: typecheck + lint clean; 58 files / 633 tests pass.
+Mark 5:26 converts correctly (see phase 5 notes); the Mark 5 regression suite
+guards it.
+Known broken behavior: none known.
+Next smallest safe task: Phase 7 — add the SBLGNT Lowfat loader. MACULA
+Greek publishes SBLGNT Lowfat trees (Clear-Bible/macula-greek,
+`SBLGNT/lowfat`); reuse `lowfatToDocuments` with a `sblgnt_` doc-id prefix,
+keep the Nestle1904 loader untouched, flip
+`ALL_SYNTAX_SOURCES['macula-greek-sblgnt-lowfat'].available` to true, wire
+`loadSourcePassage`, and run the Mark 5 fixture expectations against a real
+SBLGNT Mark slice (licence/attribution to README).

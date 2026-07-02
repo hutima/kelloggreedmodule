@@ -92,6 +92,7 @@ import {
   OPENTEXT_BOOKS,
   OT_BOOKS,
   sourceOfDoc,
+  sourceIdForCorpus,
   type SyntaxSourceId,
 } from '@/io';
 import type { ContestedSyntaxIssue } from '@/domain/schema';
@@ -651,7 +652,14 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     const patch = diffDocuments(
       baseDoc,
       live,
-      { corpus, passageId: baseDoc.id, baseHash: hashBase(baseDoc) },
+      {
+        corpus,
+        passageId: baseDoc.id,
+        // Explicit edition-aware source id, so a patch can never be applied
+        // to another edition's base without notice (guard lands in phase 12).
+        sourceId: sourceIdForCorpus(baseDoc, corpus),
+        baseHash: hashBase(baseDoc),
+      },
       now,
     );
     if (isEmptySyntaxPatch(patch)) deletePatch(baseDoc.id);
@@ -1534,7 +1542,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const source =
         next && cur.source === sourceOfDoc(get().doc)
           ? cur.source === 'opentext'
-            ? 'nestle1904'
+            ? 'macula-greek-nestle1904-lowfat'
             : 'opentext'
           : cur.source;
       set({ sourceCompare: { on: next, source } });
