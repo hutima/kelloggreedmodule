@@ -439,6 +439,37 @@ export class SentenceConverter {
   }
 
   /**
+   * The node for a subordinator constituent riding a connector line. Usually a
+   * bare `<w>` (ὅτι, ἵνα) — but a COMPOUND subordinator arrives as a whole
+   * `<wg>` (Hebrew `class="cjp" rule="CjpCjp"`: כִּי אִם "but rather"). Passing
+   * that wg to `wordNode` would mint ONE garbled token out of the group's whole
+   * text (the Psalm 1:2 bug — same failure class as the SBLGNT Mark 1:19
+   * classless-wrapper collapse); instead realize it like a periphrastic
+   * predicate: one word NODE spanning each real `<w>` token.
+   */
+  private subordinatorNode(el: Element): string {
+    if (tag(el) === 'w') return this.wordNode(el);
+    const existing = this.wordNodeId.get(el);
+    if (existing) return existing;
+    const ws = Array.from(el.querySelectorAll('w'));
+    const tokenIds = ws.map((w) => {
+      const tokenId = `t_${this.key(w)}`;
+      this.makeToken(w, tokenId);
+      return tokenId;
+    });
+    const nodeId = `w_${this.key(el)}`;
+    this.nodes.push({
+      id: nodeId,
+      kind: 'word',
+      tokenIds,
+      provenance: { source: 'given', confidence: 'high' },
+    });
+    this.wordNodeId.set(el, nodeId);
+    for (const w of ws) this.wordNodeId.set(w, nodeId);
+    return nodeId;
+  }
+
+  /**
    * Attach any word node left UNREACHABLE — neither a dependent of a relation nor
    * the connector LABEL of one — to the root, so no source word is silently
    * dropped. This rescues a clause-initial connective (οὖν, γάρ, δέ…) sitting on
@@ -642,9 +673,9 @@ export class SentenceConverter {
         let subNodeId: string | undefined;
         for (const kid of kids) {
           if (this.isClauseLike(kid)) continue;
-          const nodeId = this.wordNode(kid); // token + node, but left unattached
+          const nodeId = this.subordinatorNode(kid); // token(s) + node, left unattached
           if (subNodeId === undefined) subNodeId = nodeId; // label points at the first
-          const s = (kid.textContent ?? '').trim();
+          const s = (kid.textContent ?? '').replace(/\s+/g, ' ').trim();
           if (s) subParts.push(s);
         }
         const rep = this.convert(clauseKids[0]!);
