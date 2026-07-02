@@ -460,14 +460,22 @@ tests / 61 files pass.
 
 Current phase: ALL 13 PHASES + Phase 14 (SBLGNT contested-syntax mirror)
 COMPLETE.
-Build/test: typecheck + lint + production build clean; 663 tests pass;
-`npm run contested:check` exits 0.
-Known broken behavior: none known in shipped code. Known LIMITATION (not a
-regression): 4 Nestle1904 contested issues have no SBLGNT mirror yet, pending
-an `sblgntHead()` generalization — see Phase 14 above for the exact fix
-recommendation and the 4 passage names.
-Next smallest safe task: investigate the Mark 1:19–20 Kellogg-Reed rendering
-report (final clause not splitting) — separate from the SBLGNT work above.
+
+SUPERSEDED (2026-07-02, source-conversion project): the Phase 14 limitation
+below was closed by the staged source-conversion project — see
+`docs/source-role-conversion-audit.md` (living audit + per-stage status) and
+`docs/source-constituency-audit.md`. The `sblgntHead()` generalization
+landed (scored inference: classless wrappers resolve through their own head
+constituent; genitive candidates demote relative to non-genitive
+case-bearing siblings; clauses rank in the verbal tier), fixing Titus 2:13,
+Col 1:15, and 2 Cor 5:4. Titus 2:13 and Col 1:15 are now mirrored into the
+SBLGNT contested registry; Matt 4:3 and 2 Cor 5:4 stay Nestle1904-only as
+DOCUMENTED EDITION DIFFERENCES (SBLGNT's own base tree resolves those
+constructions differently), not converter gaps.
+
+Historical note (pre-project state): 4 Nestle1904 contested issues had no
+SBLGNT mirror, pending an `sblgntHead()` generalization — see Phase 14
+above for what the gap was.
 
 Superseded status notes from phase 9:
 Changed files (phase 9): `src/io/parallel.ts`, `tests/parallel.test.ts`.

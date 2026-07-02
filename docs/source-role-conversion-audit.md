@@ -1,9 +1,36 @@
 # Source → Syntax-Graph Conversion Audit
 
-Audited 2026-07-02, at commit `af06680` (post PR #194). **Documentation only —
-this audit changes no behavior.** It is the PR 1 deliverable of the staged
-"source-faithful conversion + source-first Constituency" project, and the
-map the following PRs work from.
+Audited 2026-07-02, at commit `af06680` (post PR #194), then kept current as
+the staged "source-faithful conversion + source-first Constituency" project
+landed (Stages 1–11 — one commit per stage on this branch; each commit
+message is that stage's handoff note).
+
+## Final project status (Stage 11)
+
+| Stage | Delivered |
+| --- | --- |
+| 1 | this audit + `source-constituency-audit.md` (docs only) |
+| 2 | Constituency mode renders raw source `rule`/`articular`; `head` never masked by a role; classless wrappers stay visible; fixture tests (SBLGNT Mark 1:19–20, Col 1:16 QuanPp, Nestle1904 Mark 5:25–27) |
+| 3 | conversion validation harness (`tests/helpers/validate*.ts`) over every fixture, all four sources; found+fixed `combinePassage` dropping `labelNodeId` prefixes |
+| 4 | behavior-preserving extraction: `classifyLowfatRule`, `isPhraseCoordinationRule`, `isClauseCoordinationRule`, `normalizeLowfatClauseRole`, `normalizeLowfatPhraseRole` |
+| 5 | scored `sblgntHead()`: classless wrappers rank through their head constituent; genitives demote relative to non-genitive case-bearing siblings — fixes Titus 2:13 (θεοῦ heads) and Col 1:15 (πρωτότοκος heads) |
+| 6 | contrastive rules (`notVPbutVP`) coordinate in `convertPhrase`; clauses rank in the verbal tier — fixes 2 Cor 5:4 (no adjunct soup; conjunct/coordinator/adverbial shape) |
+| 7 | contested bridge: Titus 2:13 + Col 1:15 mirrored onto SBLGNT (hand-verified ids); Matt 4:3 + 2 Cor 5:4 documented as genuine edition differences, not mirrored |
+| 8 | OpenText: raw `sourceRole` provenance on every wordgroup/component relation; clause-layer source constituency (wordgroup nesting deferred, documented) |
+| 9 | Hebrew: Gen 1:1–3 / Ps 1:1–2 / Deut 6:4 protection fixtures + validators; WLC source constituency via the shared capture; found+fixed the Psalm 1:2 compound-subordinator (כִּי אִם) token collapse |
+| 10 | cross-mode role-display coverage tests (all 33 roles × label/short-tag/detail-phrase; provenance disclosure) |
+| 11 | this status, stale-doc cleanup, full acceptance sweep |
+
+Remaining known limitations (deliberate, documented):
+- OpenText's wordgroup-layer phrase nesting is not folded into its source
+  constituency tree (clause layer only) — see `io/opentext.ts`.
+- `iss_matt_4_3_command` and `iss_2cor_5_4_leedy` stay Nestle1904-only:
+  SBLGNT's own base tree resolves those constructions differently (edition
+  differences, not converter gaps).
+- SBLGNT relations derived from *inferred* heads are still stamped `given`
+  (relation TYPES track explicit source roles; only the head choice is
+  inferred). Candidate future hygiene: a `reason`/`converted` stamp on
+  relations whose head came from inference.
 
 Read together with:
 
