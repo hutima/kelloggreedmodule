@@ -44,6 +44,12 @@ const BASELINE_COMPLEMENTS: SyntacticRole[] = [
   'objectComplement',
   'dativeComplement',
   'genitiveComplement',
+  // Object-LIKE accusatives sit on the baseline in the object slot too — the
+  // honest label (detail card / connector), not the geometry, carries the
+  // nuance. The adverbial accusatives (extent / respect / neutral modifier)
+  // are NOT here: they hang beneath the verb like other adverbials.
+  'objectLikeComplement',
+  'retainedAccusative',
 ];
 
 /**
@@ -754,6 +760,13 @@ export interface LayoutOptions {
    * shape. Ignored by the non-tree modes.
    */
   treeOrientation?: TreeOrientation;
+  /**
+   * Which tree the CONSTITUENCY mode draws: `'auto'` (default — the preserved
+   * source `<wg>` hierarchy when the document carries one, else the
+   * reconstruction), `'source'`, or `'reconstructed'`. The mode captions the
+   * diagram with whichever tree is actually shown. Ignored by other modes.
+   */
+  constituencyVariant?: 'auto' | 'source' | 'reconstructed';
 }
 
 export function layoutDocument(

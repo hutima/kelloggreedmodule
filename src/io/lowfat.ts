@@ -3,7 +3,10 @@ import type {
   Language,
   Morphology,
   PartOfSpeech,
+  Provenance,
   Relation,
+  SourceConstituencyNode,
+  SourceConstituencyTree,
   SyntacticRole,
   SyntaxNode,
   Token,
@@ -24,7 +27,17 @@ import { mergeSharedSubjectPredicate } from '@/domain/model';
  * by agreement and the diagram is faithful to the published analysis.
  *
  * The conversion is gold-standard: every node/relation is marked
- * `source: 'given'`, so nothing renders as a tentative guess.
+ * `source: 'given'`, so nothing renders as a tentative guess — with two
+ * deliberate, honestly-labelled exceptions (see
+ * docs/sblgnt-kellogg-reed-plan.md; Mark 5:26 is the regression case):
+ *
+ *   • an accusative `o` dependent of a PASSIVE verb is not claimed as an
+ *     ordinary direct object — it becomes a neutral `accusativeModifier`
+ *     marked `converted` with the raw source role preserved;
+ *   • an ARTICULAR PP (an article nominalizing a prepositional phrase, with
+ *     no substantive head word — τὰ παρ᾽ αὐτῆς, τὰ περὶ τοῦ Ἰησοῦ) is rooted
+ *     on its ARTICLE, so a quantifier like πάντα modifies the substantival
+ *     phrase instead of being promoted to a bare "direct object".
  */
 
 const POS: Record<string, PartOfSpeech> = {
@@ -123,12 +136,14 @@ export interface LowfatDialect {
   glossOf(w: Element): string | undefined;
   morphOf(w: Element): Morphology | undefined;
   /**
-   * Pick the head among children when NONE is marked `head="true"`. macula-greek
+   * Pick the head among children when NONE is marked `head="true"`. Nestle1904
    * marks word-level heads, so the first child is right; macula-hebrew marks
    * heads only on word-GROUPS, so a leaf group (article + noun) needs the content
-   * word chosen instead of the leading function morpheme. Defaults to the first.
+   * word chosen instead of the leading function morpheme; SBLGNT Lowfat carries
+   * NO head marking at all, so every group needs class/role-driven inference.
+   * Defaults to the first child.
    */
-  headFallback?(kids: Element[]): Element | undefined;
+  headFallback?(kids: Element[], parent?: Element): Element | undefined;
 }
 
 /** macula-greek (Nestle1904 Lowfat): ids on `n`/`osisId`, surface in text. */
@@ -140,6 +155,66 @@ export const greekDialect: LowfatDialect = {
   lemmaOf: (w) => w.getAttribute('lemma') ?? w.getAttribute('normalized') ?? undefined,
   glossOf: (w) => w.getAttribute('gloss') ?? undefined,
   morphOf,
+};
+
+/** Alignment anchors for SBLGNT `<w>`: canonical `ref` ("MRK 5:25!1") and
+ *  Strong's number, carried in `morphology.extra` like the Nestle1904 osisId. */
+function sblgntMorphOf(w: Element): Morphology | undefined {
+  const m: Morphology = {};
+  let any = false;
+  for (const k of MORPH_KEYS) {
+    const v = w.getAttribute(k);
+    if (v) {
+      (m as Record<string, string>)[k] = v;
+      any = true;
+    }
+  }
+  const extra: Record<string, string> = {};
+  const ref = w.getAttribute('ref');
+  const strong = w.getAttribute('strong');
+  if (ref) extra.ref = ref;
+  if (strong) extra.strong = strong;
+  if (Object.keys(extra).length) {
+    m.extra = extra;
+    any = true;
+  }
+  return any ? m : undefined;
+}
+
+/**
+ * Head inference for SBLGNT Lowfat, which (unlike Nestle1904) carries NO
+ * `head="true"` marking: pick the most content-like constituent by role, then
+ * class, skipping function words (det/conj/prep/ptcl). This is what keeps a
+ * `DetNP` headed by its noun (not the article) and a `PrepNp` object findable.
+ */
+function sblgntHead(kids: Element[]): Element | undefined {
+  if (!kids.length) return undefined;
+  const cls = (el: Element) => el.getAttribute('class') ?? '';
+  const role = (el: Element) => el.getAttribute('role') ?? '';
+  return (
+    kids.find((k) => role(k) === 'v' || role(k) === 'vc') ??
+    kids.find((k) => cls(k) === 'cl') ??
+    kids.find((k) => ['np', 'noun', 'pron'].includes(cls(k))) ??
+    kids.find((k) => ['adjp', 'adj', 'num'].includes(cls(k))) ??
+    kids.find((k) => ['vp', 'verb'].includes(cls(k))) ??
+    kids.find((k) => ['advp', 'adv'].includes(cls(k))) ??
+    kids.find((k) => cls(k) === 'pp') ??
+    kids.find((k) => !['det', 'conj', 'prep', 'ptcl'].includes(cls(k))) ??
+    kids[0]
+  );
+}
+
+/** macula-greek SBLGNT Lowfat (Clear-Bible/macula-greek): ids on `xml:id`/
+ *  `ref`, no head marking (inferred), alignment ref instead of osisId. */
+export const sblgntDialect: LowfatDialect = {
+  language: 'grc',
+  idOf: (el) => el.getAttribute('xml:id') || el.getAttribute('ref') || null,
+  surfaceOf: (w) => (w.textContent ?? '').trim(),
+  posOf,
+  lemmaOf: (w) => w.getAttribute('lemma') ?? w.getAttribute('normalized') ?? undefined,
+  glossOf: (w) => w.getAttribute('gloss') ?? undefined,
+  morphOf: sblgntMorphOf,
+  headFallback: sblgntHead,
 };
 
 /** One conversion pass over a single `<sentence>`. */
@@ -184,7 +259,13 @@ export class SentenceConverter {
     });
   }
 
-  private rel(type: SyntacticRole, headId: string, dependentId: string, label?: string): void {
+  private rel(
+    type: SyntacticRole,
+    headId: string,
+    dependentId: string,
+    label?: string,
+    provenance?: Provenance,
+  ): void {
     if (headId === dependentId) return;
     // An explicit label wins; otherwise inherit a stashed subordinator, if any —
     // and carry the subordinator's own node so the connector label is selectable.
@@ -197,7 +278,7 @@ export class SentenceConverter {
       dependentId,
       label: inheritedLabel,
       ...(labelNodeId ? { labelNodeId } : {}),
-      provenance: { source: 'given', confidence: 'high' },
+      provenance: provenance ?? { source: 'given', confidence: 'high' },
     });
   }
 
@@ -325,7 +406,7 @@ export class SentenceConverter {
     const kids = constituents(el);
     return (
       kids.find((c) => c.getAttribute('head') === 'true') ??
-      this.dialect.headFallback?.(kids) ??
+      this.dialect.headFallback?.(kids, el) ??
       kids[0]
     );
   }
@@ -334,6 +415,13 @@ export class SentenceConverter {
     if (tag(el) === 'w') return el.getAttribute('class') === 'adj';
     const h = this.headChild(el);
     return h ? this.isAdjective(h) : false;
+  }
+
+  /** The ultimate head WORD of a constituent (following head marking down). */
+  private ultimateHeadWord(el: Element): Element | undefined {
+    if (tag(el) === 'w') return el;
+    const h = this.headChild(el);
+    return h ? this.ultimateHeadWord(h) : undefined;
   }
 
   /** Convert any constituent, returning the id of its representative node. */
@@ -520,9 +608,30 @@ export class SentenceConverter {
         case 's':
           this.rel('subject', clauseId, rep);
           break;
-        case 'o':
-          this.rel('directObject', verbId, rep);
+        case 'o': {
+          // A PASSIVE verb's accusative "object" is not claimed as an ordinary
+          // direct object: Greek allows an adverbial accusative of extent, an
+          // accusative of respect, or a retained accusative here (μηδὲν
+          // ὠφεληθεῖσα, Mark 5:26), and the source's bare `o` does not decide.
+          // The neutral `accusativeModifier` says exactly as much as is known;
+          // provenance preserves the raw source role and the reasoning. Only
+          // explicit `voice="passive"` qualifies — middle-passive forms stay
+          // ordinary objects, since the middle reading takes a real object.
+          const passive = verbEl && this.ultimateHeadWord(verbEl)?.getAttribute('voice') === 'passive';
+          const accusative = this.ultimateHeadWord(child)?.getAttribute('case') === 'accusative';
+          if (passive && accusative) {
+            this.rel('accusativeModifier', verbId, rep, undefined, {
+              source: 'converted',
+              confidence: 'medium',
+              sourceRole: 'o',
+              reason:
+                'Accusative with a passive verb — extent, respect, or retained object; the ordinary direct-object label is not claimed.',
+            });
+          } else {
+            this.rel('directObject', verbId, rep);
+          }
           break;
+        }
         case 'o2':
           this.rel('objectComplement', verbId, rep);
           break;
@@ -549,8 +658,93 @@ export class SentenceConverter {
     return clauseId;
   }
 
+  /**
+   * An NP in which the ARTICLE nominalizes a prepositional phrase — τὰ παρ᾽
+   * αὐτῆς ("the things belonging to her"), τὰ περὶ τοῦ Ἰησοῦ ("the things
+   * concerning Jesus") — rather than agreeing with a substantive head word.
+   * Detected when the np carries a det child, its ultimate head word is NOT a
+   * noun/pronoun (so the article is the nominalizer), and the phrase content is
+   * a PP (a direct child, or a direct child of the head-marked inner np —
+   * Lowfat writes both shapes: `NpPp` heads the article, `DetNP`+`PpNp2Np`
+   * heads a quantifier like πάντα). Returns the pieces, or null when this is an
+   * ordinary NP.
+   */
+  private articularPpParts(
+    el: Element,
+  ): { det: Element; pps: Element[]; mods: Element[] } | null {
+    if (el.getAttribute('class') !== 'np') return null;
+    const kids = constituents(el);
+    const det = kids.find((c) => tag(c) === 'w' && c.getAttribute('class') === 'det');
+    if (!det) return null;
+    const headEl = this.headChild(el);
+    const headWord = headEl && headEl !== det ? this.ultimateHeadWord(headEl) : undefined;
+    const headCls = headWord?.getAttribute('class');
+    if (headCls === 'noun' || headCls === 'pron') return null; // ordinary articular NP
+    const pps: Element[] = [];
+    const mods: Element[] = [];
+    for (const c of kids) {
+      if (c === det) continue;
+      if (c.getAttribute('class') === 'pp') {
+        pps.push(c);
+      } else if (c === headEl && tag(c) === 'wg' && c.getAttribute('class') === 'np') {
+        // one level of flattening: the inner np holding the PP plus modifiers
+        for (const inner of constituents(c)) {
+          if (inner.getAttribute('class') === 'pp') pps.push(inner);
+          else mods.push(inner);
+        }
+      } else {
+        mods.push(c);
+      }
+    }
+    return pps.length ? { det, pps, mods } : null;
+  }
+
+  /**
+   * Root an articular PP on its ARTICLE — the substantival reading. The PP
+   * hangs beneath the article, and any quantifier/adjective (πάντα) modifies
+   * the whole nominalized phrase instead of being promoted to phrase head (the
+   * source marks πάντα `head="true"`, which naive percolation would otherwise
+   * turn into a bare "direct object" — the Mark 5:26 bug). Both Mark 5 shapes
+   * come out identical, so the presence of πάντα no longer forces an
+   * artificial structural difference. Relations that re-read the source's head
+   * marking are stamped `converted` with the raw source role preserved.
+   */
+  private convertArticularPp(
+    el: Element,
+    { det, pps, mods }: { det: Element; pps: Element[]; mods: Element[] },
+  ): string {
+    const detId = this.wordNode(det);
+    const detNode = this.nodes.find((n) => n.id === detId);
+    if (detNode && !detNode.role) detNode.role = 'substantivalPrepositionalPhrase';
+    this.stampCategory(detId, el.getAttribute('class'));
+    for (const pp of pps) {
+      this.rel('prepositionalPhrase', detId, this.convert(pp), undefined, {
+        source: 'converted',
+        confidence: 'high',
+        sourceRole: pp.getAttribute('head') === 'true' ? 'head' : undefined,
+        reason: 'Article + prepositional phrase read as a substantival phrase ("the things …").',
+      });
+    }
+    const rule = el.getAttribute('rule') ?? '';
+    for (const m of mods) {
+      const mapped = this.phraseChildRole(m, rule, false);
+      // A bare word beside the nominalized phrase reads as its modifier, not an
+      // apposition to it.
+      const role = mapped === 'apposition' ? 'adjectival' : mapped;
+      this.rel(role, detId, this.convert(m), undefined, {
+        source: 'converted',
+        confidence: 'medium',
+        sourceRole: m.getAttribute('head') === 'true' ? 'head' : (m.getAttribute('role') ?? undefined),
+        reason: 'Read as modifying the substantival article phrase rather than heading it.',
+      });
+    }
+    return detId;
+  }
+
   /** A phrase (np/vp/adjp/advp): head plus modifiers attached beneath it. */
   private convertPhrase(el: Element): string {
+    const substantival = this.articularPpParts(el);
+    if (substantival) return this.convertArticularPp(el, substantival);
     const head = this.headChild(el);
     if (!head) return `w_${this.key(el)}`;
     const repId = this.convert(head);
@@ -688,6 +882,50 @@ function isCoordinatorWord(el: Element): boolean {
 export interface LowfatDocOptions {
   /** Book name for titles, e.g. "Philippians". */
   book?: string;
+  /** Leaf-read adapter (defaults to Nestle1904 macula-greek). */
+  dialect?: LowfatDialect;
+  /** Document-id prefix — `gnt` (Nestle1904, default) or `sblgnt`. The prefix
+   *  is how `sourceOfDoc` tells editions apart, so it must stay distinct. */
+  docIdPrefix?: string;
+  /** When set, each document also preserves the source `<wg>` hierarchy
+   *  verbatim as `sourceConstituency`, attributed to this source id. */
+  sourceId?: string;
+}
+
+/**
+ * Preserve a sentence's `<wg>` hierarchy VERBATIM as a source constituency
+ * tree: categories, roles, rules, head/articular marking, and each leaf's
+ * token id (matching the converter's `t_<source id>` tokens). Pure recording —
+ * no interpretation — so the Constituency Tree can show exactly what the
+ * source published.
+ */
+export function captureSourceConstituency(
+  topWg: Element,
+  dialect: LowfatDialect,
+  sourceId: string,
+  editionId?: string,
+): SourceConstituencyTree {
+  let seq = 0;
+  const walk = (el: Element): SourceConstituencyNode => {
+    const base = {
+      id: `sc${seq++}`,
+      cat: el.getAttribute('class') ?? undefined,
+      role: el.getAttribute('role') ?? undefined,
+      head: el.getAttribute('head') === 'true' ? true : undefined,
+    };
+    if (tag(el) === 'w') {
+      const k = dialect.idOf(el);
+      return { ...base, kind: 'word', tokenIds: k ? [`t_${k}`] : [], children: [] };
+    }
+    return {
+      ...base,
+      kind: 'wg',
+      rule: el.getAttribute('rule') ?? undefined,
+      articular: el.getAttribute('articular') === 'true' ? true : undefined,
+      children: constituents(el).map(walk),
+    };
+  };
+  return { sourceId, ...(editionId ? { editionId } : {}), root: walk(topWg) };
 }
 
 /** Convert every `<sentence>` in a Lowfat book into a standalone document. */
@@ -700,7 +938,7 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
   sentences.forEach((sentence, i) => {
     const topWg = sentence.querySelector('wg');
     if (!topWg) return;
-    const conv = new SentenceConverter(`s${i}_`, greekDialect);
+    const conv = new SentenceConverter(`s${i}_`, opts.dialect ?? greekDialect);
     const rootId = conv.convert(topWg);
     if (!conv.tokens.length) return;
     // Rescue any word the tree walk left unattached (e.g. a clause-initial οὖν on
@@ -710,12 +948,13 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
 
     const ref = verseRef(sentence);
     const ts = '2024-01-01T00:00:00.000Z';
+    const dialect = opts.dialect ?? greekDialect;
     // Collapse coordinate clauses that share one subject into a compound
     // predicate (one subject, forked verbs) — the Reed-Kellogg reading.
     docs.push(
       mergeSharedSubjectPredicate({
         schemaVersion: SCHEMA_VERSION,
-        id: `gnt_${slug(book)}_${i}`,
+        id: `${opts.docIdPrefix ?? 'gnt'}_${slug(book)}_${i}`,
         title: ref ? `${book} ${ref}` : `${book} (${i + 1})`,
         language: 'grc',
         text: conv.tokens.map((t) => t.surface).join(' '),
@@ -725,6 +964,9 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
         layoutHints: {},
         tokens: conv.tokens,
         syntax: { rootId, nodes: conv.nodes, relations: conv.relations },
+        ...(opts.sourceId
+          ? { sourceConstituency: captureSourceConstituency(topWg, dialect, opts.sourceId) }
+          : {}),
       }),
     );
   });
@@ -734,8 +976,12 @@ export function lowfatToDocuments(xml: string, opts: LowfatDocOptions = {}): KrD
 function verseRef(sentence: Element): string | undefined {
   const ms = sentence.querySelectorAll('milestone[unit="verse"]');
   const ids = Array.from(ms).map((m) => m.getAttribute('id') || m.textContent || '');
+  // Nestle1904 writes "Mark.5.25"; SBLGNT writes "MRK 5:25" — both end c(:|.)v.
   const verses = ids
-    .map((id) => id.split('.').slice(1).join(':'))
+    .map((id) => {
+      const m = id.match(/(\d+)[:.](\d+)\s*$/);
+      return m ? `${m[1]}:${m[2]}` : '';
+    })
     .filter(Boolean);
   if (!verses.length) return undefined;
   return verses.length > 1 ? `${verses[0]}–${verses[verses.length - 1]!.split(':').pop()}` : verses[0];

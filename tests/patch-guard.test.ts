@@ -90,3 +90,56 @@ describe('baseHash-guarded patch application', () => {
     expect(live.syntax.nodes.some((n) => n.id === 'n_extra')).toBe(true);
   });
 });
+
+describe('edition (sourceId) guard — patches never silently cross editions', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  /** A GNT base whose id prefix marks its edition (like real loader output). */
+  function gntBase(id: string): KrDocument {
+    const d = createDocument({ language: 'grc', title: 'Mark 5:25–27', text: 'κείμενον' });
+    return { ...d, id, tokens: [tok('t1', 0, 'κείμενον')] };
+  }
+
+  it('stamps GNT patches with the edition-aware sourceId', () => {
+    const A = gntBase('gnt_mark_12');
+    store.getState().loadDocument(A, { corpus: 'gnt' });
+    store.getState().upsertNode({ id: 'n_extra', kind: 'word', tokenIds: [] });
+    expect(loadPatch(A.id)!.base.sourceId).toBe('macula-greek-nestle1904-lowfat');
+  });
+
+  it('skips (but keeps) a patch whose sourceId names another edition', () => {
+    const A = gntBase('gnt_mark_12');
+    store.getState().loadDocument(A, { corpus: 'gnt' });
+    store.getState().upsertNode({ id: 'n_extra', kind: 'word', tokenIds: [] });
+
+    // Simulate an edition crossing: the same passage id now serves an SBLGNT
+    // base (in reality ids differ by prefix, so this is a hostile/import case).
+    const crossed: KrDocument = { ...A, id: 'sblgnt_mark_12' };
+    const raw = localStorage.getItem('kr:patch:' + A.id)!;
+    localStorage.setItem('kr:patch:' + crossed.id, raw);
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const live = applyStoredPatch(crossed);
+    expect(live.syntax.nodes.some((n) => n.id === 'n_extra')).toBe(false); // not applied
+    expect(loadPatch(crossed.id)).not.toBeNull(); // never deleted
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('macula-greek-nestle1904-lowfat'));
+    warn.mockRestore();
+
+    // The patch still applies to its OWN edition's base.
+    expect(applyStoredPatch(A).syntax.nodes.some((n) => n.id === 'n_extra')).toBe(true);
+  });
+
+  it('legacy patches without a sourceId still load against their base (hash-guarded)', () => {
+    const A = gntBase('gnt_mark_12');
+    store.getState().loadDocument(A, { corpus: 'gnt' });
+    store.getState().upsertNode({ id: 'n_extra', kind: 'word', tokenIds: [] });
+    // Strip the sourceId, as a pre-rebase patch would be.
+    const key = 'kr:patch:' + A.id;
+    const patch = JSON.parse(localStorage.getItem(key)!);
+    delete patch.base.sourceId;
+    localStorage.setItem(key, JSON.stringify(patch));
+    expect(applyStoredPatch(A).syntax.nodes.some((n) => n.id === 'n_extra')).toBe(true);
+  });
+});

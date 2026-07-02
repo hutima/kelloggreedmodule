@@ -1,18 +1,23 @@
 import type { KrDocument, Token } from '@/domain/schema';
 import { GNT_BOOKS, type GntBook } from './gnt';
 import { OT_BOOKS, type OtBook } from './ot';
+import { sourceOfDoc } from './sources';
 
 /**
  * Parallel English text for the GNT. Each book is the Berean Standard Bible
  * (public domain), manually word-aligned to the Greek by Clear-Bible, and
  * preprocessed (see `scripts/fetch-parallel.mjs`) into one compact JSON per book.
  *
- * The alignment's Greek base is SBLGNT, ~99% identical to our Nestle1904 but not
- * byte-for-byte. So we never trust word POSITION across the two texts: every
- * Greek word carries a Strong's number (`s`), and `alignParallel` matches our
- * Nestle1904 tokens to the aligned words by LEXEME (Strong's), nearest position
- * breaking ties. A textual variant typically shifts only a word or two, so the
- * rest of the verse still links correctly.
+ * The alignment's Greek base is SBLGNT. For an SBLGNT document the link is
+ * therefore DIRECT: the token's within-verse position IS the alignment's `g`
+ * position (Strong's-verified where both sides carry one). For Nestle1904 —
+ * ~99% identical but not byte-for-byte — position is never trusted across the
+ * two texts: every Greek word carries a Strong's number (`s`), and
+ * `alignParallel` matches tokens to aligned words by LEXEME (Strong's),
+ * nearest position breaking ties, with a bare positional fallback. A textual
+ * variant typically shifts only a word or two, so the rest of the verse still
+ * links correctly. Every link records WHICH method matched it (see
+ * `AlignMethod`), so mismatches are inspectable instead of invisible.
  */
 
 interface GreekLink {
@@ -141,12 +146,20 @@ export interface ParallelVerse {
   words: ParallelWord[];
 }
 
+/** How a Greek token was matched to the alignment's word list. */
+export type AlignMethod = 'direct' | 'strongs' | 'position' | 'unmatched';
+
 export interface ParallelView {
   verses: ParallelVerse[];
   /** "verseKey#wordIndex" → diagram node ids that word translates. */
   enToNodes: Map<string, string[]>;
   /** Diagram node id → English word keys ("verseKey#wordIndex"). */
   nodeToEn: Map<string, string[]>;
+  /** Greek token id → the method that matched it (debuggability: a verse
+   *  whose links degraded to `position`/`unmatched` is worth inspecting). */
+  methodByToken: Map<string, AlignMethod>;
+  /** Aggregate counts per method for the whole passage. */
+  stats: Record<AlignMethod, number>;
 }
 
 function push(map: Map<string, string[]>, key: string, value: string): void {
@@ -155,22 +168,30 @@ function push(map: Map<string, string[]>, key: string, value: string): void {
   else map.set(key, [value]);
 }
 
-/** ".1.1!3" style ref → ["1.1", 3]; undefined if it isn't a verse-word ref. */
+/** A verse-word ref → ["chapter.verse", word]; undefined when not one.
+ *  Reads both edition spellings: Nestle1904 osisId "Phil.1.1!3" and SBLGNT
+ *  ref "PHP 1:1!3". */
 function parseRef(ref: string | undefined): [string, number] | undefined {
   if (!ref) return undefined;
-  const m = /\.(\d+)\.(\d+)!(\d+)/.exec(ref);
-  return m ? [`${m[1]}.${m[2]}`, Number(m[3])] : undefined;
+  const osis = /\.(\d+)\.(\d+)!(\d+)/.exec(ref);
+  if (osis) return [`${osis[1]}.${osis[2]}`, Number(osis[3])];
+  const sblgnt = /(\d+):(\d+)!(\d+)\s*$/.exec(ref);
+  return sblgnt ? [`${sblgnt[1]}.${sblgnt[2]}`, Number(sblgnt[3])] : undefined;
 }
 
 /**
  * Align a (Greek) passage document to a parallel English book: produce the
  * English verses to render plus the two-way Greek-node ↔ English-word maps used
- * for hover linking. Matching is by Strong's lexeme, nearest position breaking
- * ties, with a bare positional fallback.
+ * for hover linking. An SBLGNT document matches DIRECTLY by position (the
+ * alignment's own base text, Strong's-verified); otherwise matching is by
+ * Strong's lexeme, nearest position breaking ties, with a bare positional
+ * fallback. Each token records which method linked it.
  */
 export function alignParallel(doc: KrDocument, book: ParallelBook): ParallelView {
   const tokenToNode = new Map<string, string>();
   for (const n of doc.syntax.nodes) for (const t of n.tokenIds) tokenToNode.set(t, n.id);
+  // The document's edition decides whether positions are trustworthy.
+  const directBase = sourceOfDoc(doc) === 'macula-greek-sblgnt-lowfat';
 
   // Bucket the document's tokens by verse, in first-seen order.
   const byVerse = new Map<string, { token: Token; pos: number; strong: number }[]>();
@@ -190,6 +211,8 @@ export function alignParallel(doc: KrDocument, book: ParallelBook): ParallelView
 
   const enToNodes = new Map<string, string[]>();
   const nodeToEn = new Map<string, string[]>();
+  const methodByToken = new Map<string, AlignMethod>();
+  const stats: Record<AlignMethod, number> = { direct: 0, strongs: 0, position: 0, unmatched: 0 };
   const verses: ParallelVerse[] = [];
 
   for (const key of order) {
@@ -201,10 +224,22 @@ export function alignParallel(doc: KrDocument, book: ParallelBook): ParallelView
     const toks = byVerse.get(key) ?? [];
 
     for (const { token, pos, strong } of toks) {
-      // Best lexeme match: same Strong's number, nearest position.
       let best = -1;
-      let bestDist = Infinity;
-      if (strong) {
+      let method: AlignMethod = 'unmatched';
+      // DIRECT: an SBLGNT token's within-verse position is the alignment's own
+      // base position. Trust it when Strong's agrees (or either side lacks one).
+      if (directBase) {
+        const i = links.findIndex(
+          (l) => !l.used && l.g === pos && (!l.s || !strong || l.s === strong),
+        );
+        if (i >= 0) {
+          best = i;
+          method = 'direct';
+        }
+      }
+      // Best lexeme match: same Strong's number, nearest position.
+      if (best < 0 && strong) {
+        let bestDist = Infinity;
         for (let i = 0; i < links.length; i++) {
           const l = links[i]!;
           if (l.used || l.s !== strong) continue;
@@ -212,6 +247,7 @@ export function alignParallel(doc: KrDocument, book: ParallelBook): ParallelView
           if (d < bestDist) {
             bestDist = d;
             best = i;
+            method = 'strongs';
           }
         }
       }
@@ -220,12 +256,19 @@ export function alignParallel(doc: KrDocument, book: ParallelBook): ParallelView
         for (let i = 0; i < links.length; i++) {
           if (!links[i]!.used && links[i]!.g === pos) {
             best = i;
+            method = 'position';
             break;
           }
         }
       }
-      if (best < 0) continue;
+      if (best < 0) {
+        methodByToken.set(token.id, 'unmatched');
+        stats.unmatched++;
+        continue;
+      }
       links[best]!.used = true;
+      methodByToken.set(token.id, method);
+      stats[method]++;
       const node = tokenToNode.get(token.id);
       if (!node) continue;
       for (const ei of links[best]!.en) {
@@ -248,7 +291,7 @@ export function alignParallel(doc: KrDocument, book: ParallelBook): ParallelView
     });
   }
 
-  return { verses, enToNodes, nodeToEn };
+  return { verses, enToNodes, nodeToEn, methodByToken, stats };
 }
 
 /** A macula-hebrew token id "t_o<bb ccc vvv www m>" → [verseKey, morphemeKey]. */
@@ -267,6 +310,8 @@ function parseHebrewId(id: string): [string, string] | undefined {
 export function alignParallelHebrew(doc: KrDocument, book: OtParallelBook): ParallelView {
   const tokenToNode = new Map<string, string>();
   for (const n of doc.syntax.nodes) for (const t of n.tokenIds) tokenToNode.set(t, n.id);
+  const methodByToken = new Map<string, AlignMethod>();
+  const stats: Record<AlignMethod, number> = { direct: 0, strongs: 0, position: 0, unmatched: 0 };
 
   const byVerse = new Map<string, { token: Token; mkey: string }[]>();
   const order: string[] = [];
@@ -297,7 +342,14 @@ export function alignParallelHebrew(doc: KrDocument, book: OtParallelBook): Para
     for (const { token, mkey } of byVerse.get(key) ?? []) {
       const en = enByMorpheme.get(mkey);
       const node = tokenToNode.get(token.id);
-      if (!en || !node) continue;
+      if (!en || !node) {
+        methodByToken.set(token.id, 'unmatched');
+        stats.unmatched++;
+        continue;
+      }
+      // Shared word ids make every Hebrew match a direct one by construction.
+      methodByToken.set(token.id, 'direct');
+      stats.direct++;
       for (const ei of en) {
         if (exclSet.has(ei)) continue;
         const ek = `${key}#${ei}`;
@@ -318,5 +370,5 @@ export function alignParallelHebrew(doc: KrDocument, book: OtParallelBook): Para
     });
   }
 
-  return { verses, enToNodes, nodeToEn };
+  return { verses, enToNodes, nodeToEn, methodByToken, stats };
 }

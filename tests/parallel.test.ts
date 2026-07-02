@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { lowfatToDocuments } from '@/io/lowfat';
+import { lowfatToDocuments, sblgntDialect } from '@/io/lowfat';
 import { combinePassage } from '@/io/passage';
 import { alignParallel, type ParallelBook } from '@/io/parallel';
 
@@ -54,5 +54,49 @@ describe('parallel English alignment', () => {
     // Both verses present and non-empty.
     expect(view.verses.map((v) => v.key).sort()).toEqual(['1.1', '1.2']);
     expect(view.nodeToEn.size).toBeGreaterThan(3);
+  });
+
+  it('records the alignment method per token (Nestle1904 → strongs, never direct)', () => {
+    const view = alignParallel(docs()[0]!, bsb());
+    expect(view.stats.direct).toBe(0); // positions are never trusted across editions
+    expect(view.stats.strongs).toBeGreaterThan(0);
+    for (const m of view.methodByToken.values()) {
+      expect(['strongs', 'position', 'unmatched']).toContain(m);
+    }
+  });
+});
+
+describe('SBLGNT direct alignment', () => {
+  const sblgntDocs = () =>
+    lowfatToDocuments(readFileSync('tests/fixtures-sblgnt-lowfat-mark-5-25-34.xml', 'utf8'), {
+      book: 'Mark',
+      dialect: sblgntDialect,
+      docIdPrefix: 'sblgnt',
+    });
+  const markBsb = (): ParallelBook =>
+    JSON.parse(readFileSync('public/parallel/bsb/02-mark.json', 'utf8'));
+
+  it('aligns an SBLGNT passage DIRECTLY by position (its own base text)', () => {
+    const doc = sblgntDocs()[0]!; // Mark 5:25–27
+    const view = alignParallel(doc, markBsb());
+    expect(view.verses.map((v) => v.key)).toEqual(['5.25', '5.26', '5.27']);
+    // The alignment's Greek base IS SBLGNT, so direct matches dominate and
+    // every token resolves one way or another.
+    expect(view.stats.direct).toBeGreaterThan(view.stats.strongs + view.stats.position);
+    expect(view.stats.direct + view.stats.strongs + view.stats.position).toBeGreaterThan(0);
+  });
+
+  it('links the Mark 5:26 accusatives to their English words', () => {
+    const doc = sblgntDocs()[0]!;
+    const view = alignParallel(doc, markBsb());
+    const tokByLemma = (lemma: string) => doc.tokens.find((t) => t.lemma === lemma)!;
+    const nodeOf = (tid: string) => doc.syntax.nodes.find((n) => n.tokenIds.includes(tid))!.id;
+    const v526 = view.verses.find((v) => v.key === '5.26')!;
+    const englishFor = (lemma: string) =>
+      (view.nodeToEn.get(nodeOf(tokByLemma(lemma).id)) ?? [])
+        .filter((k) => k.startsWith('5.26#'))
+        .map((k) => v526.words[Number(k.split('#')[1])]!.t.toLowerCase());
+    expect(englishFor('πᾶς').join(' ')).toContain('all');
+    expect(englishFor('δαπανάω').join(' ')).toContain('spent');
   });
 });

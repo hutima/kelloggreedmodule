@@ -13,6 +13,7 @@
 export * from './primitives';
 export * from './token';
 export * from './syntax';
+export * from './constituency';
 export * from './layout';
 export * from './document';
 export * from './sermon';

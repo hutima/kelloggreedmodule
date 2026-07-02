@@ -27,19 +27,30 @@ export type Direction = z.infer<typeof DirectionSchema>;
 /**
  * Where an analytical assertion came from and how much to trust it.
  *
- * - `given`     supplied directly by the user / parsed input
- * - `inferred`  produced by the inference engine (provisional, editable)
- * - `confirmed` an inference the user has explicitly accepted
- * - `manual`    created or overridden directly by the user in the editor
+ * - `given`         supplied directly by the source data / user / parsed input
+ * - `converted`     mapped from source data by a converter that had to make an
+ *                   interpretive decision (beyond a faithful 1:1 relabelling) —
+ *                   e.g. downgrading a passive participle's accusative from the
+ *                   source's bare "o" to `accusativeModifier`
+ * - `inferred`      produced by the inference engine (provisional, editable)
+ * - `confirmed`     an inference the user has explicitly accepted
+ * - `manual`        created or overridden directly by the user in the editor
+ * - `reconstructed` rebuilt for display from derived data (not source-faithful)
+ * - `alternate`     from an alternate / reviewer-preferred analysis overlay
  *
  * Every node, relation, and inferred field carries provenance so the UI can
- * show, accept, reject, or override any individual piece of analysis.
+ * show, accept, reject, or override any individual piece of analysis — and so
+ * a reader can always tell whether a label like "direct object" came straight
+ * from the source, was an interpretive conversion, or was reconstructed.
  */
 export const ProvenanceSourceSchema = z.enum([
   'given',
+  'converted',
   'inferred',
   'confirmed',
   'manual',
+  'reconstructed',
+  'alternate',
 ]);
 export type ProvenanceSource = z.infer<typeof ProvenanceSourceSchema>;
 
@@ -52,6 +63,14 @@ export const ProvenanceSchema = z.object({
   confidence: ConfidenceSchema.default('high'),
   /** Human-readable justification, e.g. "Finite third singular verb without explicit subject." */
   reason: z.string().optional(),
+  /** The RAW role in the source data when the converter relabelled it (e.g.
+   *  Lowfat `role="o"` behind an `accusativeModifier`), so an interpretive
+   *  mapping never loses what the source actually said. */
+  sourceRole: z.string().optional(),
+  /** Which text edition / syntax source the assertion came from (e.g.
+   *  `macula-greek-nestle1904-lowfat`) — populated as sources become
+   *  edition-aware (plan phases 6+). */
+  editionId: z.string().optional(),
 });
 export type Provenance = z.infer<typeof ProvenanceSchema>;
 

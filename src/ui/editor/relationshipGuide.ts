@@ -130,6 +130,49 @@ export const RELATIONSHIP_GUIDE: RelationshipFamily[] = [
     ],
   },
   {
+    title: 'Nuanced Greek accusatives',
+    blurb:
+      'Honest labels for accusatives that Greek grammar does not settle as ordinary direct objects — the analysis says exactly as much as it knows.',
+    roles: [
+      {
+        role: 'objectLikeComplement',
+        example: 'δαπανήσασα **τὰ παρ᾽ αὐτῆς** — having spent **the things belonging to her**',
+        kr: 'On the main line in the object slot with a vertical tick — the label, not the geometry, says it is object-LIKE rather than a claimed direct object.',
+        tree: 'An arc from the verb to the phrase, tagged “obj-like”.',
+      },
+      {
+        role: 'accusativeModifier',
+        example: '**μηδὲν** ὠφεληθεῖσα — benefited **in no way** (passive)',
+        kr: 'Slants beneath the verb like an adverbial — deliberately NOT in the object slot, because the exact function is left open.',
+        tree: 'An arc from the verb to the accusative, tagged “acc-mod”.',
+      },
+      {
+        role: 'accusativeExtent',
+        example: 'benefited **not at all** · remained **three days**',
+        kr: 'Slants beneath the verb like an adverbial, telling to what degree / how far.',
+        tree: 'An arc from the verb to the accusative, tagged “acc-ext”.',
+      },
+      {
+        role: 'accusativeRespect',
+        example: 'benefited **with respect to nothing** · **τὸν ἀριθμόν** — in number',
+        kr: 'Slants beneath the verb like an adverbial, telling in what respect the statement holds.',
+        tree: 'An arc from the verb to the accusative, tagged “acc-resp”.',
+      },
+      {
+        role: 'retainedAccusative',
+        example: 'ἐπιστεύθην **τὸ εὐαγγέλιον** — entrusted with **the gospel**',
+        kr: 'On the main line in the object slot with a vertical tick — an accusative kept even though the verb is passive (used only when the analysis marks it explicitly).',
+        tree: 'An arc from the passive verb to the accusative, tagged “ret-acc”.',
+      },
+      {
+        role: 'substantivalPrepositionalPhrase',
+        example: '**τὰ περὶ τοῦ Ἰησοῦ** — **the things concerning Jesus**',
+        kr: 'The article + prepositional phrase behaves as one noun phrase: it stands where a noun would, with the phrase laid out beneath its article.',
+        tree: 'An arc to the article-headed phrase, tagged “subst-pp”.',
+      },
+    ],
+  },
+  {
     title: 'Modification',
     blurb: 'Words that describe or specify another word — adjectives, articles, genitives, phrases.',
     roles: [

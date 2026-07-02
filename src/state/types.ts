@@ -1,6 +1,6 @@
 import type { ContestedSyntaxIssue, KrDocument, Language, SermonPrepData, SermonAnchor } from '@/domain/schema';
 import type { Inference } from '@/domain/inference';
-import type { DiagramMode, TreeOrientation } from '@/domain/layout';
+import type { ConstituencyVariant, DiagramMode, TreeOrientation } from '@/domain/layout';
 import type { SyntaxSourceId } from '@/io/sources';
 import type { DocumentSummary } from '@/persistence';
 
@@ -190,6 +190,8 @@ export interface EditorState {
    * tree. Persisted. Ignored by the non-tree modes.
    */
   treeOrientation: TreeOrientation;
+  /** Which tree the Constituency mode draws (auto = source when available). */
+  constituencyVariant: ConstituencyVariant;
   /**
    * Desktop only: when true the source-text / verses strip is moved OUT of the
    * center canvas into a dedicated "Verses" tab on the right panel, giving the

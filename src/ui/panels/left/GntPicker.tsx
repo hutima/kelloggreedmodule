@@ -3,13 +3,17 @@ import { useEditorStore } from '@/state';
 import {
   GNT_BOOKS,
   BUNDLED_BOOKS,
+  SBLGNT_BUNDLED_BOOKS,
+  DEFAULT_GNT_SOURCE,
   cacheGntBook,
   loadGntBook,
+  SBLGNT_BOOKS,
+  cacheSblgntBook,
+  loadSblgntBook,
   combinePassage,
   loadOpenTextBook,
   OPENTEXT_BOOKS,
   SYNTAX_SOURCES,
-  sourceOfDoc,
   type SyntaxSourceId,
   type GntBook,
 } from '@/io';
@@ -23,12 +27,24 @@ import { getIssuesForPassage } from '@/domain/contested';
  * and Open diagrams them all together as one passage, ready to edit. The sentence
  * list doubles as the running Greek text with verse references.
  *
- * Two syntax SOURCES are selectable: the default Nestle1904 Lowfat parse and the
- * OpenText.org analysis (an alternative tree). Both yield ordinary `KrDocument`s,
- * so whichever is opened drives all four visualizations and becomes the editable
- * base — switching source just changes which published analysis you start from.
+ * Three syntax SOURCES are selectable: the default SBLGNT Lowfat edition, the
+ * legacy/alternate Nestle1904 Lowfat edition, and the OpenText.org analysis (an
+ * alternative tree). All yield ordinary `KrDocument`s, so whichever is opened
+ * drives all four visualizations and becomes the editable base — switching
+ * source just changes which published analysis you start from.
  */
-type Source = 'nestle1904' | 'opentext';
+type Source = 'macula-greek-sblgnt-lowfat' | 'macula-greek-nestle1904-lowfat' | 'opentext';
+
+/** The picker slot for a document's source — this picker offers the loadable
+ *  GNT sources; anything else shows as the Nestle1904 default. */
+function pickerSource(d: KrDocument): Source {
+  const id = d.id.replace(/^passage_/, '');
+  if (id.startsWith('opentext_')) return 'opentext';
+  if (id.startsWith('gnt_')) return 'macula-greek-nestle1904-lowfat';
+  // SBLGNT documents — and anything that is not a GNT passage at all (a
+  // sample, a typed sentence): the picker starts on the DEFAULT edition.
+  return DEFAULT_GNT_SOURCE as Source;
+}
 
 /** The GNT book whose name a passage/sentence title begins with, if any. */
 function bookForTitle(title: string): GntBook | undefined {
@@ -48,6 +64,9 @@ function loadBookDocs(source: Source, num: number): Promise<KrDocument[]> {
     const b = OPENTEXT_BOOKS.find((x) => x.num === num)!;
     return loadOpenTextBook(b);
   }
+  if (source === 'macula-greek-sblgnt-lowfat') {
+    return loadSblgntBook(SBLGNT_BOOKS.find((x) => x.num === num)!);
+  }
   return loadGntBook(GNT_BOOKS.find((x) => x.num === num)!);
 }
 
@@ -65,7 +84,7 @@ export function GntPicker() {
   // Seed the source from the OPEN passage (its document id tells which parse it
   // came from), so the selector reflects what you're reading and persists across
   // remounts — exactly like the Book selector.
-  const [source, setSource] = useState<Source>(() => sourceOfDoc(doc));
+  const [source, setSource] = useState<Source>(() => pickerSource(doc));
   const [bookNum, setBookNum] = useState(currentBook?.num ?? 11);
   // Desktop-only two-source side-by-side comparison.
   const vp = useViewport();
@@ -96,7 +115,7 @@ export function GntPicker() {
     // A non-GNT doc (Hebrew, a typed custom sentence…) doesn't drive the GNT
     // picker — following it would reset the source/book and refetch the list.
     if (doc.language !== 'grc' || !currentBook) return;
-    const docSource = sourceOfDoc(doc);
+    const docSource = pickerSource(doc);
     const bookChanged = !!currentBook && currentBook.num !== bookNum;
     const sourceChanged = docSource !== source;
     if (sourceChanged) setSource(docSource);
@@ -111,8 +130,11 @@ export function GntPicker() {
 
   const books = booksFor(source);
   const book = books.find((b) => b.num === bookNum) ?? books[0]!;
-  // OpenText's bundled Philemon is always offline-ready; the GNT bundles Php only.
-  const bundled = source === 'opentext' || BUNDLED_BOOKS.has(book.num);
+  // OpenText's bundled Philemon is always offline-ready; each Lowfat edition
+  // bundles Philippians only.
+  const bundledSet =
+    source === 'macula-greek-sblgnt-lowfat' ? SBLGNT_BUNDLED_BOOKS : BUNDLED_BOOKS;
+  const bundled = source === 'opentext' || bundledSet.has(book.num);
 
   // Requests can finish out of order (switching book/source mid-fetch); only
   // the LATEST request may publish its list or clear the spinner, or a slow
@@ -163,7 +185,9 @@ export function GntPicker() {
     const b = GNT_BOOKS.find((x) => x.num === num);
     if (!b) return;
     setCacheState('saving');
-    setCacheState((await cacheGntBook(b)) ? 'saved' : 'error');
+    const ok =
+      source === 'macula-greek-sblgnt-lowfat' ? await cacheSblgntBook(b) : await cacheGntBook(b);
+    setCacheState(ok ? 'saved' : 'error');
   };
 
   const toggle = (id: string) =>
@@ -222,8 +246,9 @@ export function GntPicker() {
       <label className="field">
         <span>Syntax source</span>
         <select value={source} onChange={(e) => changeSource(e.target.value as Source)}>
-          <option value="nestle1904">Nestle 1904 (Lowfat)</option>
-          <option value="opentext">OpenText.org</option>
+          <option value="macula-greek-sblgnt-lowfat">SBLGNT Lowfat</option>
+          <option value="macula-greek-nestle1904-lowfat">Nestle 1904 Lowfat (legacy)</option>
+          <option value="opentext">OpenText syntax</option>
         </select>
       </label>
       {/* Book selector spans the full width on its own line so the full book name
@@ -240,14 +265,14 @@ export function GntPicker() {
           {books.map((b) => (
             <option key={b.num} value={b.num} title={b.name}>
               {b.name}
-              {source === 'nestle1904' && BUNDLED_BOOKS.has(b.num) ? ' ✓' : ''}
+              {source !== 'opentext' && bundledSet.has(b.num) ? ' ✓' : ''}
             </option>
           ))}
         </select>
       </label>
       <div className="row">
         {loading && <span style={{ fontSize: 12, color: 'var(--ink-soft, #667)' }}>Loading…</span>}
-        {source === 'nestle1904' && (
+        {source !== 'opentext' && (
           <button
             className="mini"
             disabled={bundled || cacheState === 'saving' || cacheState === 'saved'}
@@ -261,6 +286,12 @@ export function GntPicker() {
       {source === 'opentext' && (
         <p style={{ fontSize: 12, color: 'var(--muted, #667)' }}>
           OpenText.org analysis (CC BY-SA 4.0), surface text from Nestle 1904.
+        </p>
+      )}
+      {source === 'macula-greek-sblgnt-lowfat' && (
+        <p style={{ fontSize: 12, color: 'var(--muted, #667)' }}>
+          SBLGNT text (SBL, CC BY 4.0) with MACULA Greek Lowfat syntax
+          (Clear-Bible, CC BY 4.0).
         </p>
       )}
 

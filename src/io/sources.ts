@@ -1,30 +1,97 @@
 import type { KrDocument } from '@/domain/schema';
 import { GNT_BOOKS, loadGntBook } from './gnt';
+import { SBLGNT_BOOKS, loadSblgntBook } from './gnt-sblgnt';
 import { OPENTEXT_BOOKS, loadOpenTextBook } from './opentext-source';
 import { combinePassage } from './passage';
 
 /**
- * Syntax SOURCES — the published analyses a GNT passage can be read from. Each
+ * Syntax SOURCES — the published analyses a passage can be read from. Each
  * yields ordinary `KrDocument`s, so any of them can be the editable base or a
- * side-by-side comparison pane. (Currently the two GNT parses; Hebrew/other
- * sources can join this list.)
+ * side-by-side comparison pane.
+ *
+ * Ids are deliberately EXPLICIT (edition-aware), never a vague `greek` or
+ * `default`: they distinguish the corpus (Greek NT / Hebrew Bible), the TEXT
+ * EDITION (SBLGNT / Nestle1904 / WLC), and the SYNTAX FAMILY (macula Lowfat /
+ * OpenText). They also serve as the `sourceId` stamped on patch bases, so a
+ * user patch can never silently cross editions (see
+ * docs/sblgnt-kellogg-reed-plan.md).
  */
-export type SyntaxSourceId = 'nestle1904' | 'opentext';
+export type SyntaxSourceId =
+  | 'macula-greek-sblgnt-lowfat' // incoming primary Greek edition (loader lands in plan phase 7)
+  | 'macula-greek-nestle1904-lowfat' // legacy/alternate Greek edition
+  | 'opentext' // secondary/alternate Greek syntax analysis
+  | 'macula-hebrew-wlc-lowfat'; // Hebrew Bible (unchanged by the Greek rebase)
 
-export const SYNTAX_SOURCES: { id: SyntaxSourceId; label: string }[] = [
-  { id: 'nestle1904', label: 'Nestle 1904 (Lowfat)' },
-  { id: 'opentext', label: 'OpenText.org' },
+export interface SyntaxSourceInfo {
+  id: SyntaxSourceId;
+  /** User-facing label — the active source is always visibly named. */
+  label: string;
+  corpus: 'gnt' | 'ot';
+  /** The text edition underlying the analysis. OpenText's own annotation is
+   *  lemma-only; its displayed surface is aligned from Nestle 1904. */
+  edition: 'sblgnt' | 'nestle1904' | 'wlc';
+  /** Whether the app can load this source today (SBLGNT joins in phase 7). */
+  available: boolean;
+}
+
+export const ALL_SYNTAX_SOURCES: SyntaxSourceInfo[] = [
+  {
+    id: 'macula-greek-sblgnt-lowfat',
+    label: 'SBLGNT Lowfat',
+    corpus: 'gnt',
+    edition: 'sblgnt',
+    available: true,
+  },
+  {
+    id: 'macula-greek-nestle1904-lowfat',
+    label: 'Nestle 1904 Lowfat',
+    corpus: 'gnt',
+    edition: 'nestle1904',
+    available: true,
+  },
+  { id: 'opentext', label: 'OpenText syntax', corpus: 'gnt', edition: 'nestle1904', available: true },
+  {
+    id: 'macula-hebrew-wlc-lowfat',
+    label: 'WLC Lowfat',
+    corpus: 'ot',
+    edition: 'wlc',
+    available: true,
+  },
 ];
 
+/** The GNT sources selectable in the UI (loadable today). */
+export const SYNTAX_SOURCES: { id: SyntaxSourceId; label: string }[] = ALL_SYNTAX_SOURCES.filter(
+  (s) => s.corpus === 'gnt' && s.available,
+).map(({ id, label }) => ({ id, label }));
+
+/** The DEFAULT Greek NT edition (plan phase 8): SBLGNT Lowfat. Nestle1904
+ *  remains fully selectable as the legacy/alternate edition. */
+export const DEFAULT_GNT_SOURCE: SyntaxSourceId = 'macula-greek-sblgnt-lowfat';
+
 export function sourceLabel(id: SyntaxSourceId): string {
-  return SYNTAX_SOURCES.find((s) => s.id === id)?.label ?? id;
+  return ALL_SYNTAX_SOURCES.find((s) => s.id === id)?.label ?? id;
 }
 
 /** Which source a loaded passage came from, inferred from its document id.
  *  Handles both a single sentence (`opentext_…`) and a combined passage
  *  (`combinePassage` prefixes the first sentence's id with `passage_`). */
 export function sourceOfDoc(doc: KrDocument): SyntaxSourceId {
-  return doc.id.replace(/^passage_/, '').startsWith('opentext_') ? 'opentext' : 'nestle1904';
+  const id = doc.id.replace(/^passage_/, '');
+  if (id.startsWith('opentext_')) return 'opentext';
+  if (id.startsWith('sblgnt_')) return 'macula-greek-sblgnt-lowfat';
+  return 'macula-greek-nestle1904-lowfat';
+}
+
+/** The `sourceId` a patch base should carry for a document of this corpus —
+ *  explicit and edition-aware, so saved edits never silently cross editions.
+ *  Custom/typed documents have no published source, hence undefined. */
+export function sourceIdForCorpus(
+  doc: KrDocument,
+  corpus: 'gnt' | 'ot' | 'custom',
+): SyntaxSourceId | undefined {
+  if (corpus === 'gnt') return sourceOfDoc(doc);
+  if (corpus === 'ot') return 'macula-hebrew-wlc-lowfat';
+  return undefined;
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '');
@@ -74,6 +141,15 @@ export async function loadSourcePassage(
     const book = OPENTEXT_BOOKS.find((b) => norm(b.name) === norm(r.book));
     return book ? pick(await loadOpenTextBook(book)) : null;
   }
-  const book = GNT_BOOKS.find((b) => norm(b.name) === norm(r.book));
-  return book ? pick(await loadGntBook(book)) : null;
+  if (source === 'macula-greek-nestle1904-lowfat') {
+    const book = GNT_BOOKS.find((b) => norm(b.name) === norm(r.book));
+    return book ? pick(await loadGntBook(book)) : null;
+  }
+  if (source === 'macula-greek-sblgnt-lowfat') {
+    const book = SBLGNT_BOOKS.find((b) => norm(b.name) === norm(r.book));
+    return book ? pick(await loadSblgntBook(book)) : null;
+  }
+  // Hebrew is not loadable through this GNT-compare path — say so honestly
+  // instead of silently serving another edition.
+  return null;
 }

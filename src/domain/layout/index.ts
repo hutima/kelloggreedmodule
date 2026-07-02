@@ -9,6 +9,7 @@ export { tokenTone, nodeTone, toneByNode } from './tone';
 export { measureText } from './measure';
 export { layoutDocument, mirrorLayout, type LayoutOptions } from './engine';
 export type { TreeOrientation } from './modes/tree-layout';
+export type { ConstituencyVariant } from './modes/constituency';
 export {
   layoutForMode,
   DIAGRAM_MODES,

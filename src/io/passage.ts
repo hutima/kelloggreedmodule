@@ -1,4 +1,4 @@
-import type { KrDocument, Relation, SyntaxNode, Token } from '@/domain/schema';
+import type { KrDocument, Relation, SourceConstituencyNode, SyntaxNode, Token } from '@/domain/schema';
 import { KrDocumentSchema, SCHEMA_VERSION } from '@/domain/schema';
 
 /**
@@ -43,6 +43,16 @@ function verseOf(title: string): string {
  */
 function memberLabel(doc: KrDocument, index: number): string {
   return /\d+:\d+/.test(doc.title) ? verseOf(doc.title) : String(index + 1);
+}
+
+/** Prefix a source-constituency subtree's ids/tokenIds (mirrors prefixDoc). */
+function prefixConstituency(n: SourceConstituencyNode, p: string): SourceConstituencyNode {
+  return {
+    ...n,
+    id: `${p}${n.id}`,
+    ...(n.tokenIds ? { tokenIds: n.tokenIds.map((t) => `${p}${t}`) } : {}),
+    children: n.children.map((c) => prefixConstituency(c, p)),
+  };
 }
 
 function prefixDoc(doc: KrDocument, p: string) {
@@ -205,6 +215,24 @@ export function combinePassage(
 
   const first = valid[0]!;
 
+  // Preserve the members' source constituency when every sentence carries one
+  // from the SAME source: a synthetic discourse root holds the per-sentence
+  // trees, with ids/tokenIds prefixed exactly like the syntax graph's.
+  const consts = valid.map((d) => d.sourceConstituency);
+  const sourceConstituency =
+    consts[0] && consts.every((c) => c && c.sourceId === consts[0]!.sourceId)
+      ? {
+          sourceId: consts[0].sourceId,
+          ...(consts[0].editionId ? { editionId: consts[0].editionId } : {}),
+          root: {
+            id: 'sc_passage',
+            kind: 'wg' as const,
+            cat: 'discourse',
+            children: valid.map((d, i) => prefixConstituency(d.sourceConstituency!.root, `s${i}_`)),
+          },
+        }
+      : undefined;
+
   return KrDocumentSchema.parse({
     schemaVersion: SCHEMA_VERSION,
     id: `passage_${first.id}_${valid.length}_${selectionHash(valid)}`,
@@ -217,5 +245,6 @@ export function combinePassage(
     layoutHints: {},
     tokens,
     syntax: { rootId, nodes, relations },
+    ...(sourceConstituency ? { sourceConstituency } : {}),
   });
 }

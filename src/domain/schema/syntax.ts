@@ -30,6 +30,15 @@ export const SyntacticRoleSchema = z.enum([
   'dativeComplement',
   'genitiveComplement',
   'agent', // e.g. ὑπό + genitive with passive
+  // nuanced Greek accusative functions — added so the converter/display never
+  // has to force every accusative into `directObject` (see
+  // docs/sblgnt-kellogg-reed-plan.md; Mark 5:26 is the regression case)
+  'objectLikeComplement', // object-like accusative (e.g. an articular PP as the thing spent) without claiming an ordinary direct object
+  'accusativeModifier', // neutral: accusative whose exact function (extent / respect / retained…) is left open
+  'accusativeExtent', // adverbial accusative of extent ("not benefited AT ALL")
+  'accusativeRespect', // accusative of respect / reference ("in respect to nothing")
+  'retainedAccusative', // accusative retained with a passive verb — only when explicitly marked
+  'substantivalPrepositionalPhrase', // article + PP functioning as a noun ("τὰ παρ᾽ αὐτῆς" — the things belonging to her)
   // modification
   'adjectival', // adjective / adjectival participle / relative clause modifying a noun
   'adverbial', // adverb / adverbial participle / adverbial clause

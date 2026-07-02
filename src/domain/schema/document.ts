@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { DirectionSchema, LanguageSchema } from './primitives';
 import { TokenSchema } from './token';
 import { SyntaxModelSchema } from './syntax';
+import { SourceConstituencyTreeSchema } from './constituency';
 import { LayoutHintsSchema } from './layout';
 
 /** Bump when the on-disk shape changes; the importer migrates older docs. */
@@ -30,6 +31,12 @@ export const KrDocumentSchema = z.object({
   text: z.string().default(''),
   tokens: z.array(TokenSchema).default([]),
   syntax: SyntaxModelSchema,
+  /**
+   * The published source's own `<wg>` constituency, preserved verbatim
+   * (OPTIONAL, additive — schemaVersion unchanged; older builds ignore it).
+   * Never user-edited; never replaces `syntax`.
+   */
+  sourceConstituency: SourceConstituencyTreeSchema.optional(),
   layoutHints: LayoutHintsSchema.default({}),
   /** Free-form analyst notes for the whole document. */
   notes: z.string().default(''),

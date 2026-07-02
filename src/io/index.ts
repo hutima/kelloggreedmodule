@@ -11,6 +11,13 @@ export {
   type OfflineCorpus,
   type WarmProgress,
 } from './offline';
+export {
+  SBLGNT_BOOKS,
+  SBLGNT_BUNDLED_BOOKS,
+  loadSblgntBook,
+  cacheSblgntBook,
+  evictSblgntBook,
+} from './gnt-sblgnt';
 export { maculaHebrewToDocuments, type MaculaHebrewDocOptions } from './macula-hebrew';
 export { openTextToDocuments, type OpenTextDocOptions } from './opentext';
 export { buildSurfaceIndex, alignOpenTextSurface, type AlignResult } from './opentext-align';
@@ -18,9 +25,13 @@ export { loadOpenTextBook, OPENTEXT_BOOKS, type OpenTextBook } from './opentext-
 export {
   loadSourcePassage,
   sourceOfDoc,
+  sourceIdForCorpus,
   sourceLabel,
   SYNTAX_SOURCES,
+  DEFAULT_GNT_SOURCE,
+  ALL_SYNTAX_SOURCES,
   type SyntaxSourceId,
+  type SyntaxSourceInfo,
 } from './sources';
 export { combinePassage } from './passage';
 export {

@@ -11,6 +11,7 @@ import {
   type SermonPrepData,
 } from '@/domain/schema';
 import { applyPatch, hashBase } from '@/domain/patch';
+import { sourceIdForCorpus } from '@/io/sources';
 
 /**
  * USER-DATA PERSISTENCE — compact per-passage records stored separately from the
@@ -74,16 +75,33 @@ export function deletePatch(passageId: string): void {
 
 /**
  * Reconstruct the live (edited) document for a base: load its stored patch and
- * apply it — but ONLY when the patch was authored against THIS base (its
- * `baseHash` fingerprint matches). A base can legitimately change under a stored
- * patch (a combined passage's base shifts whenever an included sentence's own
- * patch changes), and applying the stale diff would corrupt the new base. On a
- * mismatch the patch is SKIPPED, never deleted — the user's edits stay in
- * storage for the base they belong to — and a warning is logged.
+ * apply it — but ONLY when the patch was authored against THIS base:
+ *
+ *   • its `sourceId` (edition) matches the base's actual source — a
+ *     Nestle1904 patch must never be applied to an SBLGNT base, or any other
+ *     edition crossing (legacy patches without a `sourceId` fall through to
+ *     the hash check);
+ *   • its `baseHash` fingerprint matches.
+ *
+ * A base can legitimately change under a stored patch (a combined passage's
+ * base shifts whenever an included sentence's own patch changes), and applying
+ * the stale diff would corrupt the new base. On any mismatch the patch is
+ * SKIPPED, never deleted — the user's edits stay in storage for the base they
+ * belong to — and a warning is logged.
  */
 export function applyStoredPatch(base: KrDocument): KrDocument {
   const patch = loadPatch(base.id);
   if (!patch) return base;
+  if (patch.base.sourceId) {
+    const baseSource =
+      patch.base.corpus === 'custom' ? undefined : sourceIdForCorpus(base, patch.base.corpus);
+    if (baseSource && baseSource !== patch.base.sourceId) {
+      console.warn(
+        `Stored edits for ${base.id} belong to ${patch.base.sourceId}, not ${baseSource}; showing the base unedited.`,
+      );
+      return base;
+    }
+  }
   if (patch.base.baseHash && patch.base.baseHash !== hashBase(base)) {
     console.warn(
       `Stored edits for ${base.id} were made against a different base version; showing the base unedited.`,
