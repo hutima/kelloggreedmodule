@@ -192,7 +192,11 @@ const SBLGNT_FUNCTION_CLASSES = new Set(['det', 'conj', 'prep', 'ptcl']);
 const SBLGNT_CLASS_RANK: Record<string, number> = {
   np: 5, noun: 5, pron: 5,
   adjp: 4, adj: 4, num: 4,
-  vp: 3, verb: 3,
+  // A clause ranks with the verbal tier: a substantival participial clause
+  // (DetCL — "οἱ ὄντες ἐν τῷ σκήνει", 2 Cor 5:4) must outrank a focusing
+  // adverb (καί) beside it, but must NOT outrank a nominal co-member of a
+  // coordination (Mark 1:19's object list stays headed by Ἰάκωβον).
+  cl: 3, vp: 3, verb: 3,
   advp: 2, adv: 2,
   pp: 1, prep: 1,
 };
@@ -804,7 +808,14 @@ export class SentenceConverter {
     const repId = this.convert(head);
     this.stampCategory(repId, el.getAttribute('class'));
     const rule = el.getAttribute('rule') ?? '';
-    const coordinated = isCoordinationRule(rule);
+    // A CONTRASTIVE rule ("notVPbutVP" — οὐ ἐκδύσασθαι ἀλλ᾽ ἐπενδύσασθαι,
+    // 2 Cor 5:4) is a coordination too: its second member is a CONJUNCT of
+    // the first, its ἀλλά a coordinator, its negation an ordinary adverbial
+    // modifier of the first member. Without this the second infinitive fell
+    // through to the apposition default. (A contrastive class="pp" group
+    // never reaches here — `convert` routes it to convertContrastivePp.)
+    const ruleClass = classifyLowfatRule(rule);
+    const coordinated = ruleClass.coordination || ruleClass.contrastive;
     for (const child of constituents(el)) {
       if (child === head) continue;
       const rep = this.convert(child);

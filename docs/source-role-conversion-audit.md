@@ -164,7 +164,7 @@ SBLGNT mirrors of four contested-syntax issues.
 | --- | --- | --- |
 | Titus 2:13 — **FIXED (Stage 5)** | adjective μεγάλου became head of "the great God and our Savior…" because the classless `NpaNp` wrapper wasn't recognized as nominal; the scored head inference resolves classless wrappers through their own head constituent, so θεοῦ heads with μεγάλου adjectival (`tests/sblgnt-head-inference.test.ts`) | `iss_titus_2_13_granville` (re-evaluate in Stage 7) |
 | Col 1:15 — **FIXED (Stage 5)** | genitive "πάσης κτίσεως" outranked nominative πρωτότοκος; genitive candidates are now demoted relative to non-genitive case-bearing siblings, so πρωτότοκος heads with κτίσεως as its genitive dependent | `iss_col_1_15_firstborn` (re-evaluate in Stage 7) |
-| 2 Cor 5:4 | the οὐ … ἐκδύσασθαι … ἀλλά … ἐπενδύσασθαι construction converts as four flat `adjunct` children — no head at all ("adjunct soup") | `iss_2cor_5_4_leedy` |
+| 2 Cor 5:4 — **FIXED (Stages 5–6)** | the οὐ … ἐκδύσασθαι … ἀλλά … ἐπενδύσασθαι construction previously converted as flat "adjunct soup"; the Stage 5 head inference makes ἐκδύσασθαι head, and Stage 6 treats contrastive rules (`notVPbutVP`) as coordination in `convertPhrase` (ἐπενδύσασθαι → conjunct, ἀλλά → coordinator, οὐ → adverbial) and ranks clauses in the verbal tier so the substantival participial subject outranks the focusing adverb καί (`tests/sblgnt-2cor-5-4.test.ts`) | `iss_2cor_5_4_leedy` (re-evaluate in Stage 7) |
 | Matt 4:3 | SBLGNT's base tree already shows the ἵνα-clause as εἰπὲ's object — i.e. SBLGNT's default equals what Nestle1904 calls the alternate; mirroring the issue would misrepresent the debate | `iss_matt_4_3_command` |
 
 Root cause (first three): `sblgntHead()` is a flat priority list
