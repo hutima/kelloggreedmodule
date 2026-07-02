@@ -7,6 +7,7 @@ export * from './refs';
 export * from './markers';
 export * from './build';
 export * from './english';
+export * from './plaintext';
 export * from './mutations';
 export * from './suggest';
 export * from './patch';

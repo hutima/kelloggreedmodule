@@ -5,6 +5,7 @@ import { OtPicker } from './left/OtPicker';
 import { NewSourcePicker } from './left/NewSourcePicker';
 import { SearchPicker } from './left/SearchPicker';
 import { DiscourseRangeSelector } from '@/ui/discourse/DiscourseRangeSelector';
+import { DiscoursePlaintextPicker } from '@/ui/discourse/DiscoursePlaintextPicker';
 
 /**
  * Left panel: the passage pickers for the two gold-standard corpora — the Greek
@@ -34,9 +35,11 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
   // Discourse mode; nothing is reloaded by the swap.
   const discourseMode = useEditorStore((s) => s.diagramMode === 'discourse');
   const [source, setSource] = useState<'gnt' | 'ot' | 'new' | 'search'>(docLang === 'hbo' ? 'ot' : 'gnt');
+  // The syntax "New" tab depends on Edit mode / saved parses; the DISCOURSE
+  // "New text" tab is always available in Discourse mode, so don't bounce it.
   useEffect(() => {
-    if (!showNew && source === 'new') setSource('gnt');
-  }, [showNew, source]);
+    if (!discourseMode && !showNew && source === 'new') setSource('gnt');
+  }, [discourseMode, showNew, source]);
   // A search queued from the inspector (a word's Strong's / lemma) opens the
   // Search tab; the SearchPicker then consumes and clears the prefill.
   useEffect(() => {
@@ -71,11 +74,18 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
         {!collapsed && discourseMode && (
           <>
             <button
-              className={source !== 'search' ? 'active' : ''}
+              className={source !== 'search' && source !== 'new' ? 'active' : ''}
               title="Discourse range — load a multi-verse / chapter / whole-book range"
               onClick={() => setSource('gnt')}
             >
               Range
+            </button>
+            <button
+              className={source === 'new' ? 'active' : ''}
+              title="New text — paste plaintext to analyse (no AI parse)"
+              onClick={() => setSource('new')}
+            >
+              New text
             </button>
             <button
               className={source === 'search' ? 'active' : ''}
@@ -131,7 +141,9 @@ export function LeftPanel({ hidden = false }: { hidden?: boolean }) {
         </button>
       </div>
       <div className="panel-body">
-        {discourseMode && source !== 'search' ? (
+        {discourseMode && source === 'new' ? (
+          <DiscoursePlaintextPicker />
+        ) : discourseMode && source !== 'search' ? (
           <DiscourseRangeSelector />
         ) : source === 'ot' ? (
           <OtPicker />

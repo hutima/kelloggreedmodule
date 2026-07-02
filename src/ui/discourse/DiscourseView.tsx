@@ -244,6 +244,7 @@ export function DiscourseView({ doc, editing = false }: { doc: DiscourseDocument
                 key={row.unit.id}
                 row={row}
                 view={view}
+                isEnglish={doc.language === 'en'}
                 selected={selection.unitId === row.unit.id}
                 multiSelected={multiSet.has(row.unit.id)}
                 relateTarget={

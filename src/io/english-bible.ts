@@ -2,6 +2,13 @@ import type { EnglishBibleBook, EnglishBibleVerse, EnglishBibleWord } from '@/do
 import { GNT_BOOKS, type GntBook } from './gnt';
 import { OT_BOOKS, type OtBook } from './ot';
 import { loadParallelBook, loadParallelOtBook, type OtParallelBook, type ParallelBook } from './parallel';
+import {
+  REMOTE_ENGLISH_SOURCES,
+  REMOTE_ENGLISH_BOOKS,
+  isRemoteEnglishSource,
+  loadRemoteEnglishBibleBook,
+  type RemoteEnglishSourceId,
+} from './english-bible-remote';
 
 /**
  * ENGLISH BIBLE LOADER — turns the bundled parallel corpora into a normalized
@@ -17,23 +24,30 @@ import { loadParallelBook, loadParallelOtBook, type OtParallelBook, type Paralle
  *     so none is added;
  *   - unaligned words (function words, punctuation) are honestly `'none'`.
  *
- * KJV / ASV are NOT bundled (no public-domain Strong's-tagged data ships with
- * the project); adding them would mean fabricating tags, which is out of scope.
+ * KJV / ASV are NOT bundled either — but they ARE offered as REMOTE, English-ONLY
+ * sources (see `english-bible-remote.ts`): fetched on demand from public-domain
+ * data and cached, with NO Strong's/lemma/morphology/alignment (adding those
+ * would mean fabricating tags, which is out of scope).
  */
 
-/** English Bible sources offered in Discourse mode (data-backed only). */
-export type EnglishBibleSourceId = 'english-bsb' | 'english-bsb-ot';
+/** English Bible sources offered in Discourse mode (bundled BSB + remote KJV/ASV). */
+export type EnglishBibleSourceId = 'english-bsb' | 'english-bsb-ot' | RemoteEnglishSourceId;
 
 export interface EnglishBibleSourceInfo {
   id: EnglishBibleSourceId;
   label: string;
   version: 'bsb' | 'kjv' | 'asv';
-  corpus: 'nt' | 'ot';
+  /** `full` = the whole 66-book canon (remote KJV/ASV cover both testaments). */
+  corpus: 'nt' | 'ot' | 'full';
 }
 
 export const ENGLISH_BIBLE_SOURCES: EnglishBibleSourceInfo[] = [
   { id: 'english-bsb', label: 'BSB English', version: 'bsb', corpus: 'nt' },
   { id: 'english-bsb-ot', label: 'BSB English OT', version: 'bsb', corpus: 'ot' },
+  // Remote, English-only whole-Bible sources (KJV, ASV).
+  ...REMOTE_ENGLISH_SOURCES.map(
+    (s): EnglishBibleSourceInfo => ({ id: s.id, label: s.label, version: s.version, corpus: 'full' }),
+  ),
 ];
 
 export function isEnglishBibleSource(id: string): id is EnglishBibleSourceId {
@@ -46,6 +60,7 @@ export function englishBibleSourceInfo(id: EnglishBibleSourceId): EnglishBibleSo
 
 /** Books offered for an English Bible source (all books its corpus has data for). */
 export function englishBibleBooksFor(id: EnglishBibleSourceId): { num: number; name: string }[] {
+  if (isRemoteEnglishSource(id)) return REMOTE_ENGLISH_BOOKS.map((b) => ({ num: b.num, name: b.name }));
   return englishBibleSourceInfo(id).corpus === 'ot'
     ? OT_BOOKS.map((b) => ({ num: b.num, name: b.name }))
     : GNT_BOOKS.map((b) => ({ num: b.num, name: b.name }));
@@ -194,6 +209,7 @@ export async function loadEnglishBibleBook(
   sourceId: EnglishBibleSourceId,
   bookNum: number,
 ): Promise<EnglishBibleBook> {
+  if (isRemoteEnglishSource(sourceId)) return loadRemoteEnglishBibleBook(sourceId, bookNum);
   const info = englishBibleSourceInfo(sourceId);
   if (info.corpus === 'ot') {
     const book = OT_BOOKS.find((b) => b.num === bookNum);

@@ -7,6 +7,7 @@ import {
   downloadDocumentPng,
   downloadDocumentSvg,
   downloadDocumentJson,
+  printDocumentPdf,
 } from '@/io';
 import { useEditorStore } from '@/state';
 import { nodeHighlightColors, relationHighlightColors } from '@/ui/sermon/highlights';
@@ -65,10 +66,11 @@ export function ExportModal({
   );
   const aspect = natural.height / natural.width;
 
-  const [format, setFormat] = useState<'png' | 'svg'>('png');
+  const [format, setFormat] = useState<'png' | 'svg' | 'pdf'>('png');
   // Default PNG to 2× the natural size — a crisp, print-friendly raster.
   const [width, setWidth] = useState(() => natural.width * 2);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const height = Math.round(width * aspect);
 
   // Close on Escape.
@@ -81,9 +83,19 @@ export function ExportModal({
   const setW = (v: number) => setWidth(Math.max(16, Math.min(20000, Math.round(v || 0))));
 
   const doExport = async () => {
+    setError(null);
     if (format === 'svg') {
       downloadDocumentSvg(doc, opts, mode, highlights);
       onClose();
+      return;
+    }
+    if (format === 'pdf') {
+      const ok = printDocumentPdf(doc, opts, mode, highlights, {
+        title: doc.title,
+        date: new Date().toLocaleDateString(),
+      });
+      if (ok) onClose();
+      else setError('Couldn’t open the print dialog — allow pop-ups for this site and try again.');
       return;
     }
     setBusy(true);
@@ -130,6 +142,15 @@ export function ExportModal({
             SVG
             <small>vector, any size</small>
           </button>
+          <button
+            role="radio"
+            aria-checked={format === 'pdf'}
+            className={format === 'pdf' ? 'active' : ''}
+            onClick={() => setFormat('pdf')}
+          >
+            PDF / Print
+            <small>print dialog</small>
+          </button>
         </div>
 
         {format === 'png' ? (
@@ -166,10 +187,21 @@ export function ExportModal({
               Natural size {natural.width} × {natural.height} px. Aspect ratio is locked.
             </p>
           </div>
-        ) : (
+        ) : format === 'svg' ? (
           <p className="export-hint">
             Scalable vector — sharp at any zoom or print size. ({natural.width} × {natural.height}{' '}
             px natural.)
+          </p>
+        ) : (
+          <p className="export-hint">
+            Your browser’s print dialog will open — choose “Save as PDF”. The page contains
+            the current diagram exactly as shown (same mode, spacing, colours, and highlights).
+          </p>
+        )}
+
+        {error && (
+          <p className="export-hint" role="alert" style={{ color: 'var(--danger, #c0392b)' }}>
+            {error}
           </p>
         )}
 

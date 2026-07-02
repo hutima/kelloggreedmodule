@@ -58,29 +58,35 @@ export function DiscourseCanvas() {
           <VisualizationSwitcher compact />
           {doc && (
             <>
-              <div className="lang-toggle" role="group" aria-label="Text shown">
-                <button
-                  className={view.showSourceText && !view.showEnglish ? 'active' : ''}
-                  title="Show the source text"
-                  onClick={() => setView({ showSourceText: true, showEnglish: false })}
-                >
-                  Ελ
-                </button>
-                <button
-                  className={view.showEnglish && !view.showSourceText ? 'active' : ''}
-                  title="Show English glosses"
-                  onClick={() => setView({ showSourceText: false, showEnglish: true })}
-                >
-                  Eng
-                </button>
-                <button
-                  className={view.showSourceText && view.showEnglish ? 'active' : ''}
-                  title="Show both"
-                  onClick={() => setView({ showSourceText: true, showEnglish: true })}
-                >
-                  Both
-                </button>
-              </div>
+              {/* The source-text / gloss / both toggle only makes sense for an
+                  original-language source. For an English source (BSB, KJV, ASV)
+                  the text IS English and there are no glosses, so the toggle is
+                  hidden — the English source text always shows. */}
+              {doc.language !== 'en' && (
+                <div className="lang-toggle" role="group" aria-label="Text shown">
+                  <button
+                    className={view.showSourceText && !view.showEnglish ? 'active' : ''}
+                    title="Show the source text"
+                    onClick={() => setView({ showSourceText: true, showEnglish: false })}
+                  >
+                    Ελ
+                  </button>
+                  <button
+                    className={view.showEnglish && !view.showSourceText ? 'active' : ''}
+                    title="Show English glosses"
+                    onClick={() => setView({ showSourceText: false, showEnglish: true })}
+                  >
+                    Eng
+                  </button>
+                  <button
+                    className={view.showSourceText && view.showEnglish ? 'active' : ''}
+                    title="Show both"
+                    onClick={() => setView({ showSourceText: true, showEnglish: true })}
+                  >
+                    Both
+                  </button>
+                </div>
+              )}
               <div className="lang-toggle" role="group" aria-label="Overlays">
                 <button
                   className={view.showMarkers ? 'active' : ''}

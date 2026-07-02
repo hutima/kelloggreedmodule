@@ -127,9 +127,12 @@ function englishTokens(book: EnglishBibleBook, startRef: string, endRef: string)
   return filterDiscourseTokensToRange(out, startRef, endRef);
 }
 
-/** Sentence-final punctuation token (closes a sentence after being included). */
-function isSentenceEnd(surface: string): boolean {
-  return /[.!?]$/.test(surface.trim());
+/**
+ * Sentence-final punctuation token (closes a sentence after being included).
+ * Allows trailing quotes/brackets so `life."` or `Son,)` still close cleanly.
+ */
+export function isEnglishSentenceEnd(surface: string): boolean {
+  return /[.!?]["'”’»)\]]*$/.test(surface.trim());
 }
 
 /** Cut tokens into leaf units by the chosen granularity. */
@@ -174,7 +177,7 @@ function cutUnits(tokens: DiscourseToken[], granularity: DiscourseGranularity): 
   };
   for (const t of tokens) {
     current.push(t);
-    if (isSentenceEnd(t.surface)) flush();
+    if (isEnglishSentenceEnd(t.surface)) flush();
   }
   flush();
   return units;
